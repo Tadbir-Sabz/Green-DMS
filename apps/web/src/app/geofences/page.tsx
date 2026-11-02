@@ -53,9 +53,9 @@ export default function GeofencesPage() {
   const list = useQuery({
     queryKey: ["geofences"],
     queryFn: async () => {
-      const res = await (api as any).GET("/geofences", { params: { query: { limit: 100 } } });
+      const res = await api.GET("/geofences", { params: { query: { limit: 100 } } });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as { items: Geofence[] };
+      return { items: (res.data?.items ?? []) as Geofence[] };
     },
   });
 
@@ -63,18 +63,19 @@ export default function GeofencesPage() {
     mutationFn: async () => {
       const polygon = parsePolygon(form.polygon.trim());
       if (!polygon) throw new Error("JSON چندضعبی معتبر نیست؛ نمونه: {\"type\":\"Polygon\",\"coordinates\":[[[51,35],[51.1,35],[51.1,35.1],[51,35.1],[51,35]]]}");
-      const payload: Record<string, unknown> = {
-        name: form.name.trim(),
-        kind: form.kind,
-        area: polygon,
-      };
-      if (form.customer_id.trim()) payload.customer_id = form.customer_id.trim();
+      const kind = form.kind as "work_area" | "customer" | "warehouse" | "restricted";
+      const customer_id = form.customer_id.trim() || undefined;
       if (editId) {
-        const res = await (api as any).PATCH(`/geofences/${editId}`, { body: payload });
+        const res = await api.PATCH("/geofences/{id}", {
+          params: { path: { id: editId } },
+          body: { name: form.name.trim(), kind, area: polygon, ...(customer_id ? { customer_id } : {}) },
+        });
         if (res.error) throw new Error(errorMessage(res.error));
         return res.data as Geofence;
       }
-      const res = await (api as any).POST("/geofences", { body: payload });
+      const res = await api.POST("/geofences", {
+        body: { name: form.name.trim(), kind, area: polygon, ...(customer_id ? { customer_id } : {}) },
+      });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as Geofence;
     },
@@ -90,7 +91,7 @@ export default function GeofencesPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const res = await (api as any).DELETE(`/geofences/${id}`);
+      const res = await api.DELETE("/geofences/{id}", { params: { path: { id } } });
       if (res.error) throw new Error(errorMessage(res.error));
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["geofences"] }),

@@ -1,14 +1,12 @@
-﻿"use client";
+"use client";
 
-import { AppShell } from '@/components/AppShell';
+import AdminGuard from "@/components/auth/guards";
+import DevicesInner from "./inner";
 
 export default function DevicesPage() {
   return (
-    <AppShell>
-      <div className="space-y-4">
-        <h1 className="text-xl font-bold">مدیریت دستگاه‌ها</h1>
-        <div className="bg-white border rounded-lg p-6 text-gray-500">لیست دستگاه‌های میدانی</div>
-      </div>
-    </AppShell>
+    <AdminGuard>
+      <DevicesInner />
+    </AdminGuard>
   );
 }

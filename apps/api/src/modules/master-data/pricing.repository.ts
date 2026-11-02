@@ -278,7 +278,11 @@ export class PricingRepository {
     if (dto.valid_from !== undefined || dto.valid_to !== undefined) {
       params.push(dto.valid_from ?? null, dto.valid_to ?? null);
       const n = params.length;
-      sets.push(`valid = daterange(coalesce(${n - 1}::date, lower(valid)), coalesce(${n}::date, upper(valid)))`);
+      // placeholderها باید با $ باشند؛ عددِ خام «2»/«3» در SQL یعنی لیترال عددی،
+      // نه ارجاع به پارامتر — پس بازه تاریخ هرگز از ورودی ساخته نمی‌شد.
+      sets.push(
+        `valid = daterange(coalesce($${n - 1}::date, lower(valid)), coalesce($${n}::date, upper(valid)))`,
+      );
     }
     if (dto.priority !== undefined) add('priority = $?', dto.priority);
     if (dto.allow_stacking !== undefined) add('allow_stacking = $?', dto.allow_stacking);

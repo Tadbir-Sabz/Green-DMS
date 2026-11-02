@@ -1,15 +1,139 @@
-﻿export default function Page() {
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { components } from "@dms/api-client";
+import { api, errorMessage } from "@/lib/api";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { SalesGuard } from "@/components/auth/guards";
+import { ExportButtons } from "@/components/reports/ExportButtons";
+import { formatMoney } from "@/lib/format";
+import { toPersianDate } from "@/lib/date";
+
+/**
+ * فاکتورهای فروش — GET /invoices?status (تایپ‌شده از قرارداد).
+ * جایگزین جدول ایستای پیشین. نام مشتری از GET /customers resolve می‌شود.
+ * ستون moadian_status وضعیت ارسال به سامانه مؤدیان را نشان می‌دهد.
+ */
+type Invoice = components["schemas"]["Invoice"];
+type Customer = components["schemas"]["Customer"];
+
+const STATUS_FA: Record<string, string> = {
+  draft: "پیش‌نویس",
+  posted: "ثبت‌شده",
+  partially_paid: "پرداخت جزئی",
+  paid: "پرداخت‌شده",
+  voided: "باطل‌شده",
+};
+
+const MOADIAN_FA: Record<string, string> = {
+  not_sent: "ارسال‌نشده",
+  queued: "در صف",
+  sent: "ارسال‌شده",
+  accepted: "پذیرفته",
+  rejected: "ردشده",
+  corrected: "اصلاح‌شده",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  draft: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
+  posted: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+  partially_paid: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  paid: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  voided: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+};
+
+const FILTERS = ["", "draft", "posted", "partially_paid", "paid", "voided"] as const;
+
+function InvoicesInner() {
+  const [status, setStatus] = useState<string>("");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["invoices", status],
+    queryFn: async () => {
+      const query: { status?: string; limit?: number } = { limit: 100 };
+      if (status) query.status = status;
+      const res = await api.GET("/invoices", { params: { query } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as Invoice[];
+    },
+  });
+
+  const customers = useQuery({
+    queryKey: ["customers-lookup"],
+    queryFn: async () => {
+      const res = await api.GET("/customers", { params: { query: { limit: 500 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as Customer[];
+    },
+  });
+
+  const items = data ?? [];
+  const customerName = (cid?: string) =>
+    (customers.data ?? []).find((c) => c.id === cid)?.code ?? (cid ? cid.slice(0, 8) : "—");
+
+  const columns: Column<Invoice>[] = [
+    { key: "doc", header: "شمارهٔ فاکتور", render: (i) => <span className="font-mono text-xs">{i.doc_number ?? "—"}</span> },
+    { key: "customer", header: "مشتری", render: (i) => customerName(i.customer_id) },
+    { key: "date", header: "تاریخ", render: (i) => <span className="text-xs">{toPersianDate(i.invoice_date)}</span> },
+    { key: "due", header: "سررسید", render: (i) => <span className="text-xs">{i.due_date ? toPersianDate(i.due_date) : "—"}</span> },
+    { key: "total", header: "مبلغ کل", align: "end", render: (i) => <span className="font-medium">{formatMoney(i.grand_total)}</span> },
+    { key: "paid", header: "پرداخت‌شده", align: "end", render: (i) => formatMoney(i.paid_amount) },
+    {
+      key: "status",
+      header: "وضعیت",
+      render: (i) => (
+        <span className={`px-2 py-0.5 rounded-md text-xs ${STATUS_COLOR[i.status ?? ""] ?? ""}`}>
+          {STATUS_FA[i.status ?? ""] ?? i.status}
+        </span>
+      ),
+    },
+    {
+      key: "moadian",
+      header: "مؤدیان",
+      render: (i) => <span className="text-xs text-slate-500">{i.moadian_status ? MOADIAN_FA[i.moadian_status] ?? i.moadian_status : "—"}</span>,
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">فاکتورها</h1>
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr><th className="text-right p-3">شماره فاکتور</th><th className="text-right p-3">مشتری</th><th className="text-right p-3">تاریخ</th><th className="text-right p-3">جمع کل</th><th className="text-right p-3">وضعیت</th></tr>
-          </thead>
-          <tbody><tr><td colSpan={5} className="text-center p-6 text-gray-500">داده‌ای موجود نیست</td></tr></tbody>
-        </table>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">فاکتورها</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">فاکتورهای فروش، وضعیت پرداخت و ارسال مؤدیان</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+          >
+            {FILTERS.map((s) => (
+              <option key={s} value={s}>{s === "" ? "همهٔ وضعیت‌ها" : STATUS_FA[s]}</option>
+            ))}
+          </select>
+          <ExportButtons data={items} tableId="invoices-table" filename="invoices" />
+        </div>
+      </div>
+
+      <div id="invoices-table">
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(i) => i.id ?? i.doc_number ?? Math.random().toString()}
+          loading={isLoading}
+          error={error ? (error as Error).message : null}
+          emptyMessage="فاکتوری یافت نشد"
+        />
       </div>
     </div>
+  );
+}
+
+export default function InvoicesPage() {
+  return (
+    <SalesGuard>
+      <InvoicesInner />
+    </SalesGuard>
   );
 }

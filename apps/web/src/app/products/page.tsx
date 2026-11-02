@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
 import { api, errorMessage, getToken } from '@/lib/api';
-import { AppLoader, AppShell } from '@/components/AppShell';
+import { AppLoader } from '@/components/AppShell';
 
 /**
  * فهرست و فرم کالا — همه فراخوانی‌ها با کلاینت تایپ‌شده از openapi.yaml:
@@ -166,7 +166,7 @@ export default function ProductsPage(): React.JSX.Element {
   if (!ready) return <AppLoader />;
 
   return (
-    <AppShell>
+    <>
 
       {/* نوار ابزار: جست‌وجو + فیلتر + ساخت */}
       <form
@@ -447,6 +447,6 @@ export default function ProductsPage(): React.JSX.Element {
           </button>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }

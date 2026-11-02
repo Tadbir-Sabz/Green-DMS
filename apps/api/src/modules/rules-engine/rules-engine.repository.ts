@@ -55,6 +55,12 @@ export interface RuleScopeRow extends QueryResultRow {
   scope_id: string;
 }
 
+/** قاعدهٔ آمادهٔ ارزیابی — RuleRow به‌همراه شرایط و اقداماتش */
+export interface EvalRule extends RuleRow {
+  conditions: RuleConditionRow[];
+  actions: RuleActionRow[];
+}
+
 export interface ApprovalChainRow extends QueryResultRow {
   id: string;
   company_id: string;
@@ -169,6 +175,58 @@ export class RulesEngineRepository {
     return rows;
   }
 
+  /**
+   * بارگیری دسته‌ای قوانینِ فعال و در بازهٔ اعتبار برای یک (entity, event) به‌همراه
+   * شرایط و اقداماتشان — برای ارزیابی واقعی موتور قوانین بدون N+1.
+   * `valid @> current_date` قوانین منقضی‌شده را حذف می‌کند.
+   */
+  async listRulesForEvaluation(
+    companyId: string,
+    entity: string,
+    event: string,
+  ): Promise<EvalRule[]> {
+    const { rows: ruleRows } = await this.pool.query<RuleRow>(
+      `select id, company_id, code, title, entity, event, effect, priority,
+              message_fa, valid, is_active, created_at, updated_at
+         from rule
+        where company_id = $1 and entity = $2 and event = $3
+          and is_active and valid @> current_date
+        order by priority, created_at`,
+      [companyId, entity, event],
+    );
+    if (ruleRows.length === 0) return [];
+    const ids = ruleRows.map((r) => r.id);
+    const [condRes, actRes] = await Promise.all([
+      this.pool.query<RuleConditionRow>(
+        `select id, rule_id, group_no, field, operator, value
+           from rule_condition where rule_id = any($1::uuid[]) order by rule_id, group_no, id`,
+        [ids],
+      ),
+      this.pool.query<RuleActionRow>(
+        `select id, rule_id, action_type, params
+           from rule_action where rule_id = any($1::uuid[]) order by rule_id, id`,
+        [ids],
+      ),
+    ]);
+    const condByRule = new Map<string, RuleConditionRow[]>();
+    for (const c of condRes.rows) {
+      const arr = condByRule.get(c.rule_id) ?? [];
+      arr.push(c);
+      condByRule.set(c.rule_id, arr);
+    }
+    const actByRule = new Map<string, RuleActionRow[]>();
+    for (const a of actRes.rows) {
+      const arr = actByRule.get(a.rule_id) ?? [];
+      arr.push(a);
+      actByRule.set(a.rule_id, arr);
+    }
+    return ruleRows.map((r) => ({
+      ...r,
+      conditions: condByRule.get(r.id) ?? [],
+      actions: actByRule.get(r.id) ?? [],
+    }));
+  }
+
   async createRule(
     companyId: string,
     dto: CreateRuleDto,
@@ -246,6 +304,44 @@ export class RulesEngineRepository {
       `update rule set is_active = $3, updated_at = now()
         where id = $1 and company_id = $2`,
       [ruleId, companyId, isActive],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  /**
+   * به‌روزرسانی عمومی قاعده (PATCH /rules/{id}) — فقط فیلدهای حاضر در dto.
+   * بازه اعتبار از valid_from/valid_to ساخته می‌شود؛ هیچ‌کدام داده نشود، دست‌نخورده.
+   */
+  async updateRule(
+    companyId: string,
+    ruleId: string,
+    dto: Partial<CreateRuleDto>,
+  ): Promise<boolean> {
+    const sets: string[] = [];
+    const params: unknown[] = [ruleId, companyId];
+    const add = (fragment: string, value: unknown): void => {
+      params.push(value);
+      sets.push(fragment.replace('$?', `$${params.length}`));
+    };
+    if (dto.title !== undefined) add('title = $?', dto.title);
+    if (dto.entity !== undefined) add('entity = $?', dto.entity);
+    if (dto.event !== undefined) add('event = $?', dto.event);
+    if (dto.effect !== undefined) add('effect = $?', dto.effect);
+    if (dto.priority !== undefined) add('priority = $?', dto.priority);
+    if (dto.message_fa !== undefined) add('message_fa = $?', dto.message_fa);
+    if (dto.is_active !== undefined) add('is_active = $?', dto.is_active);
+    if (dto.valid_from !== undefined || dto.valid_to !== undefined) {
+      params.push(dto.valid_from ?? null, dto.valid_to ?? null);
+      const n = params.length;
+      sets.push(
+        `valid = daterange(coalesce($${n - 1}::date, lower(valid)), coalesce($${n}::date, upper(valid)))`,
+      );
+    }
+    if (sets.length === 0) return true;
+    const { rowCount } = await this.pool.query(
+      `update rule set ${sets.join(', ')}, updated_at = now()
+        where id = $1 and company_id = $2`,
+      params,
     );
     return (rowCount ?? 0) > 0;
   }

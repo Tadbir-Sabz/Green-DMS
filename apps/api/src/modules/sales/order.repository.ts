@@ -37,6 +37,8 @@ export interface OrderLineValues {
   qty_base: number;
   unit_price: string;
   discount_amount: string;
+  tax_rate_pct: number;
+  tax_amount: string;
 }
 
 export interface CustomerPricing {
@@ -120,7 +122,16 @@ export class OrderRepository {
   }
 
   async findLines(orderId: string): Promise<
-    { product_id: string; packaging_id: string | null; qty: number; unit_price: string | null; discount_amount: string | null }[]
+    {
+      product_id: string;
+      packaging_id: string | null;
+      qty: number;
+      unit_price: string | null;
+      discount_amount: string | null;
+      tax_rate_pct: number;
+      tax_amount: string | null;
+      line_total: string | null;
+    }[]
   > {
     const { rows } = await this.pool.query<{
       product_id: string;
@@ -128,9 +139,14 @@ export class OrderRepository {
       qty: number;
       unit_price: string;
       discount_amount: string;
+      tax_rate_pct: number;
+      tax_amount: string;
+      line_total: string;
     }>(
       `select product_id, packaging_id, qty::float8 as qty,
-              unit_price::text as unit_price, discount_amount::text as discount_amount
+              unit_price::text as unit_price, discount_amount::text as discount_amount,
+              tax_rate_pct::float8 as tax_rate_pct, tax_amount::text as tax_amount,
+              line_total::text as line_total
          from sales_order_line
         where sales_order_id = $1
         order by line_no`,
@@ -157,6 +173,97 @@ export class OrderRepository {
       [productId, companyId],
     );
     return rows.length > 0;
+  }
+
+  /**
+   * حل دسته‌ای ورودی‌های خطوط سفارش — جایگزین ۲ تا ۳ round-trip به‌ازای هر خط.
+   * سه کوئری ثابت (فارغ از تعداد خطوط) همهٔ داده لازم را برمی‌گرداند:
+   *   ۱) کدام کالاها در این شرکت وجود دارند (product_id → true)
+   *   ۲) ضریب بسته‌بندی هر (product_id, packaging_id)
+   *   ۳) قیمت فعال لیست برای هر product_id
+   * بازگشت به‌صورت Set/Map تا computeLines بدون کوئری اضافی تصمیم بگیرد.
+   */
+  async resolveLineInputs(
+    companyId: string,
+    priceListId: string | null,
+    productIds: readonly string[],
+    packagingIds: readonly (readonly [string, string])[],
+  ): Promise<{
+    existingProducts: Set<string>;
+    packagingFactors: Map<string, string>;
+    prices: Map<string, string>;
+    taxRates: Map<string, number>;
+    vatEnabled: boolean;
+  }> {
+    const uniqProducts = [...new Set(productIds)];
+    const existingProducts = new Set<string>();
+    const packagingFactors = new Map<string, string>();
+    const prices = new Map<string, string>();
+    const taxRates = new Map<string, number>();
+    if (uniqProducts.length === 0) return { existingProducts, packagingFactors, prices, taxRates, vatEnabled: false };
+
+    const queries: Promise<unknown>[] = [];
+
+    // محصول + نرخ مالیاتی آن (product.tax_code_id → tax_code.rate_pct؛ معاف → ۰)
+    queries.push(
+      this.pool
+        .query<{ id: string; rate_pct: string; is_exempt: boolean }>(
+          `select p.id, coalesce(tc.rate_pct, 0)::text as rate_pct, coalesce(tc.is_exempt, false) as is_exempt
+             from product p
+             left join tax_code tc on tc.id = p.tax_code_id
+            where p.company_id = $1 and p.id = any($2::uuid[])`,
+          [companyId, uniqProducts],
+        )
+        .then(({ rows }) => {
+          for (const r of rows) {
+            existingProducts.add(r.id);
+            taxRates.set(r.id, r.is_exempt ? 0 : Number(r.rate_pct));
+          }
+        }),
+    );
+
+    // vat_enabled شرکت: اگر خاموش باشد، مالیات همه اقلام صفر است
+    const vatEnabled = await this.pool
+      .query<{ vat_enabled: boolean }>('select vat_enabled from company where id = $1', [companyId])
+      .then(({ rows }) => rows[0]?.vat_enabled ?? false);
+
+    if (packagingIds.length > 0) {
+      // کلید map همان «product:packaging» است تا با یک lookup مقدار بخوانیم
+      const pairs = [...new Set(packagingIds.map(([p, k]) => `${p}\u0000${k}`))];
+      const pids = pairs.map((s) => s.split('\u0000')[0]);
+      const kids = pairs.map((s) => s.split('\u0000')[1]);
+      queries.push(
+        this.pool
+          .query<{ product_id: string; id: string; factor: string }>(
+            `select product_id, id, factor_to_base::text as factor
+               from product_packaging
+              where product_id = any($1::uuid[]) and id = any($2::uuid[])`,
+            [pids, kids],
+          )
+          .then(({ rows }) => {
+            for (const r of rows) packagingFactors.set(`${r.product_id}\u0000${r.id}`, r.factor);
+          }),
+      );
+    }
+
+    if (priceListId) {
+      queries.push(
+        this.pool
+          .query<{ product_id: string; price: string }>(
+            `select distinct on (product_id) product_id, price::text as price
+               from price_list_item
+              where price_list_id = $1 and product_id = any($2::uuid[]) and valid @> current_date
+              order by product_id`,
+            [priceListId, uniqProducts],
+          )
+          .then(({ rows }) => {
+            for (const r of rows) prices.set(r.product_id, r.price);
+          }),
+      );
+    }
+
+    await Promise.all(queries);
+    return { existingProducts, packagingFactors, prices, taxRates, vatEnabled };
   }
 
   /** ضریب بسته‌بندی به واحد پایه؛ null وقتی packaging متعلق به کالا نیست */
@@ -211,17 +318,80 @@ export class OrderRepository {
     return rows.length > 0;
   }
 
+  /**
+   * اعتبار در دسترس مشتری از v_customer_exposure (سقف + اعتبار موقت − بدهی).
+   * اگر ردیف customer_credit نباشد، credit_limit=0 و available_credit منفی/صفر است؛
+   * در آن صورت «بدون سقف» تلقی نمی‌شود — تصمیم با سرویس است.
+   */
+  async customerExposure(
+    companyId: string,
+    customerId: string,
+  ): Promise<{ credit_limit: number; available_credit: number; total_due: number } | null> {
+    const { rows } = await this.pool.query<{
+      credit_limit: string;
+      available_credit: string;
+      total_due: string;
+    }>(
+      `select e.credit_limit::text as credit_limit,
+              e.available_credit::text as available_credit,
+              e.total_due::text as total_due
+         from v_customer_exposure e
+         join customer c on c.id = e.customer_id
+         join branch b on b.id = c.branch_id
+        where e.customer_id = $1 and b.company_id = $2`,
+      [customerId, companyId],
+    );
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      credit_limit: Number(r.credit_limit),
+      available_credit: Number(r.available_credit),
+      total_due: Number(r.total_due),
+    };
+  }
+
+  /**
+   * موجودی در دسترس هر کالا (qty_on_hand − qty_reserved) جمع همه انبارهای شعبه‌های
+   * شرکت، منهای رزروهای فعالِ منقضی‌نشده. برای بررسی کفایت موجودی هنگام ثبت سفارش.
+   */
+  async availableStock(
+    companyId: string,
+    productIds: readonly string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    const uniq = [...new Set(productIds)];
+    if (uniq.length === 0) return result;
+    const { rows } = await this.pool.query<{ product_id: string; available: string }>(
+      `select sb.product_id,
+              (coalesce(sum(sb.qty_on_hand), 0) - coalesce(sum(sb.qty_reserved), 0))::text as available
+         from stock_balance sb
+         join warehouse w on w.id = sb.warehouse_id
+         join branch b on b.id = w.branch_id
+        where b.company_id = $1 and sb.product_id = any($2::uuid[])
+        group by sb.product_id`,
+      [companyId, uniq],
+    );
+    for (const r of rows) result.set(r.product_id, Number(r.available));
+    return result;
+  }
+
   /** ساخت سند با وضعیت draft (هدر + اقلام در یک تراکنش) */
   async insert(
     companyId: string,
     dto: CreateOrderDto,
-    opts: { branchId: string; fiscalYear: number; totals: ComputedTotals; lines: OrderLineValues[] },
+    opts: {
+      branchId: string;
+      fiscalYear: number;
+      docNumber: string;
+      totals: ComputedTotals;
+      lines: OrderLineValues[];
+    },
   ): Promise<string> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
       const id = randomUUID();
-      const docNumber = `SO-${id.slice(0, 8).toUpperCase()}`;
+      const docNumber = opts.docNumber;
       await client.query(
         `insert into sales_order
            (id, branch_id, doc_number, fiscal_year, customer_id, request_id, salesperson_id,
@@ -343,11 +513,12 @@ export class OrderRepository {
 
   private async insertLines(client: PoolClient, orderId: string, lines: OrderLineValues[]): Promise<void> {
     for (const line of lines) {
+      const tax = Number(line.tax_amount ?? 0);
       await client.query(
         `insert into sales_order_line
            (sales_order_id, line_no, product_id, packaging_id, qty, qty_base,
-            unit_price, discount_amount, line_total)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            unit_price, discount_amount, tax_rate_pct, tax_amount, line_total)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           orderId,
           line.line_no,
@@ -357,8 +528,10 @@ export class OrderRepository {
           line.qty_base,
           line.unit_price,
           line.discount_amount,
-          // line_total در DDL numeric(19,2) است (بدون tax در سطح قلم)
-          (Math.round((line.qty * Number(line.unit_price) - Number(line.discount_amount)) * 100) / 100).toFixed(2),
+          line.tax_rate_pct ?? 0,
+          (Math.round(tax * 100) / 100).toFixed(2),
+          // line_total = qty*unit_price - discount + tax (numeric(19,2))
+          (Math.round((line.qty * Number(line.unit_price) - Number(line.discount_amount) + tax) * 100) / 100).toFixed(2),
         ],
       );
     }

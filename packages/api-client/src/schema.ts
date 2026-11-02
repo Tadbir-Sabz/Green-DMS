@@ -1028,7 +1028,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["Staff"];
+                    "application/json": components["schemas"]["UpdateStaff"];
                 };
             };
             responses: {
@@ -3476,6 +3476,7 @@ export interface paths {
                         "application/json": components["schemas"]["Waybill"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -3706,6 +3707,7 @@ export interface paths {
                         "application/json": components["schemas"]["ReturnRequest"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -3751,8 +3753,10 @@ export interface paths {
                         "application/json": components["schemas"]["ReturnRequest"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
                 409: components["responses"]["Conflict"];
             };
         };
@@ -3809,8 +3813,10 @@ export interface paths {
                         "application/json": components["schemas"]["ReturnRequest"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
                 409: components["responses"]["Conflict"];
             };
         };
@@ -4618,6 +4624,7 @@ export interface paths {
                         "application/json": components["schemas"]["Geofence"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -4644,6 +4651,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -4818,6 +4826,11 @@ export interface paths {
                         "application/json": components["schemas"]["Rule"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
             };
         };
         trace?: never;
@@ -5152,6 +5165,973 @@ export interface paths {
                     };
                 };
                 403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/moadian/invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ثبت فاکتور در صف پایدار ارسال به سامانه مؤدیان */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        invoice_id: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description شغل در صف ثبت شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QueueJobReceipt"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/moadian/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** وضعیت صف ارسال مؤدیان */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرست شغل‌های مؤدیان */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["MoadianJob"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/psp/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ثبت تراکنش کارت/درگاه در صف پرداخت */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PspCharge"];
+                };
+            };
+            responses: {
+                /** @description شغل پرداخت در صف ثبت شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QueueJobReceipt"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/psp/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** مغایرت‌گیری صف پرداخت (شمارش تراکنش‌های در انتظار) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجه مغایرت‌گیری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            reconciled?: number;
+                            pending?: number;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/psp/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * وب‌هوک درگاه پرداخت — با امضای HMAC (هدر x-psp-signature)، بدون نشست
+         * @description اعتبارسنجی امضا جای AuthGuard است؛ بدون PSP_WEBHOOK_SECRET هیچ رویدادی پذیرفته نمی‌شود (503).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PspWebhookEvent"];
+                };
+            };
+            responses: {
+                /** @description رویداد پذیرفته و اعمال شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok?: boolean;
+                            received?: boolean;
+                            applied?: number;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description کلید امضای وب‌هوک پیکربندی نشده است */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packaging/uom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست واحدهای اندازه‌گیری (مرجع سراسری) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description واحدهای اندازه‌گیری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Uom"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /** ایجاد واحد اندازه‌گیری */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Uom"];
+                };
+            };
+            responses: {
+                /** @description واحد ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Uom"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packaging/product-packaging/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productId: string;
+            };
+            cookie?: never;
+        };
+        /** فهرست بسته‌بندی‌های یک کالا */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    productId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description بسته‌بندی‌های کالا */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductPackaging"][];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packaging/product-packaging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ایجاد بسته‌بندی کالا */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductPackaging"];
+                };
+            };
+            responses: {
+                /** @description بسته‌بندی ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductPackaging"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packaging/product-packaging/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** نشانه‌گذاری بسته‌بندی پیش‌فرض فروش */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        is_sales_default?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description بسته‌بندی به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductPackaging"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/rules-engine/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست قوانین (مسیر داخلی موتور قوانین) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description قوانین */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Rule"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /** ایجاد قاعده */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+            responses: {
+                /** @description قاعده ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Rule"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات قاعده با شرایط و اقدامات */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description قاعده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Rule"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/rules/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** فعال/غیرفعال کردن قاعده */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        is_active: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description وضعیت قاعده به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Rule"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/rules-engine/approval-chains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست زنجیره‌های تأیید */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description زنجیره‌های تأیید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalChain"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /** ایجاد زنجیره تأیید */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ApprovalChain"];
+                };
+            };
+            responses: {
+                /** @description زنجیره تأیید ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalChain"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approval-chains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات زنجیره تأیید با گام‌ها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description زنجیره تأیید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalChain"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست درخواست‌های تأیید (مسیر داخلی) */
+        get: {
+            parameters: {
+                query?: {
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description درخواست‌های تأیید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /** ایجاد درخواست تأیید */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequest"];
+                };
+            };
+            responses: {
+                /** @description درخواست تأیید ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approvals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات درخواست تأیید با تصمیم‌ها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description درخواست تأیید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approvals/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ثبت تصمیم روی یک گام از درخواست تأیید */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        step_no: number;
+                        /** @enum {string} */
+                        decision: "approved" | "rejected" | "returned";
+                        comment?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description تصمیم ثبت شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/exception-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست استثنائهای یک شعبه */
+        get: {
+            parameters: {
+                query: {
+                    branch_id: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description استثنائات */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExceptionItem"][];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        /** ثبت مورد استثنا */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ExceptionItem"];
+                };
+            };
+            responses: {
+                /** @description استثنا ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExceptionItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** موقعیت‌های زندهٔ کارکنان (خروجی خام v_live_locations) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرست موقعیت‌های زنده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LiveLocation"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ثبت تک‌نمونه موقعیت از اپ (lat/lng) و پخش رویداد زنده */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TrackingPing"];
+                };
+            };
+            responses: {
+                /** @description نمونه ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationSampleRow"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
             };
         };
         delete?: never;
@@ -5519,6 +6499,24 @@ export interface components {
             /** Format: date-time */
             readonly created_at?: string;
             /** @description نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict */
+            row_version?: number;
+        };
+        /** @description به‌روزرسانی جزئی پرسنل — همه فیلدها اختیاری (متناظر با PartialType(CreateStaffDto) سمت API) */
+        UpdateStaff: {
+            /** Format: uuid */
+            person_id?: string;
+            job_position_code?: string;
+            employee_no?: string;
+            /** Format: date */
+            hire_date?: string;
+            /** Format: uuid */
+            supervisor_id?: string | null;
+            /** Format: uuid */
+            vehicle_id?: string | null;
+            is_field?: boolean;
+            area_ids?: string[];
+            /** @enum {string} */
+            status?: "active" | "inactive";
             row_version?: number;
         };
         /** @description مشتری با مسیر، لیست قیمت، شرایط تسویه و موقعیت نقشه */
@@ -5990,6 +6988,11 @@ export interface components {
                 /** @description قیمت محاسبه‌شده لحظه ثبت */
                 unit_price?: string | null;
                 discount_amount?: string | null;
+                /** @description نرخ مالیات قلم از tax_code کالا (اگر vat شرکت فعال باشد) */
+                tax_rate_pct?: number | null;
+                readonly tax_amount?: string | null;
+                /** @description qty*unit_price - discount + tax */
+                readonly line_total?: string | null;
             }[];
         };
         /** @description حواله انبار — رزرو موجودی و مبنای توزیع */
@@ -6010,7 +7013,7 @@ export interface components {
             readonly issued_at?: string | null;
             /** @enum {string} */
             status?: "draft" | "issued" | "delivered" | "voided";
-            note?: string;
+            note?: string | null;
             lines?: {
                 /** Format: uuid */
                 product_id: string;
@@ -6087,11 +7090,13 @@ export interface components {
             readonly requested_at?: string | null;
             /** Format: date-time */
             readonly approved_at?: string | null;
-            note?: string;
+            note?: string | null;
             lines?: {
                 /** Format: uuid */
                 product_id?: string;
                 qty?: number;
+                /** @description مقدار تأیید/دریافت‌شده (فقط خواندنی) */
+                readonly qty_approved?: number | null;
                 /** Format: uuid */
                 batch_id?: string | null;
                 /**
@@ -6326,20 +7331,30 @@ export interface components {
              * @example return_request
              */
             entity: string;
-            /**
-             * @example before_create
-             * @example before_approve
-             * @example before_receive
-             */
-            event: string;
             /** @enum {string} */
-            effect: "block" | "warn";
+            event: "before_save" | "before_approve" | "after_save" | "on_schedule";
+            /** @enum {string} */
+            effect: "block" | "warn" | "require_approval" | "set_field" | "notify";
             priority?: number;
             message_fa?: string;
             /** @description شرط اجرای قاعده */
-            conditions?: {
+            conditions?: ({
+                group_no?: number | null;
+                field?: string;
+                operator?: string;
+                value?: unknown;
+            } & {
                 [key: string]: unknown;
-            };
+            })[];
+            /** @description اقدامات قاعده (تخفیف/جایزه/تأیید و…) */
+            actions?: ({
+                action_type?: string;
+                params?: {
+                    [key: string]: unknown;
+                };
+            } & {
+                [key: string]: unknown;
+            })[];
             /** Format: date */
             valid_from?: string | null;
             /** Format: date */
@@ -6350,6 +7365,8 @@ export interface components {
         ApprovalRequest: {
             /** Format: uuid */
             readonly id?: string;
+            /** Format: uuid */
+            approval_chain_id?: string | null;
             /**
              * @example sales_order
              * @example return_request
@@ -6358,9 +7375,9 @@ export interface components {
             entity_type?: string;
             /** Format: uuid */
             entity_id?: string;
-            amount?: string;
+            amount?: string | null;
             /** @enum {string} */
-            status?: "pending" | "approved" | "rejected";
+            status?: "pending" | "approved" | "rejected" | "expired" | "cancelled";
             current_step?: number;
             /** Format: uuid */
             requested_by?: string;
@@ -6368,6 +7385,16 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             closed_at?: string | null;
+            decisions?: {
+                step_no?: number;
+                /** Format: uuid */
+                decided_by?: string | null;
+                /** @enum {string|null} */
+                decision?: "approved" | "rejected" | "returned" | null;
+                /** Format: date-time */
+                decided_at?: string | null;
+                comment?: string | null;
+            }[];
             steps?: {
                 step_no?: number;
                 approver_role?: string;
@@ -6412,6 +7439,179 @@ export interface components {
             /** Format: date-time */
             last_success_at?: string | null;
             last_error?: string | null;
+        };
+        /** @description رسید ثبت شغل در صف پایدار یکپارچه‌سازی */
+        QueueJobReceipt: {
+            ok?: boolean;
+            /** Format: uuid */
+            jobId?: string;
+            /** @example queued */
+            status?: string;
+        };
+        /** @description یک شغل صف ارسال به سامانه مؤدیان */
+        MoadianJob: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            invoice_id?: string;
+            /** @enum {string} */
+            status?: "queued" | "sending" | "sent" | "accepted" | "rejected" | "retrying" | "dead";
+            attempt_count?: number;
+            last_error?: string | null;
+            next_retry_at?: string | null;
+            created_at?: string;
+        };
+        /** @description درخواست شارژ/تراکنش درگاه پرداخت */
+        PspCharge: {
+            /** Format: uuid */
+            branch_id: string;
+            terminal_id: string;
+            psp: string;
+            /** @description مبلغ به ریال (رشتهٔ اعشاری) */
+            amount: string;
+            /** Format: uuid */
+            invoice_id?: string | null;
+        };
+        /** @description رویداد وب‌هوک درگاه — با امضای HMAC در هدر x-psp-signature */
+        PspWebhookEvent: {
+            event_id: string;
+            psp: string;
+            /** @enum {string} */
+            status: "success" | "failed";
+            rrn?: string | null;
+            trace_no?: string | null;
+            amount?: string | null;
+        };
+        /** @description واحد اندازه‌گیری (مرجع سراسری) */
+        Uom: {
+            /** Format: uuid */
+            readonly id?: string;
+            code: string;
+            title: string;
+            decimal_places?: number;
+        };
+        /** @description بسته‌بندی کالا با ضریب تبدیل به واحد پایه */
+        ProductPackaging: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            uom_id: string;
+            factor_to_base: number;
+            barcode?: string | null;
+            is_sales_default?: boolean;
+            is_purchase_default?: boolean;
+            readonly uom_code?: string | null;
+            readonly uom_title?: string | null;
+        };
+        /** @description زنجیره تأیید با گام‌های تعریف‌شده */
+        ApprovalChain: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly company_id?: string;
+            code: string;
+            entity: string;
+            is_active?: boolean;
+            readonly steps?: {
+                step_no?: number;
+                /** Format: uuid */
+                approver_role_id?: string | null;
+                /** Format: uuid */
+                approver_staff_id?: string | null;
+                min_amount?: string | null;
+                max_amount?: string | null;
+                is_mandatory?: boolean;
+            }[];
+        };
+        /** @description مورد استثنا در صف بازبینی (مغایرت، تخفیف مشکوک، اختلاف قیمت) */
+        ExceptionItem: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** @enum {string} */
+            kind: "price_mismatch" | "stock_mismatch" | "credit_override" | "discount_override" | "cash_variance" | "count_variance" | "geofence_breach" | "sync_conflict" | "moadian_error";
+            /**
+             * @default medium
+             * @enum {string}
+             */
+            severity: "low" | "medium" | "high" | "critical";
+            entity_type?: string | null;
+            /** Format: uuid */
+            entity_id?: string | null;
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            readonly status?: "open" | "in_review" | "resolved" | "ignored";
+            /** Format: uuid */
+            readonly assigned_to?: string | null;
+            /** Format: uuid */
+            readonly resolved_by?: string | null;
+            /** Format: date-time */
+            readonly resolved_at?: string | null;
+            readonly resolution?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+        };
+        /** @description آخرین موقعیت ثبت‌شدهٔ یک کارمند (خروجی v_live_locations) */
+        LiveLocation: {
+            /** Format: uuid */
+            company_id?: string;
+            /** Format: uuid */
+            staff_id?: string;
+            staff_name?: string;
+            /** Format: uuid */
+            branch_id?: string;
+            branch_code?: string | null;
+            branch_name?: string | null;
+            /** Format: uuid */
+            session_id?: string | null;
+            /** Format: uuid */
+            tour_id?: string | null;
+            lat?: number;
+            lng?: number;
+            accuracy_m?: number | null;
+            speed_mps?: number | null;
+            heading_deg?: number | null;
+            battery_pct?: number | null;
+            is_mocked?: boolean;
+            provider?: string | null;
+            /** Format: date-time */
+            sampled_at?: string;
+        };
+        /** @description تک‌نمونه موقعیت از اپ میدانی (lat/lng) */
+        TrackingPing: {
+            lat: number;
+            lng: number;
+            accuracy_m?: number;
+            speed_kph?: number;
+            heading_deg?: number;
+            battery_pct?: number;
+            /** Format: uuid */
+            session_id?: string | null;
+            /** Format: uuid */
+            tour_id?: string | null;
+            /** @enum {string} */
+            provider?: "gps" | "network" | "fused";
+            is_mocked?: boolean;
+            /** Format: date-time */
+            recorded_at?: string | null;
+        };
+        /** @description نمونه موقعیت ثبت‌شده (بازگشتی از POST /tracking/ping) */
+        LocationSampleRow: {
+            id?: string | number;
+            /** Format: uuid */
+            staff_id?: string;
+            /** Format: date-time */
+            recorded_at?: string;
+            accuracy_m?: number | null;
+            speed_mps?: number | null;
+            heading_deg?: number | null;
+            is_mocked?: boolean;
+            provider?: string | null;
         };
     };
     responses: {

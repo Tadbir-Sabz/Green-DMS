@@ -609,7 +609,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Staff' }
+            schema: { $ref: '#/components/schemas/UpdateStaff' }
       responses:
         '200':
           description: پرسنل به‌روزرسانی شد
@@ -2490,6 +2490,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Rule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /approvals:
     get:
       tags: [approvals]
@@ -2653,6 +2658,423 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/IntegrationStatus' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------- جزئیات یکپارچه‌سازی مؤدیان و درگاه (ضمیمه D) ----------------
+  /integrations/moadian/invoice:
+    post:
+      tags: [integrations]
+      summary: ثبت فاکتور در صف پایدار ارسال به سامانه مؤدیان
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoice_id]
+              properties:
+                invoice_id: { type: string, format: uuid }
+      responses:
+        '200':
+          description: شغل در صف ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueJobReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /integrations/moadian/status:
+    get:
+      tags: [integrations]
+      summary: وضعیت صف ارسال مؤدیان
+      responses:
+        '200':
+          description: فهرست شغل‌های مؤدیان
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/MoadianJob' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /integrations/psp/pay:
+    post:
+      tags: [integrations]
+      summary: ثبت تراکنش کارت/درگاه در صف پرداخت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PspCharge' }
+      responses:
+        '200':
+          description: شغل پرداخت در صف ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueJobReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /integrations/psp/reconcile:
+    get:
+      tags: [integrations]
+      summary: مغایرت‌گیری صف پرداخت (شمارش تراکنش‌های در انتظار)
+      responses:
+        '200':
+          description: نتیجه مغایرت‌گیری
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reconciled: { type: integer }
+                  pending: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /integrations/psp/webhook:
+    post:
+      tags: [integrations]
+      summary: وب‌هوک درگاه پرداخت — با امضای HMAC (هدر x-psp-signature)، بدون نشست
+      description: اعتبارسنجی امضا جای AuthGuard است؛ بدون PSP_WEBHOOK_SECRET هیچ رویدادی پذیرفته نمی‌شود (503).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PspWebhookEvent' }
+      responses:
+        '200':
+          description: رویداد پذیرفته و اعمال شد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  received: { type: boolean }
+                  applied: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: کلید امضای وب‌هوک پیکربندی نشده است
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ---------------- بسته‌بندی و واحد اندازه‌گیری ----------------
+  /packaging/uom:
+    get:
+      tags: [packaging]
+      summary: فهرست واحدهای اندازه‌گیری (مرجع سراسری)
+      responses:
+        '200':
+          description: واحدهای اندازه‌گیری
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Uom' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [packaging]
+      summary: ایجاد واحد اندازه‌گیری
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Uom' }
+      responses:
+        '201':
+          description: واحد ایجاد شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Uom' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /packaging/product-packaging/{productId}:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [packaging]
+      summary: فهرست بسته‌بندی‌های یک کالا
+      responses:
+        '200':
+          description: بسته‌بندی‌های کالا
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductPackaging' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /packaging/product-packaging:
+    post:
+      tags: [packaging]
+      summary: ایجاد بسته‌بندی کالا
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductPackaging' }
+      responses:
+        '201':
+          description: بسته‌بندی ایجاد شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductPackaging' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /packaging/product-packaging/{id}/default:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [packaging]
+      summary: نشانه‌گذاری بسته‌بندی پیش‌فرض فروش
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_sales_default: { type: boolean }
+      responses:
+        '200':
+          description: بسته‌بندی به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductPackaging' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- موتور قوانین (مسیر داخلی /rules-engine) ----------------
+  /rules-engine/rules:
+    get:
+      tags: [rules-engine]
+      summary: فهرست قوانین (مسیر داخلی موتور قوانین)
+      responses:
+        '200':
+          description: قوانین
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Rule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [rules-engine]
+      summary: ایجاد قاعده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Rule' }
+      responses:
+        '201':
+          description: قاعده ایجاد شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /rules-engine/rules/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [rules-engine]
+      summary: جزئیات قاعده با شرایط و اقدامات
+      responses:
+        '200':
+          description: قاعده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /rules-engine/rules/{id}/status:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [rules-engine]
+      summary: فعال/غیرفعال کردن قاعده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_active]
+              properties:
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: وضعیت قاعده به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /rules-engine/approval-chains:
+    get:
+      tags: [rules-engine]
+      summary: فهرست زنجیره‌های تأیید
+      responses:
+        '200':
+          description: زنجیره‌های تأیید
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ApprovalChain' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [rules-engine]
+      summary: ایجاد زنجیره تأیید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalChain' }
+      responses:
+        '201':
+          description: زنجیره تأیید ایجاد شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalChain' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /rules-engine/approval-chains/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [rules-engine]
+      summary: جزئیات زنجیره تأیید با گام‌ها
+      responses:
+        '200':
+          description: زنجیره تأیید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalChain' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /rules-engine/approvals:
+    get:
+      tags: [rules-engine]
+      summary: فهرست درخواست‌های تأیید (مسیر داخلی)
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: درخواست‌های تأیید
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ApprovalRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [rules-engine]
+      summary: ایجاد درخواست تأیید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalRequest' }
+      responses:
+        '201':
+          description: درخواست تأیید ایجاد شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /rules-engine/approvals/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [rules-engine]
+      summary: جزئیات درخواست تأیید با تصمیم‌ها
+      responses:
+        '200':
+          description: درخواست تأیید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /rules-engine/approvals/{id}/decision:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [rules-engine]
+      summary: ثبت تصمیم روی یک گام از درخواست تأیید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step_no, decision]
+              properties:
+                step_no: { type: integer, minimum: 1 }
+                decision: { type: string, enum: [approved, rejected, returned] }
+                comment: { type: [string, 'null'] }
+      responses:
+        '200':
+          description: تصمیم ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /rules-engine/exception-items:
+    get:
+      tags: [rules-engine]
+      summary: فهرست استثنائهای یک شعبه
+      parameters:
+        - { name: branch_id, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: استثنائات
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ExceptionItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [rules-engine]
+      summary: ثبت مورد استثنا
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExceptionItem' }
+      responses:
+        '201':
+          description: استثنا ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExceptionItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------- ردیابی زنده (مسیرهای داخلی اپ) ----------------
+  /tracking/live:
+    get:
+      tags: [tracking]
+      summary: موقعیت‌های زندهٔ کارکنان (خروجی خام v_live_locations)
+      responses:
+        '200':
+          description: فهرست موقعیت‌های زنده
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LiveLocation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /tracking/ping:
+    post:
+      tags: [tracking]
+      summary: ثبت تک‌نمونه موقعیت از اپ (lat/lng) و پخش رویداد زنده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TrackingPing' }
+      responses:
+        '201':
+          description: نمونه ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LocationSampleRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
 # =====================================================================
 # وب‌هوک‌های بیرونی (OpenAPI 3.1) — امضا با X-Signature و تلاش مجدد
@@ -3036,6 +3458,23 @@ components:
         status: { type: string, enum: [active, inactive] }
         created_at: { type: string, format: date-time, readOnly: true }
         row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
+
+    UpdateStaff:
+      type: object
+      description: به‌روزرسانی جزئی پرسنل — همه فیلدها اختیاری (متناظر با PartialType(CreateStaffDto) سمت API)
+      properties:
+        person_id: { type: string, format: uuid }
+        job_position_code: { type: string }
+        employee_no: { type: string }
+        hire_date: { type: string, format: date }
+        supervisor_id: { type: [string, 'null'], format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        is_field: { type: boolean }
+        area_ids:
+          type: array
+          items: { type: string, format: uuid }
+        status: { type: string, enum: [active, inactive] }
+        row_version: { type: integer, minimum: 0 }
 
     Customer:
       type: object
@@ -3441,6 +3880,9 @@ components:
               packaging_id: { type: [string, 'null'], format: uuid }
               unit_price: { type: [string, 'null'], description: قیمت محاسبه‌شده لحظه ثبت }
               discount_amount: { type: [string, 'null'] }
+              tax_rate_pct: { type: [number, 'null'], description: 'نرخ مالیات قلم از tax_code کالا (اگر vat شرکت فعال باشد)' }
+              tax_amount: { type: [string, 'null'], readOnly: true }
+              line_total: { type: [string, 'null'], readOnly: true, description: 'qty*unit_price - discount + tax' }
 
     Waybill:
       type: object
@@ -3530,6 +3972,7 @@ components:
             properties:
               product_id: { type: string, format: uuid }
               qty: { type: number }
+              qty_approved: { type: [number, 'null'], readOnly: true, description: مقدار تأیید/دریافت‌شده (فقط خواندنی) }
               batch_id: { type: [string, 'null'], format: uuid }
               disposition:
                 type: [string, 'null']
@@ -3717,14 +4160,32 @@ components:
         code: { type: string }
         title: { type: string }
         entity: { type: string, examples: ['sales_order', 'customer', 'product', 'return_request'] }
-        event: { type: string, examples: ['before_create', 'before_approve', 'before_receive'] }
-        effect: { type: string, enum: [block, warn] }
+        event: { type: string, enum: [before_save, before_approve, after_save, on_schedule] }
+        # اثر قاعده دقیقاً هم‌اندازهٔ DDL مهاجرت 0009 (check روی ستون effect)
+        effect: { type: string, enum: [block, warn, require_approval, set_field, notify] }
         priority: { type: integer }
         message_fa: { type: string }
+        # شرایط به‌صورت فهرست گروه‌بندی‌شده ذخیره می‌شود (AND داخل گروه، OR بین گروه‌ها)
         conditions:
-          type: object
-          additionalProperties: true
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              group_no: { type: [integer, 'null'] }
+              field: { type: string }
+              operator: { type: string }
+              value: {}
           description: شرط اجرای قاعده
+        actions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              action_type: { type: string }
+              params: { type: object, additionalProperties: true }
+          description: اقدامات قاعده (تخفیف/جایزه/تأیید و…)
         valid_from: { type: [string, 'null'], format: date }
         valid_to: { type: [string, 'null'], format: date }
         is_active: { type: boolean }
@@ -3734,14 +4195,26 @@ components:
       description: درخواست تأیید مبلغ‌محور (زنجیره تأیید — ماژول ۳ §۳.۳)
       properties:
         id: { type: string, format: uuid, readOnly: true }
+        approval_chain_id: { type: [string, 'null'], format: uuid }
         entity_type: { type: string, examples: ['sales_order', 'return_request', 'stock_adjustment'] }
         entity_id: { type: string, format: uuid }
-        amount: { type: string }
-        status: { type: string, enum: [pending, approved, rejected] }
+        amount: { type: [string, 'null'] }
+        status: { type: string, enum: [pending, approved, rejected, expired, cancelled] }
         current_step: { type: integer }
         requested_by: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
         closed_at: { type: [string, 'null'], format: date-time }
+        # تصمیم‌های ثبت‌شده تاکنون (یک ردیف به‌ازای هر مرحله)
+        decisions:
+          type: array
+          items:
+            type: object
+            properties:
+              step_no: { type: integer }
+              decided_by: { type: [string, 'null'], format: uuid }
+              decision: { type: [string, 'null'], enum: [approved, rejected, returned, null] }
+              decided_at: { type: [string, 'null'], format: date-time }
+              comment: { type: [string, 'null'] }
         steps:
           type: array
           items:
@@ -3781,3 +4254,167 @@ components:
         healthy: { type: boolean }
         last_success_at: { type: [string, 'null'], format: date-time }
         last_error: { type: [string, 'null'] }
+
+    QueueJobReceipt:
+      type: object
+      description: رسید ثبت شغل در صف پایدار یکپارچه‌سازی
+      properties:
+        ok: { type: boolean }
+        jobId: { type: string, format: uuid }
+        status: { type: string, examples: ['queued'] }
+
+    MoadianJob:
+      type: object
+      description: یک شغل صف ارسال به سامانه مؤدیان
+      properties:
+        id: { type: string, format: uuid }
+        invoice_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, sending, sent, accepted, rejected, retrying, dead] }
+        attempt_count: { type: integer }
+        last_error: { type: [string, 'null'] }
+        next_retry_at: { type: [string, 'null'] }
+        created_at: { type: string }
+
+    PspCharge:
+      type: object
+      description: درخواست شارژ/تراکنش درگاه پرداخت
+      required: [branch_id, terminal_id, psp, amount]
+      properties:
+        branch_id: { type: string, format: uuid }
+        terminal_id: { type: string, maxLength: 64 }
+        psp: { type: string, maxLength: 32 }
+        amount: { type: string, description: مبلغ به ریال (رشتهٔ اعشاری) }
+        invoice_id: { type: [string, 'null'], format: uuid }
+
+    PspWebhookEvent:
+      type: object
+      description: رویداد وب‌هوک درگاه — با امضای HMAC در هدر x-psp-signature
+      required: [event_id, psp, status]
+      properties:
+        event_id: { type: string, maxLength: 128 }
+        psp: { type: string, maxLength: 32 }
+        status: { type: string, enum: [success, failed] }
+        rrn: { type: [string, 'null'], maxLength: 64 }
+        trace_no: { type: [string, 'null'], maxLength: 64 }
+        amount: { type: [string, 'null'] }
+
+    Uom:
+      type: object
+      description: واحد اندازه‌گیری (مرجع سراسری)
+      required: [code, title]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, maxLength: 16 }
+        title: { type: string, maxLength: 64 }
+        decimal_places: { type: integer, minimum: 0, maximum: 6 }
+
+    ProductPackaging:
+      type: object
+      description: بسته‌بندی کالا با ضریب تبدیل به واحد پایه
+      required: [product_id, uom_id, factor_to_base]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        uom_id: { type: string, format: uuid }
+        factor_to_base: { type: number, exclusiveMinimum: 0 }
+        barcode: { type: [string, 'null'], maxLength: 64 }
+        is_sales_default: { type: boolean }
+        is_purchase_default: { type: boolean }
+        uom_code: { type: [string, 'null'], readOnly: true }
+        uom_title: { type: [string, 'null'], readOnly: true }
+
+    ApprovalChain:
+      type: object
+      description: زنجیره تأیید با گام‌های تعریف‌شده
+      required: [code, entity]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        company_id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        entity: { type: string }
+        is_active: { type: boolean }
+        steps:
+          type: array
+          readOnly: true
+          items:
+            type: object
+            properties:
+              step_no: { type: integer, minimum: 1 }
+              approver_role_id: { type: [string, 'null'], format: uuid }
+              approver_staff_id: { type: [string, 'null'], format: uuid }
+              min_amount: { type: [string, 'null'] }
+              max_amount: { type: [string, 'null'] }
+              is_mandatory: { type: boolean }
+
+    ExceptionItem:
+      type: object
+      description: مورد استثنا در صف بازبینی (مغایرت، تخفیف مشکوک، اختلاف قیمت)
+      required: [branch_id, kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [price_mismatch, stock_mismatch, credit_override, discount_override, cash_variance, count_variance, geofence_breach, sync_conflict, moadian_error]
+        severity: { type: string, enum: [low, medium, high, critical], default: medium }
+        entity_type: { type: [string, 'null'] }
+        entity_id: { type: [string, 'null'], format: uuid }
+        payload: { type: object, additionalProperties: true }
+        status: { type: string, enum: [open, in_review, resolved, ignored], readOnly: true }
+        assigned_to: { type: [string, 'null'], format: uuid, readOnly: true }
+        resolved_by: { type: [string, 'null'], format: uuid, readOnly: true }
+        resolved_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        resolution: { type: [string, 'null'], readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    LiveLocation:
+      type: object
+      description: آخرین موقعیت ثبت‌شدهٔ یک کارمند (خروجی v_live_locations)
+      properties:
+        company_id: { type: string, format: uuid }
+        staff_id: { type: string, format: uuid }
+        staff_name: { type: string }
+        branch_id: { type: string, format: uuid }
+        branch_code: { type: [string, 'null'] }
+        branch_name: { type: [string, 'null'] }
+        session_id: { type: [string, 'null'], format: uuid }
+        tour_id: { type: [string, 'null'], format: uuid }
+        lat: { type: number }
+        lng: { type: number }
+        accuracy_m: { type: [number, 'null'] }
+        speed_mps: { type: [number, 'null'] }
+        heading_deg: { type: [number, 'null'] }
+        battery_pct: { type: [integer, 'null'] }
+        is_mocked: { type: boolean }
+        provider: { type: [string, 'null'] }
+        sampled_at: { type: string, format: date-time }
+
+    TrackingPing:
+      type: object
+      description: تک‌نمونه موقعیت از اپ میدانی (lat/lng)
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        accuracy_m: { type: number, minimum: 0 }
+        speed_kph: { type: number, minimum: 0 }
+        heading_deg: { type: number, minimum: 0, maximum: 360 }
+        battery_pct: { type: integer, minimum: 0, maximum: 100 }
+        session_id: { type: [string, 'null'], format: uuid }
+        tour_id: { type: [string, 'null'], format: uuid }
+        provider: { type: string, enum: [gps, network, fused] }
+        is_mocked: { type: boolean }
+        recorded_at: { type: [string, 'null'], format: date-time }
+
+    LocationSampleRow:
+      type: object
+      description: نمونه موقعیت ثبت‌شده (بازگشتی از POST /tracking/ping)
+      properties:
+        id: { type: [string, integer] }
+        staff_id: { type: string, format: uuid }
+        recorded_at: { type: string, format: date-time }
+        accuracy_m: { type: [number, 'null'] }
+        speed_mps: { type: [number, 'null'] }
+        heading_deg: { type: [number, 'null'] }
+        is_mocked: { type: boolean }
+        provider: { type: [string, 'null'] }

@@ -144,7 +144,10 @@ export class CustomerRepository {
     return {
       items: page.map(shape),
       hasMore,
-      nextCursor: hasMore && last ? encodeCursor(last.person_code) : null,
+      // cursor باید همان ستونی باشد که مرتب‌سازی و فیلتر صفحه‌بندی روی آن است
+      // (order by c.code + c.code > $N)؛ قبلاً person_code رمز می‌شد که صفحهٔ بعد
+      // را جابه‌جا می‌کرد.
+      nextCursor: hasMore && last ? encodeCursor(last.code) : null,
     };
   }
 

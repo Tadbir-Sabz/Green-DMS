@@ -7,6 +7,7 @@ const pathnameRef = { current: '/' };
 
 vi.mock('next/navigation', () => ({
   usePathname: () => pathnameRef.current,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
 }));
 
 vi.mock('next/link', () => ({

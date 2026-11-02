@@ -43,18 +43,18 @@ export default function RoutesPage() {
   const areas = useQuery({
     queryKey: ["areas"],
     queryFn: async () => {
-      const res = await (api as any).GET("/areas", { params: { query: { limit: 100 } } });
+      const res = await api.GET("/areas", { params: { query: { limit: 100 } } });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as { items: Area[] };
+      return (res.data?.items ?? []) as Area[];
     },
   });
 
   const routes = useQuery({
     queryKey: ["routes"],
     queryFn: async () => {
-      const res = await (api as any).GET("/routes", { params: { query: { limit: 100 } } });
+      const res = await api.GET("/routes", { params: { query: { limit: 100 } } });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as { items: Route[] };
+      return (res.data?.items ?? []) as Route[];
     },
   });
 
@@ -65,9 +65,12 @@ export default function RoutesPage() {
 
   const createArea = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = { code: areaForm.code.trim(), name: areaForm.name.trim() };
-      if (areaForm.parent_area_id.trim()) payload.parent_area_id = areaForm.parent_area_id.trim();
-      const res = await (api as any).POST("/areas", { body: payload });
+      const body: { code: string; name: string; parent_area_id?: string } = {
+        code: areaForm.code.trim(),
+        name: areaForm.name.trim(),
+      };
+      if (areaForm.parent_area_id.trim()) body.parent_area_id = areaForm.parent_area_id.trim();
+      const res = await api.POST("/areas", { body });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data;
     },
@@ -81,13 +84,13 @@ export default function RoutesPage() {
 
   const createRoute = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = {
+      const body: { area_id: string; code: string; name: string; visit_weekday?: number } = {
         area_id: routeForm.area_id.trim(),
         code: routeForm.code.trim(),
         name: routeForm.name.trim(),
       };
-      if (routeForm.visit_weekday !== "") payload.visit_weekday = Number(routeForm.visit_weekday);
-      const res = await (api as any).POST("/routes", { body: payload });
+      if (routeForm.visit_weekday !== "") body.visit_weekday = Number(routeForm.visit_weekday);
+      const res = await api.POST("/routes", { body });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data;
     },
@@ -99,7 +102,7 @@ export default function RoutesPage() {
     onError: (e: Error) => setFormError(e.message),
   });
 
-  const areaName = (id: string): string => areas.data?.items.find((a) => a.id === id)?.name ?? id.slice(0, 8);
+  const areaName = (id: string): string => areas.data?.find((a) => a.id === id)?.name ?? id.slice(0, 8);
 
   return (
     <div className="space-y-8">
@@ -155,7 +158,7 @@ export default function RoutesPage() {
               </tr>
             </thead>
             <tbody>
-              {(areas.data?.items ?? []).map((a) => (
+              {(areas.data ?? []).map((a) => (
                 <tr key={a.id} className="border-t border-slate-100 dark:border-[#1f2937]">
                   <td className="px-4 py-3 font-mono">{a.code}</td>
                   <td className="px-4 py-3">{a.name}</td>
@@ -163,7 +166,7 @@ export default function RoutesPage() {
                   <td className="px-4 py-3">{a.is_active ? "فعال" : "غیرفعال"}</td>
                 </tr>
               ))}
-              {!areas.isLoading && (areas.data?.items?.length ?? 0) === 0 && (
+              {!areas.isLoading && (areas.data?.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
                     منطقه‌ای ثبت نشده است
@@ -186,7 +189,7 @@ export default function RoutesPage() {
               className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
             >
               <option value="">منطقه *</option>
-              {(areas.data?.items ?? []).map((a) => (
+              {(areas.data ?? []).map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
                 </option>
@@ -237,7 +240,7 @@ export default function RoutesPage() {
               </tr>
             </thead>
             <tbody>
-              {(routes.data?.items ?? []).map((r) => (
+              {(routes.data ?? []).map((r) => (
                 <tr key={r.id} className="border-t border-slate-100 dark:border-[#1f2937]">
                   <td className="px-4 py-3 font-mono">{r.code}</td>
                   <td className="px-4 py-3">{r.name}</td>
@@ -246,7 +249,7 @@ export default function RoutesPage() {
                   <td className="px-4 py-3">{r.customer_ids?.length ?? 0}</td>
                 </tr>
               ))}
-              {!routes.isLoading && (routes.data?.items?.length ?? 0) === 0 && (
+              {!routes.isLoading && (routes.data?.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
                     مسیری ثبت نشده است

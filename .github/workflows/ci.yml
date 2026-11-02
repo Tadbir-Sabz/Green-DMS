@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -9,13 +9,75 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # The API tests self-bootstrap: each test file reads DATABASE_URL as a
+    # superuser "admin" URL, CREATEs a throwaway database, and applies every
+    # migration in a single transaction via the psql CLI (PSQL env). So CI must
+    # provide a PostGIS server, a Redis server, and a real psql binary.
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Superuser URL — the tests derive a temp database name from it.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: ci_only_secret_not_for_production
+      SMS_PROVIDER: log
+      # psql binary used by the API tests to apply migrations (installed below).
+      PSQL: psql
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Install PostgreSQL client (psql for API test migrations)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # `npm ci` runs the root `prepare` script, which builds the shared packages.
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run openapi:check
-      - run: npm run build
+
+      - name: Typecheck (packages + api + web)
+        run: npm run typecheck
+
+      - name: OpenAPI lint
+        run: npm run openapi:check
+
+      - name: Contract drift (server routes vs OpenAPI)
+        run: node scripts/contract-drift.mjs
+
+      - name: Web tests
+        run: npm run test:web
+
+      - name: API tests
+        run: npm run test:api
+
+      - name: Build (packages + api + web)
+        run: npm run build

@@ -1,50 +1,20 @@
-﻿import { Module } from '@nestjs/common';
-import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
-import type { ModuleInfo } from '../../common/module-info';
+import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
-import { AuthGuard } from '../identity-rbac/auth.guard';
-import { PermissionsGuard } from '../identity-rbac/permissions.guard';
-import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
-import { CurrentUser } from '../identity-rbac/auth-context.decorator';
-import { pg } from '../../db/pg';
+import { ReportsController } from './reports.controller';
+import { ReportsService } from './reports.service';
+import { REPORTS_SERVICE } from './tokens';
 
-@Controller('reports')
-export class ReportsController {
-  @UseGuards(AuthGuard, PermissionsGuard)
-  @Get('mv/daily-sales')
-  @RequirePermissions('reports.dashboard.view')
-  async dailySales(@CurrentUser('companyId') companyId: string, @Query() q: any) {
-    const { rows } = await pg.query(`select * from mv_daily_sales where company_id = $1 order by sale_date desc limit 100`, [companyId]);
-    return { items: rows };
-  }
-
-  @UseGuards(AuthGuard, PermissionsGuard)
-  @Get('mv/ar-aging')
-  @RequirePermissions('reports.dashboard.view')
-  async arAging(@CurrentUser('companyId') companyId: string) {
-    const { rows } = await pg.query(`select * from mv_ar_aging where company_id = $1`, [companyId]);
-    return { items: rows };
-  }
-
-  @UseGuards(AuthGuard, PermissionsGuard)
-  @Get('mv/salesperson-performance')
-  @RequirePermissions('reports.dashboard.view')
-  async salespersonPerformance(@CurrentUser('companyId') companyId: string) {
-    const { rows } = await pg.query(`select * from mv_salesperson_performance where company_id = $1`, [companyId]);
-    return { items: rows };
-  }
-}
-
-@Controller('reports')
-export class ReportsModuleInfoController {
-  @Get()
-  info(): ModuleInfo {
-    return { module: 'reports', title: 'گزارش‌های تحلیلی', resources: ['mv_daily_sales', 'mv_ar_aging', 'mv_salesperson_performance'], status: 'implemented' };
-  }
-}
-
+/**
+ * ماژول گزارش‌ها (ضمیمه C) — /reports و /reports/{key} با خروجی json/csv/xlsx.
+ *
+ * نکته مهم: نسخه پیشین از `pg` خام (apps/api/src/db/pg.ts) استفاده می‌کرد که یک
+ * Pool جدا بدون GUCهای نشست بود و RLS مهاجرت 0021 را دور می‌زد؛ اینجا همه‌چیز روی
+ * PG_POOL tenant-aware است. آن ماژول pg خام دیگر مصرف‌کننده‌ای ندارد.
+ */
 @Module({
   imports: [IdentityRbacModule],
-  controllers: [ReportsModuleInfoController, ReportsController],
+  controllers: [ReportsController],
+  providers: [ReportsService, { provide: REPORTS_SERVICE, useExisting: ReportsService }],
+  exports: [REPORTS_SERVICE],
 })
 export class ReportsModule {}

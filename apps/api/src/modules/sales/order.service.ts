@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   Inject,
@@ -12,6 +12,9 @@ import type { OrderRepository, OrderRow } from './order.repository';
 import { ORDER_REPOSITORY } from './tokens';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
 import type { RulesEngineService } from '../rules-engine/rules-engine.service';
+import type { RuleContext, RuleEvaluation } from '../rules-engine/rules-engine.service';
+import { DOC_NUMBER_SERVICE, persianYear } from '../../common/doc-number.service';
+import type { DocNumberService } from '../../common/doc-number.service';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -19,18 +22,19 @@ const badRequest = (code: string, message_fa: string): BadRequestException =>
 const notFound = (): NotFoundException =>
   new NotFoundException({ code: 'not_found', message_fa: 'سفارش یافت نشد' });
 
-const persianYear = (): number => {
-  const parts = new Intl.DateTimeFormat('en-u-ca-persian', {
-    year: 'numeric',
-    timeZone: 'Asia/Tehran',
-  }).formatToParts(new Date());
-  return Number(parts.find((p) => p.type === 'year')?.value);
-};
-
 const money = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
 
 export interface OrderView extends OrderRow {
-  lines?: { product_id: string; packaging_id: string | null; qty: number; unit_price: string | null; discount_amount: string | null }[];
+  lines?: {
+    product_id: string;
+    packaging_id: string | null;
+    qty: number;
+    unit_price: string | null;
+    discount_amount: string | null;
+    tax_rate_pct: number;
+    tax_amount: string | null;
+    line_total: string | null;
+  }[];
 }
 
 interface OrderLineValues {
@@ -41,6 +45,8 @@ interface OrderLineValues {
   qty_base: number;
   unit_price: string;
   discount_amount: string;
+  tax_rate_pct: number;
+  tax_amount: string;
 }
 
 interface ComputedTotals {
@@ -55,6 +61,7 @@ export class OrderService {
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly repo: OrderRepository,
     @Inject(RULES_ENGINE_SERVICE) private readonly rules: RulesEngineService,
+    @Inject(DOC_NUMBER_SERVICE) private readonly docNumbers: DocNumberService,
   ) {}
 
   private assertId(id: string): void {
@@ -78,13 +85,27 @@ export class OrderService {
     const pricing = await this.repo.getCustomerPricing(companyId, dto.customer_id);
     if (!pricing) throw badRequest('customer_not_found', 'مشتری انتخاب‌شده در این شرکت یافت نشد.');
     await this.validateReferences(companyId, dto);
-    await this.evaluateOrderRules(companyId, dto);
+    // ابتدا اقلام/جمع‌ها محاسبه می‌شود تا زمینهٔ ارزیابی قاعده و بررسی اعتبار/موجودی
+    // مقادیر واقعی (subtotal/discount/grand_total) را داشته باشد.
     const { lines, totals } = await this.computeLines(companyId, dto, pricing.price_list_id);
+
+    // ارزیابی واقعی موتور قوانین (before_save) روی زمینهٔ سفارش
+    await this.evaluateOrderRules(companyId, dto, lines, totals);
+    // بررسی سقف اعتبار و کفایت موجودی هنگام ثبت سفارش
+    await this.enforceCreditLimit(companyId, dto.customer_id, Number(totals.grand_total));
+    await this.enforceStock(companyId, lines);
+
+    const fiscalYear = persianYear();
+    // شماره سند از document_series/number_counter شعبه (به‌جای SO-<uuid8>)
+    const { doc_number } = await this.docNumbers.next(pricing.branch_id, 'sales_order', {
+      fiscalYear,
+    });
     let id: string;
     try {
       id = await this.repo.insert(companyId, dto, {
         branchId: pricing.branch_id,
-        fiscalYear: persianYear(),
+        fiscalYear,
+        docNumber: doc_number,
         totals,
         lines,
       });
@@ -94,21 +115,106 @@ export class OrderService {
     return this.get(companyId, id);
   }
 
-  async evaluateOrderRules(companyId: string, dto: CreateOrderDto): Promise<void> {
-    const rules = await this.rules.listRules(companyId);
-    const applicable = (rules as any[]).filter(
-      (r: any) => r.entity === 'sales_order' && r.event === 'before_save' && r.status === 'active',
+  /**
+   * ارزیابی واقعی قواعد sales_order/before_save با موتور قوانین.
+   * زمینه شامل جمع‌ها، بیشترین درصد تخفیف قلم و تعداد اقلام است تا شروط عددی
+   * (مثل discount_pct > X یا grand_total > Y) واقعاً ارزیابی شوند.
+   * - block → 400 rule_blocked با پیام فارسی قاعده
+   * - require_approval → 409 (سفارش باید به صف تأیید برود)
+   * - warn/notify → در پاسخ لاگ می‌شود ولی جریان را متوقف نمی‌کند
+   */
+  async evaluateOrderRules(
+    companyId: string,
+    dto: CreateOrderDto,
+    lines: OrderLineValues[],
+    totals: ComputedTotals,
+  ): Promise<RuleEvaluation> {
+    const subtotal = Number(totals.subtotal);
+    const maxDiscountPct = lines.reduce((max, l) => {
+      const gross = l.qty * Number(l.unit_price);
+      const pct = gross > 0 ? (Number(l.discount_amount) / gross) * 100 : 0;
+      return Math.max(max, pct);
+    }, 0);
+    const context: RuleContext = {
+      customer_id: dto.customer_id,
+      channel: dto.channel ?? 'field',
+      line_count: lines.length,
+      subtotal,
+      discount_total: Number(totals.discount_total),
+      tax_total: Number(totals.tax_total),
+      grand_total: Number(totals.grand_total),
+      discount_pct: Math.round(maxDiscountPct * 100) / 100,
+    };
+    const evaluation = await this.rules.evaluate(companyId, 'sales_order', 'before_save', context);
+    if (evaluation.blocked) {
+      throw badRequest('rule_blocked', evaluation.blocked.message_fa);
+    }
+    if (evaluation.requireApproval) {
+      throw new ConflictException({
+        code: 'require_approval',
+        message_fa: evaluation.requireApproval.message_fa,
+      });
+    }
+    return evaluation;
+  }
+
+  /**
+   * بررسی سقف اعتبار: فقط وقتی customer_credit با credit_limit>0 پیکربندی شده باشد.
+   * اگر مبلغ سفارش از اعتبار در دسترس بیشتر شود → 409 credit_limit_exceeded
+   * (نیازمند تأیید اعتبار با مجوز ar.credit.approve).
+   */
+  private async enforceCreditLimit(
+    companyId: string,
+    customerId: string,
+    orderTotal: number,
+  ): Promise<void> {
+    const exposure = await this.repo.customerExposure(companyId, customerId);
+    // نبودِ ردیف یا credit_limit=0 → سقف اعتباری پیکربندی نشده؛ سخت‌گیری نمی‌کنیم
+    if (!exposure || exposure.credit_limit <= 0) return;
+    if (orderTotal > exposure.available_credit) {
+      throw new ConflictException({
+        code: 'credit_limit_exceeded',
+        message_fa: 'مبلغ سفارش از اعتبار در دسترس مشتری بیشتر است؛ نیازمند تأیید اعتبار است.',
+        details: {
+          order_total: money(orderTotal),
+          available_credit: money(exposure.available_credit),
+          credit_limit: money(exposure.credit_limit),
+          total_due: money(exposure.total_due),
+        },
+      });
+    }
+  }
+
+  /**
+   * بررسی کفایت موجودی: فقط برای کالاهایی که در stock_balance ردیف دارند
+   * (کالای بدون ردیف = موجودی‌اش ردیابی نمی‌شود → مسدود نمی‌کنیم).
+   * موجودی در دسترس = qty_on_hand − qty_reserved در همه انبارهای شرکت.
+   * کمبود → 409 insufficient_stock با فهرست کالاهای کوتاه.
+   */
+  private async enforceStock(companyId: string, lines: OrderLineValues[]): Promise<void> {
+    if (lines.length === 0) return;
+    const available = await this.repo.availableStock(
+      companyId,
+      lines.map((l) => l.product_id),
     );
-    for (const rule of applicable) {
-      if (rule.effect === 'block') {
-        throw badRequest('rule_blocked', rule.message_fa);
-      }
-      if (rule.effect === 'require_approval') {
-        throw new ConflictException({
-          code: 'require_approval',
-          message_fa: rule.message_fa,
-        });
-      }
+    if (available.size === 0) return;
+    // جمع نیاز هر کالا به واحد پایه (چند قلم برای یک کالا ممکن است)
+    const needed = new Map<string, number>();
+    for (const l of lines) {
+      needed.set(l.product_id, (needed.get(l.product_id) ?? 0) + l.qty_base);
+    }
+    const shortages: { product_id: string; requested: number; available: number }[] = [];
+    for (const [productId, qty] of needed) {
+      if (!available.has(productId)) continue; // ردیابی نمی‌شود
+      const avail = available.get(productId) ?? 0;
+      if (qty > avail) shortages.push({ product_id: productId, requested: qty, available: avail });
+    }
+    if (shortages.length > 0) {
+      throw new ConflictException({
+        code: 'insufficient_stock',
+        message_fa: 'موجودی کافی برای برخی کالاها در دسترس نیست.',
+        details: { shortages },
+      });
     }
   }
 
@@ -138,6 +244,15 @@ export class OrderService {
       );
       lines = computed.lines;
       totals = computed.totals;
+      // اقلام تغییر کرده‌اند → ارزیابی قاعده و بررسی اعتبار/موجودی دوباره انجام می‌شود
+      await this.evaluateOrderRules(
+        companyId,
+        { ...dto, customer_id: customerId } as CreateOrderDto,
+        lines,
+        totals,
+      );
+      await this.enforceCreditLimit(companyId, customerId, Number(totals.grand_total));
+      await this.enforceStock(companyId, lines);
     } else {
       totals = {
         subtotal: existing.subtotal,
@@ -206,15 +321,29 @@ export class OrderService {
     const lines: OrderLineValues[] = [];
     let subtotal = 0;
     let discountTotal = 0;
+    let taxTotal = 0;
     let lineNo = 1;
 
-    for (const line of dto.lines ?? []) {
-      if (!(await this.repo.productExists(companyId, line.product_id))) {
+    const dtoLines = dto.lines ?? [];
+    const priceListId = dto.price_list_id ?? priceListFallback;
+    // یک‌بار حل دسته‌ای همه ورودی‌ها (به‌جای ۲–۳ کوئری به‌ازای هر خط)
+    const { existingProducts, packagingFactors, prices, taxRates, vatEnabled } =
+      await this.repo.resolveLineInputs(
+        companyId,
+        priceListId,
+        dtoLines.map((l) => l.product_id),
+        dtoLines
+          .filter((l) => l.packaging_id)
+          .map((l) => [l.product_id, l.packaging_id as string] as const),
+      );
+
+    for (const line of dtoLines) {
+      if (!existingProducts.has(line.product_id)) {
         throw badRequest('product_not_found', 'یکی از کالاهای انتخاب‌شده در این شرکت یافت نشد.');
       }
       let qtyBase = line.qty;
       if (line.packaging_id) {
-        const factor = await this.repo.packagingFactor(line.product_id, line.packaging_id);
+        const factor = packagingFactors.get(`${line.product_id}\u0000${line.packaging_id}`);
         if (factor == null) {
           throw badRequest('packaging_not_found', 'بسته‌بندی انتخاب‌شده برای این کالا یافت نشد.');
         }
@@ -225,10 +354,7 @@ export class OrderService {
       if (line.unit_price != null) {
         unitPrice = line.unit_price;
       } else {
-        const priceListId = dto.price_list_id ?? priceListFallback;
-        const priced = priceListId
-          ? await this.repo.priceListPrice(priceListId, line.product_id)
-          : null;
+        const priced = priceListId ? (prices.get(line.product_id) ?? null) : null;
         if (priced == null) {
           if (priceListId) {
             throw badRequest('price_missing', 'برای این کالا قیمت فعالی در لیست قیمت یافت نشد.');
@@ -243,8 +369,13 @@ export class OrderService {
       if (Number(discount) < 0) {
         throw badRequest('invalid_discount', 'مبلغ تخفیف نمی‌تواند منفی باشد.');
       }
+      // مالیات بر مبنای نرخ tax_code کالا، پس از کسر تخفیف، و فقط اگر vat شرکت فعال باشد
+      const taxRate = vatEnabled ? (taxRates.get(line.product_id) ?? 0) : 0;
+      const lineGross = line.qty * Number(unitPrice) - Number(discount);
+      const lineTax = taxRate > 0 ? Math.round(lineGross * taxRate) / 100 : 0;
       subtotal += line.qty * Number(unitPrice);
       discountTotal += Number(discount);
+      taxTotal += lineTax;
       lines.push({
         line_no: lineNo,
         product_id: line.product_id,
@@ -253,16 +384,17 @@ export class OrderService {
         qty_base: qtyBase,
         unit_price: unitPrice,
         discount_amount: discount,
+        tax_rate_pct: taxRate,
+        tax_amount: money(lineTax),
       });
       lineNo += 1;
     }
 
-    const tax = 0;
     const totals: ComputedTotals = {
       subtotal: money(subtotal),
       discount_total: money(discountTotal),
-      tax_total: money(tax),
-      grand_total: money(subtotal - discountTotal + tax),
+      tax_total: money(taxTotal),
+      grand_total: money(subtotal - discountTotal + taxTotal),
     };
     return { lines, totals };
   }

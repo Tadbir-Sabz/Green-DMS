@@ -1,16 +1,22 @@
-﻿{
+{
   "compilerOptions": {
     "target": "ES2022",
     "module": "esnext",
     "lib": ["ES2022"],
     "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": false,
     "incremental": true,
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }

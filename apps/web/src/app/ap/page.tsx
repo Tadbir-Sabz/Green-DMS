@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import { FinanceGuard } from "@/components/auth/guards";
+import APInner from "./inner";
 
 export default function APPage() {
   return (
     <FinanceGuard>
-      <div className="p-6">حساب‌های پرداختنی</div>
+      <APInner />
     </FinanceGuard>
   );
 }

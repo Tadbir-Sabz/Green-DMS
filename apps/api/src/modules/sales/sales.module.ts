@@ -19,11 +19,24 @@ import { OrderService } from './order.service';
 import { RouteController } from './route.controller';
 import { StructureRepository } from './structure.repository';
 import { StructureService } from './structure.service';
+import { SalesChainRepository } from './sales-chain.repository';
+import { DeliveryService, InvoiceService, RequestService } from './sales-chain.service';
+import {
+  DeliveryController,
+  InvoiceController,
+  RequestController,
+} from './sales-chain.controller';
 import {
   CUSTOMER_REPOSITORY,
   CUSTOMER_SERVICE,
+  DELIVERY_REPOSITORY,
+  DELIVERY_SERVICE,
+  INVOICE_REPOSITORY,
+  INVOICE_SERVICE,
   ORDER_REPOSITORY,
   ORDER_SERVICE,
+  REQUEST_REPOSITORY,
+  REQUEST_SERVICE,
   RETURN_REPOSITORY,
   RETURN_SERVICE,
   STRUCTURE_REPOSITORY,
@@ -73,6 +86,9 @@ export class SalesController {
     OrderController,
     WaybillController,
     ReturnController,
+    RequestController,
+    InvoiceController,
+    DeliveryController,
   ],
   providers: [
     CustomerRepository,
@@ -95,6 +111,16 @@ export class SalesController {
     { provide: RETURN_REPOSITORY, useExisting: ReturnRepository },
     ReturnService,
     { provide: RETURN_SERVICE, useExisting: ReturnService },
+    SalesChainRepository,
+    { provide: REQUEST_REPOSITORY, useExisting: SalesChainRepository },
+    { provide: INVOICE_REPOSITORY, useExisting: SalesChainRepository },
+    { provide: DELIVERY_REPOSITORY, useExisting: SalesChainRepository },
+    RequestService,
+    { provide: REQUEST_SERVICE, useExisting: RequestService },
+    InvoiceService,
+    { provide: INVOICE_SERVICE, useExisting: InvoiceService },
+    DeliveryService,
+    { provide: DELIVERY_SERVICE, useExisting: DeliveryService },
   ],
 })
 export class SalesModule {}

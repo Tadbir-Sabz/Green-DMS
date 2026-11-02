@@ -22,9 +22,7 @@ type Staff = {
 
 const STATUS_FA: Record<string, string> = {
   active: "فعال",
-  suspended: "معلق",
-  blocked: "مسدود",
-  closed: "بسته",
+  inactive: "غیرفعال",
 };
 
 export default function StaffPage() {
@@ -42,7 +40,7 @@ export default function StaffPage() {
   const list = useQuery({
     queryKey: ["staff", isField],
     queryFn: async () => {
-      const res = await (api as any).GET("/staff", {
+      const res = await api.GET("/staff", {
         params: {
           query: {
             ...(isField ? { is_field: isField === "true" } : {}),
@@ -51,19 +49,24 @@ export default function StaffPage() {
         },
       });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as { items: Staff[] };
+      return { items: (res.data?.items ?? []) as Staff[] };
     },
   });
 
   const create = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = {
+      const body: {
+        person_id: string;
+        is_field: boolean;
+        job_position_code?: string;
+        employee_no?: string;
+      } = {
         person_id: form.person_id.trim(),
         is_field: form.is_field,
       };
-      if (form.job_position_code.trim()) payload.job_position_code = form.job_position_code.trim();
-      if (form.employee_no.trim()) payload.employee_no = form.employee_no.trim();
-      const res = await (api as any).POST("/staff", { body: payload });
+      if (form.job_position_code.trim()) body.job_position_code = form.job_position_code.trim();
+      if (form.employee_no.trim()) body.employee_no = form.employee_no.trim();
+      const res = await api.POST("/staff", { body });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as Staff;
     },
@@ -78,8 +81,8 @@ export default function StaffPage() {
 
   const toggle = useMutation({
     mutationFn: async (s: Staff) => {
-      const next = s.status === "active" ? "suspended" : "active";
-      const res = await (api as any).PATCH(`/staff/${s.id}`, { body: { status: next } });
+      const next = s.status === "active" ? "inactive" : "active";
+      const res = await api.PATCH("/staff/{id}", { params: { path: { id: s.id } }, body: { status: next } });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as Staff;
     },
