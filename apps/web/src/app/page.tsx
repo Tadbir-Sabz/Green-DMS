@@ -1,28 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { useAuth } from "@/lib/auth";
+import { ADMIN_ROLES, FINANCE_ROLES, SALES_ROLES, WAREHOUSE_ROLES } from "@/lib/rbac";
 import DashboardCharts, { type ChartPoint } from "@/app/dashboard-charts";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { toPersianDate } from "@/lib/date";
 
 /**
- * داشبورد اجرایی — KPIهای واقعی از API (نه مقادیر سخت‌کدشدهٔ «۰» پیشین).
+ * داشبورد لایه‌ای (ضمیمه C.۱) — KPIهای واقعی از API، به تفکیک لایهٔ نقش:
  *
- * منابع داده (همگی تایپ‌شده از قرارداد):
- *  - GET /orders?order_date=<امروز>  → تعداد و مبلغ فروش امروز
- *  - GET /orders (اخیر)              → روند فروش برای نمودار (سطل‌بندی بر پایهٔ تاریخ)
- *  - GET /invoices                   → فاکتورهای صادرشدهٔ امروز (وضعیت ثبت/پرداخت‌شده)
- *  - GET /ar                         → بدهکاری معوق (سررسید گذشته = total − current)
- *  - GET /treasury                   → موقعیت خزانه (جمع ماندهٔ دفتری)
- *  - GET /rules-engine/approvals     → تأییدهای در انتظار
- *  - GET /tracking/live              → نیروهای میدانی روی خط
+ *  - مدیرعامل/ادمین (executive): فروش امروز، فاکتورها، بدهکاری معوق، خزانه،
+ *    تأییدهای در انتظار، نیروهای زنده + نمودار روند فروش
+ *  - مدیر/فروشنده (sales): سفارش‌ها و فروش امروز، تورهای امروز، تأییدها،
+ *    نیروهای زنده + نمودار روند فروش
+ *  - مالی (finance): بدهکاری معوق، موقعیت خزانه، تأییدها، سلامت یکپارچه‌سازی‌ها
+ *  - انبار (warehouse): موجودی بحرانی، انبارگردانی باز، انتقال در جریان، تحویل معوق
  *
- * دسترسی: فقط ورود لازم است (RoleGuard بدون نقش) — AppShell نشست را bootstrap می‌کند.
+ * هر کوئری فقط وقتی فعال است که لایهٔ فعال به آن نیاز دارد (react-query `enabled`).
+ * لایه از نقش‌های نشست (useAuth) استخراج می‌شود؛ ادمین می‌تواند لایه‌ها را پیش‌نمایش کند.
+ * دسترسی: فقط ورود لازم است (RoleGuard بدون نقش)؛ خود API دامنهٔ داده را per-role
+ * فیلتر می‌کند (Row-level)، بنابراین هر لایه فقط دادهٔ مجاز را می‌بیند.
  */
 type SalesOrder = components["schemas"]["SalesOrder"];
 type Invoice = components["schemas"]["Invoice"];
@@ -30,8 +33,25 @@ type ArAgingRow = components["schemas"]["ArAgingRow"];
 type TreasuryPosition = components["schemas"]["TreasuryPosition"];
 type ApprovalRequest = components["schemas"]["ApprovalRequest"];
 type LiveLocation = components["schemas"]["LiveLocation"];
+type Tour = components["schemas"]["Tour"];
+type IntegrationStatus = components["schemas"]["IntegrationStatus"];
+type StockBalance = components["schemas"]["StockBalance"];
+type StockTake = components["schemas"]["StockTake"];
+type Transfer = components["schemas"]["Transfer"];
+type Delivery = components["schemas"]["Delivery"];
+
+type Layer = "executive" | "sales" | "finance" | "warehouse";
+
+const LAYER_FA: Record<Layer, string> = {
+  executive: "مدیرعامل",
+  sales: "فروش",
+  finance: "مالی",
+  warehouse: "انبار",
+};
 
 const ISSUED_INVOICE_STATUSES = new Set(["posted", "partially_paid", "paid"]);
+const OPEN_STOCKTAKE_STATUSES = new Set(["draft", "counting", "review"]);
+const PENDING_DELIVERY_STATUSES = new Set(["planned", "dispatched", "partial"]);
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -43,11 +63,36 @@ function num(v: string | number | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function detectLayer(hasRole: (allowed: string[]) => boolean): Layer {
+  if (hasRole(ADMIN_ROLES)) return "executive";
+  if (hasRole(FINANCE_ROLES)) return "finance";
+  if (hasRole(WAREHOUSE_ROLES)) return "warehouse";
+  if (hasRole(SALES_ROLES)) return "sales";
+  return "executive";
+}
+
+type Card = { label: string; value: string; sub: string; loading?: boolean; href?: string };
+
 function DashboardInner() {
+  const { user, hasRole } = useAuth();
+  const autoLayer = detectLayer(hasRole);
+  const [layer, setLayer] = useState<Layer>(autoLayer);
+  const isAdmin = user ? hasRole(ADMIN_ROLES) : false;
   const today = todayISO();
+
+  const needOrders = layer === "executive" || layer === "sales";
+  const needInvoices = layer === "executive";
+  const needAr = layer === "executive" || layer === "finance";
+  const needTreasury = layer === "executive" || layer === "finance";
+  const needApprovals = layer !== "warehouse";
+  const needTracking = layer === "executive" || layer === "sales";
+  const needTours = layer === "sales";
+  const needIntegrations = layer === "finance";
+  const needWarehouse = layer === "warehouse";
 
   const ordersToday = useQuery({
     queryKey: ["dash-orders-today", today],
+    enabled: needOrders,
     queryFn: async () => {
       const res = await api.GET("/orders", { params: { query: { order_date: today, limit: 200 } } });
       if (res.error) throw new Error(errorMessage(res.error));
@@ -57,6 +102,7 @@ function DashboardInner() {
 
   const ordersRecent = useQuery({
     queryKey: ["dash-orders-recent"],
+    enabled: needOrders,
     queryFn: async () => {
       const res = await api.GET("/orders", { params: { query: { limit: 500 } } });
       if (res.error) throw new Error(errorMessage(res.error));
@@ -66,6 +112,7 @@ function DashboardInner() {
 
   const invoices = useQuery({
     queryKey: ["dash-invoices", today],
+    enabled: needInvoices,
     queryFn: async () => {
       const res = await api.GET("/invoices", { params: { query: { limit: 200 } } });
       if (res.error) throw new Error(errorMessage(res.error));
@@ -75,6 +122,7 @@ function DashboardInner() {
 
   const ar = useQuery({
     queryKey: ["dash-ar"],
+    enabled: needAr,
     queryFn: async () => {
       const res = await api.GET("/ar", { params: { query: { limit: 200 } } });
       if (res.error) throw new Error(errorMessage(res.error));
@@ -84,6 +132,7 @@ function DashboardInner() {
 
   const treasury = useQuery({
     queryKey: ["dash-treasury"],
+    enabled: needTreasury,
     queryFn: async () => {
       const res = await api.GET("/treasury");
       if (res.error) throw new Error(errorMessage(res.error));
@@ -93,8 +142,8 @@ function DashboardInner() {
 
   const approvals = useQuery({
     queryKey: ["dash-approvals"],
+    enabled: needApprovals,
     queryFn: async () => {
-      // /rules-engine/approvals یک «آرایهٔ خام» با تنها پارامتر status برمی‌گرداند
       const res = await api.GET("/rules-engine/approvals", { params: { query: { status: "pending" } } });
       if (res.error) throw new Error(errorMessage(res.error));
       return (res.data ?? []) as ApprovalRequest[];
@@ -103,6 +152,7 @@ function DashboardInner() {
 
   const tracking = useQuery({
     queryKey: ["dash-tracking"],
+    enabled: needTracking,
     queryFn: async () => {
       const res = await api.GET("/tracking/live");
       if (res.error) throw new Error(errorMessage(res.error));
@@ -110,29 +160,71 @@ function DashboardInner() {
     },
   });
 
-  const kpi = useMemo(() => {
-    const orders = ordersToday.data ?? [];
-    const ordersCount = orders.length;
-    const salesToday = orders.reduce((acc, o) => acc + num(o.grand_total), 0);
+  const tours = useQuery({
+    queryKey: ["dash-tours", today],
+    enabled: needTours,
+    queryFn: async () => {
+      const res = await api.GET("/tours", { params: { query: { tour_date: today, limit: 200 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as Tour[];
+    },
+  });
 
-    const inv = invoices.data ?? [];
-    const invoicesToday = inv.filter(
-      (i) => i.invoice_date === today && ISSUED_INVOICE_STATUSES.has(i.status ?? ""),
-    ).length;
+  const integrations = useQuery({
+    queryKey: ["dash-integrations"],
+    enabled: needIntegrations,
+    queryFn: async () => {
+      const res = await api.GET("/integrations");
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as IntegrationStatus[];
+    },
+  });
 
-    const overdue = (ar.data ?? []).reduce(
-      (acc, r) => acc + Math.max(0, num(r.total) - num(r.current)),
-      0,
-    );
+  const stock = useQuery({
+    queryKey: ["dash-stock"],
+    enabled: needWarehouse,
+    queryFn: async () => {
+      const res = await api.GET("/stock", { params: { query: { limit: 500 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as StockBalance[];
+    },
+  });
 
-    const cash = (treasury.data ?? []).reduce((acc, t) => acc + num(t.balance_book), 0);
-    const pendingApprovals = (approvals.data ?? []).filter((a) => a.status === "pending").length;
-    const liveStaff = (tracking.data ?? []).length;
+  const stocktakes = useQuery({
+    queryKey: ["dash-stocktakes"],
+    enabled: needWarehouse,
+    queryFn: async () => {
+      const res = await api.GET("/stocktakes", { params: { query: { limit: 200 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as StockTake[];
+    },
+  });
 
-    return { ordersCount, salesToday, invoicesToday, overdue, cash, pendingApprovals, liveStaff };
-  }, [ordersToday.data, invoices.data, ar.data, treasury.data, approvals.data, tracking.data, today]);
+  const transfers = useQuery({
+    queryKey: ["dash-transfers"],
+    enabled: needWarehouse,
+    queryFn: async () => {
+      const res = await api.GET("/transfers", { params: { query: { limit: 200 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as Transfer[];
+    },
+  });
 
-  // روند فروش: سطل‌بندی سفارش‌های اخیر بر پایهٔ تاریخ سفارش (میلیون ریال)، ۱۲ نقطهٔ آخر
+  const deliveries = useQuery({
+    queryKey: ["dash-deliveries"],
+    enabled: needWarehouse,
+    queryFn: async () => {
+      const res = await api.GET("/deliveries", { params: { query: { limit: 200 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as Delivery[];
+    },
+  });
+
+  const salesToday = useMemo(
+    () => (ordersToday.data ?? []).reduce((acc, o) => acc + num(o.grand_total), 0),
+    [ordersToday.data],
+  );
+
   const chart = useMemo<ChartPoint[]>(() => {
     const buckets = new Map<string, number>();
     for (const o of ordersRecent.data ?? []) {
@@ -146,18 +238,60 @@ function DashboardInner() {
       .map(([d, total]) => ({ label: toPersianDate(d), value: Math.round(total / 1e6) }));
   }, [ordersRecent.data]);
 
-  const cards = [
-    { label: "سفارشات امروز", value: formatNumber(kpi.ordersCount), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading },
-    { label: "فاکتورهای صادرشده", value: formatNumber(kpi.invoicesToday), sub: "امروز · ثبت/پرداخت‌شده", loading: invoices.isLoading },
-    { label: "مبلغ فروش امروز", value: formatMoney(kpi.salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading },
-    { label: "بدهکاری معوق", value: formatMoney(kpi.overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading },
-  ];
+  const cards: Card[] = useMemo(() => {
+    if (layer === "executive") {
+      const inv = invoices.data ?? [];
+      const invoicesToday = inv.filter(
+        (i) => i.invoice_date === today && ISSUED_INVOICE_STATUSES.has(i.status ?? ""),
+      ).length;
+      const overdue = (ar.data ?? []).reduce((acc, r) => acc + Math.max(0, num(r.total) - num(r.current)), 0);
+      const cash = (treasury.data ?? []).reduce((acc, t) => acc + num(t.balance_book), 0);
+      return [
+        { label: "سفارشات امروز", value: formatNumber((ordersToday.data ?? []).length), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading },
+        { label: "فاکتورهای صادرشده", value: formatNumber(invoicesToday), sub: "امروز · ثبت/پرداخت‌شده", loading: invoices.isLoading },
+        { label: "مبلغ فروش امروز", value: formatMoney(salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading },
+        { label: "بدهکاری معوق", value: formatMoney(overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading, href: "/ar" },
+        { label: "موقعیت خزانه", value: formatMoney(cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", loading: treasury.isLoading, href: "/treasury" },
+        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals" },
+        { label: "نیروهای میدانی زنده", value: formatNumber((tracking.data ?? []).length), sub: "روی خط در لحظه", loading: tracking.isLoading, href: "/tracking" },
+      ];
+    }
+    if (layer === "sales") {
+      const t = tours.data ?? [];
+      const activeTours = t.filter((x) => x.status === "active").length;
+      return [
+        { label: "سفارشات امروز", value: formatNumber((ordersToday.data ?? []).length), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading, href: "/orders" },
+        { label: "مبلغ فروش امروز", value: formatMoney(salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading },
+        { label: "تورهای امروز", value: formatNumber(t.length), sub: `${formatNumber(activeTours)} تور در حال اجرا`, loading: tours.isLoading, href: "/tours" },
+        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals" },
+        { label: "نیروهای میدانی زنده", value: formatNumber((tracking.data ?? []).length), sub: "روی خط در لحظه", loading: tracking.isLoading, href: "/tracking" },
+      ];
+    }
+    if (layer === "finance") {
+      const overdue = (ar.data ?? []).reduce((acc, r) => acc + Math.max(0, num(r.total) - num(r.current)), 0);
+      const cash = (treasury.data ?? []).reduce((acc, t) => acc + num(t.balance_book), 0);
+      const unhealthy = (integrations.data ?? []).filter((s) => s.healthy === false).length;
+      return [
+        { label: "بدهکاری معوق", value: formatMoney(overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading, href: "/ar" },
+        { label: "موقعیت خزانه", value: formatMoney(cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", loading: treasury.isLoading, href: "/treasury" },
+        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals" },
+        { label: "یکپارچه‌سازی نارسانا", value: formatNumber(unhealthy), sub: "سرویس بیرونی با خطا", loading: integrations.isLoading, href: "/integrations" },
+      ];
+    }
+    // warehouse
+    const critical = (stock.data ?? []).filter((s) => num(s.qty_available) <= 0).length;
+    const openCounts = (stocktakes.data ?? []).filter((c) => OPEN_STOCKTAKE_STATUSES.has(c.status ?? "")).length;
+    const inTransit = (transfers.data ?? []).filter((t) => t.status === "in_transit").length;
+    const pendingDeliveries = (deliveries.data ?? []).filter((d) => PENDING_DELIVERY_STATUSES.has(d.status ?? "")).length;
+    return [
+      { label: "موجودی بحرانی", value: formatNumber(critical), sub: "کالای با موجودی صفر", loading: stock.isLoading, href: "/warehouses" },
+      { label: "انبارگردانی باز", value: formatNumber(openCounts), sub: "پیش‌نویس/شمارش/بازبینی", loading: stocktakes.isLoading, href: "/stock-count" },
+      { label: "انتقال در جریان", value: formatNumber(inTransit), sub: "بین انباری در راه", loading: transfers.isLoading, href: "/transfers" },
+      { label: "تحویل معوق", value: formatNumber(pendingDeliveries), sub: "برنامه‌ریزی/ارسال/جزئی", loading: deliveries.isLoading, href: "/issues" },
+    ];
+  }, [layer, ordersToday.data, invoices.data, ar.data, treasury.data, approvals.data, tracking.data, tours.data, integrations.data, stock.data, stocktakes.data, transfers.data, deliveries.data, salesToday, today]);
 
-  const secondary = [
-    { label: "موقعیت خزانه", value: formatMoney(kpi.cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", href: "/treasury", loading: treasury.isLoading },
-    { label: "تأییدهای در انتظار", value: formatNumber(kpi.pendingApprovals), sub: "نیازمند تصمیم", href: "/approvals", loading: approvals.isLoading },
-    { label: "نیروهای میدانی زنده", value: formatNumber(kpi.liveStaff), sub: "روی خط در لحظه", href: "/tracking", loading: tracking.isLoading },
-  ];
+  const showChart = layer === "executive" || layer === "sales";
 
   const modules = [
     { title: "سفارشات فروش", desc: "مدیریت چرخهٔ سفارش تا فاکتور", href: "/orders" },
@@ -172,49 +306,68 @@ function DashboardInner() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">داشبورد اجرایی</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">نمای کلی عملکرد فروش و پخش مویرگی</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
+            نمای لایهٔ «{LAYER_FA[layer]}» — عملکرد فروش و پخش مویرگی
+          </p>
         </div>
-        <div className="text-sm text-slate-500 dark:text-slate-400">{toPersianDate(today)}</div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#1f2937] rounded-xl p-1">
+              {(Object.keys(LAYER_FA) as Layer[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLayer(l)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    layer === l
+                      ? "bg-white dark:bg-[#0f172a] text-emerald-700 dark:text-emerald-400 shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  {LAYER_FA[l]}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="text-sm text-slate-500 dark:text-slate-400">{toPersianDate(today)}</div>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {cards.map((k) => (
-          <div key={k.label} className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 shadow-sm">
-            <div className="text-sm text-slate-500 dark:text-slate-400">{k.label}</div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
-              {k.loading ? <span className="text-slate-300 dark:text-slate-600">…</span> : k.value}
+        {cards.map((k) => {
+          const inner = (
+            <>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{k.label}</div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
+                {k.loading ? <span className="text-slate-300 dark:text-slate-600">…</span> : k.value}
+              </div>
+              <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">{k.sub}</div>
+            </>
+          );
+          const cls = "bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 shadow-sm";
+          return k.href ? (
+            <Link key={k.label} href={k.href} className={`${cls} hover:shadow-md hover:-translate-y-0.5 transition-all`}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={k.label} className={cls}>
+              {inner}
             </div>
-            <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">{k.sub}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        {secondary.map((s) => (
-          <Link
-            key={s.label}
-            href={s.href}
-            className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
-          >
-            <div className="text-sm text-slate-500 dark:text-slate-400">{s.label}</div>
-            <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
-              {s.loading ? <span className="text-slate-300 dark:text-slate-600">…</span> : s.value}
-            </div>
-            <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">{s.sub}</div>
-          </Link>
-        ))}
-      </div>
-
-      <DashboardCharts
-        data={chart}
-        title="روند فروش"
-        unit="میلیون ریال"
-        loading={ordersRecent.isLoading}
-        emptyMessage="سفارشی برای رسم روند یافت نشد"
-      />
+      {showChart && (
+        <DashboardCharts
+          data={chart}
+          title="روند فروش"
+          unit="میلیون ریال"
+          loading={ordersRecent.isLoading}
+          emptyMessage="سفارشی برای رسم روند یافت نشد"
+        />
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-4">
