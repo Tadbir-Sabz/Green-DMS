@@ -97,7 +97,7 @@ tags:
   - name: ar
     description: حسابداری فروش — دفتر مشتری و سنی بدهکاری
   - name: ap
-    description: حسابداری خرید — دفتر تأمین‌کننده
+    description: حسابداری خرید — دفتر تأمین‌کننده، سفارش خرید، فاکتور و سند پرداخت
   - name: treasury
     description: خزانه‌داری — صندوق و بانک
   - name: cheques
@@ -2113,6 +2113,215 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/SupplierBalance' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------- خرید: سفارش، فاکتور تأمین‌کننده، سند پرداخت ----------------
+  /purchase-orders:
+    get:
+      tags: [ap]
+      summary: فهرست سفارش‌های خرید
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, pending_approval, approved, partially_received, received, closed, cancelled] } }
+      responses:
+        '200':
+          description: صفحه‌ای از سفارش‌های خرید
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/PurchaseOrder' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت سفارش خرید (پیش‌نویس) با اقلام
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PurchaseOrder' }
+      responses:
+        '201':
+          description: سفارش خرید ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /purchase-orders/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک سفارش خرید با اقلام
+      responses:
+        '200':
+          description: سفارش خرید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /purchase-orders/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [ap]
+      summary: تأیید سفارش خرید (draft → approved)
+      responses:
+        '200':
+          description: سفارش خرید تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /supplier-invoices:
+    get:
+      tags: [ap]
+      summary: فهرست فاکتورهای تأمین‌کنندگان
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, matched, mismatch, approved, partially_paid, paid, voided] } }
+      responses:
+        '200':
+          description: صفحه‌ای از فاکتورهای تأمین‌کننده
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/SupplierInvoice' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت فاکتور/صورت‌حساب تأمین‌کننده (پیش‌نویس)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierInvoice' }
+      responses:
+        '201':
+          description: فاکتور تأمین‌کننده ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierInvoice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /supplier-invoices/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک فاکتور تأمین‌کننده با اقلام
+      responses:
+        '200':
+          description: فاکتور تأمین‌کننده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierInvoice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /supplier-invoices/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [ap]
+      summary: تأیید فاکتور تأمین‌کننده و ثبت بدهکاری در دفتر
+      responses:
+        '200':
+          description: فاکتور تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierInvoice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /payment-vouchers:
+    get:
+      tags: [ap]
+      summary: فهرست اسناد پرداخت به تأمین‌کنندگان
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, posted, voided] } }
+      responses:
+        '200':
+          description: صفحه‌ای از اسناد پرداخت
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/PaymentVoucher' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentVoucher' }
+      responses:
+        '201':
+          description: سند پرداخت ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentVoucher' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /payment-vouchers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک سند پرداخت با تخصیص‌ها
+      responses:
+        '200':
+          description: سند پرداخت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentVoucher' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------- خزانه، چک، وصول ----------------
   /treasury:
@@ -4298,6 +4507,105 @@ components:
         supplier_name: { type: string }
         total_payable: { type: string }
         due_next: { type: [string, 'null'], format: date }
+
+    PurchaseOrderLine:
+      type: object
+      description: قلم سفارش خرید (ماژول ۸ — مهاجرت 0015)
+      properties:
+        line_no: { type: integer }
+        product_id: { type: string, format: uuid }
+        qty: { type: string }
+        qty_received: { type: string }
+        unit_price: { type: string }
+        discount_amount: { type: string }
+        tax_amount: { type: string }
+        line_total: { type: string }
+
+    PurchaseOrder:
+      type: object
+      required: [branch_id, supplier_id, warehouse_id, lines]
+      description: سفارش خرید (ماژول ۸ — مهاجرت 0015)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        supplier_id: { type: string, format: uuid }
+        warehouse_id: { type: string, format: uuid }
+        order_date: { type: string, format: date }
+        expected_date: { type: [string, 'null'], format: date }
+        currency: { type: string }
+        subtotal: { type: string, readOnly: true }
+        discount_total: { type: string, readOnly: true }
+        tax_total: { type: string, readOnly: true }
+        grand_total: { type: string, readOnly: true }
+        status:
+          type: string
+          readOnly: true
+          enum: [draft, pending_approval, approved, partially_received, received, closed, cancelled]
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PurchaseOrderLine' }
+
+    SupplierInvoiceLine:
+      type: object
+      description: قلم فاکتور تأمین‌کننده (ماژول ۸)
+      properties:
+        line_no: { type: integer }
+        product_id: { type: string, format: uuid }
+        qty: { type: string }
+        unit_price: { type: string }
+        tax_amount: { type: string }
+        line_total: { type: string }
+
+    SupplierInvoice:
+      type: object
+      required: [branch_id, supplier_id, doc_number, amount]
+      description: فاکتور/صورت‌حساب تأمین‌کننده (ماژول ۸ — مهاجرت 0015)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, description: شماره فاکتورِ تأمین‌کننده }
+        internal_no: { type: string, readOnly: true, description: شمارهٔ داخلی سامانه }
+        supplier_id: { type: string, format: uuid }
+        purchase_order_id: { type: [string, 'null'], format: uuid }
+        invoice_date: { type: string, format: date }
+        due_date: { type: [string, 'null'], format: date }
+        amount: { type: string, description: مبلغ خالص (بدون مالیات) }
+        tax_amount: { type: string }
+        status:
+          type: string
+          readOnly: true
+          enum: [draft, matched, mismatch, approved, partially_paid, paid, voided]
+        match_status:
+          type: string
+          readOnly: true
+          enum: [pending, matched, price_variance, qty_variance, no_grn]
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierInvoiceLine' }
+
+    PaymentVoucher:
+      type: object
+      required: [branch_id, supplier_id, method_id, amount]
+      description: سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها (ماژول ۸)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        supplier_id: { type: string, format: uuid }
+        payment_date: { type: string, format: date }
+        method_id: { type: string, format: uuid, description: از `payment_method` }
+        amount: { type: string }
+        status: { type: string, readOnly: true, enum: [draft, posted, voided] }
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              supplier_invoice_id: { type: string, format: uuid }
+              amount: { type: string }
 
     TreasuryPosition:
       type: object

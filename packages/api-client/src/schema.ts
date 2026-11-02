@@ -4075,6 +4075,452 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/purchase-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست سفارش‌های خرید */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    status?: "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از سفارش‌های خرید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["PurchaseOrder"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت سفارش خرید (پیش‌نویس) با اقلام */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            responses: {
+                /** @description سفارش خرید ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک سفارش خرید با اقلام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سفارش خرید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تأیید سفارش خرید (draft → approved) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سفارش خرید تأیید شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/supplier-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست فاکتورهای تأمین‌کنندگان */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    status?: "draft" | "matched" | "mismatch" | "approved" | "partially_paid" | "paid" | "voided";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از فاکتورهای تأمین‌کننده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["SupplierInvoice"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت فاکتور/صورت‌حساب تأمین‌کننده (پیش‌نویس) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SupplierInvoice"];
+                };
+            };
+            responses: {
+                /** @description فاکتور تأمین‌کننده ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierInvoice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/supplier-invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک فاکتور تأمین‌کننده با اقلام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فاکتور تأمین‌کننده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierInvoice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/supplier-invoices/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تأیید فاکتور تأمین‌کننده و ثبت بدهکاری در دفتر */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فاکتور تأیید شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierInvoice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-vouchers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست اسناد پرداخت به تأمین‌کنندگان */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    status?: "draft" | "posted" | "voided";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از اسناد پرداخت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["PaymentVoucher"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PaymentVoucher"];
+                };
+            };
+            responses: {
+                /** @description سند پرداخت ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentVoucher"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["RuleRejected"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-vouchers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک سند پرداخت با تخصیص‌ها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سند پرداخت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentVoucher"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/treasury": {
         parameters: {
             query?: never;
@@ -7692,6 +8138,106 @@ export interface components {
             total_payable?: string;
             /** Format: date */
             due_next?: string | null;
+        };
+        /** @description قلم سفارش خرید (ماژول ۸ — مهاجرت 0015) */
+        PurchaseOrderLine: {
+            line_no?: number;
+            /** Format: uuid */
+            product_id?: string;
+            qty?: string;
+            qty_received?: string;
+            unit_price?: string;
+            discount_amount?: string;
+            tax_amount?: string;
+            line_total?: string;
+        };
+        /** @description سفارش خرید (ماژول ۸ — مهاجرت 0015) */
+        PurchaseOrder: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            readonly doc_number?: string;
+            readonly fiscal_year?: number;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: uuid */
+            warehouse_id: string;
+            /** Format: date */
+            order_date?: string;
+            /** Format: date */
+            expected_date?: string | null;
+            currency?: string;
+            readonly subtotal?: string;
+            readonly discount_total?: string;
+            readonly tax_total?: string;
+            readonly grand_total?: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
+            lines: components["schemas"]["PurchaseOrderLine"][];
+        };
+        /** @description قلم فاکتور تأمین‌کننده (ماژول ۸) */
+        SupplierInvoiceLine: {
+            line_no?: number;
+            /** Format: uuid */
+            product_id?: string;
+            qty?: string;
+            unit_price?: string;
+            tax_amount?: string;
+            line_total?: string;
+        };
+        /** @description فاکتور/صورت‌حساب تأمین‌کننده (ماژول ۸ — مهاجرت 0015) */
+        SupplierInvoice: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** @description شماره فاکتورِ تأمین‌کننده */
+            doc_number: string;
+            /** @description شمارهٔ داخلی سامانه */
+            readonly internal_no?: string;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: uuid */
+            purchase_order_id?: string | null;
+            /** Format: date */
+            invoice_date?: string;
+            /** Format: date */
+            due_date?: string | null;
+            /** @description مبلغ خالص (بدون مالیات) */
+            amount: string;
+            tax_amount?: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "matched" | "mismatch" | "approved" | "partially_paid" | "paid" | "voided";
+            /** @enum {string} */
+            readonly match_status?: "pending" | "matched" | "price_variance" | "qty_variance" | "no_grn";
+            lines?: components["schemas"]["SupplierInvoiceLine"][];
+        };
+        /** @description سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها (ماژول ۸) */
+        PaymentVoucher: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            readonly doc_number?: string;
+            readonly fiscal_year?: number;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: date */
+            payment_date?: string;
+            /**
+             * Format: uuid
+             * @description از `payment_method`
+             */
+            method_id: string;
+            amount: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "posted" | "voided";
+            allocations?: {
+                /** Format: uuid */
+                supplier_invoice_id?: string;
+                amount?: string;
+            }[];
         };
         /** @description مانده صندوق/بانک و مغایرت (ماژول ۱۰) */
         TreasuryPosition: {
