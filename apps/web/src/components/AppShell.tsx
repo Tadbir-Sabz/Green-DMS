@@ -41,6 +41,7 @@ const navGroups: NavGroup[] = [
   ] },
   { title: "فروش و توزیع", items: [
     { href: "/orders", label: "سفارشات فروش", icon: IconCart, perm: "sales.order.view" },
+    { href: "/requests", label: "درخواست‌های مشتری", icon: IconCart, perm: "sales.request.view" },
     { href: "/waybills", label: "حواله‌ها", icon: IconCart, perm: "sales.waybill.view" },
     { href: "/invoices", label: "فاکتورها", icon: IconChart, perm: "sales.invoice.view" },
     { href: "/returns", label: "مرجوعی‌ها", icon: IconCart, perm: "sales.return.request" },

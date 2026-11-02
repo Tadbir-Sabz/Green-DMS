@@ -1,3 +1,108 @@
-﻿export default function Page() {
-  return <div className="space-y-4"><h1 className="text-xl font-bold">لیست قیمت</h1><div className="bg-white border rounded-lg p-6 text-gray-500">لیست‌های قیمت، قیمت مشتری‌محور</div></div>;
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { components } from "@dms/api-client";
+import { api, errorMessage } from "@/lib/api";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import AdminGuard from "@/components/auth/guards";
+import { ExportButtons } from "@/components/reports/ExportButtons";
+import { formatNumber } from "@/lib/format";
+
+/**
+ * لیست‌های قیمت — GET /price-lists (تایپ‌شده از قرارداد).
+ * جایگزین برچسب خالیِ پیشین. قیمت مشتری‌محور در `customer_price` اولویت دارد؛
+ * این صفحه فهرست لیست‌ها به‌همراه تعداد اقلام و وضعیت فعال بودن را نشان می‌دهد.
+ */
+type PriceList = components["schemas"]["PriceList"];
+
+const KIND_FA: Record<string, string> = {
+  general: "عمومی",
+  wholesale: "عمده‌فروشی",
+  retail: "خرده‌فروشی",
+  chain: "زنجیره‌ای",
+  cooperative: "تعاونی",
+  channel: "کانالی",
+};
+
+function PricesInner() {
+  const [kind, setKind] = useState("");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["price-lists"],
+    queryFn: async () => {
+      const res = await api.GET("/price-lists", { params: { query: { limit: 200 } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as PriceList[];
+    },
+  });
+
+  const all = data ?? [];
+  const items = kind ? all.filter((p) => p.kind === kind) : all;
+
+  const columns: Column<PriceList>[] = [
+    { key: "code", header: "کد", render: (p) => <span className="font-mono text-xs">{p.code ?? "—"}</span> },
+    { key: "title", header: "عنوان", render: (p) => <span className="text-sm">{p.title ?? "—"}</span> },
+    { key: "kind", header: "نوع", render: (p) => <span className="text-xs">{KIND_FA[p.kind ?? ""] ?? p.kind ?? "—"}</span> },
+    { key: "currency", header: "واحد پول", render: (p) => <span className="text-xs">{p.currency ?? "IRR"}</span> },
+    {
+      key: "items",
+      header: "اقلام",
+      align: "end",
+      render: (p) => <span className="text-xs">{formatNumber((p.items ?? []).length)} قلم</span>,
+    },
+    {
+      key: "active",
+      header: "وضعیت",
+      render: (p) =>
+        p.is_active ? (
+          <span className="px-2 py-0.5 rounded-md text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">فعال</span>
+        ) : (
+          <span className="px-2 py-0.5 rounded-md text-xs bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300">غیرفعال</span>
+        ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">لیست‌های قیمت</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">قیمت‌گذاری کالاها به تفکیک نوع مشتری؛ قیمت مشتری‌محور اولویت دارد</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+          >
+            <option value="">همهٔ انواع</option>
+            {Object.entries(KIND_FA).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <ExportButtons data={items} tableId="prices-table" filename="price-lists" />
+        </div>
+      </div>
+
+      <div id="prices-table">
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(p) => p.id ?? p.code ?? Math.random().toString()}
+          loading={isLoading}
+          error={error ? (error as Error).message : null}
+          emptyMessage="لیست قیمتی یافت نشد"
+        />
+      </div>
+    </div>
+  );
+}
+
+export default function PricesPage() {
+  return (
+    <AdminGuard>
+      <PricesInner />
+    </AdminGuard>
+  );
 }
