@@ -3,6 +3,8 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { TenantInterceptor } from './common/tenant.interceptor';
 import { CommonInfraModule } from './common/common-infra.module';
+import { DocNumberModule } from './common/doc-number.module';
+import { AuditModule } from './common/audit.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { IdentityRbacModule } from './modules/identity-rbac/identity-rbac.module';
@@ -15,6 +17,7 @@ import { TrackingModule } from './modules/tracking/tracking.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 /**
  * ریشه اپ API — چیدمان ماژول‌ها دقیقاً Core Modules سند §۳.۳:
@@ -30,6 +33,10 @@ import { ReportsModule } from './modules/reports/reports.module';
     // زیرساخت مشترک: Throttler، Redis، صف‌های BullMQ و health سراسری (فاز B)
     CommonInfraModule,
     DatabaseModule,
+    // شماره‌گذاری اسناد از document_series/number_counter (سراسری)
+    DocNumberModule,
+    // ممیزی رویدادها در audit_log (سراسری)
+    AuditModule,
     HealthModule,
     IdentityRbacModule,
     MasterDataModule,
@@ -41,6 +48,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     FinanceModule,
     IntegrationsModule,
     ReportsModule,
+    SettingsModule,
   ],
   providers: [
     // قرارداد Error با request_id برای همهٔ استثناها — باگ‌ها فقط در سمت سرور لاگ می‌شوند

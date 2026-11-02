@@ -45,15 +45,26 @@ const OUT_OF_CONTRACT = new Set(['/api/health']);
  * می‌دهند و جزئی از قرارداد نیستند؛ با پیاده‌سازی هر ماژول حذف می‌شوند.
  */
 const SCAFFOLD_ROUTES = new Set([
+  // info-only ماژول‌های پایه (هنوز پیاده‌سازی کامل نشده‌اند)
   '/api/v1/identity-rbac',
   '/api/v1/master-data',
   '/api/v1/inventory',
   '/api/v1/rules-engine',
   '/api/v1/sales',
-  '/api/v1/tours',
   '/api/v1/tracking',
   '/api/v1/finance',
-  '/api/v1/integrations',
+  //stubهای BI/پورتال/مسیریابی — داده ساختگی برمی‌گردانند، جزو قرارداد نیستند
+  '/api/v1/bi',
+  '/api/v1/bi/kpi',
+  '/api/v1/bi/abc-customers',
+  '/api/v1/bi/abc-products',
+  '/api/v1/portal',
+  '/api/v1/portal/invoices',
+  '/api/v1/portal/balance',
+  '/api/v1/portal/orders',
+  '/api/v1/routing',
+  '/api/v1/routing/optimize',
+  // tours و integrations پیش‌تر اسکلت بودند؛ اکنون endpoint واقعی و مستندند
 ]);
 const API_PREFIX = '/api/v1';
 

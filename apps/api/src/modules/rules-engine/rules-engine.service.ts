@@ -5,17 +5,125 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Page } from '@dms/contracts';
+import { isUUID } from 'class-validator';
 import { RULE_ENTITIES, RULE_EVENTS, RULE_EFFECTS } from './rules-engine.dto';
 import type {
+  ApprovalRequestRow,
   CreateApprovalChainDto,
   CreateApprovalRequestDto,
   CreateRuleDto,
+  EvalRule,
+  RuleConditionRow,
+  RuleRow,
   RulesEngineRepository,
 } from './rules-engine.repository';
+
+/**
+ * زمینهٔ ارزیابی قاعده — مجموعه فیلدهای عددی/رشته‌ای/منطقی موجودیتی که قاعده روی
+ * آن اجرا می‌شود (مثلاً sales_order: subtotal، discount_pct، customer_credit_used و…).
+ */
+export type RuleContext = Record<string, string | number | boolean | null | undefined>;
+
+/** نتیجهٔ ارزیابی یک قاعدهٔ منطبق */
+export interface RuleHit {
+  rule_id: string;
+  code: string;
+  effect: string;
+  message_fa: string;
+  actions: { action_type: string; params: Record<string, unknown> }[];
+}
+
+/** نتیجهٔ کلی ارزیابی موتور قوانین برای یک موجودیت/رویداد */
+export interface RuleEvaluation {
+  hits: RuleHit[];
+  blocked: RuleHit | null;
+  requireApproval: RuleHit | null;
+  warnings: RuleHit[];
+  fieldUpdates: Record<string, unknown>;
+}
 import { RULES_ENGINE_REPOSITORY } from './rules-engine.tokens';
+
+/** قاعده به شکل قرارداد (schemas.Rule) — daterange به valid_from/valid_to باز می‌شود */
+export interface RuleView {
+  id: string;
+  code: string;
+  title: string;
+  entity: string;
+  event: string;
+  effect: string;
+  priority: number;
+  message_fa: string;
+  conditions: unknown[];
+  actions: unknown[];
+  valid_from: string | null;
+  valid_to: string | null;
+  is_active: boolean;
+}
+
+/** درخواست تأیید به شکل قرارداد (schemas.ApprovalRequest) */
+export interface ApprovalRequestView {
+  id: string;
+  approval_chain_id: string | null;
+  entity_type: string;
+  entity_id: string;
+  amount: string | null;
+  status: string;
+  current_step: number;
+  requested_by: string;
+  created_at: string;
+  closed_at: string | null;
+  decisions: {
+    step_no: number;
+    decided_by: string | null;
+    decision: string | null;
+    decided_at: string | null;
+    comment: string | null;
+  }[];
+}
+
+/**
+ * تجزیهٔ daterange متنی postgres («[2026-01-01,)» یا «[a,b]») به دو تاریخ.
+ * کران باز/بی‌کران → null. برای نگاشت ستون valid به valid_from/valid_to قرارداد.
+ */
+const parseDateRange = (
+  range: string | null,
+): { valid_from: string | null; valid_to: string | null } => {
+  if (!range) return { valid_from: null, valid_to: null };
+  const m = range.replace(/^\(|\]$/, '').replace(/^\[|\)$/, '').split(',');
+  const clean = (v: string | undefined): string | null => {
+    const t = (v ?? '').trim();
+    return t.length > 0 ? t : null;
+  };
+  return { valid_from: clean(m[0]), valid_to: clean(m[1]) };
+};
 
 const notFound = (msg: string): NotFoundException =>
   new NotFoundException({ code: 'not_found', message_fa: msg });
+
+/**
+ * مقایسهٔ سست برای eq/neq: عدد با عدد (حتی به‌صورت رشته)، رشته با رشته،
+ * بول با بول. مبالغ ممکن است رشتهٔ اعشاری باشند، پس عددی‌سازی اولویت دارد.
+ */
+const looseEq = (a: unknown, b: unknown): boolean => {
+  if (a == null || b == null) return a == null && b == null;
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb) && String(a).trim() !== '' && String(b).trim() !== '') {
+    return na === nb;
+  }
+  return String(a) === String(b);
+};
+
+/** مقایسهٔ ترتیبی: خروجی <۰ / ۰ / >۰. مقدار غیرعدد به‌صورت رشته‌ای مقایسه می‌شود. */
+const cmp = (a: unknown, b: unknown): number => {
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb)) return na < nb ? -1 : na > nb ? 1 : 0;
+  const sa = String(a ?? '');
+  const sb = String(b ?? '');
+  return sa < sb ? -1 : sa > sb ? 1 : 0;
+};
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -52,6 +160,109 @@ export class RulesEngineService {
       result.push({ ...r, conditions, actions, scopes });
     }
     return result;
+  }
+
+  // ---------------- ارزیابی واقعی موتور قوانین ----------------
+
+  /**
+   * ارزیابی قواعد فعالِ یک (entity, event) روی زمینهٔ داده‌شده.
+   * شروط: OR بین group_noها و AND داخل هر گروه. قاعدهٔ بدون شرط = همیشه منطبق.
+   * نتیجه شامل block/require_approval/warn و به‌روزرسانی فیلدها (set_field) است.
+   */
+  async evaluate(
+    companyId: string,
+    entity: string,
+    event: string,
+    context: RuleContext,
+  ): Promise<RuleEvaluation> {
+    const rules = await this.repo.listRulesForEvaluation(companyId, entity, event);
+    const hits: RuleHit[] = [];
+    for (const rule of rules) {
+      if (!this.matchConditions(rule.conditions, context)) continue;
+      hits.push({
+        rule_id: rule.id,
+        code: rule.code,
+        effect: rule.effect,
+        message_fa: rule.message_fa,
+        actions: rule.actions.map((a) => ({
+          action_type: a.action_type,
+          params: (a.params ?? {}) as Record<string, unknown>,
+        })),
+      });
+    }
+
+    const fieldUpdates: Record<string, unknown> = {};
+    for (const hit of hits) {
+      for (const action of hit.actions) {
+        if (action.action_type === 'set_discount' && action.params.discount_amount != null) {
+          fieldUpdates.discount_amount = action.params.discount_amount;
+        } else if (action.action_type === 'set_price' && action.params.unit_price != null) {
+          fieldUpdates.unit_price = action.params.unit_price;
+        } else if (hit.effect === 'set_field' && action.params.field && 'value' in action.params) {
+          fieldUpdates[String(action.params.field)] = action.params.value;
+        }
+      }
+    }
+
+    return {
+      hits,
+      blocked: hits.find((h) => h.effect === 'block' || h.actions.some((a) => a.action_type === 'block_order')) ?? null,
+      requireApproval:
+        hits.find((h) => h.effect === 'require_approval' || h.actions.some((a) => a.action_type === 'require_approval')) ?? null,
+      warnings: hits.filter((h) => h.effect === 'warn' || h.effect === 'notify'),
+      fieldUpdates,
+    };
+  }
+
+  /** OR بین گروه‌ها، AND داخل گروه؛ قاعدهٔ بدون شرط همیشه منطبق است */
+  private matchConditions(conditions: RuleConditionRow[], context: RuleContext): boolean {
+    if (conditions.length === 0) return true;
+    const groups = new Map<number, RuleConditionRow[]>();
+    for (const c of conditions) {
+      const arr = groups.get(c.group_no) ?? [];
+      arr.push(c);
+      groups.set(c.group_no, arr);
+    }
+    for (const group of groups.values()) {
+      if (group.every((c) => this.evalCondition(c, context))) return true;
+    }
+    return false;
+  }
+
+  /** ارزیابی یک شرط روی زمینه؛ فیلدِ مفقود → نامعتبر (مگر is_null) */
+  private evalCondition(cond: RuleConditionRow, context: RuleContext): boolean {
+    const actual = context[cond.field];
+    const expected = cond.value as unknown;
+    switch (cond.operator) {
+      case 'is_null':
+        return actual == null;
+      case 'eq':
+        return looseEq(actual, expected);
+      case 'neq':
+        return !looseEq(actual, expected);
+      case 'gt':
+        return cmp(actual, expected) > 0;
+      case 'gte':
+        return cmp(actual, expected) >= 0;
+      case 'lt':
+        return cmp(actual, expected) < 0;
+      case 'lte':
+        return cmp(actual, expected) <= 0;
+      case 'in':
+        return Array.isArray(expected) && expected.some((v) => looseEq(actual, v));
+      case 'not_in':
+        return Array.isArray(expected) && !expected.some((v) => looseEq(actual, v));
+      case 'between': {
+        if (!Array.isArray(expected) || expected.length !== 2) return false;
+        const c = cmp(actual, expected[0]);
+        const c2 = cmp(actual, expected[1]);
+        return c >= 0 && c2 <= 0;
+      }
+      case 'contains':
+        return typeof actual === 'string' && actual.includes(String(expected));
+      default:
+        return false;
+    }
   }
 
   async getRule(companyId: string, ruleId: string) {
@@ -91,6 +302,106 @@ export class RulesEngineService {
     return this.repo.getRule(companyId, ruleId);
   }
 
+  // ---------------- شکل قرارداد (schemas.Rule / Page) ----------------
+
+  /** نگاشت RuleRow + شرایط/اقدامات به schemas.Rule (بازه تاریخ باز می‌شود) */
+  private async shapeRule(rule: RuleRow): Promise<RuleView> {
+    const [conditions, actions] = await Promise.all([
+      this.repo.getRuleConditions(rule.id),
+      this.repo.getRuleActions(rule.id),
+    ]);
+    const { valid_from, valid_to } = parseDateRange(rule.valid);
+    return {
+      id: rule.id,
+      code: rule.code,
+      title: rule.title,
+      entity: rule.entity,
+      event: rule.event,
+      effect: rule.effect,
+      priority: rule.priority,
+      message_fa: rule.message_fa,
+      conditions: conditions.map((c) => ({
+        group_no: c.group_no,
+        field: c.field,
+        operator: c.operator,
+        value: c.value,
+      })),
+      actions: actions.map((a) => ({ action_type: a.action_type, params: a.params })),
+      valid_from,
+      valid_to,
+      is_active: rule.is_active,
+    };
+  }
+
+  /** GET /rules — صفحهٔ قرارداد با فیلتر entity/event/is_active */
+  async listRulesPaged(
+    companyId: string,
+    query: { cursor?: string; limit?: number; entity?: string; event?: string; is_active?: boolean },
+  ): Promise<Page<RuleView>> {
+    const all = await this.repo.listRules(companyId);
+    const filtered = all.filter((r) => {
+      if (query.entity && r.entity !== query.entity) return false;
+      if (query.event && r.event !== query.event) return false;
+      if (query.is_active !== undefined && r.is_active !== query.is_active) return false;
+      return true;
+    });
+    const limit = query.limit ?? 50;
+    // cursor روی code (مرتب‌سازی پایدار priority,created_at از قبل در repo است)
+    let start = 0;
+    if (query.cursor) {
+      const decoded = Buffer.from(query.cursor, 'base64url').toString('utf8');
+      const idx = filtered.findIndex((r) => r.id === decoded);
+      if (idx >= 0) start = idx + 1;
+    }
+    const slice = filtered.slice(start, start + limit + 1);
+    const hasMore = slice.length > limit;
+    const page = hasMore ? slice.slice(0, limit) : slice;
+    const items = await Promise.all(page.map((r) => this.shapeRule(r)));
+    const last = page[page.length - 1];
+    return {
+      items,
+      has_more: hasMore,
+      next_cursor: hasMore && last ? Buffer.from(last.id, 'utf8').toString('base64url') : null,
+    };
+  }
+
+  /** GET /rules/{id} */
+  async getRuleView(companyId: string, ruleId: string): Promise<RuleView> {
+    if (!isUUID(ruleId, '4')) throw badRequest('invalid_id', 'شناسه قاعده معتبر نیست.');
+    const rule = await this.repo.getRule(companyId, ruleId);
+    if (!rule) throw notFound('قاعده یافت نشد');
+    return this.shapeRule(rule);
+  }
+
+  /** POST /rules — ساخت و بازگرداندن به شکل قرارداد */
+  async createRuleView(companyId: string, dto: CreateRuleDto): Promise<RuleView> {
+    const created = (await this.createRule(companyId, dto)) as RuleRow;
+    return this.shapeRule(created);
+  }
+
+  /** PATCH /rules/{id} — به‌روزرسانی عمومی و بازگرداندن شکل قرارداد */
+  async updateRuleView(
+    companyId: string,
+    ruleId: string,
+    dto: Partial<CreateRuleDto>,
+  ): Promise<RuleView> {
+    if (!isUUID(ruleId, '4')) throw badRequest('invalid_id', 'شناسه قاعده معتبر نیست.');
+    const existing = await this.repo.getRule(companyId, ruleId);
+    if (!existing) throw notFound('قاعده یافت نشد');
+    if (dto.entity !== undefined && !RULE_ENTITIES.includes(dto.entity as never)) {
+      throw badRequest('invalid_entity', 'نوع موجودی قاعده معتبر نیست.');
+    }
+    if (dto.event !== undefined && !RULE_EVENTS.includes(dto.event as never)) {
+      throw badRequest('invalid_event', 'رویداد قاعده معتبر نیست.');
+    }
+    if (dto.effect !== undefined && !RULE_EFFECTS.includes(dto.effect as never)) {
+      throw badRequest('invalid_effect', 'اقدام قاعده معتبر نیست.');
+    }
+    await this.repo.updateRule(companyId, ruleId, dto);
+    return this.getRuleView(companyId, ruleId);
+  }
+
+
   // ---------------- زنجیره تأیید ----------------
 
   async listApprovalChains(companyId: string) {
@@ -117,6 +428,91 @@ export class RulesEngineService {
 
   async listApprovalRequests(companyId: string, status?: string) {
     return this.repo.listApprovalRequests(companyId, status);
+  }
+
+  /** GET /approvals — صفحهٔ قرارداد (amount به رشته، decisions ضمیمه) */
+  async listApprovalsPaged(
+    companyId: string,
+    query: { cursor?: string; limit?: number; entity_type?: string },
+  ): Promise<Page<ApprovalRequestView>> {
+    const all = await this.repo.listApprovalRequests(companyId);
+    const filtered = query.entity_type
+      ? all.filter((r) => r.entity_type === query.entity_type)
+      : all;
+    const limit = query.limit ?? 50;
+    let start = 0;
+    if (query.cursor) {
+      const decoded = Buffer.from(query.cursor, 'base64url').toString('utf8');
+      const idx = filtered.findIndex((r) => r.id === decoded);
+      if (idx >= 0) start = idx + 1;
+    }
+    const slice = filtered.slice(start, start + limit + 1);
+    const hasMore = slice.length > limit;
+    const page = hasMore ? slice.slice(0, limit) : slice;
+    const items = await Promise.all(page.map((r) => this.shapeApproval(r)));
+    const last = page[page.length - 1];
+    return {
+      items,
+      has_more: hasMore,
+      next_cursor: hasMore && last ? Buffer.from(last.id, 'utf8').toString('base64url') : null,
+    };
+  }
+
+  /** نگاشت ApprovalRequestRow به schemas.ApprovalRequest (amount رشته + decisions) */
+  private async shapeApproval(row: ApprovalRequestRow): Promise<ApprovalRequestView> {
+    const decisions = await this.repo.listApprovalDecisions(row.id);
+    return {
+      id: row.id,
+      approval_chain_id: row.approval_chain_id,
+      entity_type: row.entity_type,
+      entity_id: row.entity_id,
+      amount: row.amount == null ? null : String(row.amount),
+      status: row.status,
+      current_step: row.current_step,
+      requested_by: row.requested_by,
+      created_at: row.created_at,
+      closed_at: row.closed_at,
+      decisions: decisions.map((d) => ({
+        step_no: d.step_no,
+        decided_by: d.decided_by,
+        decision: d.decision,
+        decided_at: d.decided_at,
+        comment: d.comment,
+      })),
+    };
+  }
+
+  /**
+   * POST /approvals/{id}/decision — قرارداد decision را approve/reject می‌گیرد؛
+   * به approved/rejected سرویس نگاشت می‌شود و step_no از وضعیت فعلی درخواست می‌آید.
+   */
+  async decideApprovalContract(
+    companyId: string,
+    requestId: string,
+    userId: string,
+    input: { decision: 'approve' | 'reject'; note?: string | null },
+  ): Promise<ApprovalRequestView> {
+    if (!isUUID(requestId, '4')) throw badRequest('invalid_id', 'شناسه درخواست معتبر نیست.');
+    const req = await this.repo.getApprovalRequest(companyId, requestId);
+    if (!req) throw notFound('درخواست تأیید یافت نشد');
+    if (req.status !== 'pending') {
+      throw new ConflictException({
+        code: 'not_pending',
+        message_fa: 'این درخواست قبلاً بسته شده است.',
+      });
+    }
+    const decision = input.decision === 'approve' ? 'approved' : 'rejected';
+    await this.decideApproval(
+      companyId,
+      requestId,
+      userId,
+      req.current_step,
+      decision,
+      input.note ?? null,
+    );
+    const updated = await this.repo.getApprovalRequest(companyId, requestId);
+    if (!updated) throw notFound('درخواست تأیید یافت نشد');
+    return this.shapeApproval(updated);
   }
 
   async createApprovalRequest(companyId: string, dto: CreateApprovalRequestDto) {

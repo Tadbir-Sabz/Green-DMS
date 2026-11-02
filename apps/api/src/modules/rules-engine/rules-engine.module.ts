@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { RulesEngineController } from './rules-engine.controller';
+import { RulesContractController } from './rules.contract.controller';
 import { RulesEngineRepository } from './rules-engine.repository';
 import { RulesEngineService } from './rules-engine.service';
 import { RULES_ENGINE_REPOSITORY, RULES_ENGINE_SERVICE } from './rules-engine.tokens';
@@ -8,7 +9,7 @@ import { RULES_ENGINE_REPOSITORY, RULES_ENGINE_SERVICE } from './rules-engine.to
 /** ماژول ۳ — کنترل‌ها و قوانین جامع (Rules Engine) */
 @Module({
   imports: [IdentityRbacModule],
-  controllers: [RulesEngineController],
+  controllers: [RulesEngineController, RulesContractController],
   providers: [
     RulesEngineRepository,
     { provide: RULES_ENGINE_REPOSITORY, useExisting: RulesEngineRepository },

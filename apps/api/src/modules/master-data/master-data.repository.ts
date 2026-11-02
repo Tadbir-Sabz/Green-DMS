@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
-import { PG_POOL } from '../../db/pg.module';
+// PG_POOL tenant-aware از database.module (نه db/pg.module که Pool خام بدون GUC نشست
+// بود و RLS مهاجرت 0021 را دور می‌زد).
+import { PG_POOL } from '../../database/database.module';
 
 export interface UomRow extends QueryResultRow {
   id: string;
