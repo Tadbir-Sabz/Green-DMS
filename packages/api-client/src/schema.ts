@@ -4368,6 +4368,342 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gl/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** درخت کدینگ حساب‌های دفتر کل (۴ سطح) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    nature?: "debit" | "credit";
+                    account_type?: "asset" | "liability" | "equity" | "revenue" | "expense" | "contra";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از حساب‌ها به ترتیب کد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["GlAccount"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** دوره‌های مالی (باز/بسته/قفل) */
+        get: {
+            parameters: {
+                query?: {
+                    fiscal_year?: number;
+                    status?: "open" | "closed" | "locked";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرست دوره‌ها (جدیدترین ابتدا) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["FiscalPeriod"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * ساخت/بازکردن یک دورهٔ مالی
+         * @description دوره با وضعیت `open` ساخته می‌شود؛ `(fiscal_year, period_no)` باید یکتا باشد
+         *     و `end_date ≥ start_date`. در غیر این صورت `409`/`400` با پیام فارسی.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FiscalPeriodCreate"];
+                };
+            };
+            responses: {
+                /** @description دوره ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FiscalPeriod"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/periods/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** بستن دورهٔ مالی (پس از آن سند جدید در این دوره رد می‌شود) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description دوره بسته شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FiscalPeriod"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/journals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست اسناد حسابداری */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    status?: "draft" | "posted" | "voided";
+                    source_type?: "invoice" | "credit_note" | "receipt" | "payment_voucher" | "goods_receipt" | "supplier_invoice" | "value_document" | "cash_txn" | "cheque" | "payroll" | "manual" | "opening" | "closing" | "recurring";
+                    fiscal_period_id?: string;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از اسناد به ترتیب شماره سند */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["JournalEntry"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * ثبت و صدور سند دستیِ متوازن
+         * @description سند با وضعیت `posted` ثبت می‌شود. جمع بدهکار/بستانکار سطرها باید برابر باشد
+         *     (`fn_journal_balanced`)، هر سطر دقیقاً یک سمت غیر صفر داشته باشد
+         *     (`ck_journal_line_one_side`) و تاریخ سند داخل یک دورهٔ مالی «باز» قرار گیرد
+         *     (`fn_check_journal_period`). نقض هر یک → `422` با پیام فارسی.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["JournalEntryCreate"];
+                };
+            };
+            responses: {
+                /** @description سند ثبت و صادر شد (با سطرها) */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JournalEntry"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["RuleRejected"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/journals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات سند با سطرها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سند حسابداری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JournalEntry"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/trial-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تراز آزمایشی از نمای v_trial_balance (فقط اسناد صادرشده) */
+        get: {
+            parameters: {
+                query?: {
+                    fiscal_year?: number;
+                    period_no?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ردیف‌های تراز آزمایشی به ترتیب کد حساب */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["TrialBalanceRow"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tracking/locations": {
         parameters: {
             query?: never;
@@ -7249,6 +7585,156 @@ export interface components {
              * @description برای تسویه تور
              */
             tour_id?: string | null;
+        };
+        /** @description یک حساب در درخت کدینگ دفتر کل (ماژول ۹ — مهاجرت 0018) */
+        GlAccount: {
+            /** Format: uuid */
+            id?: string;
+            /** @description کد سلسله‌مراتبی حساب (تا ۴ سطح) */
+            code?: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+            level?: number;
+            title?: string;
+            /**
+             * @description ماهیت حساب
+             * @enum {string}
+             */
+            nature?: "debit" | "credit";
+            /** @enum {string} */
+            account_type?: "asset" | "liability" | "equity" | "revenue" | "expense" | "contra";
+            /** @description فقط حساب‌های سطح ۴ قابل ثبت مستقیم‌اند */
+            is_postable?: boolean;
+            /**
+             * @description نقش کنترلی حساب برای نگاشت خودکار رویدادها
+             * @enum {string|null}
+             */
+            control_type?: "ar" | "ap" | "inventory" | "cash" | "bank" | "tax" | "cheque_in_hand" | "cogs" | "none" | null;
+            currency?: string;
+            is_active?: boolean;
+        };
+        /** @description دورهٔ مالی (معمولاً ماهانه) — سند فقط در دورهٔ «باز» ثبت می‌شود */
+        FiscalPeriod: {
+            /** Format: uuid */
+            id?: string;
+            /** @description سال مالی شمسی */
+            fiscal_year?: number;
+            period_no?: number;
+            /** Format: date */
+            start_date?: string;
+            /** Format: date */
+            end_date?: string;
+            /** @enum {string} */
+            status?: "open" | "closed" | "locked";
+            /** Format: date-time */
+            closed_at?: string | null;
+        };
+        /** @description بدنهٔ ساخت یک دورهٔ مالی جدید (با وضعیت open) */
+        FiscalPeriodCreate: {
+            fiscal_year: number;
+            period_no: number;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+        };
+        /** @description یک سطر سند — دقیقاً یک سمت (بدهکار یا بستانکار) غیر صفر */
+        JournalLine: {
+            /** @description شناسهٔ بزرگ‌عدد (bigint) به‌صورت رشته */
+            id?: string;
+            line_no?: number;
+            /** Format: uuid */
+            account_id?: string;
+            account_code?: string;
+            account_title?: string;
+            description?: string;
+            debit?: string;
+            credit?: string;
+            /** @enum {string|null} */
+            party_type?: "customer" | "supplier" | "staff" | null;
+            /** Format: uuid */
+            party_id?: string | null;
+            /** @description ابعاد تحلیلی (مرکز هزینه، پروژه، …) */
+            dimensions?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description سند حسابداری (هدر) — جمع بدهکار/بستانکار برای سند غیر draft برابر است */
+        JournalEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            branch_id?: string | null;
+            /** @description شمارهٔ سند (JV-سال-ترتیب) */
+            readonly doc_number?: string;
+            /** Format: uuid */
+            fiscal_period_id?: string;
+            /** Format: date */
+            entry_date?: string;
+            description?: string;
+            /** @enum {string} */
+            source_type?: "invoice" | "credit_note" | "receipt" | "payment_voucher" | "goods_receipt" | "supplier_invoice" | "value_document" | "cash_txn" | "cheque" | "payroll" | "manual" | "opening" | "closing" | "recurring";
+            /**
+             * Format: uuid
+             * @description شناسهٔ سند مبدأ (برای manual تهی)
+             */
+            source_id?: string | null;
+            total_debit?: string;
+            total_credit?: string;
+            /** @enum {string} */
+            status?: "draft" | "posted" | "voided";
+            /** Format: uuid */
+            reversal_of_id?: string | null;
+            /** Format: date-time */
+            posted_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** @description سطرها — فقط در پاسخ جزئیات/ثبت سند حاضر است، نه در فهرست */
+            lines?: components["schemas"]["JournalLine"][];
+        };
+        /** @description سطر درخواستی سند — باید دقیقاً یک سمت (debit یا credit) غیر صفر باشد */
+        JournalLineCreate: {
+            /** Format: uuid */
+            account_id: string;
+            description: string;
+            /** @description رشتهٔ اعشاری؛ سمت استفاده‌نشده را صفر/حذف بگذارید */
+            debit?: string;
+            credit?: string;
+            /** @enum {string} */
+            party_type?: "customer" | "supplier" | "staff";
+            /** Format: uuid */
+            party_id?: string;
+            dimensions?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description بدنهٔ ثبت سند دستیِ متوازن (حداقل دو سطر) */
+        JournalEntryCreate: {
+            /** Format: uuid */
+            branch_id: string;
+            /** Format: date */
+            entry_date: string;
+            description: string;
+            /**
+             * Format: uuid
+             * @description در صورت نبود، دورهٔ «باز» شامل entry_date به‌طور خودکار انتخاب می‌شود
+             */
+            fiscal_period_id?: string;
+            lines: components["schemas"]["JournalLineCreate"][];
+        };
+        /** @description یک ردیف تراز آزمایشی (جمع بدهکار/بستانکار و ماندهٔ هر حساب) */
+        TrialBalanceRow: {
+            fiscal_year?: number;
+            period_no?: number;
+            account_code?: string;
+            title?: string;
+            level?: number;
+            /** @enum {string} */
+            nature?: "debit" | "credit";
+            debit_total?: string;
+            credit_total?: string;
+            /** @description مانده (بدهکار − بستانکار) */
+            balance?: string;
         };
         /** @description نمونه موقعیت اپ میدانی (دسته‌ای از صف آفلاین) */
         LocationSample: {

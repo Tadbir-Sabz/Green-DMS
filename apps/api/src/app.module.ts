@@ -15,6 +15,7 @@ import { SalesModule } from './modules/sales/sales.module';
 import { ToursModule } from './modules/tours/tours.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { GlModule } from './modules/gl/gl.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SettingsModule } from './modules/settings/settings.module';
@@ -46,6 +47,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     ToursModule,
     TrackingModule,
     FinanceModule,
+    GlModule,
     IntegrationsModule,
     ReportsModule,
     SettingsModule,
