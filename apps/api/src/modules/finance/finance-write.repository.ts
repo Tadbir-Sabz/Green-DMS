@@ -4,7 +4,14 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
 import type { DocNumberService } from '../../common/doc-number.service';
 import { DOC_NUMBER_SERVICE } from '../../common/doc-number.service';
-import type { CreateChequeDto, CreatePaymentDto, ReceiptAllocationDto, UpdateChequeDto } from './finance.dto';
+import type {
+  ApproveTreasuryCloseDto,
+  CreateChequeDto,
+  CreatePaymentDto,
+  CreateTreasuryCloseDto,
+  ReceiptAllocationDto,
+  UpdateChequeDto,
+} from './finance.dto';
 
 /** ردیف چک — شکل API (schemas.Cheque) */
 export interface ChequeRow extends QueryResultRow {
@@ -32,6 +39,23 @@ export interface PaymentRow extends QueryResultRow {
   reference: string | null;
   tour_id: string | null;
   allocations?: { invoice_id: string; amount: string }[];
+}
+
+/** ردیف بستن روزانهٔ خزانه — شکل API (schemas.TreasuryClose) */
+export interface TreasuryCloseRow extends QueryResultRow {
+  id: string;
+  branch_id: string;
+  close_date: string;
+  cash_expected: string;
+  cash_counted: string;
+  bank_balance: string;
+  cheque_in_hand_amount: string;
+  /** مغایرت صندوق = شمارش‌شده − مورد انتظار (محاسبهٔ سمت سرور) */
+  cash_variance: string;
+  status: string;
+  note: string | null;
+  closed_by: string | null;
+  approved_by: string | null;
 }
 
 const encodeCursor = (v: string): string => Buffer.from(v, 'utf8').toString('base64url');
@@ -475,5 +499,143 @@ export class FinanceWriteRepository {
     } finally {
       client.release();
     }
+  }
+
+  // ---------------- Treasury daily close ----------------
+
+  /** شعبه باید به این شرکت تعلق داشته باشد (daily_treasury_close کلید branch_id دارد) */
+  async branchBelongsToCompany(companyId: string, branchId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      `select 1 from branch where id = $1 and company_id = $2`,
+      [branchId, companyId],
+    );
+    return rows.length > 0;
+  }
+
+  private readonly closeSelect = `
+    select id, branch_id, close_date::text as close_date,
+           cash_expected::text, cash_counted::text, bank_balance::text,
+           cheque_in_hand_amount::text,
+           (cash_counted - cash_expected)::text as cash_variance,
+           status, note, closed_by, approved_by
+      from daily_treasury_close`;
+
+  async listTreasuryCloses(
+    companyId: string,
+    query: {
+      cursor?: string;
+      limit?: number;
+      branch_id?: string;
+      status?: string;
+      from?: string;
+      to?: string;
+    },
+  ): Promise<{ items: TreasuryCloseRow[]; nextCursor: string | null; hasMore: boolean }> {
+    const limit = query.limit ?? 50;
+    const params: unknown[] = [companyId];
+    const where: string[] = ['branch_id in (select id from branch where company_id = $1)'];
+    if (query.branch_id) {
+      params.push(query.branch_id);
+      where.push(`branch_id = $${params.length}`);
+    }
+    if (query.status) {
+      params.push(query.status);
+      where.push(`status = $${params.length}`);
+    }
+    if (query.from) {
+      params.push(query.from);
+      where.push(`close_date >= $${params.length}::date`);
+    }
+    if (query.to) {
+      params.push(query.to);
+      where.push(`close_date <= $${params.length}::date`);
+    }
+    // cursor مرکب: «close_date|id» — keyset با ترتیب (close_date desc, id desc)
+    if (query.cursor) {
+      const raw = decodeCursor(query.cursor);
+      const sep = raw.indexOf('|');
+      if (sep > 0) {
+        params.push(raw.slice(0, sep), raw.slice(sep + 1));
+        where.push(`(close_date, id) < ($${params.length - 1}::date, $${params.length}::uuid)`);
+      }
+    }
+    params.push(limit + 1);
+    const limitParam = `$${params.length}`;
+
+    const { rows } = await this.pool.query<TreasuryCloseRow>(
+      `${this.closeSelect}
+        where ${where.join(' and ')}
+        order by close_date desc, id desc
+        limit ${limitParam}`,
+      params,
+    );
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    return {
+      items: page,
+      hasMore,
+      nextCursor: hasMore && last ? encodeCursor(`${last.close_date}|${last.id}`) : null,
+    };
+  }
+
+  async findTreasuryClose(companyId: string, id: string): Promise<TreasuryCloseRow | null> {
+    const { rows } = await this.pool.query<TreasuryCloseRow>(
+      `${this.closeSelect}
+        where id = $1 and branch_id in (select id from branch where company_id = $2)`,
+      [id, companyId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** ثبت و بستن روزانه (status='closed') — uq(branch_id, close_date) در mapDbError */
+  async insertTreasuryClose(
+    companyId: string,
+    userId: string,
+    dto: CreateTreasuryCloseDto,
+  ): Promise<string> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `insert into daily_treasury_close
+         (branch_id, close_date, cash_expected, cash_counted, bank_balance,
+          cheque_in_hand_amount, status, closed_by, note)
+       values ($1, $2::date, $3, $4, $5, $6, 'closed', $7, $8)
+       returning id`,
+      [
+        dto.branch_id,
+        dto.close_date,
+        dto.cash_expected ?? '0',
+        dto.cash_counted ?? '0',
+        dto.bank_balance ?? '0',
+        dto.cheque_in_hand_amount ?? '0',
+        userId,
+        dto.note ?? null,
+      ],
+    );
+    return rows[0].id;
+  }
+
+  /**
+   * تأیید بستن روزانه — فقط از وضعیت 'closed' به 'approved'.
+   * ردیف به‌روزشده را برمی‌گرداند یا null (یافت نشد / در وضعیت بسته نبود).
+   */
+  async approveTreasuryClose(
+    companyId: string,
+    id: string,
+    userId: string,
+    dto: ApproveTreasuryCloseDto,
+  ): Promise<TreasuryCloseRow | null> {
+    const { rows } = await this.pool.query<TreasuryCloseRow>(
+      `update daily_treasury_close
+          set status = 'approved', approved_by = $3, note = coalesce($4, note)
+        where id = $1 and status = 'closed'
+          and branch_id in (select id from branch where company_id = $2)
+        returning id, branch_id, close_date::text as close_date,
+          cash_expected::text, cash_counted::text, bank_balance::text,
+          cheque_in_hand_amount::text,
+          (cash_counted - cash_expected)::text as cash_variance,
+          status, note, closed_by, approved_by`,
+      [id, companyId, userId, dto.note ?? null],
+    );
+    return rows[0] ?? null;
   }
 }

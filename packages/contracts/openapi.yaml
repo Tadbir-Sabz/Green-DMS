@@ -2134,6 +2134,91 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/TreasuryPosition' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /treasury/closes:
+    get:
+      tags: [treasury]
+      summary: فهرست بستن‌های روزانهٔ خزانه شعبه‌ها
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: branch_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, closed, approved] } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: صفحه‌ای از بستن‌های روزانه
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/TreasuryClose' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [treasury]
+      summary: ثبت و بستن روزانهٔ خزانه یک شعبه
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TreasuryClose' }
+      responses:
+        '201':
+          description: بستن روزانه ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryClose' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /treasury/closes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [treasury]
+      summary: جزئیات یک بستن روزانهٔ خزانه
+      responses:
+        '200':
+          description: بستن روزانه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryClose' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /treasury/closes/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [treasury]
+      summary: تأیید بستن روزانهٔ خزانه (closed → approved)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        '200':
+          description: بستن روزانه تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryClose' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /cheques:
     get:
       tags: [cheques]
@@ -4224,6 +4309,24 @@ components:
         balance_actual: { type: [string, 'null'], description: مانده اعلامی/صورت‌حساب بانک }
         variance: { type: [string, 'null'], description: مغایرت باز برای رسیدگی }
         as_of: { type: string, format: date }
+
+    TreasuryClose:
+      type: object
+      required: [branch_id, close_date]
+      description: بستن روزانهٔ خزانه یک شعبه (ماژول ۱۰ — مهاجرت 0013)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        close_date: { type: string, format: date }
+        cash_expected: { type: string, description: نقد مورد انتظار صندوق }
+        cash_counted: { type: string, description: نقد شمارش‌شده }
+        bank_balance: { type: string, description: ماندهٔ بانک }
+        cheque_in_hand_amount: { type: string, description: مبلغ چک‌های نزد صندوق }
+        cash_variance: { type: string, readOnly: true, description: مغایرت صندوق = شمارش‌شده − مورد انتظار }
+        status: { type: string, enum: [draft, closed, approved], readOnly: true }
+        note: { type: [string, 'null'] }
+        closed_by: { type: [string, 'null'], format: uuid, readOnly: true }
+        approved_by: { type: [string, 'null'], format: uuid, readOnly: true }
 
     Cheque:
       type: object

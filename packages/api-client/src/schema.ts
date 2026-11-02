@@ -4117,6 +4117,178 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/treasury/closes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست بستن‌های روزانهٔ خزانه شعبه‌ها */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    branch_id?: string;
+                    status?: "draft" | "closed" | "approved";
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از بستن‌های روزانه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["TreasuryClose"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت و بستن روزانهٔ خزانه یک شعبه */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TreasuryClose"];
+                };
+            };
+            responses: {
+                /** @description بستن روزانه ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TreasuryClose"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/treasury/closes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک بستن روزانهٔ خزانه */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description بستن روزانه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TreasuryClose"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/treasury/closes/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تأیید بستن روزانهٔ خزانه (closed → approved) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description بستن روزانه تأیید شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TreasuryClose"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cheques": {
         parameters: {
             query?: never;
@@ -7534,6 +7706,32 @@ export interface components {
             variance?: string | null;
             /** Format: date */
             as_of?: string;
+        };
+        /** @description بستن روزانهٔ خزانه یک شعبه (ماژول ۱۰ — مهاجرت 0013) */
+        TreasuryClose: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** Format: date */
+            close_date: string;
+            /** @description نقد مورد انتظار صندوق */
+            cash_expected?: string;
+            /** @description نقد شمارش‌شده */
+            cash_counted?: string;
+            /** @description ماندهٔ بانک */
+            bank_balance?: string;
+            /** @description مبلغ چک‌های نزد صندوق */
+            cheque_in_hand_amount?: string;
+            /** @description مغایرت صندوق = شمارش‌شده − مورد انتظار */
+            readonly cash_variance?: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "closed" | "approved";
+            note?: string | null;
+            /** Format: uuid */
+            readonly closed_by?: string | null;
+            /** Format: uuid */
+            readonly approved_by?: string | null;
         };
         /** @description چک دریافتی از مشتری یا صادری به تأمین‌کننده */
         Cheque: {

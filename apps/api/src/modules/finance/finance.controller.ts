@@ -1,16 +1,20 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser } from '../identity-rbac/auth-context.decorator';
 import {
+  ApproveTreasuryCloseDto,
+  CreateTreasuryCloseDto,
   CustomerStatementQueryDto,
   ListApQueryDto,
   ListArQueryDto,
+  ListTreasuryClosesQueryDto,
   ListTreasuryQueryDto,
 } from './finance.dto';
 import type { ArAgingRow, SupplierBalance, TreasuryPosition } from './finance.repository';
+import type { TreasuryCloseRow } from './finance-write.repository';
 import type { ArService, ApService, CustomerStatementView, TreasuryService } from './finance.service';
 import { AR_SERVICE, AP_SERVICE, TREASURY_SERVICE } from './tokens';
 
@@ -59,7 +63,7 @@ export class ApController {
   }
 }
 
-/** خزانه‌داری — /treasury مطابق openapi.yaml (خواندن treasury.bank.view) */
+/** خزانه‌داری — /treasury و /treasury/closes مطابق openapi.yaml */
 @UseGuards(AuthGuard, PermissionsGuard)
 @Controller('treasury')
 export class TreasuryController {
@@ -72,5 +76,45 @@ export class TreasuryController {
     @CurrentUser('companyId') companyId: string,
   ): Promise<{ items: TreasuryPosition[] }> {
     return this.service.positions(companyId, query);
+  }
+
+  @Get('closes')
+  @RequirePermissions('treasury.cash.view')
+  closes(
+    @Query() query: ListTreasuryClosesQueryDto,
+    @CurrentUser('companyId') companyId: string,
+  ): Promise<Page<TreasuryCloseRow>> {
+    return this.service.listCloses(companyId, query);
+  }
+
+  @Get('closes/:id')
+  @RequirePermissions('treasury.cash.view')
+  close(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+  ): Promise<TreasuryCloseRow> {
+    return this.service.getClose(companyId, id);
+  }
+
+  @Post('closes')
+  @RequirePermissions('treasury.cash.close')
+  createClose(
+    @Body() dto: CreateTreasuryCloseDto,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<TreasuryCloseRow> {
+    return this.service.createClose(companyId, userId, dto);
+  }
+
+  @Post('closes/:id/approve')
+  @HttpCode(200)
+  @RequirePermissions('treasury.close.approve')
+  approveClose(
+    @Param('id') id: string,
+    @Body() dto: ApproveTreasuryCloseDto,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<TreasuryCloseRow> {
+    return this.service.approveClose(companyId, id, userId, dto);
   }
 }

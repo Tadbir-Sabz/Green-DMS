@@ -7,6 +7,8 @@ export const AP_SERVICE = 'AP_SERVICE';
 
 export const TREASURY_REPOSITORY = 'TREASURY_REPOSITORY';
 export const TREASURY_SERVICE = 'TREASURY_SERVICE';
+/** نوشتن خزانه (بستن روزانه) — alias به FinanceWriteRepository */
+export const TREASURY_WRITE_REPOSITORY = 'TREASURY_WRITE_REPOSITORY';
 
 export const CHEQUE_REPOSITORY = 'CHEQUE_REPOSITORY';
 export const CHEQUE_SERVICE = 'CHEQUE_SERVICE';
