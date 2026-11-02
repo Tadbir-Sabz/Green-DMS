@@ -50,18 +50,18 @@ export default function ApprovalsPage() {
   const list = useQuery({
     queryKey: ["approvals", status],
     queryFn: async () => {
-      // مسیر rules-engine در openapi نیست (فاز F سند می‌شود) — فراخوانی مستقیم
-      const res = await (api as any).GET("/rules-engine/approvals", {
+      const res = await api.GET("/rules-engine/approvals", {
         params: { query: status ? { status } : {} },
       });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as ApprovalRequest[];
+      return (res.data ?? []) as ApprovalRequest[];
     },
   });
 
   const decide = useMutation({
     mutationFn: async (req: ApprovalRequest) => {
-      const res = await (api as any).POST(`/rules-engine/approvals/${req.id}/decision`, {
+      const res = await api.POST("/rules-engine/approvals/{id}/decision", {
+        params: { path: { id: req.id } },
         body: { step_no: req.current_step, decision, ...(comment.trim() ? { comment: comment.trim() } : {}) },
       });
       if (res.error) throw new Error(errorMessage(res.error));

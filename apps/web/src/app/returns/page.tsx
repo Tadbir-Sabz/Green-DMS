@@ -10,6 +10,12 @@ import { useRouter } from "next/navigation";
  * لیست، ساخت درخواست، تأیید (approve) و دریافت با تعیین تکلیف (receive).
  */
 const STATUSES = ["submitted", "approved", "posted", "rejected"] as const;
+/** وضعیت‌های مجاز مرجوعی — هم‌راستا با enum قرارداد در /returns?status */
+type ReturnStatus = "draft" | "submitted" | "approved" | "partially_approved" | "rejected" | "posted" | "closed";
+/** دلیل مرجوعی — enum قرارداد در ReturnRequest.reason_code */
+type ReturnReason = "damaged" | "expired" | "wrong_item" | "shortage" | "customer_refusal" | "promotion_error" | "other";
+/** تعیین تکلیف کالا هنگام دریافت — enum قرارداد در /returns/{id}/receive */
+type Disposition = "restock" | "damaged" | "scrap" | "return_to_supplier";
 const STATUS_FA: Record<string, string> = {
   draft: "پیش‌نویس",
   submitted: "ثبت شده",
@@ -67,11 +73,11 @@ export default function ReturnsPage() {
   const list = useQuery({
     queryKey: ["returns", status],
     queryFn: async () => {
-      const res = await (api as any).GET("/returns", {
-        params: { query: { ...(status ? { status } : {}), limit: 100 } },
+      const res = await api.GET("/returns", {
+        params: { query: { ...(status ? { status: status as ReturnStatus } : {}), limit: 100 } },
       });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as { items: ReturnItem[] };
+      return { items: (res.data?.items ?? []) as ReturnItem[] };
     },
   });
 
@@ -79,7 +85,7 @@ export default function ReturnsPage() {
     queryKey: ["return", selected?.id],
     enabled: Boolean(selected?.id),
     queryFn: async () => {
-      const res = await (api as any).GET(`/returns/${selected!.id}`);
+      const res = await api.GET("/returns/{id}", { params: { path: { id: selected!.id } } });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as ReturnItem;
     },
@@ -92,15 +98,15 @@ export default function ReturnsPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const body = {
         customer_id: form.customer_id.trim(),
-        reason_code: form.reason_code,
+        reason_code: form.reason_code as ReturnReason,
         ...(form.note.trim() ? { note: form.note.trim() } : {}),
         lines: items
           .filter((i) => i.product_id.trim() && Number(i.qty) > 0)
           .map((i) => ({ product_id: i.product_id.trim(), qty: Number(i.qty) })),
       };
-      const res = await (api as any).POST("/returns", { body: payload });
+      const res = await api.POST("/returns", { body });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as ReturnItem;
     },
@@ -117,7 +123,7 @@ export default function ReturnsPage() {
 
   const approve = useMutation({
     mutationFn: async (id: string) => {
-      const res = await (api as any).POST(`/returns/${id}/approve`);
+      const res = await api.POST("/returns/{id}/approve", { params: { path: { id } } });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as ReturnItem;
     },
@@ -133,9 +139,9 @@ export default function ReturnsPage() {
       const lines = (detail.data?.lines ?? []).map((l) => ({
         product_id: l.product_id,
         qty: Number(receiveLines[l.product_id]?.qty ?? l.qty),
-        disposition: receiveLines[l.product_id]?.disposition ?? "restock",
+        disposition: (receiveLines[l.product_id]?.disposition ?? "restock") as Disposition,
       }));
-      const res = await (api as any).POST(`/returns/${id}/receive`, { body: { lines } });
+      const res = await api.POST("/returns/{id}/receive", { params: { path: { id } }, body: { lines } });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as ReturnItem;
     },

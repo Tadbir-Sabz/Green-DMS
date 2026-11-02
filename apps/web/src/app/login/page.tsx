@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, errorMessage, setSession } from '@/lib/api';
+import { api, errorMessage, loadSessionContext, setSession } from '@/lib/api';
 
 /**
  * صفحه ورود — سه روش طبق قرارداد (openapi › /auth):
@@ -96,6 +96,8 @@ export default function LoginPage(): React.JSX.Element {
       return;
     }
     setSession(data.access_token, data.user.username, data.refresh_token, data.expires_in);
+    // نقش‌ها/مجوزها را از /auth/me بگیر و در dms_user ذخیره کن تا RoleGuard/منو کار کنند
+    await loadSessionContext();
     router.push('/products');
   };
 
@@ -148,6 +150,8 @@ export default function LoginPage(): React.JSX.Element {
       return;
     }
     setSession(data.access_token, data.user.username, data.refresh_token, data.expires_in);
+    // نقش‌ها/مجوزها را از /auth/me بگیر و در dms_user ذخیره کن تا RoleGuard/منو کار کنند
+    await loadSessionContext();
     router.push('/products');
   };
 

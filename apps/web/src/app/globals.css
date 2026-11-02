@@ -1,8 +1,9 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap');
+/* فونت وزیرمتن از بستهٔ @fontsource-variable/vazirmatn در layout.tsx بارگذاری می‌شود
+   (خودمیزبان، بدون @import خارجی). نام خانواده: 'Vazirmatn Variable'. */
 
 :root {
   --background: 247 249 252;
@@ -10,13 +11,13 @@
 }
 
 html {
-  font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+  font-family: 'Vazirmatn Variable', 'Vazirmatn', Tahoma, Arial, sans-serif;
 }
 
 body {
   background: rgb(var(--background));
   color: rgb(var(--foreground));
-  font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+  font-family: 'Vazirmatn Variable', 'Vazirmatn', Tahoma, Arial, sans-serif;
 }
 
 .dark {

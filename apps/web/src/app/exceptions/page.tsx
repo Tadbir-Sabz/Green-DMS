@@ -39,22 +39,26 @@ const STATUS_FA: Record<string, string> = {
 export default function ExceptionsPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState("");
 
   useEffect(() => {
     if (!getToken()) router.replace("/login");
   }, [router]);
 
   const list = useQuery({
-    queryKey: ["exception-items"],
+    queryKey: ["exception-items", branchId],
+    enabled: Boolean(branchId.trim()),
     queryFn: async () => {
-      // مسیر rules-engine در openapi نیست (فاز F سند می‌شود)
-      const res = await (api as any).GET("/rules-engine/exception-items");
+      const res = await api.GET("/rules-engine/exception-items", {
+        params: { query: { branch_id: branchId.trim() } },
+      });
       if (res.error) {
         const msg = errorMessage(res.error);
         setError(msg);
         throw new Error(msg);
       }
-      return res.data as ExceptionItem[];
+      setError(null);
+      return (res.data ?? []) as ExceptionItem[];
     },
   });
 
@@ -65,6 +69,16 @@ export default function ExceptionsPage() {
       <div>
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">صف استثناها</h1>
         <p className="text-slate-500 text-sm">رویدادهای خارج از قاعده که نیازمند بازبینی انسانی‌اند</p>
+      </div>
+
+      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+        <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">شناسهٔ شعبه *</label>
+        <input
+          value={branchId}
+          onChange={(e) => setBranchId(e.target.value)}
+          placeholder="uuid شعبه"
+          className="w-full sm:max-w-md px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-slate-900 dark:text-slate-100"
+        />
       </div>
 
       {(error || list.isError) && (
@@ -97,7 +111,7 @@ export default function ExceptionsPage() {
             {!list.isLoading && items.length === 0 && !list.isError && (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
-                  استثنایی ثبت نشده است
+                  {branchId.trim() ? "استثنایی ثبت نشده است" : "برای دیدن استثناها، شناسهٔ شعبه را وارد کنید"}
                 </td>
               </tr>
             )}

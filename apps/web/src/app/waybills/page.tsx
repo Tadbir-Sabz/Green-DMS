@@ -45,11 +45,11 @@ export default function WaybillsPage() {
   const list = useQuery({
     queryKey: ["waybills", status],
     queryFn: async () => {
-      const res = await (api as any).GET("/waybills", {
+      const res = await api.GET("/waybills", {
         params: { query: { ...(status ? { status } : {}), limit: 100 } },
       });
       if (res.error) throw new Error(errorMessage(res.error));
-      return res.data as { items: Waybill[] };
+      return { items: (res.data?.items ?? []) as Waybill[] };
     },
   });
 
@@ -57,7 +57,7 @@ export default function WaybillsPage() {
     queryKey: ["waybill", selected?.id],
     enabled: Boolean(selected?.id),
     queryFn: async () => {
-      const res = await (api as any).GET(`/waybills/${selected!.id}`);
+      const res = await api.GET("/waybills/{id}", { params: { path: { id: selected!.id } } });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as Waybill;
     },
@@ -65,7 +65,7 @@ export default function WaybillsPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const body = {
         sales_order_id: form.sales_order_id.trim(),
         warehouse_id: form.warehouse_id.trim(),
         ...(form.note.trim() ? { note: form.note.trim() } : {}),
@@ -73,7 +73,7 @@ export default function WaybillsPage() {
           .filter((i) => i.product_id.trim() && Number(i.qty) > 0)
           .map((i) => ({ product_id: i.product_id.trim(), qty: Number(i.qty) })),
       };
-      const res = await (api as any).POST("/waybills", { body: payload });
+      const res = await api.POST("/waybills", { body });
       if (res.error) throw new Error(errorMessage(res.error));
       return res.data as Waybill;
     },

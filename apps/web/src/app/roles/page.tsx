@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import AdminGuard from "@/components/auth/guards";
+import RolesInner from "./inner";
 
 export default function RolesPage() {
   return (
     <AdminGuard>
-      <div className="p-6">نقش‌ها و دسترسی‌ها</div>
+      <RolesInner />
     </AdminGuard>
   );
 }

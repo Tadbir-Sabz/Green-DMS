@@ -1,46 +1,136 @@
-﻿"use client";
+"use client";
 
-import { useCustomers } from "@/lib/api";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { components } from "@dms/api-client";
+import { api, errorMessage } from "@/lib/api";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { SalesGuard } from "@/components/auth/guards";
+import { ExportButtons } from "@/components/reports/ExportButtons";
+import { formatMoney } from "@/lib/format";
 import { toPersianDate } from "@/lib/date";
 
-export default function Page() {
-  const { data, isLoading, error } = useCustomers();
-  const items = (data as any)?.items || [];
+/**
+ * مشتریان — GET /customers?q&channel (تایپ‌شده از قرارداد).
+ * جایگزین نسخهٔ پیشین با هوک loose و `(data as any)?.items`.
+ * سقف اعتبار، کانال فروش و وضعیت مشتری نمایش داده می‌شود.
+ */
+type Customer = components["schemas"]["Customer"];
+
+const STATUS_FA: Record<string, string> = {
+  active: "فعال",
+  suspended: "تعلیق",
+  blocked: "مسدود",
+  closed: "بسته",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  suspended: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  blocked: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  closed: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
+};
+
+const CHANNEL_FA: Record<string, string> = {
+  cold: "سرد",
+  warm: "گرم",
+  both: "سرد و گرم",
+  field: "میدانی",
+  telesale: "تلفنی",
+  portal: "پورتال",
+};
+
+function CustomersInner() {
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["customers", search],
+    queryFn: async () => {
+      const query: { q?: string; limit?: number } = { limit: 200 };
+      if (search) query.q = search;
+      const res = await api.GET("/customers", { params: { query } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as Customer[];
+    },
+  });
+
+  const items = data ?? [];
+
+  const columns: Column<Customer>[] = [
+    { key: "code", header: "کد", render: (c) => <span className="font-mono text-xs">{c.code ?? "—"}</span> },
+    { key: "channel", header: "کانال", render: (c) => <span className="text-xs">{c.channel ? CHANNEL_FA[c.channel] ?? c.channel : "—"}</span> },
+    {
+      key: "credit",
+      header: "سقف اعتبار",
+      align: "end",
+      render: (c) => (c.credit_limit != null ? formatMoney(c.credit_limit) : "—"),
+    },
+    {
+      key: "geo",
+      header: "موقعیت",
+      render: (c) =>
+        c.geo ? (
+          <span className="text-xs text-emerald-600">ثبت‌شده</span>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        ),
+    },
+    { key: "created", header: "تاریخ ایجاد", render: (c) => <span className="text-xs">{toPersianDate(c.created_at)}</span> },
+    {
+      key: "status",
+      header: "وضعیت",
+      render: (c) => (
+        <span className={`px-2 py-0.5 rounded-md text-xs ${STATUS_COLOR[c.status ?? ""] ?? ""}`}>
+          {STATUS_FA[c.status ?? ""] ?? c.status}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">مشتریان</h1>
-          <p className="text-slate-500 text-sm">لیست مشتریان از API</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">مشتریان</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">پروفایل، اعتبار، کانال و موقعیت مشتریان</p>
         </div>
-        <button className="px-3 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700">افزودن مشتری</button>
+        <div className="flex items-center gap-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setSearch(q);
+            }}
+          >
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="جست‌وجوی مشتری..."
+              className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-900 dark:text-slate-100"
+            />
+          </form>
+          <ExportButtons data={items} tableId="customers-table" filename="customers" />
+        </div>
       </div>
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="text-right p-3">کد</th>
-              <th className="text-right p-3">نام</th>
-              <th className="text-right p-3">تاریخ ایجاد</th>
-              <th className="text-right p-3">وضعیت</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && <tr><td colSpan={4} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
-            {error && <tr><td colSpan={4} className="text-center p-6 text-red-600">خطا در دریافت اطلاعات</td></tr>}
-            {!isLoading && !error && items.length === 0 && <tr><td colSpan={4} className="text-center p-6 text-slate-500">داده‌ای یافت نشد</td></tr>}
-            {items.map((c: any) => (
-              <tr key={c.id} className="hover:bg-slate-50">
-                <td className="p-3">{c.code || '-'}</td>
-                <td className="p-3">{c.person?.full_name || c.full_name || '-'}</td>
-                <td className="p-3">{toPersianDate(c.created_at)}</td>
-                <td className="p-3">{c.status || '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div id="customers-table">
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(c) => c.id ?? c.code ?? Math.random().toString()}
+          loading={isLoading}
+          error={error ? (error as Error).message : null}
+          emptyMessage="مشتری یافت نشد"
+        />
       </div>
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <SalesGuard>
+      <CustomersInner />
+    </SalesGuard>
   );
 }

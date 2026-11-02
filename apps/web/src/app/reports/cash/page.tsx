@@ -1,71 +1,77 @@
-﻿"use client";
+"use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { ExportButtons } from "@/components/reports/ExportButtons";
 
+/** شکل واقعی TreasuryPosition که GET /treasury برمی‌گرداند */
+type TreasuryRow = {
+  bank_account_id: string | null;
+  title: string;
+  balance_book: string;
+  balance_actual: string | null;
+  variance: string | null;
+  as_of: string;
+};
+
+/** گزارش صندوق و بانک — GET /treasury?as_of (ماندهٔ دفتری/واقعی و مغایرت) */
 export default function ReportsCashPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["reports-cash"],
+  const [asOf, setAsOf] = useState("");
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["reports-cash", asOf],
     queryFn: async () => {
-      try {
-        const res = await (api as any).GET?.("/finance/treasury/summary" as any, {});
-        return (res as any)?.data || res;
-      } catch {
-        return null;
-      }
+      const query: { as_of?: string } = {};
+      if (asOf) query.as_of = asOf;
+      const res = await api.GET("/treasury", { params: { query } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return (res.data?.items ?? []) as TreasuryRow[];
     },
   });
 
-  const items = (data as any)?.transactions || (Array.isArray(data) ? data : []);
+  const items = data ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">گزارش صندوق و بانک</h1>
-          <p className="text-slate-500 text-sm">گردش نقدی و مانده‌ها</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">گزارش صندوق و بانک</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">ماندهٔ دفتری/واقعی و مغایرت هر حساب</p>
         </div>
         <ExportButtons data={items} tableId="cash-report-table" filename="cash-report" />
       </div>
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+
+      <div className="flex flex-wrap items-end gap-3 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+        <div>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">تاریخ (as of)</label>
+          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-slate-900 dark:text-slate-100" />
+        </div>
+        {asOf && <button onClick={() => setAsOf("")} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1f2937]">پاک کردن</button>}
+      </div>
+
+      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table id="cash-report-table" className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
               <tr>
-                <th className="text-right p-3">تاریخ</th>
                 <th className="text-right p-3">حساب</th>
-                <th className="text-right p-3">نوع</th>
-                <th className="text-right p-3">شرح</th>
-                <th className="text-right p-3">بدهکار</th>
-                <th className="text-right p-3">بستانکار</th>
-                <th className="text-right p-3">مانده</th>
+                <th className="text-right p-3">مانده دفتری</th>
+                <th className="text-right p-3">مانده واقعی</th>
+                <th className="text-right p-3">مغایرت</th>
+                <th className="text-right p-3">تاریخ</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && (
-                <tr>
-                  <td colSpan={7} className="text-center p-6 text-slate-500">
-                    در حال بارگذاری...
-                  </td>
-                </tr>
-              )}
-              {!isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center p-6 text-slate-500">
-                    آماده اتصال به API خزانه
-                  </td>
-                </tr>
-              )}
-              {items.map((it: any, idx: number) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="p-3">{it.txn_date || "-"}</td>
-                  <td className="p-3">{it.account_name || it.account_id || "-"}</td>
-                  <td className="p-3">{it.type || "-"}</td>
-                  <td className="p-3">{it.description || "-"}</td>
-                  <td className="p-3">{Number(it.debit || 0).toLocaleString("fa-IR")}</td>
-                  <td className="p-3">{Number(it.credit || 0).toLocaleString("fa-IR")}</td>
-                  <td className="p-3 font-medium">{Number(it.balance || 0).toLocaleString("fa-IR")}</td>
+              {isLoading && <tr><td colSpan={5} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
+              {!isLoading && items.length === 0 && <tr><td colSpan={5} className="text-center p-6 text-slate-400">داده‌ای برای نمایش نیست</td></tr>}
+              {!isLoading && items.map((it, idx) => (
+                <tr key={idx} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+                  <td className="p-3">{it.title || "-"}</td>
+                  <td className="p-3">{Number(it.balance_book || 0).toLocaleString("fa-IR")}</td>
+                  <td className="p-3">{it.balance_actual != null ? Number(it.balance_actual).toLocaleString("fa-IR") : "-"}</td>
+                  <td className="p-3">{it.variance != null ? Number(it.variance).toLocaleString("fa-IR") : "-"}</td>
+                  <td className="p-3">{it.as_of || "-"}</td>
                 </tr>
               ))}
             </tbody>

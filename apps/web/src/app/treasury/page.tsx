@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import { FinanceGuard } from "@/components/auth/guards";
+import TreasuryInner from "./inner";
 
 export default function TreasuryPage() {
   return (
     <FinanceGuard>
-      <div className="p-6">خزانه‌داری</div>
+      <TreasuryInner />
     </FinanceGuard>
   );
 }

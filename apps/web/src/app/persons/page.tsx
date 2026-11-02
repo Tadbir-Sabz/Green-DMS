@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
 import { api, errorMessage, getToken } from '@/lib/api';
-import { AppLoader, AppShell } from '@/components/AppShell';
+import { AppLoader } from '@/components/AppShell';
 
 /**
  * فهرست و فرم اشخاص (حقیقی/حقوقی) — همه فراخوانی‌ها با کلاینت تایپ‌شده از openapi.yaml:
@@ -183,7 +183,7 @@ export default function PersonsPage(): React.JSX.Element {
     fieldErrors[name]?.join('، ');
 
   return (
-    <AppShell>
+    <>
       {/* نوار ابزار: جست‌وجو + فیلتر نوع + ساخت */}
       <form
         onSubmit={(e) => {
@@ -490,6 +490,6 @@ export default function PersonsPage(): React.JSX.Element {
           </button>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }
