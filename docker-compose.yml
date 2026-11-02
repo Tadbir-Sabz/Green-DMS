@@ -1,4 +1,8 @@
-﻿version: '3.8'
+# GreenDMS — local/self-hosted stack.
+# Production overrides: copy .env.production.example -> .env.production and
+# pass it with `docker compose --env-file .env.production up -d`.
+# NOTE: the `version` key is obsolete in the Compose spec and intentionally omitted.
+
 services:
   postgres:
     image: postgis/postgis:16-3.4
@@ -10,10 +14,22 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dms -d greendms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
@@ -25,21 +41,55 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     ports:
       - "4000:4000"
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      # Host names match the compose service names above.
+      DATABASE_URL: postgres://dms:dms@postgres:5432/greendms
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Apply migrations on boot so a fresh stack is not missing tables
+      # (e.g. relation "auth_otp" does not exist). Set false and run
+      # `npm run db:migrate` as a deploy step for controlled rollouts.
+      AUTO_MIGRATE: "true"
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION}
+      JWT_ACCESS_TTL: 900
+      JWT_REFRESH_TTL: 1209600
+      SMS_PROVIDER: ${SMS_PROVIDER:-log}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      MOADIAN_ENDPOINT: ${MOADIAN_ENDPOINT:-}
+      MOADIAN_API_KEY: ${MOADIAN_API_KEY:-}
+      PSP_ENDPOINT: ${PSP_ENDPOINT:-}
+      PSP_API_KEY: ${PSP_API_KEY:-}
+      PSP_WEBHOOK_SECRET: ${PSP_WEBHOOK_SECRET:-}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        # NEXT_PUBLIC_* is inlined into the browser bundle at BUILD time, so it
+        # must be provided as a build-arg (not just a runtime env). This is the
+        # URL the *browser* uses to reach the API — the published host port.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     ports:
       - "3000:3000"
+    environment:
+      NODE_ENV: production
+      WEB_PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     depends_on:
       - api
 
