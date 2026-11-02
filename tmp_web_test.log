@@ -1,0 +1,15 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90mE:/Green-DMS/apps/web[39m
+
+ [32m✓[39m src/lib/permissions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/lib/api.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/components/AppShell.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 627[2mms[22m[39m
+ [32m✓[39m src/app/login/page.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 579[2mms[22m[39m
+   [32m✓[39m صفحه ورود [2m(5)[22m
+     [33m[2m✓[22m[39m سه روش ورود (رمز، کد پیامکی، بازیابی) را نشان می‌دهد[33m 332[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m25 passed[39m[22m[90m (25)[39m
+[2m   Start at [22m 09:39:45
+[2m   Duration [22m 4.16s[2m (environment 79%, import 9%, tests 9%, transform 2%)[22m
+

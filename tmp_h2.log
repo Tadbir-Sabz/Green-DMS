@@ -1,0 +1,1395 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90mE:/Green-DMS/apps/api[39m
+
+[90mstderr[2m | test/users-roles.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/users-roles.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/users-roles.api.test.ts[2m > [22m[2mPOST /users — اعتبارسنجی و ساخت[2m > [22m[2mساخت موفق → 201 با شخص تازه، نقش‌ها و فیلدهای readOnly قرارداد
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/users-roles.api.test.ts[2m > [22m[2mPOST /users — اعتبارسنجی و ساخت[2m > [22m[2mساخت موفق → 201 با شخص تازه، نقش‌ها و فیلدهای readOnly قرارداد
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/users-roles.api.test.ts[2m > [22m[2mDELETE /users/{id}[2m > [22m[2mغیرفعال‌سازی → 204؛ ردیف برای ممیزی می‌ماند ولی ورود و نشست بلااثرند
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/users-roles.api.test.ts[2m > [22m[2mDELETE /users/{id}[2m > [22m[2mغیرفعال‌سازی → 204؛ ردیف برای ممیزی می‌ماند ولی ورود و نشست بلااثرند
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+ [32m✓[39m test/users-roles.api.test.ts [2m([22m[2m45 tests[22m[2m)[22m[33m 7550[2mms[22m[39m
+[90mstderr[2m | test/pricing.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/pricing.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/pricing.api.test.ts[2m > [22m[2mPR — /price-lists[2m > [22m[2mساخت 201 ← PriceList با اقلام (قیمت رشته)
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/pricing.api.test.ts[2m > [22m[2mPR — /price-lists[2m > [22m[2mساخت 201 ← PriceList با اقلام (قیمت رشته)
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+ [32m✓[39m test/pricing.api.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 7101[2mms[22m[39m
+[90mstderr[2m | test/structure.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/structure.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/structure.api.test.ts[2m > [22m[2mST — /areas[2m > [22m[2mکد تکراری در شعبه 409 ← duplicate_code
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/structure.api.test.ts[2m > [22m[2mST — /areas[2m > [22m[2mکد تکراری در شعبه 409 ← duplicate_code
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+ [32m✓[39m test/structure.api.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 6965[2mms[22m[39m
+[90mstderr[2m | test/returns.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/returns.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/returns.api.test.ts[2m > [22m[2mRT — جریان کامل /returns[2m > [22m[2mساخت 201 ← ReturnRequest با قلم (submitted)
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/returns.api.test.ts[2m > [22m[2mRT — جریان کامل /returns[2m > [22m[2mساخت 201 ← ReturnRequest با قلم (submitted)
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+ [32m✓[39m test/returns.api.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 6774[2mms[22m[39m
+[90mstderr[2m | test/warehouses.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/warehouses.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/warehouses.api.test.ts[2m > [22m[2mW — CRUD انبار علیه قرارداد[2m > [22m[2mانبار غیرخودرو با vehicle_id 400 ← vehicle_not_allowed
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/warehouses.api.test.ts[2m > [22m[2mW — CRUD انبار علیه قرارداد[2m > [22m[2mانبار غیرخودرو با vehicle_id 400 ← vehicle_not_allowed
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+ [32m✓[39m test/warehouses.api.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 6837[2mms[22m[39m
+[90mstderr[2m | test/waybills.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/waybills.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/waybills.api.test.ts[2m > [22m[2mWB — جریان /waybills[2m > [22m[2mساخت 201 ← Waybill با قلم
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/waybills.api.test.ts[2m > [22m[2mWB — جریان /waybills[2m > [22m[2mساخت 201 ← Waybill با قلم
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+ [32m✓[39m test/waybills.api.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 7124[2mms[22m[39m
+[90mstderr[2m | test/staff.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/staff.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/staff.api.test.ts[2m > [22m[2mPOST /staff — ساخت پرسنل[2m > [22m[2mبدون توکن 401 و بدون مجوز 403
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/staff.api.test.ts[2m > [22m[2mPOST /staff — ساخت پرسنل[2m > [22m[2mبدون توکن 401 و بدون مجوز 403
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+ [32m✓[39m test/staff.api.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 6036[2mms[22m[39m
+[90mstderr[2m | test/products.api.test.ts
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+[90mstderr[2m | test/products.api.test.ts
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/products.api.test.ts[2m > [22m[2mPATCH /api/v1/products/{id} — قفل خوش‌بینانه[2m > [22m[2mبدون row_version (ویرایش معمولی) مجاز است
+[22m[39m⚠ Redis در دسترس نیست ()؛ کش/صف سراسری غیرفعال است.
+
+[90mstderr[2m | test/products.api.test.ts[2m > [22m[2mPATCH /api/v1/products/{id} — قفل خوش‌بینانه[2m > [22m[2mبدون row_version (ویرایش معمولی) مجاز است
+[22m[39m⚠ Redis برای صف BullMQ در دسترس نیست ().
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1430:18)[39m
+[90m    at afterConnectMultiple (node:net:2099:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m6379[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    [90m    at createConnectionError (node:net:2062:14)[39m
+    [90m    at afterConnectMultiple (node:net:2092:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m6379[39m
+    }
+  ]
+}
+
+ [32m✓[39m test/products.api.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 6162[2mms[22m[39m
+ [32m✓[39m test/sms-sender.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 235[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m188 passed[39m[22m[90m (188)[39m
+[2m   Start at [22m 09:02:41
+[2m   Duration [22m 86.83s[2m (tests 65%, import 34%, transform 1%)[22m
+

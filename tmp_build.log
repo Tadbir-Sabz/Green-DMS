@@ -1,0 +1,8 @@
+
+> @dms/contracts@0.1.0 build
+> tsc -p tsconfig.json
+
+
+> @dms/api-client@0.1.0 build
+> tsc -p tsconfig.json
+

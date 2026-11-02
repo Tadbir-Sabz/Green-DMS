@@ -1,0 +1,39 @@
+{
+  "name": "green-dms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "سامانه جامع فروش و پخش مویرگی (DMS) — monorepo بر اساس dms-design-report.md",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w packages/contracts && npm run build -w packages/api-client && npm run build -w apps/api && npm run build -w apps/web",
+    "typecheck": "npm run typecheck -w packages/contracts && npm run typecheck -w packages/api-client && npm run typecheck -w apps/api && npm run typecheck -w apps/web",
+    "db:migrate": "node scripts/migrate.mjs up",
+    "db:rollback": "node scripts/migrate.mjs down",
+    "db:status": "node scripts/migrate.mjs status",
+    "db:reset": "node scripts/migrate.mjs reset",
+    "db:seed-demo": "node scripts/seed-demo.mjs",
+    "test:migrations": "node scripts/test-migrations.mjs",
+    "test:api": "npm run test -w apps/api",
+    "openapi:check": "node scripts/openapi-check.mjs",
+    "clients:generate": "node scripts/generate-clients.mjs"
+  },
+  "devDependencies": {
+    "@readme/openapi-parser": "^10.0.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@nestjs/platform-socket.io": "^12.3.2",
+    "@nestjs/websockets": "^12.3.2",
+    "dotenv": "^17.2.3",
+    "pg": "^8.23.1",
+    "socket.io": "^4.8.4"
+  }
+}

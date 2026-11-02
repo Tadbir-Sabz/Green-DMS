@@ -1,0 +1,67 @@
+name: مهاجرت‌های پایگاه‌داده
+
+# تست چرخه مهاجرت روی دیتابیس کاملاً خالی:
+#   ساخت دیتابیس → up همه مهاجرت‌ها → down برعکس → راستی‌آزمایی خالی‌شدن
+#   → up دوم → مقایسه دقیق اشیای دو اجرا (جدول/نما/ایندکس/تریگر/تابع)
+# خروجی اسکریپت scripts/test-migrations.mjs غیرصفر یعنی شکست job.
+
+on:
+  push:
+    paths:
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/migrations.yml'
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/migrations.yml'
+  workflow_dispatch:
+
+jobs:
+  migration-cycle:
+    name: چرخه up → down → up روی دیتابیس خالی
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # مهاجرت 0001 پسوندهای pgcrypto، pg_trgm، btree_gist و postgis را می‌سازد؛
+      # پس تصویر پستگیس لازم است (نسخه 16 هم‌خوان با توسعه محلی).
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # اسکریپت DATABASE_URL را از محیط می‌گیرد (فایل .env در CI وجود ندارد)
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      TEST_DB: greendms_ci_test
+
+    steps:
+      - name: دریافت کد
+        uses: actions/checkout@v4
+
+      - name: نصب Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: نصب وابستگی‌ها
+        run: npm ci
+
+      - name: تست چرخه مهاجرت (up → down → up)
+        run: npm run test:migrations

@@ -1,0 +1,51 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap');
+
+:root {
+  --background: 247 249 252;
+  --foreground: 15 23 42;
+}
+
+html {
+  font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+}
+
+body {
+  background: rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 11 16 38;
+  --foreground: 229 231 235;
+}
+
+.dark body {
+  background: #0b1026 !important;
+  color: #e5e7eb !important;
+}
+
+.dark header { background: rgba(15, 23, 42, 0.98) !important; border-color: #1f2937 !important; }
+.dark aside { background: #0f172a !important; border-color: #1f2937 !important; }
+.dark .bg-white { background: #111827 !important; }
+.dark .bg-\[\#f6f8fa\], .dark .bg-\[\#f7f9fc\] { background: #0b1026 !important; }
+.dark .bg-slate-50 { background: #0b1220 !important; }
+.dark .border-slate-200, .dark .border-slate-100, .dark .border-\[\#1f2937\] { border-color: #1f2937 !important; }
+.dark .text-slate-900 { color: #f8fafc !important; }
+.dark .text-slate-800 { color: #f1f5f9 !important; }
+.dark .text-slate-700 { color: #e5e7eb !important; }
+.dark .text-slate-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500 { color: #94a3b8 !important; }
+.dark .text-slate-400 { color: #64748b !important; }
+.dark .hover\:bg-slate-50:hover, .dark .hover\:bg-slate-100:hover, .dark .hover\:bg-\[\#1f2937\]:hover { background: #1f2937 !important; }
+.dark input, .dark select, .dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #1f2937 !important; }
+.dark input::placeholder { color: #64748b !important; }
+.dark table thead { background: #0b1220 !important; }
+.dark table tbody tr:hover { background: #1f2937 !important; }
+.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.6) !important; }
+.dark .shadow-md, .dark .shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.7), 0 4px 6px -4px rgb(0 0 0 / 0.7) !important; }

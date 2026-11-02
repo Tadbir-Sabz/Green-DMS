@@ -1,0 +1,3783 @@
+openapi: 3.1.0
+
+# =====================================================================
+# قرارداد API سامانه پخش مویرگی (Green-DMS)
+# منبع: dms-design-report.md › ضمیمه F (F.۱ قرارداد API)
+# این سند «تثبیت‌شده» است: وب (Next.js) و سه اپ اندرویدی همگی از همین
+# سند کلاینت تولید می‌کنند. هر تغییر ناسازگار فقط با نسخه جدید در مسیر.
+# =====================================================================
+
+info:
+  title: Green-DMS API
+  version: '1.0.0'
+  summary: قرارداد مشترک وب و اپ‌های فروشنده، موزع و تلفنی
+  description: |
+    ## اصول قرارداد (طبق F.۱)
+    - **نسخه‌بندی در مسیر:** همه منابع زیر `/v1` هستند؛ تغییر ناسازگار فقط با نسخه جدید.
+    - **احراز هویت:** `Bearer` کوتاه‌عمر JWT + `Refresh Token` در `/auth/refresh`؛ اپ‌ها OTP پیامکی را از `/auth/otp/*` می‌گیرند.
+    - **صفحه‌بندی:** مبتنی بر cursor — پاسخ‌های فهرست `next_cursor` و `has_more` برمی‌گردانند.
+    - **خطاها:** پوشش یکسان `{code, message_fa, details, request_id}`؛ `code` ماشینی و `message_fa` قابل نمایش به کاربر فارسی‌زبان.
+    - **آفلاین:** سند‌های میدانی `client_uuid` یکتا می‌فرستند؛ سرور اعمال تکراری را با `409 conflict` رد می‌کند.
+    - **قفل خوش‌بینانه:** به‌روزرسانی‌ها `row_version` می‌فرستند؛ مغایرت = `409 version_conflict`.
+    - **مبالغ:** رشته اعشاری حداکثر ۱۹ رقم (ریال، مگر تنظیم دیگر) تا دقت از دست نرود.
+    - **مکان:** هندسه‌ها GeoJSON (نقطه = مشتری/موقعیت، خط = مسیر) با مختصات WGS84.
+
+    ## رویدادهای زنده (WebSocket — خارج از دامنه REST)
+    - `location.update` — موقعیت زنده فروشنده/موزع برای نقشه رهگیری
+    - `order.status` — تغییر وضعیت سفارش/حواله/فاکتور برای پیگیری توزیع
+    - `approval.queue` — ورود آیتم به صف تأیید کاربر جاری
+
+    ## وب‌هوک بیرونی
+    رویدادهای `webhooks` در پایین سند؛ هر درخواست با هدر `X-Signature` (HMAC-SHA256 از بدنه با کلید مشترک) امضا می‌شود و گیرنده تا سه بار با تأخیر نمایی تلاش مجدد می‌کند.
+
+    ## نرخ‌گذاری
+    پاسخ‌های `/auth/*` و `/tracking/locations` هدرهای `RateLimit-Limit/Remaining/Reset` دارند؛ مصرف‌کننده بیرونی با کلید `X-API-Key` (طرح `externalApiKey`) کار می‌کند.
+  contact:
+    name: Green-DMS — تیم فنی
+  license:
+    name: اختصاصی — استفاده داخلی سازمان
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: http://localhost:4000/api/v1
+    description: توسعه محلی
+  - url: https://dms.example.ir/api/v1
+    description: محیط تولید
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: ورود، تازه‌سازی نشست و OTP
+  - name: users
+    description: کاربران سیستم و دستگاه‌های مجاز
+  - name: roles
+    description: نقش‌ها و نگاشت مجوزها (RBAC — ضمیمه H)
+  - name: persons
+    description: اشخاص حقیقی/حقوقی (پایه مشتری و پرسنل)
+  - name: staff
+    description: پرسنل، سمت، سرپرست و وابستگی حوزه/انبار
+  - name: customers
+    description: مشتریان، اعتبار و موقعیت جغرافیایی
+  - name: products
+    description: کالا و دسته‌بندی
+  - name: price-lists
+    description: لیست قیمت و قیمت مشتری‌محور
+  - name: promotions
+    description: تخفیف‌ها و جوایز فروش
+  - name: warehouses
+    description: انبارها (مرکزی، شعبه، خودرو)
+  - name: stock
+    description: موجودی، اصلاحیه و رزرو
+  - name: stocktakes
+    description: انبارگردانی
+  - name: transfers
+    description: انتقال بین‌انباری
+  - name: areas
+    description: حوزه فروش
+  - name: routes
+    description: مسیر (پیمایشی) فروشندگان
+  - name: tours
+    description: تورهای فروش و توزیع + تسویه
+  - name: visits
+    description: بازدید (check-in/out) با مختصات و ضدتقلب
+  - name: requests
+    description: درخواست مشتری (پیش از سفارش)
+  - name: orders
+    description: سفارش فروش
+  - name: waybills
+    description: حواله انبار
+  - name: invoices
+    description: فاکتور فروش و ارسال به مؤدیان
+  - name: returns
+    description: مرجوعی — درخواست، تأیید و ثبت نهایی
+  - name: deliveries
+    description: پیگیری توزیع و تحویل (POD)
+  - name: ar
+    description: حسابداری فروش — دفتر مشتری و سنی بدهکاری
+  - name: ap
+    description: حسابداری خرید — دفتر تأمین‌کننده
+  - name: treasury
+    description: خزانه‌داری — صندوق و بانک
+  - name: cheques
+    description: چک‌های دریافتی/پرداختی
+  - name: payments
+    description: رسید وصول و تخصیص پرداخت
+  - name: tracking
+    description: رهگیری موقعیت و مسیریابی
+  - name: geofences
+    description: محدوده جغرافیایی کار
+  - name: rules
+    description: موتور قوانین و کنترل‌ها
+  - name: approvals
+    description: صف تأیید و تصمیم تأییدکننده
+  - name: reports
+    description: گزارش‌ها و داشبوردها (ضمیمه C)
+  - name: settings
+    description: تنظیمات عمومی و تفکیکی هر حوزه
+  - name: integrations
+    description: مؤدیان، پوز، پیامک و درگاه (ضمیمه D)
+
+paths:
+
+  # ---------------- احراز هویت ----------------
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: ورود با نام کاربری/رمز + ارسال کد OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: نشست صادر شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: تازه‌سازی نشست با Refresh Token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: توکن تازه صادر شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: خروج و ابطال نشست جاری
+      responses:
+        '204': { description: نشست ابطال شد }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: نشست جاری — کاربر، نقش‌ها و مجوزهای قابل اتکا برای رابط کاربری
+      responses:
+        '200':
+          description: نشست جاری
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionContext' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/otp/request:
+    post:
+      tags: [auth]
+      summary: درخواست کد یک‌بارمصرف پیامکی
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
+                purpose: { type: string, enum: [login, password_reset, device_bind], default: login }
+      responses:
+        '202':
+          description: کد ارسال شد (پاسخ عامدانه برای جلوگیری از enumeration یکسان است)
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/otp/verify:
+    post:
+      tags: [auth]
+      summary: تأیید کد OTP و صدور نشست
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, code]
+              properties:
+                username: { type: string }
+                code: { type: string, minLength: 4, maxLength: 8 }
+                device_id:
+                  type: string
+                  description: >-
+                    شناسه دستگاه ثبت‌شده (id ردیف جدول device) برای اتصال به
+                    «دستگاه‌های مجاز»؛ تأیید موفق آن را is_trusted می‌کند
+      responses:
+        '200':
+          description: نشست صادر شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/password-reset:
+    post:
+      tags: [auth]
+      summary: بازیابی رمز عبور با کد OTP (purpose=password_reset)
+      description: >-
+        کد باید پیش‌تر با purpose=password_reset درخواست شده باشد. پس از مصرفِ اتمیک
+        کد، رمز عبور عوض می‌شود، قفل و شمارنده تلاش‌های ناموفق پاک و همه نشست‌های
+        باز کاربر با revoked_reason=password_reset باطل می‌شود. پاسخ برای نامِ موجود
+        بدون کدِ معتبر و نامِ ناشناخته یکسان است تا وجود حساب لو نرود.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordResetRequest' }
+      responses:
+        '204':
+          description: رمز عبور تغییر کرد و همه نشست‌های باز کاربر باطل شد
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ---------------- دستگاه‌های مجاز ----------------
+  /devices:
+    get:
+      tags: [users]
+      summary: فهرست دستگاه‌های مجاز کاربر جاری
+      description: فقط دستگاه‌های خودِ کاربرِ واردشده (از روی نشست)، بدون نیاز به مجوز جداگانه
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+      responses:
+        '200':
+          description: صفحه‌ای از دستگاه‌های کاربر جاری
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Device' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [users]
+      summary: ثبت دستگاه کاربر جاری (پیش‌شرط فعال‌سازی با OTP)
+      description: >-
+        device_uuid باید برای هر کاربر یکتا باشد. دستگاه تازه با is_trusted=false
+        ثبت می‌شود و تا تأیید با کد پیامکی (purpose=device_bind روی /auth/otp/verify)
+        دستگاه مجاز به‌شمار نمی‌رود. ثبت دوباره دستگاهِ باطل‌شدهٔ همان کاربر
+        آن را دوباره فعال می‌کند، اما دستگاهِ متعلق به کاربر دیگر 409 می‌دهد.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceCreate' }
+      responses:
+        '201':
+          description: دستگاه ثبت شد (is_trusted تا تأیید با OTP برابر false است)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /devices/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    delete:
+      tags: [users]
+      summary: ابطال دستگاه از راه دور (گم‌شدن/فروش گوشی)
+      description: >-
+        دستگاه باطل می‌شود (revoked_at) و همه نشست‌های فعالِ روی همان دستگاه نیز
+        با revoked_reason=device_revoked ابطال می‌گردند؛ ردیف برای ممیزی می‌ماند.
+        ابطال مجدد همان دستگاه هم 204 برمی‌گرداند (idempotent).
+      responses:
+        '204':
+          description: دستگاه (و نشست‌هایش) باطل شد
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- کاربران و نقش‌ها ----------------
+  /users:
+    get:
+      tags: [users]
+      summary: فهرست کاربران (فیلتر نقش/فعال/حوزه)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: role, in: query, schema: { type: string } }
+        - { name: is_active, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: صفحه‌ای از کاربران
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [users]
+      summary: ساخت کاربر سیستم (فقط برای «کاربر سیستم»؛ فروشنده صرفاً پرسنل است)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/User' }
+      responses:
+        '201':
+          description: کاربر ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /users/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [users]
+      summary: جزئیات کاربر
+      responses:
+        '200':
+          description: کاربر
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [users]
+      summary: به‌روزرسانی کاربر (نقش، فعالیت، قفل حساب)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/User' }
+      responses:
+        '200':
+          description: کاربر به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [users]
+      summary: غیرفعال‌سازی کاربر (حذف فیزیکی ممنوع — ممیزی)
+      responses:
+        '204': { description: کاربر غیرفعال شد }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /roles:
+    get:
+      tags: [roles]
+      summary: فهرست نقش‌ها با مجوزهایشان
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+      responses:
+        '200':
+          description: صفحه‌ای از نقش‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Role' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [roles]
+      summary: ساخت نقش با نگاشت مجوزها
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Role' }
+      responses:
+        '201':
+          description: نقش ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /roles/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [roles]
+      summary: جزئیات نقش
+      responses:
+        '200':
+          description: نقش
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [roles]
+      summary: به‌روزرسانی نقش (نقش‌های سیستمی is_system قابل حذف نیستند)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Role' }
+      responses:
+        '200':
+          description: نقش به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [roles]
+      summary: حذف نقش (فقط اگر کاربری نداشته باشد)
+      responses:
+        '204': { description: نقش حذف شد }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- اشخاص، پرسنل ----------------
+  /persons:
+    get:
+      tags: [persons]
+      summary: فهرست اشخاص (حقیقی/حقوقی) با جست‌وجوی کد/نام/شناسه ملی
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: q, in: query, schema: { type: string }, description: جست‌وجوی فازی نام/کد }
+        - { name: legal_type, in: query, schema: { type: string, enum: [natural, legal] } }
+      responses:
+        '200':
+          description: صفحه‌ای از اشخاص
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Person' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [persons]
+      summary: ثبت شخص جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Person' }
+      responses:
+        '201':
+          description: شخص ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Person' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /persons/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [persons]
+      summary: جزئیات شخص
+      responses:
+        '200':
+          description: شخص
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Person' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [persons]
+      summary: به‌روزرسانی شخص (نام بر اساس legal_type الزامی می‌ماند)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Person' }
+      responses:
+        '200':
+          description: شخص به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Person' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /staff:
+    get:
+      tags: [staff]
+      summary: فهرست پرسنل (ویزیتور سرد/گرم، موزع، انباردار…) با فیلتر سمت و سرپرست
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: job_position_code, in: query, schema: { type: string } }
+        - { name: supervisor_id, in: query, schema: { type: string, format: uuid } }
+        - { name: is_field, in: query, schema: { type: boolean }, description: فقط میدانی‌ها }
+      responses:
+        '200':
+          description: صفحه‌ای از پرسنل
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Staff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [staff]
+      summary: تعریف پرسنل (نسبت‌دادن شخص به سمت و سرپرست)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Staff' }
+      responses:
+        '201':
+          description: پرسنل تعریف شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Staff' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /staff/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [staff]
+      summary: جزئیات پرسنل
+      responses:
+        '200':
+          description: پرسنل
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Staff' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [staff]
+      summary: به‌روزرسانی پرسنل (تغییر سرپرست، وسیله، حوزه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Staff' }
+      responses:
+        '200':
+          description: پرسنل به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Staff' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- مشتریان ----------------
+  /customers:
+    get:
+      tags: [customers]
+      summary: فهرست مشتریان (فیلتر مسیر/حوزه/فروشنده/کانال + جست‌وجو)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: route_id, in: query, schema: { type: string, format: uuid } }
+        - { name: area_id, in: query, schema: { type: string, format: uuid } }
+        - { name: salesperson_id, in: query, schema: { type: string, format: uuid } }
+        - { name: channel, in: query, schema: { type: string } }
+        - { name: has_location, in: query, schema: { type: boolean }, description: فقط دارای موقعیت ثبت‌شده }
+      responses:
+        '200':
+          description: صفحه‌ای از مشتریان
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Customer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [customers]
+      summary: ثبت مشتری جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Customer' }
+      responses:
+        '201':
+          description: مشتری ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /customers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [customers]
+      summary: جزئیات مشتری (با مانده اعتبار)
+      responses:
+        '200':
+          description: مشتری
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [customers]
+      summary: به‌روزرسانی مشتری (مسیر، لیست قیمت، شرایط تسویه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Customer' }
+      responses:
+        '200':
+          description: مشتری به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /customers/{id}/location:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    put:
+      tags: [customers]
+      summary: ثبت/تصحیح موقعیت جغرافیایی مشتری توسط فروشنده در نقشه
+      description: |
+        مختصات از GPS دستگاه گرفته می‌شود؛ سرور منبع (gps/network/mock) و دقت را
+        ثبت می‌کند تا گزارش ضدتقلب ممکن باشد.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [geo]
+              properties:
+                geo: { $ref: '#/components/schemas/GeoPoint' }
+                accuracy_m: { type: number, description: دقت اندازه‌گیری به متر }
+                source: { type: string, enum: [gps, map_pick, geocode] }
+      responses:
+        '200':
+          description: موقعیت ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- کالا، قیمت، تشویق ----------------
+  /products:
+    get:
+      tags: [products]
+      summary: فهرست کالاها (جست‌وجوی فازی کد/نام، فیلتر دسته/برند/وضعیت)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: category_id, in: query, schema: { type: string, format: uuid } }
+        - { name: brand_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از کالاها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: تعریف کالای جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductCreate' }
+      responses:
+        '201':
+          description: کالا ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: جزئیات کالا
+      responses:
+        '200':
+          description: کالا
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: به‌روزرسانی کالا (قفل خوش‌بینانه با row_version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductUpdate' }
+      responses:
+        '200':
+          description: کالا به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [products]
+      summary: حذف نرم کالا (deleted_at؛ ردیف برای ممیزی مالی باقی می‌ماند)
+      responses:
+        '204': { description: کالا حذف شد (بدنه‌ای برنمی‌گردد) }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /product-categories:
+    get:
+      tags: [products]
+      summary: فهرست دسته‌بندی‌های کالای همان شرکت (برای فرم کالا و گزارش‌ها)
+      responses:
+        '200':
+          description: دسته‌بندی‌های فعال
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ProductCategory' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /units:
+    get:
+      tags: [products]
+      summary: فهرست واحدهای اندازه‌گیری (داده مرجع سراسری، مشترک همه شرکت‌ها)
+      responses:
+        '200':
+          description: واحدهای اندازه‌گیری
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Unit' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /price-lists:
+    get:
+      tags: [price-lists]
+      summary: فهرست لیست‌های قیمت
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+      responses:
+        '200':
+          description: صفحه‌ای از لیست‌های قیمت
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/PriceList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [price-lists]
+      summary: ساخت لیست قیمت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceList' }
+      responses:
+        '201':
+          description: لیست قیمت ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /price-lists/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [price-lists]
+      summary: جزئیات لیست قیمت با اقلامش
+      responses:
+        '200':
+          description: لیست قیمت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [price-lists]
+      summary: به‌روزرسانی لیست قیمت و اقلام آن
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceList' }
+      responses:
+        '200':
+          description: لیست قیمت به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PriceList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /promotions:
+    get:
+      tags: [promotions]
+      summary: فهرست تخفیف‌ها و جوایز فعال
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: is_active, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: صفحه‌ای از تشویق‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Promotion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [promotions]
+      summary: تعریف تخفیف/جایزه جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Promotion' }
+      responses:
+        '201':
+          description: تشویق ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Promotion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /promotions/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [promotions]
+      summary: جزئیات تشویق
+      responses:
+        '200':
+          description: تشویق
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Promotion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [promotions]
+      summary: به‌روزرسانی تشویق
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Promotion' }
+      responses:
+        '200':
+          description: تشویق به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Promotion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- انبار ----------------
+  /warehouses:
+    get:
+      tags: [warehouses]
+      summary: فهرست انبارها (مرکزی/شعبه/خودرو)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: kind, in: query, schema: { type: string, enum: [main, vehicle, transit, damaged, quarantine, consignment] } }
+        - { name: branch_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: صفحه‌ای از انبارها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Warehouse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [warehouses]
+      summary: تعریف انبار (برای هر حوزه/شعبه یا وسیله نقلیه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Warehouse' }
+      responses:
+        '201':
+          description: انبار ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Warehouse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /warehouses/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [warehouses]
+      summary: جزئیات انبار
+      responses:
+        '200':
+          description: انبار
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Warehouse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [warehouses]
+      summary: به‌روزرسانی انبار
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Warehouse' }
+      responses:
+        '200':
+          description: انبار به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Warehouse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /stock:
+    get:
+      tags: [stock]
+      summary: موجودی انبار (فیلتر انبار/کالا/بچ؛ موجودی قابل رزرو)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: warehouse_id, in: query, schema: { type: string, format: uuid } }
+        - { name: product_id, in: query, schema: { type: string, format: uuid } }
+        - { name: batch_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: صفحه‌ای از موجودی‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/StockBalance' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /stock/adjustments:
+    post:
+      tags: [stock]
+      summary: اصلاحیه موجودی (با دلیل و مجوز کنترلی)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockAdjustment' }
+      responses:
+        '201':
+          description: اصلاحیه ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockAdjustment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /stocktakes:
+    get:
+      tags: [stocktakes]
+      summary: فهرست سند انبارگردانی
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از انبارگردانی‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/StockTake' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [stocktakes]
+      summary: شروع انبارگردانی برای انبار
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockTake' }
+      responses:
+        '201':
+          description: سند انبارگردانی ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockTake' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /stocktakes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [stocktakes]
+      summary: جزئیات انبارگردانی با اقلام و مغایرت‌ها
+      responses:
+        '200':
+          description: انبارگردانی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockTake' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [stocktakes]
+      summary: ثبت شمارش اقلام
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockTake' }
+      responses:
+        '200':
+          description: انبارگردانی به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockTake' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /stocktakes/{id}/submit:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [stocktakes]
+      summary: پایان انبارگردانی و اعمال مغایرت‌ها (نیازمند تأیید)
+      responses:
+        '200':
+          description: مغایرت‌ها اعمال شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockTake' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /transfers:
+    get:
+      tags: [transfers]
+      summary: فهرست انتقالات بین‌انباری
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+      responses:
+        '200':
+          description: صفحه‌ای از انتقالات
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Transfer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [transfers]
+      summary: ثبت انتقال بین‌انباری (برای بارگیری خودرو)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Transfer' }
+      responses:
+        '201':
+          description: انتقال ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transfer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /transfers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [transfers]
+      summary: جزئیات انتقال
+      responses:
+        '200':
+          description: انتقال
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transfer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- سازمان فروش: حوزه و مسیر ----------------
+  /areas:
+    get:
+      tags: [areas]
+      summary: فهرست حوزه‌های فروش (سلسله‌مراتبی)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: parent_area_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: صفحه‌ای از حوزه‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Area' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [areas]
+      summary: تعریف حوزه فروش
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Area' }
+      responses:
+        '201':
+          description: حوزه ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /areas/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [areas]
+      summary: جزئیات حوزه
+      responses:
+        '200':
+          description: حوزه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [areas]
+      summary: به‌روزرسانی حوزه
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Area' }
+      responses:
+        '200':
+          description: حوزه به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /routes:
+    get:
+      tags: [routes]
+      summary: فهرست مسیرهای پیمایشی (ترتیب بازدید هفتگی)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: area_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: صفحه‌ای از مسیرها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Route' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [routes]
+      summary: تعریف مسیر فروش
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Route' }
+      responses:
+        '201':
+          description: مسیر ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Route' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /routes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [routes]
+      summary: جزئیات مسیر با ترتیب مشتریان
+      responses:
+        '200':
+          description: مسیر
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Route' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [routes]
+      summary: به‌روزرسانی مسیر و ترتیب مشتریان
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Route' }
+      responses:
+        '200':
+          description: مسیر به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Route' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- تورها و بازدید ----------------
+  /tours:
+    get:
+      tags: [tours]
+      summary: فهرست تورها (سرد/گرم، توزیع، تلفنی) با فیلتر تاریخ و فروشنده
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: tour_date, in: query, schema: { type: string, format: date } }
+        - { name: kind, in: query, schema: { type: string, enum: [cold, warm, distribution, telesales] } }
+        - { name: salesperson_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از تورها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Tour' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [tours]
+      summary: شروع/تخصیص تور (دریافت تور توسط فروشنده یا تخصیص مدیر)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Tour' }
+      responses:
+        '201':
+          description: تور ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tour' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /tours/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [tours]
+      summary: جزئیات تور (بارگیری، بازدیدها، فروش)
+      responses:
+        '200':
+          description: تور
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tour' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [tours]
+      summary: به‌روزرسانی تور (شروع/پایان، یادداشت)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Tour' }
+      responses:
+        '200':
+          description: تور به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tour' }
+  /tours/{id}/settlement:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [tours]
+      summary: تسویه تور — نقد دریافتی، مغایرت و پورسانت
+      responses:
+        '200':
+          description: تسویه تور
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TourSettlement' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /visits:
+    get:
+      tags: [visits]
+      summary: فهرست بازدیدها (برای سرپرست و مدیریت)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: tour_id, in: query, schema: { type: string, format: uuid } }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: صفحه‌ای از بازدیدها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Visit' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [visits]
+      summary: ثبت بازدید (check-in با مختصات — ضدتقلب GPS)
+      description: |
+        اپ فروشنده با check-in شروع بازدید را ثبت می‌کند؛ سرور فاصله از موقعیت
+        مشتری و دقت GPS را می‌سنجد و در صورت `is_mocked` یا فاصله زیاد، رویداد
+        ضدتقلب ثبت می‌کند (ماژول ۶).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Visit' }
+      responses:
+        '201':
+          description: بازدید ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Visit' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /visits/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [visits]
+      summary: جزئیات بازدید
+      responses:
+        '200':
+          description: بازدید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Visit' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [visits]
+      summary: ثبت check-out و نتیجه بازدید (بدون سفارش/علت)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Visit' }
+      responses:
+        '200':
+          description: بازدید به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Visit' }
+
+  # ---------------- زنجیره فروش: درخواست، سفارش، حواله، فاکتور ----------------
+  /requests:
+    get:
+      tags: [requests]
+      summary: فهرست درخواست‌های مشتری (پرتال/تلفنی/میدانی)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: channel, in: query, schema: { type: string, enum: [field, telesale, portal, walk_in] } }
+      responses:
+        '200':
+          description: صفحه‌ای از درخواست‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/CustomerRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [requests]
+      summary: ثبت درخواست مشتری (همگام‌سازی آفلاین با client_uuid امن است)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerRequest' }
+      responses:
+        '201':
+          description: درخواست ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /requests/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [requests]
+      summary: جزئیات درخواست
+      responses:
+        '200':
+          description: درخواست
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [requests]
+      summary: به‌روزرسانی درخواست
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerRequest' }
+      responses:
+        '200':
+          description: درخواست به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerRequest' }
+  /requests/{id}/convert:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [requests]
+      summary: تبدیل درخواست تأییدشده به سفارش فروش
+      responses:
+        '201':
+          description: سفارش ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesOrder' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /orders:
+    get:
+      tags: [orders]
+      summary: فهرست سفارش‌های فروش
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: tour_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: order_date, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: صفحه‌ای از سفارش‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [orders]
+      summary: ثبت سفارش فروش (اعتبارسنجی اعتبار/قیمت/قانون قبل از تأیید)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalesOrder' }
+      responses:
+        '201':
+          description: سفارش ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /orders/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [orders]
+      summary: جزئیات سفارش با اقلام
+      responses:
+        '200':
+          description: سفارش
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [orders]
+      summary: ویرایش سفارش (فقط پیش از تأیید نهایی)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalesOrder' }
+      responses:
+        '200':
+          description: سفارش به‌روزرسانی شد (فقط در وضعیت پیش‌نویس؛ اقلام جایگزین می‌شوند)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /orders/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [orders]
+      summary: تأیید سفارش (در صورت نیاز از طریق صف approvals)
+      responses:
+        '200':
+          description: سفارش تأیید شد (فقط از پیش‌نویس/در انتظار تأیید)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /waybills:
+    get:
+      tags: [waybills]
+      summary: فهرست حواله‌ها
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: order_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از حواله‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Waybill' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [waybills]
+      summary: صدور حواله انبار برای سفارش تأییدشده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Waybill' }
+      responses:
+        '201':
+          description: حواله صادر شد (موجودی رزرو می‌شود)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Waybill' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /waybills/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [waybills]
+      summary: جزئیات حواله
+      responses:
+        '200':
+          description: حواله
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Waybill' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /invoices:
+    get:
+      tags: [invoices]
+      summary: فهرست فاکتورهای فروش
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: moadian_status, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از فاکتورها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Invoice' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [invoices]
+      summary: صدور فاکتور از حواله تحویل‌شده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Invoice' }
+      responses:
+        '201':
+          description: فاکتور صادر شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /invoices/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [invoices]
+      summary: جزئیات فاکتور با اقلام و وضعیت ارسال مالیاتی
+      responses:
+        '200':
+          description: فاکتور
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- مرجوعی ----------------
+  /returns:
+    get:
+      tags: [returns]
+      summary: فهرست درخواست‌های مرجوعی
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, submitted, approved, partially_approved, rejected, posted, closed] } }
+      responses:
+        '200':
+          description: صفحه‌ای از مرجوعی‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [returns]
+      summary: ثبت درخواست مرجوعی توسط فروشنده/مشتری
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReturnRequest' }
+      responses:
+        '201':
+          description: درخواست مرجوعی ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /returns/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [returns]
+      summary: جزئیات مرجوعی با اقلام و تعیین تکلیف کالا
+      responses:
+        '200':
+          description: مرجوعی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /returns/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [returns]
+      summary: تأیید مرجوعی (توسط مدیر/سرپرست طبق زنجیره تأیید)
+      responses:
+        '200':
+          description: مرجوعی تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /returns/{id}/receive:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [returns]
+      summary: ثبت نهایی مرجوعی (تحویل کالا به انبار + تعیین تکلیف)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, qty, disposition]
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      qty: { type: number }
+                      disposition:
+                        type: string
+                        enum: [restock, damaged, scrap, return_to_supplier]
+                        description: تعیین تکلیف کالا (ماژول ۴ §۴.۷)
+      responses:
+        '200':
+          description: مرجوعی نهایی شد (بستانکاری مشتری ثبت شد)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- پیگیری توزیع و تحویل ----------------
+  /deliveries:
+    get:
+      tags: [deliveries]
+      summary: پیگیری توزیع — وضعیت حواله‌های هر تور/موزع
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: tour_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [planned, dispatched, delivered, partial, failed, cancelled] } }
+      responses:
+        '200':
+          description: صفحه‌ای از وضعیت توزیع
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Delivery' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /deliveries/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [deliveries]
+      summary: جزئیات تحویل (POD با عکس و امضا)
+      responses:
+        '200':
+          description: تحویل
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Delivery' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [deliveries]
+      summary: ثبت تحویل (جزئی/کامل) با POD
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Delivery' }
+      responses:
+        '200':
+          description: تحویل ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Delivery' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+
+  # ---------------- حسابداری فروش (AR) ----------------
+  /ar:
+    get:
+      tags: [ar]
+      summary: دفتر بدهکاری مشتریان و تحلیل سنی
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: as_of, in: query, schema: { type: string, format: date } }
+        - { name: branch_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: مانده مشتریان با رده‌بندی سنی
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/ArAgingRow' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /ar/{customerId}/statement:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [ar]
+      summary: صورتحساب دوره‌ای مشتری (صدور و ارسال پیامکی/پورتال)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: صورتحساب
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerStatement' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- حسابداری خرید (AP) ----------------
+  /ap:
+    get:
+      tags: [ap]
+      summary: دفتر بدهکاری تأمین‌کنندگان و سنی پرداختنی
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_person_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: مانده تأمین‌کنندگان
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/SupplierBalance' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------- خزانه، چک، وصول ----------------
+  /treasury:
+    get:
+      tags: [treasury]
+      summary: مانده صندوق و بانک‌ها + مغایرت‌گیری (روزانه/دوره‌ای)
+      parameters:
+        - { name: as_of, in: query, schema: { type: string, format: date } }
+        - { name: bank_account_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: موقعیت خزانه
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TreasuryPosition' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /cheques:
+    get:
+      tags: [cheques]
+      summary: فهرست چک‌های دریافتی/پرداختی و سررسیدها
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: direction, in: query, schema: { type: string, enum: [received, issued] } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, cleared, bounced, returned] } }
+        - { name: due_from, in: query, schema: { type: string, format: date } }
+        - { name: due_to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: صفحه‌ای از چک‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Cheque' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [cheques]
+      summary: ثبت چک (دریافت از مشتری یا صدور برای تأمین‌کننده)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Cheque' }
+      responses:
+        '201':
+          description: چک ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cheque' }
+  /cheques/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [cheques]
+      summary: جزئیات چک
+      responses:
+        '200':
+          description: چک
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cheque' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [cheques]
+      summary: تعیین تکلیف چک (وصول/برگشت/واگذاری به بانک)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Cheque' }
+      responses:
+        '200':
+          description: چک به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cheque' }
+  /payments:
+    get:
+      tags: [payments]
+      summary: فهرست رسیدهای وصول (نقد/کارت/آنلاین/چک)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: kind, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از رسیدها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/PaymentReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [payments]
+      summary: ثبت وصول و تخصیص به فاکتورها
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentReceipt' }
+      responses:
+        '201':
+          description: رسید ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentReceipt' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /payments/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [payments]
+      summary: جزئیات رسید با تخصیص‌ها
+      responses:
+        '200':
+          description: رسید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentReceipt' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- رهگیری و مسیریابی ----------------
+  /tracking/locations:
+    get:
+      tags: [tracking]
+      summary: موقعیت‌های زنده کارکنان میدانی برای نقشه رهگیری
+      parameters:
+        - { name: staff_id, in: query, schema: { type: string, format: uuid } }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: آخرین موقعیت هر کارمند میدانی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LatestPosition' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [tracking]
+      summary: ارسال نمونه موقعیت از اپ فروشنده/موزع (batch)
+      description: |
+        اپ موقعیت‌ها را در صف آفلاین نگه می‌دارد و دسته‌ای می‌فرستد؛ سرور
+        `is_mocked` و `accuracy_m` را ثبت و با رویداد زنده `location.update`
+        به نقشه مدیریت پخش می‌کند.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [samples]
+              properties:
+                samples:
+                  type: array
+                  items: { $ref: '#/components/schemas/LocationSample' }
+      responses:
+        '202':
+          description: نمونه‌ها پذیرفته شدند
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /tracking/routes:
+    get:
+      tags: [tracking]
+      summary: طرح‌های مسیر محاسبه‌شده
+      parameters:
+        - { name: staff_id, in: query, schema: { type: string, format: uuid } }
+        - { name: plan_date, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: فهرست طرح‌های مسیر
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/RoutePlan' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [tracking]
+      summary: محاسبه «بهترین مسیر‌بندی با یک کلیک» برای اپ فروشنده/موزع
+      description: |
+        مشتریان مسیر (یا ایستگاه‌های انتخاب‌شده) می‌آیند؛ سرور با ارائه‌دهنده
+        مسیریابی (نشان/map.ir یا OSRM داخلی) بهترین ترتیب و هندسه را برمی‌گرداند
+        و طرح برای استفاده بعدی ذخیره می‌شود (ماژول ۶ §۶.۳).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_ids]
+              properties:
+                plan_date: { type: string, format: date }
+                customer_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                provider: { type: string, enum: [neshan, mapir, osrm_selfhosted] }
+                objective: { type: string, enum: [min_duration, min_distance] }
+      responses:
+        '200':
+          description: طرح مسیر محاسبه شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoutePlan' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /geofences:
+    get:
+      tags: [geofences]
+      summary: فهرست محدوده‌های جغرافیایی کار
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: is_active, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: صفحه‌ای از محدوده‌ها
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Geofence' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [geofences]
+      summary: تعریف محدوده (چندضلعی) برای حوزه/مشتری/انبار
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Geofence' }
+      responses:
+        '201':
+          description: محدوده ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Geofence' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /geofences/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [geofences]
+      summary: جزئیات محدوده
+      responses:
+        '200':
+          description: محدوده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Geofence' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [geofences]
+      summary: ویرایش محدوده (ویرایش polygon در نقشه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateGeofence' }
+      responses:
+        '200':
+          description: محدوده به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Geofence' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [geofences]
+      summary: حذف محدوده
+      responses:
+        '204': { description: محدوده حذف شد }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- موتور قوانین و تأییدها ----------------
+  /rules:
+    get:
+      tags: [rules]
+      summary: فهرست قوانین و کنترل‌ها
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: entity, in: query, schema: { type: string } }
+        - { name: event, in: query, schema: { type: string } }
+        - { name: is_active, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: صفحه‌ای از قوانین
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Rule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [rules]
+      summary: تعریف قاعده (اثر مسدود/هشدار + پیام فارسی)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Rule' }
+      responses:
+        '201':
+          description: قاعده ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+  /rules/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [rules]
+      summary: جزئیات قاعده
+      responses:
+        '200':
+          description: قاعده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [rules]
+      summary: به‌روزرسانی قاعده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Rule' }
+      responses:
+        '200':
+          description: قاعده به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rule' }
+  /approvals:
+    get:
+      tags: [approvals]
+      summary: صف تأیید کاربر جاری (سفارش/مرجوعی/اصلاحیه مبلغ‌محور)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: entity_type, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: صفحه‌ای از آیتم‌های در انتظار تأیید
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/ApprovalRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /approvals/{id}/decision:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [approvals]
+      summary: تصمیم تأییدکننده (تأیید/رد با توضیح)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                note: { type: string }
+      responses:
+        '200':
+          description: تصمیم ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- گزارش‌ها، تنظیمات، یکپارچه‌سازی ----------------
+  /reports:
+    get:
+      tags: [reports]
+      summary: فهرست گزارش‌های مجاز کاربر (ضمیمه C)
+      responses:
+        '200':
+          description: فهرست گزارش‌ها
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReportDescriptor' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /reports/{key}:
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [reports]
+      summary: اجرای گزارش با پارامترهای فیلتر
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv, xlsx], default: json } }
+      responses:
+        '200':
+          description: نتیجه گزارش
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  columns:
+                    type: array
+                    items: { type: object, properties: { key: { type: string }, title: { type: string } } }
+                  rows:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /settings:
+    get:
+      tags: [settings]
+      summary: تنظیمات مؤثر (عمومی + تفکیکی هر حوزه/شعبه)
+      parameters:
+        - { name: scope_type, in: query, schema: { type: string, enum: [global, company, branch, area] } }
+        - { name: scope_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: کلید/مقدارهای تنظیم
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/SettingEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [settings]
+      summary: به‌روزرسانی تنظیمات (حوزه‌ها فقط برای خودشان)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/SettingEntry' }
+      responses:
+        '200':
+          description: تنظیمات به‌روزرسانی شد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/SettingEntry' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /integrations:
+    get:
+      tags: [integrations]
+      summary: وضعیت یکپارچه‌سازی‌ها (مؤدیان، پوز، پیامک، درگاه)
+      responses:
+        '200':
+          description: وضعیت سرویس‌های بیرونی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/IntegrationStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /integrations/{key}/test:
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string, enum: [moadian, pos, sms, gateway] } }
+    post:
+      tags: [integrations]
+      summary: آزمون اتصال سرویس بیرونی (فقط ادمین)
+      responses:
+        '200':
+          description: نتیجه آزمون
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrationStatus' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+# =====================================================================
+# وب‌هوک‌های بیرونی (OpenAPI 3.1) — امضا با X-Signature و تلاش مجدد
+# =====================================================================
+webhooks:
+  invoicePosted:
+    post:
+      summary: صدور قطعی فاکتور
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string, enum: [invoice.posted] }
+                occurred_at: { type: string, format: date-time }
+                data: { $ref: '#/components/schemas/Invoice' }
+      responses:
+        '200': { description: پذیرفته شد }
+  orderStatusChanged:
+    post:
+      summary: تغییر وضعیت سفارش
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string, enum: [order.status_changed] }
+                occurred_at: { type: string, format: date-time }
+                data: { $ref: '#/components/schemas/SalesOrder' }
+      responses:
+        '200': { description: پذیرفته شد }
+  paymentReceived:
+    post:
+      summary: ثبت وصول
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string, enum: [payment.received] }
+                occurred_at: { type: string, format: date-time }
+                data: { $ref: '#/components/schemas/PaymentReceipt' }
+      responses:
+        '200': { description: پذیرفته شد }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: توکن دسترسی کوتاه‌عمر (۱۵ دقیقه)؛ تازه‌سازی با `/auth/refresh`
+    externalApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: کلید مصرف‌کننده بیرونی (طرح نرخ‌گذاری‌شده)
+
+  parameters:
+    cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+      description: مقدار `next_cursor` صفحه قبلی
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      description: اندازه صفحه
+    idPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    BadRequest:
+      description: درخواست نامعتبر (خطای اعتبارسنجی)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: نشست نامعتبر یا منقضی — نیازمند ورود مجدد/تازه‌سازی
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: مجوز کافی نیست (RBAC — ضمیمه H)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: منبع یافت نشد
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: تعارض (کد تکراری، client_uuid تکراری یا row_version ناهمخوان)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Locked:
+      description: حساب قفل شده (تلاش‌های ناموفق متوالی)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RuleRejected:
+      description: موتور قوانین عملیات را رد کرد؛ `message_fa` را به کاربر نمایش دهید
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: نرخ درخواست بیش از حد مجاز
+      headers:
+        RateLimit-Limit:
+          schema: { type: integer }
+        RateLimit-Remaining:
+          schema: { type: integer }
+        RateLimit-Reset:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+
+    Error:
+      type: object
+      required: [code, message_fa]
+      properties:
+        code: { type: string, examples: ['validation_failed', 'rule_rejected', 'version_conflict'] }
+        message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
+        details:
+          type: object
+          additionalProperties: true
+          description: جزئیات فیلد/قاعده ردشده — هر پیام فیلد فارسی است (details.fields.{نام فیلد})
+        request_id: { type: string, description: شناسه پیگیری برای ممیزی }
+
+    Page:
+      type: object
+      properties:
+        next_cursor:
+          type: [string, 'null']
+          description: مقدار cursor برای صفحه بعدی؛ null یعنی پایان
+        has_more: { type: boolean }
+
+    GeoPoint:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, enum: [Point] }
+        coordinates:
+          type: array
+          items: { type: number }
+          minItems: 2
+          maxItems: 2
+          description: '[طول، عرض] به WGS84'
+
+    GeoLineString:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, enum: [LineString] }
+        coordinates:
+          type: array
+          items:
+            type: array
+            items: { type: number }
+            minItems: 2
+            maxItems: 2
+
+    UpdateGeofence:
+      type: object
+      description: به‌روزرسانی جزئی محدوده — همه فیلدها اختیاری
+      properties:
+        name: { type: string, maxLength: 120 }
+        kind: { type: string, enum: [work_area, customer, warehouse, restricted] }
+        area: { $ref: '#/components/schemas/GeoPolygon' }
+        customer_id: { type: [string, 'null'], format: uuid }
+        warehouse_id: { type: [string, 'null'], format: uuid }
+        is_active: { type: boolean }
+    GeoPolygon:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, enum: [Polygon] }
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items: { type: number }
+              minItems: 2
+              maxItems: 2
+
+    LoginRequest:
+      type: object
+      required: [username]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+        otp_code: { type: string, description: در صورت فعال‌بودن ورود دومرحله‌ای }
+
+    PasswordResetRequest:
+      type: object
+      required: [username, code, new_password]
+      description: بازیابی رمز عبور با کد پیامکیِ دلیل password_reset
+      properties:
+        username: { type: string }
+        code: { type: string, minLength: 4, maxLength: 8, description: همان کد پیامک‌شده }
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 256
+          description: رمز تازه (دست‌کم ۸ نویسه)؛ فقط هش آن ذخیره و هرگز برنمی‌گردد
+
+    AuthSession:
+      type: object
+      required: [access_token, refresh_token, expires_in, user]
+      properties:
+        access_token: { type: string, description: JWT کوتاه‌عمر }
+        refresh_token: { type: string }
+        expires_in: { type: integer, description: طول عمر access_token به ثانیه }
+        user: { $ref: '#/components/schemas/User' }
+
+    Device:
+      type: object
+      description: >-
+        دستگاه مجاز کاربر (جدول device — مهاجرت 0012)؛ پایه «کنترل دستگاه:
+        لیست دستگاه‌های مجاز و ابطال از راه دور» در ضمیمه H
+      required: [id, device_uuid, platform, app_kind, is_trusted, created_at]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        device_uuid: { type: string, description: شناسه سخت‌افزاری/نصب اپ (از سوی اپ ارسال می‌شود) }
+        platform: { type: string, enum: [android] }
+        app_kind: { type: string, enum: [sales, delivery, telesales] }
+        app_version: { type: [string, 'null'] }
+        os_version: { type: [string, 'null'] }
+        push_token: { type: [string, 'null'] }
+        is_trusted:
+          type: boolean
+          description: با تأیید کد پیامکی (device_bind) true می‌شود؛ تا آن زمان دستگاه مجاز نیست
+        last_seen_at: { type: [string, 'null'], format: date-time }
+        revoked_at:
+          type: [string, 'null']
+          format: date-time
+          description: باطل‌شده؟ null یعنی فعال؛ ردیف برای ممیزی می‌ماند
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    DeviceCreate:
+      type: object
+      required: [device_uuid, platform, app_kind]
+      properties:
+        device_uuid: { type: string, minLength: 1, maxLength: 128 }
+        platform: { type: string, enum: [android] }
+        app_kind: { type: string, enum: [sales, delivery, telesales] }
+        app_version: { type: string, maxLength: 32 }
+        os_version: { type: string, maxLength: 32 }
+        push_token: { type: string, maxLength: 512 }
+
+    SessionContext:
+      type: object
+      required: [user, roles, permissions]
+      description: >
+        پاسخ GET /auth/me — نقش‌ها و مجوزهای resolveشده از جداول مهاجرت 0004 و
+        seed 0022؛ رابط کاربری بدون فراخوانی مجدد می‌تواند منو و دکمه‌ها را بسازد
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        roles:
+          type: array
+          items: { type: string }
+          description: کدهای نقش کاربر
+        permissions:
+          type: array
+          items: { type: string }
+          description: مجوزهای قطعی (الگوهای نقش resolve شده‌اند)
+
+    User:
+      type: object
+      required: [username]
+      description: >
+        کاربر سیستم؛ «فروشنده» لزوماً کاربر نیست (فقط پرسنل میدانی).
+        فیلدهای writeOnly فقط در POST /users و PATCH /users/{id} پذیرفته می‌شوند
+        و هرگز در پاسخ برنمی‌گردند (رمز عبور اصلاً ذخیره/برگردانده نمی‌شود).
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        username: { type: string }
+        staff_id: { type: [string, 'null'], format: uuid, description: نسبت به پرسنل، در صورت وجود }
+        role_ids:
+          type: array
+          items: { type: string, format: uuid }
+        is_active: { type: boolean }
+        locked_until: { type: [string, 'null'], format: date-time, readOnly: true }
+        last_login_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        # ------- فقط-نوشتَنی (درخواست‌های POST/PATCH) -------
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          description: رمز عبور؛ هش آن ذخیره می‌شود و در پاسخ هرگز برنمی‌گردد
+        access_level:
+          type: string
+          enum: [web, field_sales, field_delivery, field_telesales, scope_only, none]
+          description: سطح دسترسی کاربر (check app_user_access_level — مهاجرت 0004 §۱.۴)
+        is_locked:
+          type: boolean
+          description: >
+            قفل دستی توسط مدیر: در GET /users وضعیت فعلی قفل را می‌دهد و در
+            POST/PATCH دستور قفل (true) یا باز کردن قفل و صفر کردن شمارنده تلاش (false) است
+        person_code:
+          type: string
+          writeOnly: true
+          description: کد شخص تازه — فقط وقتی staff_id داده نشده باشد (پیش‌فرض USR-نام کاربری)
+        first_name:
+          type: string
+          writeOnly: true
+          description: نام شخص تازه — فقط وقتی staff_id داده نشده باشد
+        last_name:
+          type: string
+          writeOnly: true
+          description: نام خانوادگی شخص تازه — فقط وقتی staff_id داده نشده باشد
+
+    Role:
+      type: object
+      required: [code, name]
+      description: نقش با الگوی اعطای مجوز («*» همه، «x.y» زیرمجموعه)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, examples: ['salesperson_cold', 'supervisor'] }
+        name: { type: string }
+        is_system: { type: boolean, readOnly: true }
+        permission_codes:
+          type: array
+          items: { type: string }
+          description: الگوهای مجوز اعطا شده (از seed مهاجرت 0022)
+
+    Person:
+      type: object
+      required: [code, legal_type]
+      description: >
+        شخص حقیقی/حقوقی — پایه مشتری، تأمین‌کننده و پرسنل.
+        legal_type دقیقاً همان مقادیر check قید جدول person است (natural/legal)؛
+        برای legal باید legal_name و برای natural باید first_name یا last_name آمده باشد.
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, description: کد شخص در شرکت (قید یکتای company_id+code) }
+        legal_type: { type: string, enum: [natural, legal] }
+        first_name: { type: [string, 'null'], description: برای شخص حقیقی }
+        last_name: { type: [string, 'null'], description: برای شخص حقیقی }
+        legal_name: { type: [string, 'null'], description: برای شخص حقوقی (legal) }
+        national_id: { type: [string, 'null'] }
+        economic_code: { type: [string, 'null'], description: برای شخص حقوقی }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    Staff:
+      type: object
+      required: [person_id]
+      description: پرسنل — سمت، سرپرست، وسیله و حوزه کاری
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        person_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        job_position_code: { type: string, examples: ['salesperson_cold', 'courier'] }
+        employee_no: { type: string }
+        hire_date: { type: string, format: date }
+        supervisor_id: { type: [string, 'null'], format: uuid, description: نسبت فروشنده به سرپرست }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        is_field: { type: boolean, description: آیا میدانی است (رهگیری/تور) }
+        area_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: حوزه‌های مجاز کار
+        status: { type: string, enum: [active, inactive] }
+        created_at: { type: string, format: date-time, readOnly: true }
+        row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
+
+    Customer:
+      type: object
+      required: [person_id, code]
+      description: مشتری با مسیر، لیست قیمت، شرایط تسویه و موقعیت نقشه
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        person_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        code: { type: string }
+        area_id: { type: [string, 'null'], format: uuid }
+        route_id: { type: [string, 'null'], format: uuid }
+        salesperson_id: { type: [string, 'null'], format: uuid }
+        channel: { type: string, description: کانال فروش (سرد/گرم/پورتال) }
+        price_list_id: { type: [string, 'null'], format: uuid }
+        settlement_term_id: { type: [string, 'null'], format: uuid }
+        visit_sequence: { type: integer, description: ترتیب در مسیر }
+        geo: { oneOf: [{ $ref: '#/components/schemas/GeoPoint' }, { type: 'null' }] }
+        geo_accuracy_m: { type: number }
+        geo_source: { type: string, enum: [gps, map_pick, geocode, import] }
+        geo_captured_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        credit_limit: { type: [string, 'null'], description: سقف اعتبار (رشته اعشاری) }
+        status: { type: string, enum: [active, suspended, blocked, closed] }
+        created_at: { type: string, format: date-time, readOnly: true }
+        row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
+
+    Product:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - category_id
+        - base_uom_id
+        - is_batch_tracked
+        - is_expiry_tracked
+        - is_returnable_container
+        - requires_permit
+        - distribution_kind
+        - min_order_qty
+        - status
+        - created_at
+        - row_version
+      description: >
+        کالا — پاسخ سرور (همه فیلدهای الزامی همیشه در پاسخ هستند؛ فیلدهای
+        nullable مثل brand_id ممکن است null باشند). برای نوشتن از
+        ProductCreate (POST) و ProductUpdate (PATCH) استفاده می‌شود.
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        name: { type: string }
+        category_id: { type: string, format: uuid }
+        brand_id: { type: [string, 'null'], format: uuid }
+        base_uom_id: { type: string, format: uuid }
+        tax_code_id: { type: [string, 'null'], format: uuid }
+        is_batch_tracked: { type: boolean }
+        is_expiry_tracked: { type: boolean }
+        shelf_life_days: { type: [integer, 'null'], description: 'null یعنی کالای انقضادار نیست' }
+        is_returnable_container: { type: boolean, description: کالای برگشت‌پذیر (بشکه/سیلندر) }
+        requires_permit: { type: boolean }
+        distribution_kind: { type: string, enum: [cold, warm, both], description: نوع توزیع (سرد/گرم/هر دو) }
+        min_order_qty: { type: number, description: 'حداقل سفارش (رشته اعشاری از دیتابیس به عدد سریالایز می‌شود)' }
+        weight_gr: { type: [integer, 'null'] }
+        volume_cm3: { type: [integer, 'null'] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        created_at: { type: string, format: date-time, readOnly: true }
+        row_version:
+          type: integer
+          readOnly: true
+          description: قفل خوش‌بینانه — PATCH با این مقدار مغایرت = 409 version_conflict
+
+    ProductCreate:
+      type: object
+      required: [code, name, category_id, base_uom_id]
+      description: >
+        فیلدهای نوشتنی برای POST — سرور id، status، created_at و row_version را
+        می‌سازد؛ فیلدهای اختیاری مقدار پیش‌فرض DDL می‌گیرند
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category_id: { type: string, format: uuid }
+        brand_id: { type: [string, 'null'], format: uuid }
+        base_uom_id: { type: string, format: uuid }
+        tax_code_id: { type: [string, 'null'], format: uuid }
+        is_batch_tracked: { type: boolean }
+        is_expiry_tracked: { type: boolean }
+        shelf_life_days: { type: [integer, 'null'], description: 'فقط برای کالای انقضادار' }
+        is_returnable_container: { type: boolean }
+        requires_permit: { type: boolean }
+        distribution_kind: { type: string, enum: [cold, warm, both] }
+        min_order_qty: { type: number }
+        weight_gr: { type: [integer, 'null'] }
+        volume_cm3: { type: [integer, 'null'] }
+
+    ProductUpdate:
+      type: object
+      description: >
+        فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال
+        می‌شوند (مغایرت = 409 version_conflict)
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category_id: { type: string, format: uuid }
+        brand_id: { type: [string, 'null'], format: uuid }
+        base_uom_id: { type: string, format: uuid }
+        tax_code_id: { type: [string, 'null'], format: uuid }
+        is_batch_tracked: { type: boolean }
+        is_expiry_tracked: { type: boolean }
+        shelf_life_days: { type: [integer, 'null'] }
+        is_returnable_container: { type: boolean }
+        requires_permit: { type: boolean }
+        distribution_kind: { type: string, enum: [cold, warm, both] }
+        min_order_qty: { type: number }
+        weight_gr: { type: [integer, 'null'] }
+        volume_cm3: { type: [integer, 'null'] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        row_version:
+          type: integer
+          description: قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد
+
+    ProductCategory:
+      type: object
+      required: [id, code, name]
+      description: دسته‌بندی درختی کالا (هر شرکت ساختار خودش را دارد)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        name: { type: string }
+        parent_id: { type: [string, 'null'], format: uuid, description: والد در سلسله‌مراتب }
+
+    Unit:
+      type: object
+      required: [id, code, title]
+      description: واحد اندازه‌گیری — داده مرجع سراسری (جدول uom)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, examples: ['pcs', 'box', 'carton'] }
+        title: { type: string }
+        decimal_places: { type: integer, minimum: 0, maximum: 4 }
+
+    PriceList:
+      type: object
+      required: [code, title]
+      description: لیست قیمت؛ قیمت مشتری‌محور در `customer_price` اولویت دارد
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [general, wholesale, retail, chain, cooperative, channel] }
+        currency: { type: string, minLength: 3, maxLength: 3, default: IRR }
+        is_active: { type: boolean }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, format: uuid }
+              price: { type: string, description: 'قیمت واحد (رشته اعشاری)' }
+              valid_from: { type: [string, 'null'], format: date }
+              valid_to: { type: [string, 'null'], format: date }
+
+    Promotion:
+      type: object
+      required: [code, title, kind]
+      description: تخفیف/جایزه با شرایط و منفعت به JSON (ماژول ۱)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [percent_line, amount_line, bundle, buy_x_get_y, gift_item, cash_discount, repeat_order, coupon, volume_tier] }
+        valid_from: { type: string, format: date }
+        valid_to: { type: string, format: date }
+        priority: { type: integer }
+        allow_stacking: { type: boolean }
+        max_discount_amount: { type: [string, 'null'] }
+        max_per_customer_per_day: { type: [string, 'null'] }
+        conditions:
+          type: object
+          additionalProperties: true
+          description: شرایط احراز (کالا/کانال/حداقل مبلغ)
+        benefit:
+          type: object
+          additionalProperties: true
+          description: منفعت (درصد/مبلغ/کالای جایزه)
+        is_active: { type: boolean }
+
+    Warehouse:
+      type: object
+      required: [code, name, kind]
+      description: انبار مرکزی، شعبه یا خودرو (انبار سیار)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [main, vehicle, transit, damaged, quarantine, consignment] }
+        parent_warehouse_id: { type: [string, 'null'], format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        area_id: { type: [string, 'null'], format: uuid }
+        allow_negative: { type: boolean }
+        is_active: { type: boolean }
+        row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
+
+    StockBalance:
+      type: object
+      description: موجودی قابل رزرو در انبار (بدون کلید مجزا — ترکیب انبار/کالا/بچ)
+      properties:
+        warehouse_id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        batch_id: { type: [string, 'null'], format: uuid }
+        qty_on_hand: { type: number }
+        qty_reserved: { type: number }
+        qty_available: { type: number, description: 'on_hand − reserved — محاسبه‌شده' }
+        qty_on_hand_value: { type: [string, 'null'], description: ارزش موجودی (بهای تمام‌شده) }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    StockAdjustment:
+      type: object
+      required: [warehouse_id, product_id, qty_delta, reason_code]
+      description: اصلاحیه موجودی؛ مغایرت‌های بزرگ از طریق approvals تأیید می‌شوند
+      properties:
+        warehouse_id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        batch_id: { type: [string, 'null'], format: uuid }
+        qty_delta: { type: number }
+        reason_code: { type: string, enum: [damage, expiry, sample, internal_use, theft, count_fix, other] }
+        note: { type: string }
+
+    StockTake:
+      type: object
+      required: [warehouse_id]
+      description: سند انبارگردانی با شمارش واقعی در برابر سیستم
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        warehouse_id: { type: string, format: uuid }
+        status: { type: string, enum: [draft, counting, review, approved, posted, voided] }
+        row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, format: uuid }
+              batch_id: { type: [string, 'null'], format: uuid }
+              system_qty: { type: number, readOnly: true }
+              counted_qty: { type: number }
+              variance_qty: { type: number, readOnly: true }
+
+    Transfer:
+      type: object
+      required: [from_warehouse_id, to_warehouse_id]
+      description: انتقال بین‌انباری (بارگیری خودرو / انتقال شعبه)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        from_warehouse_id: { type: string, format: uuid }
+        to_warehouse_id: { type: string, format: uuid }
+        status: { type: string, enum: [draft, approved, in_transit, received, voided] }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, format: uuid }
+              batch_id: { type: [string, 'null'], format: uuid }
+              qty: { type: number }
+
+    Area:
+      type: object
+      required: [code, name]
+      description: حوزه فروش (سلسله‌مراتبی — هر حوزه انبار و وسایل نقلیه خود را دارد)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        parent_area_id: { type: [string, 'null'], format: uuid }
+        code: { type: string }
+        name: { type: string }
+        is_active: { type: boolean }
+
+    Route:
+      type: object
+      required: [area_id, code, name]
+      description: مسیر پیمایشی با ترتیب هفتگی بازدید مشتریان
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        area_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        visit_weekday: { type: [integer, 'null'], minimum: 0, maximum: 6, description: '۰=شنبه … ۵=جمعه' }
+        is_active: { type: boolean }
+        customer_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: ترتیب مشتریان در مسیر
+
+    Tour:
+      type: object
+      required: [tour_date, kind, salesperson_id]
+      description: تور فروش/توزیع — دریافت توسط فروشنده یا تخصیص مدیر
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        tour_date: { type: string, format: date }
+        kind: { type: string, enum: [cold, warm, distribution, telesales] }
+        salesperson_id: { type: string, format: uuid }
+        supervisor_id: { type: [string, 'null'], format: uuid }
+        route_id: { type: [string, 'null'], format: uuid }
+        vehicle_id: { type: [string, 'null'], format: uuid }
+        warehouse_id: { type: [string, 'null'], format: uuid, description: انبار سیار خودرو }
+        status: { type: string, enum: [planned, active, settled, closed] }
+        planned_start_at: { type: [string, 'null'], format: date-time }
+        started_at: { type: [string, 'null'], format: date-time }
+        ended_at: { type: [string, 'null'], format: date-time }
+        note: { type: string }
+
+    TourSettlement:
+      type: object
+      description: تسویه تور — نقد دریافتی در برابر اسناد با مغایرت
+      properties:
+        tour_id: { type: string, format: uuid }
+        expected_cash: { type: [string, 'null'], description: مجموع وصول‌های نقدی تور }
+        received_cash: { type: [string, 'null'], description: نقد واقعاً تحویلی موزع }
+        variance_amount: { type: [string, 'null'], description: 'مغایرت (مثبت=کسری)' }
+        commission_total: { type: [string, 'null'], description: پورسانت محاسبه‌شده }
+        status: { type: string, enum: [open, reconciled, closed] }
+
+    Visit:
+      type: object
+      required: [tour_id, customer_id]
+      description: بازدید با check-in/out مختصات‌دار و ضدتقلب
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        tour_id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        check_in_at: { type: [string, 'null'], format: date-time }
+        check_out_at: { type: [string, 'null'], format: date-time }
+        geo_in: { oneOf: [{ $ref: '#/components/schemas/GeoPoint' }, { type: 'null' }] }
+        geo_out: { oneOf: [{ $ref: '#/components/schemas/GeoPoint' }, { type: 'null' }] }
+        accuracy_in_m: { type: number }
+        distance_m: { type: [string, 'null'], description: فاصله از موقعیت ثبت‌شده مشتری (متر) }
+        result: { type: [string, 'null'], enum: [ordered, no_order, customer_absent, null] }
+        no_order_reason: { type: [string, 'null'] }
+        is_mocked: { type: boolean, readOnly: true, description: GPS جعلی تشخیص داده شد }
+        client_uuid: { type: string, format: uuid, description: یکتای آفلاین — ثبت تکراری = 409 }
+
+    CustomerRequest:
+      type: object
+      required: [customer_id, channel]
+      description: درخواست مشتری پیش از سفارش (تلفنی/پورتال/میدانی/پیامک)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        customer_id: { type: string, format: uuid }
+        channel: { type: string, enum: [field, telesale, portal, walk_in] }
+        requested_by: { type: [string, 'null'], format: uuid }
+        tour_id: { type: [string, 'null'], format: uuid }
+        request_date: { type: string, format: date }
+        requested_delivery_date: { type: [string, 'null'], format: date }
+        note: { type: string }
+        status: { type: string, enum: [draft, submitted, converted, rejected, cancelled] }
+        sales_order_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        client_uuid: { type: string, format: uuid }
+
+    SalesOrder:
+      type: object
+      required: [customer_id, order_date]
+      description: سفارش فروش — قیمت‌گذاری لحظه‌ای، اعتبارسنجی اعتبار و قوانین
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        customer_id: { type: string, format: uuid }
+        request_id: { type: [string, 'null'], format: uuid }
+        salesperson_id: { type: [string, 'null'], format: uuid }
+        tour_id: { type: [string, 'null'], format: uuid }
+        channel: { type: string, enum: [field, telesale, portal, walk_in] }
+        order_date: { type: string, format: date }
+        delivery_date: { type: [string, 'null'], format: date }
+        price_list_id: { type: [string, 'null'], format: uuid }
+        subtotal: { type: [string, 'null'], readOnly: true }
+        discount_total: { type: [string, 'null'], readOnly: true }
+        tax_total: { type: [string, 'null'], readOnly: true }
+        grand_total: { type: [string, 'null'], readOnly: true }
+        settlement_term_id: { type: [string, 'null'], format: uuid }
+        status:
+          type: string
+          enum: [draft, pending_approval, approved, partially_delivered, delivered, invoiced, cancelled, rejected]
+        approval_request_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        note: { type: [string, 'null'] }
+        client_uuid: { type: [string, 'null'], format: uuid }
+        row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [product_id, qty]
+            properties:
+              product_id: { type: string, format: uuid }
+              qty: { type: number, description: 'تعداد به واحد انتخابی؛ به واحد پایه در qty_base ذخیره می‌شود' }
+              packaging_id: { type: [string, 'null'], format: uuid }
+              unit_price: { type: [string, 'null'], description: قیمت محاسبه‌شده لحظه ثبت }
+              discount_amount: { type: [string, 'null'] }
+
+    Waybill:
+      type: object
+      required: [sales_order_id, warehouse_id]
+      description: حواله انبار — رزرو موجودی و مبنای توزیع
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        sales_order_id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid, readOnly: true }
+        warehouse_id: { type: string, format: uuid }
+        issued_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        status: { type: string, enum: [draft, issued, delivered, voided] }
+        note: { type: [string, 'null'] }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [product_id, qty]
+            properties:
+              product_id: { type: string, format: uuid }
+              qty: { type: number }
+              batch_id: { type: [string, 'null'], format: uuid }
+
+    Invoice:
+      type: object
+      required: [customer_id, invoice_date]
+      description: فاکتور فروش — پایه AR و ارسال مؤدیان
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        customer_id: { type: string, format: uuid }
+        sales_order_id: { type: [string, 'null'], format: uuid }
+        waybill_id: { type: [string, 'null'], format: uuid }
+        invoice_date: { type: string, format: date }
+        due_date: { type: [string, 'null'], format: date }
+        subtotal: { type: [string, 'null'], readOnly: true }
+        discount_total: { type: [string, 'null'], readOnly: true }
+        tax_total: { type: [string, 'null'], readOnly: true }
+        grand_total: { type: [string, 'null'], readOnly: true }
+        paid_amount: { type: [string, 'null'], readOnly: true }
+        status: { type: string, enum: [draft, posted, partially_paid, paid, voided] }
+        return_status: { type: [string, 'null'], enum: [none, partial, full, null] }
+        moadian_status: { type: [string, 'null'], enum: [not_sent, queued, sent, accepted, rejected, corrected, null] }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, format: uuid }
+              qty: { type: number }
+              unit_price: { type: [string, 'null'] }
+              discount_amount: { type: [string, 'null'] }
+              tax_amount: { type: [string, 'null'] }
+              line_total: { type: [string, 'null'] }
+
+    ReturnRequest:
+      type: object
+      required: [customer_id, reason_code]
+      description: مرجوعی — درخواست، تأیید و ثبت نهایی با تعیین تکلیف کالا
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        customer_id: { type: string, format: uuid }
+        invoice_id: { type: [string, 'null'], format: uuid }
+        tour_id: { type: [string, 'null'], format: uuid }
+        reason_code:
+          type: string
+          enum: [damaged, expired, wrong_item, shortage, customer_refusal, promotion_error, other]
+          examples: ['expired', 'damaged', 'shortage', 'wrong_item']
+        status:
+          type: string
+          enum: [draft, submitted, approved, partially_approved, rejected, posted, closed]
+        credit_note_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        requested_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        approved_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        note: { type: [string, 'null'] }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, format: uuid }
+              qty: { type: number }
+              batch_id: { type: [string, 'null'], format: uuid }
+              disposition:
+                type: [string, 'null']
+                enum: [restock, damaged, scrap, return_to_supplier, null]
+                description: تعیین تکلیف نهایی کالا (فقط در receive)
+
+    Delivery:
+      type: object
+      required: [waybill_id, planned_date]
+      description: وضعیت تحویل حواله با مدرک تحویل (POD)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        waybill_id: { type: string, format: uuid }
+        tour_id: { type: [string, 'null'], format: uuid }
+        courier_staff_id: { type: [string, 'null'], format: uuid }
+        planned_date: { type: string, format: date }
+        status: { type: string, enum: [planned, dispatched, delivered, partial, failed, cancelled] }
+        delivered_at: { type: [string, 'null'], format: date-time }
+        failure_reason: { type: [string, 'null'] }
+        receiver_name: { type: [string, 'null'], description: نام امضاکننده }
+        signature_url: { type: [string, 'null'], format: uri }
+        photo_url: { type: [string, 'null'], format: uri, description: عکس ممیزی تحویل }
+
+    ArAgingRow:
+      type: object
+      description: مانده مشتری با رده‌بندی سنی (ماژول ۷)
+      properties:
+        customer_id: { type: string, format: uuid }
+        customer_code: { type: string }
+        customer_name: { type: string }
+        total: { type: string }
+        current: { type: string }
+        d1_30: { type: string }
+        d31_60: { type: string }
+        d61_90: { type: string }
+        over_90: { type: string }
+
+    CustomerStatement:
+      type: object
+      description: صورتحساب دوره‌ای مشتری
+      properties:
+        customer_id: { type: string, format: uuid }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        opening_balance: { type: string }
+        closing_balance: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              at: { type: string, format: date-time }
+              doc_type: { type: string, examples: ['invoice', 'credit_note', 'receipt'] }
+              doc_number: { type: string }
+              debit: { type: string }
+              credit: { type: string }
+              balance: { type: string }
+
+    SupplierBalance:
+      type: object
+      description: مانده تأمین‌کننده (ماژول ۸)
+      properties:
+        supplier_person_id: { type: string, format: uuid }
+        supplier_name: { type: string }
+        total_payable: { type: string }
+        due_next: { type: [string, 'null'], format: date }
+
+    TreasuryPosition:
+      type: object
+      description: مانده صندوق/بانک و مغایرت (ماژول ۱۰)
+      properties:
+        bank_account_id: { type: [string, 'null'], format: uuid }
+        title: { type: string }
+        balance_book: { type: string, description: مانده دفتری }
+        balance_actual: { type: [string, 'null'], description: مانده اعلامی/صورت‌حساب بانک }
+        variance: { type: [string, 'null'], description: مغایرت باز برای رسیدگی }
+        as_of: { type: string, format: date }
+
+    Cheque:
+      type: object
+      required: [direction, amount, due_date]
+      description: چک دریافتی از مشتری یا صادری به تأمین‌کننده
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        direction: { type: string, enum: [received, issued] }
+        person_id: { type: string, format: uuid, description: صادرکننده/گیرنده }
+        bank_account_id: { type: [string, 'null'], format: uuid }
+        amount: { type: string }
+        cheque_number: { type: string }
+        bank_name: { type: string }
+        due_date: { type: string, format: date }
+        status: { type: string, enum: [pending, cleared, bounced, returned] }
+        cleared_at: { type: [string, 'null'], format: date-time }
+
+    PaymentReceipt:
+      type: object
+      required: [customer_id, method_id, amount]
+      description: رسید وصول با تخصیص به فاکتورها
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        doc_number: { type: string, readOnly: true }
+        customer_id: { type: string, format: uuid }
+        method_id: { type: string, format: uuid, description: از `payment_method` (نقد/کارت/چک/…) }
+        amount: { type: string }
+        paid_at: { type: string, format: date-time }
+        pos_terminal_id: { type: [string, 'null'], format: uuid }
+        reference: { type: [string, 'null'], description: شماره پیگیری/تراکنش }
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              invoice_id: { type: string, format: uuid }
+              amount: { type: string }
+        tour_id: { type: [string, 'null'], format: uuid, description: برای تسویه تور }
+
+    LocationSample:
+      type: object
+      required: [staff_id, at, geo]
+      description: نمونه موقعیت اپ میدانی (دسته‌ای از صف آفلاین)
+      properties:
+        staff_id: { type: string, format: uuid }
+        at: { type: string, format: date-time }
+        geo: { $ref: '#/components/schemas/GeoPoint' }
+        accuracy_m: { type: number }
+        speed_kmh: { type: number }
+        is_mocked: { type: boolean, description: اپ خود تشخیص می‌دهد GPS جعلی است }
+
+    LatestPosition:
+      type: object
+      description: آخرین موقعیت معتبر یک کارمند میدانی
+      properties:
+        staff_id: { type: string, format: uuid }
+        staff_name: { type: string }
+        tour_id: { type: [string, 'null'], format: uuid }
+        at: { type: string, format: date-time }
+        geo: { $ref: '#/components/schemas/GeoPoint' }
+        accuracy_m: { type: number }
+
+    RoutePlan:
+      type: object
+      description: طرح مسیر «یک‌کلیکی» با هندسه و آمار
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        tour_id: { type: [string, 'null'], format: uuid }
+        staff_id: { type: string, format: uuid }
+        plan_date: { type: string, format: date }
+        provider: { type: string, enum: [neshan, mapir, osrm_selfhosted] }
+        objective: { type: string, enum: [min_duration, min_distance] }
+        stop_count: { type: integer }
+        total_distance_m: { type: integer }
+        total_duration_s: { type: integer }
+        geometry: { oneOf: [{ $ref: '#/components/schemas/GeoLineString' }, { type: 'null' }] }
+        stops:
+          type: array
+          description: ترتیب بهینه‌شده توقف‌ها
+          items:
+            type: object
+            properties:
+              sequence: { type: integer }
+              customer_id: { type: string, format: uuid }
+
+    Geofence:
+      type: object
+      required: [name, kind, area]
+      description: محدوده جغرافیایی کار (چندضلعی)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid, readOnly: true }
+        name: { type: string }
+        kind: { type: string, enum: [work_area, customer, warehouse, restricted], description: 'work_area حوزه کاری است (نام در DDL)' }
+        area: { $ref: '#/components/schemas/GeoPolygon' }
+        customer_id: { type: [string, 'null'], format: uuid }
+        warehouse_id: { type: [string, 'null'], format: uuid }
+        is_active: { type: boolean }
+
+    Rule:
+      type: object
+      required: [code, title, entity, event, effect]
+      description: قاعده موتور قوانین با پیام فارسی قابل نمایش
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        title: { type: string }
+        entity: { type: string, examples: ['sales_order', 'customer', 'product', 'return_request'] }
+        event: { type: string, examples: ['before_create', 'before_approve', 'before_receive'] }
+        effect: { type: string, enum: [block, warn] }
+        priority: { type: integer }
+        message_fa: { type: string }
+        conditions:
+          type: object
+          additionalProperties: true
+          description: شرط اجرای قاعده
+        valid_from: { type: [string, 'null'], format: date }
+        valid_to: { type: [string, 'null'], format: date }
+        is_active: { type: boolean }
+
+    ApprovalRequest:
+      type: object
+      description: درخواست تأیید مبلغ‌محور (زنجیره تأیید — ماژول ۳ §۳.۳)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        entity_type: { type: string, examples: ['sales_order', 'return_request', 'stock_adjustment'] }
+        entity_id: { type: string, format: uuid }
+        amount: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        current_step: { type: integer }
+        requested_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        closed_at: { type: [string, 'null'], format: date-time }
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              step_no: { type: integer }
+              approver_role: { type: string }
+              decision: { type: [string, 'null'], enum: [approve, reject, null] }
+              decided_at: { type: [string, 'null'], format: date-time }
+              note: { type: string }
+
+    ReportDescriptor:
+      type: object
+      description: شناسنامه یک گزارش مجاز (ضمیمه C)
+      properties:
+        key: { type: string, examples: ['ar_aging', 'tour_settlement', 'sales_by_route'] }
+        title: { type: string }
+        module: { type: string }
+        required_permission: { type: string }
+
+    SettingEntry:
+      type: object
+      required: [key, value]
+      description: تنظیم با دامنه — حوزه‌ها فقط محدوده خود را می‌بینند (ماژول ۱۱)
+      properties:
+        key: { type: string, examples: ['invoice.prefix', 'tour.settlement.deadline_hours'] }
+        value: { type: string }
+        scope_type: { type: string, enum: [global, company, branch, area] }
+        scope_id: { type: [string, 'null'], format: uuid }
+
+    IntegrationStatus:
+      type: object
+      description: وضعیت اتصال یک سرویس بیرونی (ضمیمه D)
+      properties:
+        key: { type: string, enum: [moadian, pos, sms, gateway] }
+        title: { type: string }
+        healthy: { type: boolean }
+        last_success_at: { type: [string, 'null'], format: date-time }
+        last_error: { type: [string, 'null'] }

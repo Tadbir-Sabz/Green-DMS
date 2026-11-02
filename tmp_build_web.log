@@ -1,0 +1,73 @@
+▲ Next.js 16.4.3 (Turbopack)
+✓ Running next.config.mjs took 52ms
+
+  Creating an optimized production build ...
+Found 1 warning while optimizing generated CSS:
+
+[2m│   }[22m
+[2m│ }[22m
+[2m│[22m @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap');
+[2m┆[22m        [33m[2m^--[22m @import rules must precede all rules aside from @charset and @layer statements[39m
+[2m┆[22m
+[2m│ :root {[22m
+[2m│   --background: 247 249 252;[22m
+
+✓ Compiled successfully in 4.3s
+  Running TypeScript ...
+  Finished TypeScript in 10.1s ...
+  Collecting page data using 23 workers ...
+  Generating static pages using 23 workers (0/44) ...
+  Generating static pages using 23 workers (11/44) 
+  Generating static pages using 23 workers (22/44) 
+  Generating static pages using 23 workers (33/44) 
+✓ Generating static pages using 23 workers (44/44) in 1256ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /ap
+├ ○ /approvals
+├ ○ /ar
+├ ○ /customers
+├ ○ /demo
+├ ○ /devices
+├ ○ /exceptions
+├ ○ /geofences
+├ ○ /gl
+├ ○ /integrations
+├ ○ /integrations/moadian
+├ ○ /integrations/psp
+├ ○ /invoices
+├ ○ /issues
+├ ○ /login
+├ ○ /orders
+├ ○ /persons
+├ ○ /prices
+├ ○ /products
+├ ○ /receipts
+├ ○ /reports/ap
+├ ○ /reports/ar
+├ ○ /reports/cash
+├ ○ /reports/inventory
+├ ○ /reports/sales
+├ ○ /returns
+├ ○ /roles
+├ ○ /routes
+├ ○ /rules
+├ ○ /settings
+├ ○ /staff
+├ ○ /stock-count
+├ ○ /stock-count/new
+├ ○ /tours
+├ ○ /tracking
+├ ○ /transfers
+├ ○ /transfers/new
+├ ○ /treasury
+├ ○ /users
+├ ○ /warehouses
+└ ○ /waybills
+
+
+○  (Static)  prerendered as static content
+

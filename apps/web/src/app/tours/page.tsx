@@ -1,0 +1,18 @@
+﻿export default function Page() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">تورها</h1>
+        <button className="px-3 py-1.5 bg-green-600 text-white rounded">ایجاد تور</button>
+      </div>
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr><th className="text-right p-3">تاریخ</th><th className="text-right p-3">فروشنده</th><th className="text-right p-3">مسیر</th><th className="text-right p-3">تعداد ایستگاه</th><th className="text-right p-3">وضعیت</th></tr>
+          </thead>
+          <tbody><tr><td colSpan={5} className="text-center p-6 text-gray-500">داده‌ای موجود نیست</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

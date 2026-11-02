@@ -1,0 +1,11 @@
+/** توکن‌های DI ماژول sales — با @Inject صریح (سازگار با esbuild بدون emitDecoratorMetadata) */
+export const CUSTOMER_REPOSITORY = 'CUSTOMER_REPOSITORY';
+export const CUSTOMER_SERVICE = 'CUSTOMER_SERVICE';
+export const STRUCTURE_REPOSITORY = 'STRUCTURE_REPOSITORY';
+export const STRUCTURE_SERVICE = 'STRUCTURE_SERVICE';
+export const ORDER_REPOSITORY = 'ORDER_REPOSITORY';
+export const ORDER_SERVICE = 'ORDER_SERVICE';
+export const WAYBILL_REPOSITORY = 'WAYBILL_REPOSITORY';
+export const WAYBILL_SERVICE = 'WAYBILL_SERVICE';
+export const RETURN_REPOSITORY = 'RETURN_REPOSITORY';
+export const RETURN_SERVICE = 'RETURN_SERVICE';
