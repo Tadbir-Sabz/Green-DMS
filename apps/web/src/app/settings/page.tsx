@@ -6,6 +6,8 @@ import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import AdminGuard from "@/components/auth/guards";
 import { useToast } from "@/components/ui/Toast";
+import { Input } from "@/components/ui/Form";
+import { Badge } from "@/components/ui/Badge";
 
 /**
  * تنظیمات سامانه — GET /settings (مؤثر) و PATCH /settings (به‌روزرسانی).
@@ -75,8 +77,8 @@ function SettingsInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">تنظیمات</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">تنظیمات</h1>
+          <p className="text-ink-muted text-sm">
             تنظیمات عمومی و تفکیکی هر حوزه/شعبه — حوزه‌ها فقط محدودهٔ خود را می‌بینند
           </p>
         </div>
@@ -84,7 +86,7 @@ function SettingsInner() {
           <select
             value={scopeType}
             onChange={(e) => setScopeType(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8"
           >
             <option value="">همهٔ دامنه‌ها</option>
             {Object.entries(SCOPE_FA).map(([k, v]) => (
@@ -94,47 +96,52 @@ function SettingsInner() {
           <button
             onClick={() => save.mutate()}
             disabled={changed.length === 0 || save.isPending}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium"
+            className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed text-brand-ink text-sm font-medium focus-ring"
           >
             {save.isPending ? "در حال ذخیره..." : `ذخیرهٔ تغییرات (${changed.length})`}
           </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden">
         {isLoading ? (
-          <div className="p-6 text-slate-500 dark:text-slate-400 text-sm">در حال بارگذاری تنظیمات...</div>
+          <div className="p-6 text-ink-muted text-sm">در حال بارگذاری تنظیمات...</div>
         ) : error ? (
-          <div className="p-6 text-rose-600 dark:text-rose-400 text-sm">{(error as Error).message}</div>
+          <div className="p-6 text-danger-ink text-sm">{(error as Error).message}</div>
         ) : items.length === 0 ? (
-          <div className="p-6 text-slate-500 dark:text-slate-400 text-sm">تنظیمی یافت نشد</div>
+          <div className="p-6 text-ink-muted text-sm">تنظیمی یافت نشد</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#0f172a] text-slate-500 dark:text-slate-400 text-xs">
+            <thead className="bg-surface-alt text-ink-muted text-xs">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">کلید</th>
-                <th className="text-right px-4 py-3 font-medium">مقدار</th>
-                <th className="text-right px-4 py-3 font-medium">دامنه</th>
+                <th className="text-start px-4 py-3 font-medium">کلید</th>
+                <th className="text-start px-4 py-3 font-medium">مقدار</th>
+                <th className="text-start px-4 py-3 font-medium">دامنه</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-[#1f2937]">
+            <tbody className="divide-y divide-line">
               {items.map((it) => {
                 const isChanged = (draft[it.key] ?? "") !== (it.value ?? "");
                 return (
                   <tr key={`${it.key}:${it.scope_type ?? ""}:${it.scope_id ?? ""}`}>
-                    <td className="px-4 py-2 font-mono text-xs text-slate-700 dark:text-slate-300">{it.key}</td>
+                    <td className="px-4 py-2 font-mono text-xs text-ink">{it.key}</td>
                     <td className="px-4 py-2">
-                      <input
-                        value={draft[it.key] ?? ""}
-                        onChange={(e) => setDraft((d) => ({ ...d, [it.key]: e.target.value }))}
-                        className={`w-full px-3 py-1.5 rounded-lg border bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200 ${
-                          isChanged
-                            ? "border-amber-400 dark:border-amber-600"
-                            : "border-slate-200 dark:border-[#1f2937]"
-                        }`}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          size="sm"
+                          value={draft[it.key] ?? ""}
+                          onChange={(e) => setDraft((d) => ({ ...d, [it.key]: e.target.value }))}
+                          aria-label={`مقدار ${it.key}`}
+                          className={isChanged ? "border-warning" : undefined}
+                        />
+                        {isChanged && (
+                          <Badge tone="warning" size="sm">
+                            تغییر یافته
+                          </Badge>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400">
+                    <td className="px-4 py-2 text-xs text-ink-muted">
                       {SCOPE_FA[it.scope_type ?? ""] ?? it.scope_type ?? "—"}
                     </td>
                   </tr>

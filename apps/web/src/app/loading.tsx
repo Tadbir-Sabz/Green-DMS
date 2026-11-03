@@ -1,24 +1,35 @@
+import { Skeleton, SkeletonCard } from "@/components/ui/Feedback";
+
 /**
  * حالت بارگذاری سراسری Next.js App Router — هنگام ناوبری بین مسیرها و تا
- * آماده شدن Suspense مرزها، یک اسکلتون سبک نشان می‌دهد. (پیش‌تر وجود نداشت.)
+ * آماده شدن مرزهای Suspense، اسکلتونی هم‌شکل با چیدمان واقعی صفحه نشان می‌دهد.
+ *
+ * از همان اجزای اسکلتونِ سیستم طراحی استفاده می‌کند تا انیمیشن و رنگ
+ * اسکلتون‌های داخل صفحه‌ها (DataTable، StatCard) یکدست باشد.
  */
 export default function Loading() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-live="polite">
-      <div className="flex items-center gap-3">
-        <div className="h-7 w-48 animate-pulse rounded-lg bg-slate-200 dark:bg-[#1f2937]" />
-        <div className="mr-auto h-9 w-28 animate-pulse rounded-xl bg-slate-200 dark:bg-[#1f2937]" />
+    <div aria-busy="true" aria-live="polite" className="space-y-6">
+      <span className="sr-only">در حال بارگذاری…</span>
+
+      {/* سربدنهٔ صفحه: عنوان + جای دکمهٔ عملیات */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <Skeleton className="h-9 w-28 rounded-xl" />
       </div>
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-28 animate-pulse rounded-2xl bg-slate-200 dark:bg-[#1f2937]"
-          />
+
+      {/* کارت‌های شاخص */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <SkeletonCard key={index} />
         ))}
       </div>
-      <div className="h-64 animate-pulse rounded-2xl bg-slate-200 dark:bg-[#1f2937]" />
-      <span className="sr-only">در حال بارگذاری...</span>
+
+      {/* بدنهٔ اصلی: جای جدول/نمودار */}
+      <Skeleton className="h-72 rounded-2xl" />
     </div>
   );
 }

@@ -28,12 +28,12 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  planned: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  dispatched: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-  delivered: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  partial: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  failed: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  cancelled: "bg-slate-100 text-slate-500 dark:bg-[#1f2937] dark:text-slate-400",
+  planned: "bg-surface-alt text-ink-muted",
+  dispatched: "bg-info-soft text-info-ink",
+  delivered: "bg-brand-soft text-brand-soft-ink",
+  partial: "bg-warning-soft text-warning-ink",
+  failed: "bg-danger-soft text-danger-ink",
+  cancelled: "bg-surface-alt text-ink-muted",
 };
 
 function IssuesInner() {
@@ -104,14 +104,14 @@ function IssuesInner() {
       render: (d) => (
         <span className="flex items-center gap-2 text-xs">
           {d.signature_url ? (
-            <a href={d.signature_url} target="_blank" rel="noreferrer" className="text-emerald-700 dark:text-emerald-400 hover:underline">امضا</a>
+            <a href={d.signature_url} target="_blank" rel="noreferrer" className="text-brand-soft-ink hover:underline">امضا</a>
           ) : (
-            <span className="text-slate-400">امضا —</span>
+            <span className="text-ink-subtle">امضا —</span>
           )}
           {d.photo_url ? (
-            <a href={d.photo_url} target="_blank" rel="noreferrer" className="text-emerald-700 dark:text-emerald-400 hover:underline">عکس</a>
+            <a href={d.photo_url} target="_blank" rel="noreferrer" className="text-brand-soft-ink hover:underline">عکس</a>
           ) : (
-            <span className="text-slate-400">عکس —</span>
+            <span className="text-ink-subtle">عکس —</span>
           )}
         </span>
       ),
@@ -122,14 +122,14 @@ function IssuesInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">حواله‌های فروش</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">پیگیری توزیع و مدرک تحویل (POD) هر حواله</p>
+          <h1 className="text-xl font-bold text-ink">حواله‌های فروش</h1>
+          <p className="text-ink-muted text-sm">پیگیری توزیع و مدرک تحویل (POD) هر حواله</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8"
           >
             <option value="">همهٔ وضعیت‌ها</option>
             {Object.entries(STATUS_FA).map(([k, v]) => (

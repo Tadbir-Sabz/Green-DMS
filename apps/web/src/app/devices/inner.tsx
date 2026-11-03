@@ -74,11 +74,11 @@ export default function DevicesInner() {
       key: "trusted",
       header: "وضعیت",
       render: (d) => {
-        if (d.revoked_at) return <span className="text-rose-600 text-xs">باطل‌شده</span>;
+        if (d.revoked_at) return <span className="text-danger-ink text-xs">باطل‌شده</span>;
         return d.is_trusted ? (
-          <span className="text-emerald-600 text-xs">مجاز</span>
+          <span className="text-brand-soft-ink text-xs">مجاز</span>
         ) : (
-          <span className="text-amber-600 text-xs">در انتظار تأیید پیامکی</span>
+          <span className="text-warning-ink text-xs">در انتظار تأیید پیامکی</span>
         );
       },
     },
@@ -96,7 +96,7 @@ export default function DevicesInner() {
           <button
             onClick={() => revoke(d)}
             disabled={revoking === d.id}
-            className="px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg border border-danger-line text-xs text-danger-ink hover:bg-danger-soft disabled:opacity-50 focus-ring"
           >
             {revoking === d.id ? "..." : "ابطال"}
           </button>
@@ -107,8 +107,8 @@ export default function DevicesInner() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">مدیریت دستگاه‌ها</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <h1 className="text-xl font-bold text-ink">مدیریت دستگاه‌ها</h1>
+        <p className="text-ink-muted text-sm">
           دستگاه‌های مجاز شما برای ورود اپ میدانی؛ ابطال از راه دور
         </p>
       </div>

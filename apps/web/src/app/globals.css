@@ -1,52 +1,405 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* فونت وزیرمتن از بستهٔ @fontsource-variable/vazirmatn در layout.tsx بارگذاری می‌شود
-   (خودمیزبان، بدون @import خارجی). نام خانواده: 'Vazirmatn Variable'. */
+/* ==========================================================================
+   سیستم طراحی GreenDMS — توکن‌های معنایی
+   --------------------------------------------------------------------------
+   تمام رنگ‌ها به‌صورت «معنایی» تعریف شده‌اند (canvas/surface/ink/line/brand/…)
+   نه بر پایهٔ پالت خام (slate-700 و…). چون مقدار هر توکن در حالت روشن و تاریک
+   عوض می‌شود، صفحه‌ها دیگر نیازی به کلاس‌های `dark:` ندارند و کل آن بلوک
+   `!important` که قبلاً حالت شب را با بازنویسی utilityها شبیه‌سازی می‌کرد حذف شد.
 
+   `@theme inline` باعث می‌شود utilityهای تیلویند مستقیماً به var() ارجاع دهند،
+   پس تغییر تم در زمان اجرا (بدون رندر مجدد) روی همهٔ کلاس‌ها اثر می‌گذارد.
+   ========================================================================== */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  /* تایپوگرافی — وزیرمتن خودمیزبان (بدون فونت خارجی در زمان اجرا) */
+  --font-sans: "Vazirmatn Variable", "Vazirmatn", ui-sans-serif, system-ui, Tahoma, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* سطوح */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunken: var(--surface-sunken);
+
+  /* خطوط */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  /* متن */
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-inverse: var(--ink-inverse);
+
+  /* برند (سبز) */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-active: var(--brand-active);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-ink: var(--brand-soft-ink);
+  --color-brand-line: var(--brand-line);
+
+  /* وضعیت‌ها */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-ink: var(--neutral-ink);
+
+  /* متن روی زمینهٔ پررنگ وضعیت‌ها (کنتراست درست در هر دو تم) */
+  --color-on-danger: var(--on-danger);
+  --color-on-success: var(--on-success);
+  --color-on-warning: var(--on-warning);
+  --color-on-info: var(--on-info);
+
+  /* خطوط رنگی ملایم وضعیت‌ها و سطح شیشه‌ای سربدنه.
+     دلیل وجود این توکن‌ها: Tailwind v4 روی رنگ‌های var()-محور، اصلاح‌گر شفافیت
+     (/25 و…) را اعمال نمی‌کند و بی‌صدا حذف می‌شود؛ پس به‌جای آلفای موقت،
+     توکن نام‌دار تعریف می‌کنیم که هم درست کار می‌کند هم خواناتر است. */
+  --color-surface-glass: var(--surface-glass);
+  --color-brand-soft-hover: var(--brand-soft-hover);
+  /* پنل برند: برخلاف brand-active که در حالت شب روشن می‌شود، این توکن در هر دو
+     تم تیره می‌ماند تا متن سفید رویش همیشه کنتراست کافی (بیش از ۴٫۵:۱) داشته باشد. */
+  --color-brand-panel: var(--brand-panel);
+  --color-brand-panel-deep: var(--brand-panel-deep);
+  --color-success-line: var(--success-line);
+  --color-warning-line: var(--warning-line);
+  --color-danger-line: var(--danger-line);
+  --color-info-line: var(--info-line);
+
+  /* تمرکز */
+  --color-ring: var(--ring);
+
+  /* گوشه‌ها */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+
+  /* سایه‌ها */
+  --shadow-xs: var(--shadow-xs-v);
+  --shadow-sm: var(--shadow-sm-v);
+  --shadow-md: var(--shadow-md-v);
+  --shadow-lg: var(--shadow-lg-v);
+  --shadow-xl: var(--shadow-xl-v);
+}
+
+/* ----------------------------- حالت روشن -------------------------------- */
 :root {
-  --background: 247 249 252;
-  --foreground: 15 23 42;
+  color-scheme: light;
+
+  --canvas: #f5f7fa;
+  --surface: #ffffff;
+  --surface-alt: #f2f5f8;
+  --surface-hover: #edf1f6;
+  --surface-sunken: #eaeef4;
+
+  --line: #e3e8ef;
+  --line-strong: #cfd7e2;
+
+  --ink: #0f1a2b;
+  --ink-muted: #4a5768;
+  --ink-subtle: #8592a4;
+  --ink-inverse: #ffffff;
+
+  --brand: #0e9f6e;
+  --brand-hover: #0b8a5f;
+  --brand-active: #087550;
+  --brand-ink: #ffffff;
+  --brand-soft: #e6f6ef;
+  --brand-soft-ink: #0a6f4c;
+  --brand-line: #b8e5d3;
+
+  --success: #12855f;
+  --success-soft: #e6f6ef;
+  --success-ink: #0b6b4c;
+  --warning: #b5560b;
+  --warning-soft: #fff3e2;
+  --warning-ink: #8f4309;
+  --danger: #b42318;
+  --danger-soft: #feecea;
+  --danger-ink: #94201a;
+  --info: #175cd3;
+  --info-soft: #eaf1fe;
+  --info-ink: #194185;
+  --neutral-soft: #eef1f6;
+  --neutral-ink: #4a5768;
+
+  --surface-glass: rgb(255 255 255 / 0.82);
+  --brand-soft-hover: #d5efe4;
+  --brand-panel: #0b7a55;
+  --brand-panel-deep: #075c40;
+  --success-line: #bfe5d5;
+  --warning-line: #f6dcb6;
+  --danger-line: #f2cbc6;
+  --info-line: #cbdcfa;
+
+  --on-danger: #ffffff;
+  --on-success: #ffffff;
+  --on-warning: #ffffff;
+  --on-info: #ffffff;
+
+  --ring: #0e9f6e;
+
+  --shadow-xs-v: 0 1px 2px 0 rgb(16 24 40 / 0.05);
+  --shadow-sm-v: 0 1px 3px 0 rgb(16 24 40 / 0.08), 0 1px 2px -1px rgb(16 24 40 / 0.04);
+  --shadow-md-v: 0 4px 12px -2px rgb(16 24 40 / 0.10), 0 2px 4px -2px rgb(16 24 40 / 0.05);
+  --shadow-lg-v: 0 14px 32px -6px rgb(16 24 40 / 0.14), 0 4px 10px -4px rgb(16 24 40 / 0.08);
+  --shadow-xl-v: 0 24px 56px -12px rgb(16 24 40 / 0.22);
 }
 
-html {
-  font-family: 'Vazirmatn Variable', 'Vazirmatn', Tahoma, Arial, sans-serif;
-}
-
-body {
-  background: rgb(var(--background));
-  color: rgb(var(--foreground));
-  font-family: 'Vazirmatn Variable', 'Vazirmatn', Tahoma, Arial, sans-serif;
-}
-
+/* ----------------------------- حالت تاریک ------------------------------- */
 .dark {
   color-scheme: dark;
-  --background: 11 16 38;
-  --foreground: 229 231 235;
+
+  --canvas: #080c14;
+  --surface: #10161f;
+  --surface-alt: #151d29;
+  --surface-hover: #1b2432;
+  --surface-sunken: #0b1017;
+
+  --line: #212c3c;
+  --line-strong: #2f3d52;
+
+  --ink: #eef2f7;
+  --ink-muted: #a4b0c2;
+  --ink-subtle: #6d7a8e;
+  --ink-inverse: #080c14;
+
+  --brand: #2bc48f;
+  --brand-hover: #35d59d;
+  --brand-active: #22ab7c;
+  --brand-ink: #04140d;
+  --brand-soft: #10281f;
+  --brand-soft-ink: #71e0b6;
+  --brand-line: #1d4a38;
+
+  --success: #3ecf8e;
+  --success-soft: #10281f;
+  --success-ink: #7ee2b8;
+  --warning: #f5a524;
+  --warning-soft: #2a1e0b;
+  --warning-ink: #fbc96b;
+  --danger: #f2726a;
+  --danger-soft: #2c1414;
+  --danger-ink: #f8a9a3;
+  --info: #6ea8fe;
+  --info-soft: #101c2e;
+  --info-ink: #a8c8fd;
+  --neutral-soft: #1a2230;
+  --neutral-ink: #a4b0c2;
+
+  --surface-glass: rgb(16 22 31 / 0.82);
+  --brand-soft-hover: #16382b;
+  --brand-panel: #0a5c40;
+  --brand-panel-deep: #063f2c;
+  --success-line: #1d4a38;
+  --warning-line: #55401c;
+  --danger-line: #572b28;
+  --info-line: #23405f;
+
+  --on-danger: #2c0f0d;
+  --on-success: #052018;
+  --on-warning: #2a1a05;
+  --on-info: #0a1526;
+
+  --ring: #2bc48f;
+
+  --shadow-xs-v: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-sm-v: 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --shadow-md-v: 0 4px 12px -2px rgb(0 0 0 / 0.55);
+  --shadow-lg-v: 0 14px 32px -6px rgb(0 0 0 / 0.65);
+  --shadow-xl-v: 0 24px 56px -12px rgb(0 0 0 / 0.75);
 }
 
-.dark body {
-  background: #0b1026 !important;
-  color: #e5e7eb !important;
+/* ============================== لایهٔ پایه ============================== */
+@layer base {
+  /* رفتار v3: رنگ پیش‌فرض حاشیه، توکن خط است نه currentColor */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* پیمایش نرم، اما بدون شکستن لنگرهای جدول‌ها */
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ارقام فارسی به‌طور پیش‌فرض در متن، اما داده‌های عددی با tabular-nums تراز شوند */
+  h1, h2, h3, h4 {
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background-color: var(--brand-soft);
+    color: var(--brand-soft-ink);
+  }
+
+  ::placeholder {
+    color: var(--ink-subtle);
+    opacity: 1;
+  }
+
+  /* کنترل‌های فرم به‌طور پیش‌فرض از توکن‌ها رنگ می‌گیرند */
+  input, select, textarea, button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  /* اسکرول‌بار ظریف و هم‌رنگ سطح */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--line-strong);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-subtle);
+    background-clip: content-box;
+  }
 }
 
-.dark header { background: rgba(15, 23, 42, 0.98) !important; border-color: #1f2937 !important; }
-.dark aside { background: #0f172a !important; border-color: #1f2937 !important; }
-.dark .bg-white { background: #111827 !important; }
-.dark .bg-\[\#f6f8fa\], .dark .bg-\[\#f7f9fc\] { background: #0b1026 !important; }
-.dark .bg-slate-50 { background: #0b1220 !important; }
-.dark .border-slate-200, .dark .border-slate-100, .dark .border-\[\#1f2937\] { border-color: #1f2937 !important; }
-.dark .text-slate-900 { color: #f8fafc !important; }
-.dark .text-slate-800 { color: #f1f5f9 !important; }
-.dark .text-slate-700 { color: #e5e7eb !important; }
-.dark .text-slate-600 { color: #cbd5e1 !important; }
-.dark .text-slate-500 { color: #94a3b8 !important; }
-.dark .text-slate-400 { color: #64748b !important; }
-.dark .hover\:bg-slate-50:hover, .dark .hover\:bg-slate-100:hover, .dark .hover\:bg-\[\#1f2937\]:hover { background: #1f2937 !important; }
-.dark input, .dark select, .dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #1f2937 !important; }
-.dark input::placeholder { color: #64748b !important; }
-.dark table thead { background: #0b1220 !important; }
-.dark table tbody tr:hover { background: #1f2937 !important; }
-.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.6) !important; }
-.dark .shadow-md, .dark .shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.7), 0 4px 6px -4px rgb(0 0 0 / 0.7) !important; }
+/* ============================ لایهٔ اجزا ============================== */
+@layer components {
+  /* ارقام جدولی برای ستون‌های عددی/مالی — تراز عمودی را در جدول حفظ می‌کند */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* حلقهٔ تمرکز یکدست برای کنترل‌های تعاملی */
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* اسکرول افقی بدون نمایش اسکرول‌بار (نوارهای ابزار و تب‌ها) */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* برش متن چندخطی */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* ============================ لایهٔ ابزارها ============================= */
+@layer utilities {
+  /* انیمیشن ورود ملایم برای مودال/دراور/اعلان */
+  @keyframes dms-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes dms-scale-in {
+    from { opacity: 0; transform: scale(0.97) translateY(4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes dms-slide-in-start {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes dms-shimmer {
+    100% { transform: translateX(-100%); }
+  }
+
+  .animate-fade-in { animation: dms-fade-in 140ms ease-out both; }
+  .animate-scale-in { animation: dms-scale-in 160ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .animate-slide-in { animation: dms-slide-in-start 180ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+  /* اسکلتون بارگذاری */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--surface-alt);
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--ink) 7%, transparent) 50%,
+      transparent 100%
+    );
+    animation: dms-shimmer 1.6s infinite;
+  }
+  .dark .skeleton::after {
+    animation-direction: reverse;
+  }
+}

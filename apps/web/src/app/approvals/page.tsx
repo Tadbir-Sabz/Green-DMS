@@ -79,12 +79,12 @@ export default function ApprovalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">درخواست‌های تأیید</h1>
-        <p className="text-slate-500 text-sm">تصمیم روی درخواست‌های معلق طبق زنجیره تأیید</p>
+        <h1 className="text-xl font-bold text-ink">درخواست‌های تأیید</h1>
+        <p className="text-ink-muted text-sm">تصمیم روی درخواست‌های معلق طبق زنجیره تأیید</p>
       </div>
 
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{error}</div>
       )}
 
       <div className="flex gap-2 flex-wrap">
@@ -92,9 +92,7 @@ export default function ApprovalsPage() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm border ${
-              status === s ? "border-emerald-500 text-emerald-700" : "border-slate-200 dark:border-[#1f2937]"
-            }`}
+            className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${ status === s ? "border-brand text-brand-soft-ink" : "border-line" }`}
           >
             {s === "" ? "همه" : STATUS_FA[s]}
           </button>
@@ -102,15 +100,15 @@ export default function ApprovalsPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden">
-          {list.isError && <div className="p-4 text-sm text-red-600">{(list.error as Error).message}</div>}
+        <div className="lg:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden">
+          {list.isError && <div className="p-4 text-sm text-danger-ink">{(list.error as Error).message}</div>}
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">نوع سند</th>
-                <th className="text-right px-4 py-3 font-medium">مبلغ</th>
-                <th className="text-right px-4 py-3 font-medium">مرحله</th>
-                <th className="text-right px-4 py-3 font-medium">وضعیت</th>
+                <th className="text-start px-4 py-3 font-medium">نوع سند</th>
+                <th className="text-start px-4 py-3 font-medium">مبلغ</th>
+                <th className="text-start px-4 py-3 font-medium">مرحله</th>
+                <th className="text-start px-4 py-3 font-medium">وضعیت</th>
               </tr>
             </thead>
             <tbody>
@@ -118,9 +116,7 @@ export default function ApprovalsPage() {
                 <tr
                   key={r.id}
                   onClick={() => setSelected(r)}
-                  className={`border-t border-slate-100 dark:border-[#1f2937] cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1f2937] ${
-                    selected?.id === r.id ? "bg-emerald-50 dark:bg-emerald-900/20" : ""
-                  }`}
+                  className={`border-t border-line cursor-pointer hover:bg-surface-hover ${ selected?.id === r.id ? "bg-brand-soft" : "" }`}
                 >
                   <td className="px-4 py-3">{r.entity_type}</td>
                   <td className="px-4 py-3">{r.amount?.toLocaleString("fa-IR") ?? "—"}</td>
@@ -130,7 +126,7 @@ export default function ApprovalsPage() {
               ))}
               {!list.isLoading && (list.data?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-8 text-center text-ink-subtle">
                     درخواستی وجود ندارد
                   </td>
                 </tr>
@@ -139,32 +135,32 @@ export default function ApprovalsPage() {
           </table>
         </div>
 
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 h-fit space-y-3">
+        <div className="bg-surface border border-line rounded-2xl p-5 h-fit space-y-3">
           <div className="font-semibold">ثبت تصمیم</div>
-          {!selected && <div className="text-sm text-slate-400">یک درخواست را انتخاب کنید</div>}
+          {!selected && <div className="text-sm text-ink-subtle">یک درخواست را انتخاب کنید</div>}
           {selected && (
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500">نوع سند</span>
+                <span className="text-ink-muted">نوع سند</span>
                 <span>{selected.entity_type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">مرحله فعلی</span>
+                <span className="text-ink-muted">مرحله فعلی</span>
                 <span>{selected.current_step}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">وضعیت</span>
+                <span className="text-ink-muted">وضعیت</span>
                 <span>{STATUS_FA[selected.status] ?? selected.status}</span>
               </div>
 
               {selected.status === "pending" && (
                 <>
                   <div>
-                    <label className="text-slate-500">تصمیم</label>
+                    <label className="text-ink-muted">تصمیم</label>
                     <select
                       value={decision}
                       onChange={(e) => setDecision(e.target.value as (typeof DECISIONS)[number])}
-                      className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                      className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                     >
                       {DECISIONS.map((d) => (
                         <option key={d} value={d}>
@@ -174,18 +170,18 @@ export default function ApprovalsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-slate-500">توضیح</label>
+                    <label className="text-ink-muted">توضیح</label>
                     <textarea
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       rows={2}
-                      className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                      className="w-full rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 px-3 py-2.5 text-sm leading-relaxed mt-1"
                     />
                   </div>
                   <button
                     disabled={decide.isPending}
                     onClick={() => decide.mutate(selected)}
-                    className="w-full px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="w-full px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring"
                   >
                     ثبت تصمیم
                   </button>

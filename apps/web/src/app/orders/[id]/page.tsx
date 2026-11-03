@@ -103,7 +103,7 @@ function OrderDetailInner() {
         l.tax_rate_pct != null ? (
           <span>
             {formatMoney(l.tax_amount)}{" "}
-            <span className="text-[10px] text-slate-400">({l.tax_rate_pct}٪)</span>
+            <span className="text-[10px] text-ink-subtle">({l.tax_rate_pct}٪)</span>
           </span>
         ) : (
           formatMoney(l.tax_amount)
@@ -112,14 +112,14 @@ function OrderDetailInner() {
     { key: "total", header: "جمع قلم", align: "end", render: (l) => <span className="font-medium">{formatMoney(l.line_total)}</span> },
   ];
 
-  if (order.isLoading) return <div className="p-6 text-slate-500">در حال بارگذاری...</div>;
+  if (order.isLoading) return <div className="p-6 text-ink-muted">در حال بارگذاری...</div>;
   if (order.error)
     return (
       <div className="p-6">
-        <div className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-lg px-3 py-2">
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">
           {(order.error as Error).message}
         </div>
-        <button onClick={() => router.back()} className="mt-4 text-sm text-emerald-700 hover:underline">
+        <button onClick={() => router.back()} className="mt-4 text-sm text-brand-soft-ink hover:underline focus-ring">
           بازگشت
         </button>
       </div>
@@ -130,26 +130,26 @@ function OrderDetailInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <button onClick={() => router.push("/orders")} className="text-xs text-slate-500 hover:text-emerald-700 mb-1">
+          <button onClick={() => router.push("/orders")} className="text-xs text-ink-muted hover:text-brand-soft-ink mb-1 focus-ring">
             → بازگشت به سفارش‌ها
           </button>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          <h1 className="text-xl font-bold text-ink">
             سفارش <span className="font-mono">{o.doc_number ?? o.id}</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          <p className="text-ink-muted text-sm mt-1">
             سال مالی {o.fiscal_year ?? "—"} · ثبت {toPersianDate(o.order_date)}
             {o.delivery_date ? ` · تحویل ${toPersianDate(o.delivery_date)}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1f2937] text-sm text-slate-700 dark:text-slate-200">
+          <span className="px-3 py-1.5 rounded-xl bg-surface-alt text-sm text-ink">
             {STATUS_FA[o.status ?? ""] ?? o.status}
           </span>
           {canApprove && (
             <button
               onClick={approve}
               disabled={approving}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium"
+              className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-sm font-medium focus-ring"
             >
               {approving ? "در حال تأیید..." : "تأیید سفارش"}
             </button>
@@ -158,33 +158,33 @@ function OrderDetailInner() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">مشتری</div>
-          <div className="font-semibold text-slate-900 dark:text-slate-100 mt-1">{customerName}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">مشتری</div>
+          <div className="font-semibold text-ink mt-1">{customerName}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">جمع جزء</div>
-          <div className="font-semibold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(o.subtotal)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">جمع جزء</div>
+          <div className="font-semibold text-ink mt-1">{formatMoney(o.subtotal)}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">مالیات</div>
-          <div className="font-semibold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(o.tax_total)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">مالیات</div>
+          <div className="font-semibold text-ink mt-1">{formatMoney(o.tax_total)}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">مبلغ کل</div>
-          <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400 mt-1">{formatMoney(o.grand_total)}</div>
+        <div className="bg-surface border border-brand-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">مبلغ کل</div>
+          <div className="text-lg font-bold text-brand-soft-ink mt-1">{formatMoney(o.grand_total)}</div>
         </div>
       </div>
 
       {o.note && (
-        <div className="bg-slate-50 dark:bg-[#0b1220] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 text-sm text-slate-700 dark:text-slate-300">
-          <span className="text-slate-500">یادداشت: </span>
+        <div className="bg-surface-alt border border-line rounded-2xl p-4 text-sm text-ink">
+          <span className="text-ink-muted">یادداشت: </span>
           {o.note}
         </div>
       )}
 
       <div>
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-3">اقلام سفارش</h2>
+        <h2 className="text-base font-semibold text-ink mb-3">اقلام سفارش</h2>
         <DataTable
           columns={lineColumns}
           rows={(o.lines ?? []) as OrderLine[]}

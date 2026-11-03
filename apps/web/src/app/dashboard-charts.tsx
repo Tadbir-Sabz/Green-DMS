@@ -1,74 +1,142 @@
 "use client";
 
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts";
+import { useChartTheme } from "@/lib/chart-theme";
+import { formatNumber } from "@/lib/format";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { EmptyState, Skeleton } from "@/components/ui/Feedback";
+import { IconChart } from "@/components/icons";
 
 /**
- * نمودار ستونی داشبورد — اکنون داده‌محور است (نه مقادیر سخت‌کدشدهٔ پیشین).
- * صفحهٔ داشبورد نقاط واقعی را از GET /orders محاسبه و به این کامپوننت می‌دهد.
+ * نمودار ستونی داشبورد — داده‌محور و هماهنگ با تم.
+ *
+ * دو نکتهٔ مهم که در نسخهٔ پیشین رعایت نشده بود:
+ *  ۱) رنگ‌ها از توکن‌های سیستم طراحی خوانده می‌شوند (useChartTheme)، پس نمودار
+ *     در حالت شب هم درست دیده می‌شود؛ پیش‌تر سه رنگ هاردکد شده بود.
+ *  ۲) محورها RTL هستند: `XAxis reversed` دسته‌ها را راست‌به‌چپ می‌چیند و
+ *     `YAxis orientation="right"` محور مقدار را در سمت راست می‌گذارد — همان
+ *     جهتی که کاربر فارسی‌زبان از نمودار انتظار دارد.
  */
 export type ChartPoint = { label: string; value: number };
 
 type Props = {
   data: ChartPoint[];
   title?: string;
+  description?: string;
   /** واحد نمایشی روی محور/تولتیپ (مثلاً «میلیون ریال») */
   unit?: string;
-  color?: string;
   loading?: boolean;
   emptyMessage?: string;
+  height?: number;
 };
 
 export default function DashboardCharts({
   data,
   title = "روند فروش",
+  description,
   unit = "",
-  color = "#22c55e",
   loading = false,
-  emptyMessage = "داده‌ای برای نمایش نیست",
+  emptyMessage = "داده‌ای برای رسم نمودار یافت نشد",
+  height = 300,
 }: Props) {
+  const theme = useChartTheme();
+  const peak = data.reduce((max, point) => Math.max(max, point.value), 0);
+
   return (
-    <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="font-semibold text-slate-900 dark:text-slate-100">{title}</div>
-        {unit && <div className="text-xs text-slate-400 dark:text-slate-500">{unit}</div>}
+    <Card padded={false}>
+      <CardHeader
+        title={title}
+        description={description}
+        icon={<IconChart />}
+        actions={unit ? <span className="text-xs text-ink-subtle">{unit}</span> : undefined}
+      />
+
+      <div className="px-3 py-4 sm:px-5">
+        {loading ? (
+          <div className="space-y-3" style={{ height }}>
+            <Skeleton className="h-full w-full rounded-xl" />
+          </div>
+        ) : data.length === 0 ? (
+          <div style={{ height }} className="grid place-items-center">
+            <EmptyState icon={<IconChart />} title={emptyMessage} compact />
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={height}>
+            <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barCategoryGap="22%">
+              <defs>
+                <linearGradient id="barFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={theme.brand} stopOpacity={0.95} />
+                  <stop offset="100%" stopColor={theme.brand} stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} vertical={false} />
+
+              <XAxis
+                dataKey="label"
+                reversed
+                tick={{ fontSize: 11, fill: theme.inkSubtle }}
+                stroke={theme.line}
+                tickLine={false}
+                axisLine={{ stroke: theme.line }}
+                interval="preserveStartEnd"
+                minTickGap={12}
+              />
+              <YAxis
+                orientation="right"
+                tick={{ fontSize: 11, fill: theme.inkSubtle }}
+                stroke={theme.line}
+                tickLine={false}
+                axisLine={false}
+                width={54}
+                tickFormatter={(value: number) => formatNumber(value)}
+              />
+
+              <Tooltip
+                cursor={{ fill: theme.grid, opacity: 0.45 }}
+                labelStyle={{ direction: "rtl", color: theme.inkMuted, fontSize: 12 }}
+                contentStyle={{
+                  direction: "rtl",
+                  fontFamily: "inherit",
+                  background: theme.surface,
+                  border: `1px solid ${theme.line}`,
+                  borderRadius: 12,
+                  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.25)",
+                  fontSize: 12,
+                  color: theme.ink,
+                  padding: "8px 10px",
+                }}
+                formatter={(value) => {
+                  // recharts مقدار را گاهی به‌صورت آرایه می‌دهد؛ به عدد تبدیل می‌کنیم
+                  const raw = Array.isArray(value) ? value[0] : value;
+                  const parsed = Number(raw ?? 0);
+                  const safe = Number.isFinite(parsed) ? parsed : 0;
+                  return [`${formatNumber(safe)}${unit ? ` ${unit}` : ""}`, title];
+                }}
+              />
+
+              <Bar dataKey="value" fill="url(#barFill)" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                {/* بیشترین مقدار با رنگ پررنگ‌تر متمایز می‌شود */}
+                {data.map((point, index) => (
+                  <Cell
+                    key={point.label + index}
+                    fill={peak > 0 && point.value === peak ? theme.brand : "url(#barFill)"}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
-      {loading ? (
-        <div className="h-[300px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
-          در حال بارگذاری...
-        </div>
-      ) : data.length === 0 ? (
-        <div className="h-[300px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
-          {emptyMessage}
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-            <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
-            <Tooltip
-              formatter={(value) => {
-                const n = Number(value ?? 0);
-                return [
-                  `${n.toLocaleString("fa-IR")}${unit ? ` ${unit}` : ""}`,
-                  title,
-                ];
-              }}
-              labelStyle={{ direction: "rtl" }}
-              contentStyle={{ direction: "rtl", fontFamily: "inherit" }}
-            />
-            <Bar dataKey="value" fill={color} radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </div>
+    </Card>
   );
 }

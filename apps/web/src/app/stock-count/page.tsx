@@ -29,12 +29,12 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  counting: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  review: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-  approved: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  posted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  voided: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  draft: "bg-surface-alt text-ink-muted",
+  counting: "bg-warning-soft text-warning-ink",
+  review: "bg-info-soft text-info-ink",
+  approved: "bg-info-soft text-info-ink",
+  posted: "bg-brand-soft text-brand-soft-ink",
+  voided: "bg-danger-soft text-danger-ink",
 };
 
 function StockCountInner() {
@@ -111,7 +111,7 @@ function StockCountInner() {
           <button
             onClick={() => submit(s)}
             disabled={submitting === s.id}
-            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs"
+            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-xs focus-ring"
           >
             {submitting === s.id ? "..." : "پایان شمارش"}
           </button>
@@ -123,21 +123,21 @@ function StockCountInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">انبارگردانی</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">شمارش واقعی در برابر موجودی سیستم و اعمال مغایرت</p>
+          <h1 className="text-xl font-bold text-ink">انبارگردانی</h1>
+          <p className="text-ink-muted text-sm">شمارش واقعی در برابر موجودی سیستم و اعمال مغایرت</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8"
           >
             <option value="">همهٔ وضعیت‌ها</option>
             {Object.entries(STATUS_FA).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
-          <Link href="/stock-count/new" className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
+          <Link href="/stock-count/new" className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium">
             انبارگردانی جدید
           </Link>
         </div>

@@ -191,12 +191,12 @@ export default function PersonsPage(): React.JSX.Element {
           setItems([]);
           void load(q, legalType);
         }}
-        className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
+        className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-4"
       >
         <label className="flex-1 text-sm">
           جست‌وجو (کد/نام/شناسه ملی)
           <input
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="مثلاً علی رضایی یا P-100"
@@ -205,7 +205,7 @@ export default function PersonsPage(): React.JSX.Element {
         <label className="text-sm">
           نوع شخص
           <select
-            className="mt-1 w-44 rounded-lg border border-slate-300 px-3 py-2"
+            className="h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1 w-44"
             value={legalType}
             onChange={(e) => {
               setLegalType(e.target.value);
@@ -220,26 +220,26 @@ export default function PersonsPage(): React.JSX.Element {
         </label>
         <button
           type="submit"
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover focus-ring"
         >
           جست‌وجو
         </button>
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-on-info hover:bg-info focus-ring"
         >
           + شخص جدید
         </button>
       </form>
 
       {notice && (
-        <p className="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-800">
+        <p className="mb-4 rounded-lg bg-brand-soft px-4 py-2 text-sm text-success-ink">
           {notice}
         </p>
       )}
       {listError && (
-        <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
+        <p className="mb-4 rounded-lg bg-danger-soft px-4 py-2 text-sm text-danger-ink">
           {listError}
         </p>
       )}
@@ -248,7 +248,7 @@ export default function PersonsPage(): React.JSX.Element {
       {showForm && (
         <form
           onSubmit={submitForm}
-          className="mb-6 rounded-xl border border-blue-200 bg-blue-50/40 p-5"
+          className="mb-6 rounded-xl border border-info-line bg-info-soft p-5"
         >
           <h2 className="mb-4 font-semibold">
             {editId ? 'ویرایش شخص' : 'شخص جدید'}
@@ -257,20 +257,20 @@ export default function PersonsPage(): React.JSX.Element {
             <label className="text-sm">
               کد شخص *
               <input
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.code}
                 maxLength={64}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
                 required
               />
               {err('code') && (
-                <span className="mt-1 block text-xs text-red-600">{err('code')}</span>
+                <span className="mt-1 block text-xs text-danger-ink">{err('code')}</span>
               )}
             </label>
             <label className="text-sm">
               نوع شخص *
               <select
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.legal_type}
                 onChange={(e) =>
                   setForm({
@@ -288,14 +288,14 @@ export default function PersonsPage(): React.JSX.Element {
               <label className="text-sm">
                 نام حقوقی *
                 <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                   value={form.legal_name}
                   maxLength={255}
                   onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
                   required
                 />
                 {err('legal_name') && (
-                  <span className="mt-1 block text-xs text-red-600">
+                  <span className="mt-1 block text-xs text-danger-ink">
                     {err('legal_name')}
                   </span>
                 )}
@@ -305,13 +305,13 @@ export default function PersonsPage(): React.JSX.Element {
                 <label className="text-sm">
                   نام
                   <input
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                     value={form.first_name}
                     maxLength={128}
                     onChange={(e) => setForm({ ...form, first_name: e.target.value })}
                   />
                   {err('first_name') && (
-                    <span className="mt-1 block text-xs text-red-600">
+                    <span className="mt-1 block text-xs text-danger-ink">
                       {err('first_name')}
                     </span>
                   )}
@@ -319,13 +319,13 @@ export default function PersonsPage(): React.JSX.Element {
                 <label className="text-sm">
                   نام خانوادگی
                   <input
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                     value={form.last_name}
                     maxLength={128}
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                   />
                   {err('last_name') && (
-                    <span className="mt-1 block text-xs text-red-600">
+                    <span className="mt-1 block text-xs text-danger-ink">
                       {err('last_name')}
                     </span>
                   )}
@@ -336,14 +336,14 @@ export default function PersonsPage(): React.JSX.Element {
             <label className="text-sm">
               شناسه ملی
               <input
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.national_id}
                 maxLength={10}
                 inputMode="numeric"
                 onChange={(e) => setForm({ ...form, national_id: e.target.value })}
               />
               {err('national_id') && (
-                <span className="mt-1 block text-xs text-red-600">
+                <span className="mt-1 block text-xs text-danger-ink">
                   {err('national_id')}
                 </span>
               )}
@@ -353,13 +353,13 @@ export default function PersonsPage(): React.JSX.Element {
               <label className="text-sm">
                 کد اقتصادی
                 <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                   value={form.economic_code}
                   maxLength={20}
                   onChange={(e) => setForm({ ...form, economic_code: e.target.value })}
                 />
                 {err('economic_code') && (
-                  <span className="mt-1 block text-xs text-red-600">
+                  <span className="mt-1 block text-xs text-danger-ink">
                     {err('economic_code')}
                   </span>
                 )}
@@ -378,7 +378,7 @@ export default function PersonsPage(): React.JSX.Element {
 
           {/* قاعده نام سمت سرور وقتی هیچ فیلدی مشخص نشده باشد */}
           {formError && (
-            <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink">
               {formError}
             </p>
           )}
@@ -387,14 +387,14 @@ export default function PersonsPage(): React.JSX.Element {
             <button
               type="submit"
               disabled={saving || !form.code.trim()}
-              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-on-info hover:bg-info disabled:opacity-50 focus-ring"
             >
               {saving ? 'در حال ثبت…' : editId ? 'ذخیره تغییرات' : 'ثبت شخص'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-lg border border-slate-300 px-5 py-2 text-sm"
+              className="rounded-lg border border-line-strong px-5 py-2 text-sm focus-ring"
             >
               انصراف
             </button>
@@ -403,9 +403,9 @@ export default function PersonsPage(): React.JSX.Element {
       )}
 
       {/* جدول فهرست */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-right text-slate-600">
+          <thead className="bg-surface-alt text-start text-ink-muted">
             <tr>
               <th className="px-4 py-3 font-medium">کد</th>
               <th className="px-4 py-3 font-medium">نام</th>
@@ -419,55 +419,51 @@ export default function PersonsPage(): React.JSX.Element {
           <tbody>
             {loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-ink-subtle">
                   در حال دریافت فهرست…
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-ink-subtle">
                   شخصی یافت نشد
                 </td>
               </tr>
             )}
             {items.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+              <tr key={p.id} className="border-t border-line hover:bg-surface-alt">
                 <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
                 <td className="px-4 py-3">{displayName(p)}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-4 py-3 text-ink-muted">
                   {p.legal_type === 'legal' ? 'حقوقی' : 'حقیقی'}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                <td className="px-4 py-3 font-mono text-xs text-ink-muted">
                   {p.legal_type === 'legal'
                     ? (p.economic_code ?? '—')
                     : (p.national_id ?? '—')}
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      p.is_active
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}
+                    className={`rounded-full px-2 py-0.5 text-xs ${ p.is_active ? 'bg-brand-soft text-success-ink' : 'bg-surface-alt text-ink-muted' }`}
                   >
                     {p.is_active ? 'فعال' : 'غیرفعال'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-400">
+                <td className="px-4 py-3 text-xs text-ink-subtle">
                   {new Date(p.created_at).toLocaleDateString('fa-IR')}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEdit(p)}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-white"
+                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
                     >
                       ویرایش
                     </button>
                     <button
                       onClick={() => void toggleActive(p)}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-white"
+                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
                     >
                       {p.is_active ? 'غیرفعال کن' : 'فعال کن'}
                     </button>
@@ -479,12 +475,12 @@ export default function PersonsPage(): React.JSX.Element {
         </table>
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-3 flex items-center justify-between text-xs text-ink-subtle">
         <span>{items.length} شخص</span>
         {nextCursor && (
           <button
             onClick={() => void load(q, legalType, nextCursor)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-600 hover:bg-white"
+            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface focus-ring"
           >
             بارگذاری موارد بعدی…
           </button>

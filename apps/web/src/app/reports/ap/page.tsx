@@ -30,34 +30,34 @@ export default function ReportsAPPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">گزارش حساب‌های پرداختنی</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">ماندهٔ بدهی تأمین‌کنندگان</p>
+          <h1 className="text-xl font-bold text-ink">گزارش حساب‌های پرداختنی</h1>
+          <p className="text-ink-muted text-sm">ماندهٔ بدهی تأمین‌کنندگان</p>
         </div>
         <ExportButtons data={items} tableId="ap-report-table" filename="ap-report" />
       </div>
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table id="ap-report-table" className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right p-3">تأمین‌کننده</th>
-                <th className="text-right p-3">کل بدهی</th>
-                <th className="text-right p-3">سررسید بعدی</th>
+                <th className="text-start p-3">تأمین‌کننده</th>
+                <th className="text-start p-3">کل بدهی</th>
+                <th className="text-start p-3">سررسید بعدی</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={3} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
-              {!isLoading && items.length === 0 && <tr><td colSpan={3} className="text-center p-6 text-slate-400">داده‌ای برای نمایش نیست</td></tr>}
+              {isLoading && <tr><td colSpan={3} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>}
+              {!isLoading && items.length === 0 && <tr><td colSpan={3} className="text-center p-6 text-ink-subtle">داده‌ای برای نمایش نیست</td></tr>}
               {!isLoading && items.map((it, idx) => (
-                <tr key={idx} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+                <tr key={idx} className="border-t border-line hover:bg-surface-hover">
                   <td className="p-3">{it.supplier_name || "-"}</td>
                   <td className="p-3 font-medium">{Number(it.total_payable || 0).toLocaleString("fa-IR")}</td>
                   <td className="p-3">{it.due_next || "-"}</td>
                 </tr>
               ))}
               {!isLoading && items.length > 0 && (
-                <tr className="border-t-2 border-slate-200 dark:border-[#1f2937] bg-slate-50 dark:bg-[#1f2937] font-semibold">
+                <tr className="border-t-2 border-line bg-surface-alt font-semibold">
                   <td className="p-3">جمع کل</td>
                   <td className="p-3">{grand.toLocaleString("fa-IR")}</td>
                   <td className="p-3" />

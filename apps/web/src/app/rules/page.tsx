@@ -25,11 +25,11 @@ const EFFECT_FA: Record<string, string> = {
 };
 
 const EFFECT_COLOR: Record<string, string> = {
-  block: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  warn: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  require_approval: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  set_field: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-  notify: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
+  block: "bg-danger-soft text-danger-ink",
+  warn: "bg-warning-soft text-warning-ink",
+  require_approval: "bg-info-soft text-info-ink",
+  set_field: "bg-info-soft text-info-ink",
+  notify: "bg-surface-alt text-ink-muted",
 };
 
 const EVENT_FA: Record<string, string> = {
@@ -80,7 +80,7 @@ export default function RulesPage() {
       render: (r) => (
         <div>
           <div>{r.title}</div>
-          {r.message_fa && <div className="text-xs text-slate-400 mt-0.5">{r.message_fa}</div>}
+          {r.message_fa && <div className="text-xs text-ink-subtle mt-0.5">{r.message_fa}</div>}
         </div>
       ),
     },
@@ -99,7 +99,7 @@ export default function RulesPage() {
       key: "validity",
       header: "اعتبار",
       render: (r) => (
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-ink-muted">
           {r.valid_from ? toPersianDate(r.valid_from) : "—"} تا {r.valid_to ? toPersianDate(r.valid_to) : "—"}
         </span>
       ),
@@ -114,15 +114,15 @@ export default function RulesPage() {
         return (
           <button
             onClick={() => setExpanded(isOpen ? null : r.id ?? null)}
-            className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="text-xs text-brand-soft-ink hover:underline focus-ring"
           >
             {conds.length} شرط / {acts.length} اقدام {isOpen ? "▲" : "▼"}
             {isOpen && (
-              <span className="block mt-2 space-y-2 text-right" dir="ltr">
-                <code className="block px-2 py-1 rounded bg-slate-50 dark:bg-[#0b1220] text-[11px] whitespace-pre-wrap break-all">
+              <span className="block mt-2 space-y-2 text-start" dir="ltr">
+                <code className="block px-2 py-1 rounded bg-surface-alt text-[11px] whitespace-pre-wrap break-all">
                   {JSON.stringify(conds, null, 2)}
                 </code>
-                <code className="block px-2 py-1 rounded bg-slate-50 dark:bg-[#0b1220] text-[11px] whitespace-pre-wrap break-all">
+                <code className="block px-2 py-1 rounded bg-surface-alt text-[11px] whitespace-pre-wrap break-all">
                   {JSON.stringify(acts, null, 2)}
                 </code>
               </span>
@@ -139,11 +139,7 @@ export default function RulesPage() {
         <button
           onClick={() => toggleActive(r)}
           disabled={toggling === r.id}
-          className={`px-2.5 py-1 rounded-lg text-xs border disabled:opacity-50 ${
-            r.is_active
-              ? "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-              : "border-slate-300 dark:border-[#1f2937] text-slate-500 hover:bg-slate-50 dark:hover:bg-[#1f2937]"
-          }`}
+          className={`focus-ring px-2.5 py-1 rounded-lg text-xs border disabled:opacity-50 ${ r.is_active ? "border-brand-line text-brand-soft-ink hover:bg-brand-soft" : "border-line-strong text-ink-muted hover:bg-surface-hover" }`}
         >
           {toggling === r.id ? "..." : r.is_active ? "فعال" : "غیرفعال"}
         </button>
@@ -155,8 +151,8 @@ export default function RulesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">موتور قوانین</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">موتور قوانین</h1>
+          <p className="text-ink-muted text-sm">
             قواعد کنترل (سقف اعتبار، تخفیف، تأیید) با اثر مسدود/هشدار/تأیید
           </p>
         </div>

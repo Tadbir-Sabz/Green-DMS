@@ -64,18 +64,18 @@ function IntegrationsInner() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">یکپارچه‌سازی‌ها</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <h1 className="text-xl font-bold text-ink">یکپارچه‌سازی‌ها</h1>
+        <p className="text-ink-muted text-sm">
           وضعیت زندهٔ مؤدیان، درگاه پرداخت، پیامک و صف‌ها — به‌همراه آزمون اتصال
         </p>
       </div>
 
       {isLoading ? (
-        <div className="text-slate-500 dark:text-slate-400 text-sm">در حال بارگذاری وضعیت سرویس‌ها...</div>
+        <div className="text-ink-muted text-sm">در حال بارگذاری وضعیت سرویس‌ها...</div>
       ) : error ? (
-        <div className="text-rose-600 dark:text-rose-400 text-sm">{(error as Error).message}</div>
+        <div className="text-danger-ink text-sm">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="text-slate-500 dark:text-slate-400 text-sm">سرویسی برای نمایش یافت نشد</div>
+        <div className="text-ink-muted text-sm">سرویسی برای نمایش یافت نشد</div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {items.map((s) => {
@@ -84,21 +84,17 @@ function IntegrationsInner() {
             return (
               <div
                 key={key}
-                className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 shadow-sm"
+                className="bg-surface border border-line rounded-2xl p-5 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-semibold text-slate-900 dark:text-slate-100">
+                    <div className="font-semibold text-ink">
                       {s.title ?? KEY_FA[key] ?? key}
                     </div>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 font-mono mt-0.5">{key}</div>
+                    <div className="text-xs text-ink-subtle font-mono mt-0.5">{key}</div>
                   </div>
                   <span
-                    className={`px-2 py-0.5 rounded-md text-xs shrink-0 ${
-                      s.healthy
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-                    }`}
+                    className={`px-2 py-0.5 rounded-md text-xs shrink-0 ${ s.healthy ? "bg-brand-soft text-brand-soft-ink" : "bg-danger-soft text-danger-ink" }`}
                   >
                     {s.healthy ? "سالم" : "خطا"}
                   </span>
@@ -106,14 +102,14 @@ function IntegrationsInner() {
 
                 <dl className="mt-4 space-y-1.5 text-xs">
                   <div className="flex justify-between gap-2">
-                    <dt className="text-slate-500 dark:text-slate-400">آخرین موفقیت</dt>
-                    <dd className="text-slate-700 dark:text-slate-300">
+                    <dt className="text-ink-muted">آخرین موفقیت</dt>
+                    <dd className="text-ink">
                       {s.last_success_at ? toPersianDateTime(s.last_success_at) : "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-slate-500 dark:text-slate-400">آخرین خطا</dt>
-                    <dd className="text-slate-700 dark:text-slate-300 truncate max-w-[60%]" title={s.last_error ?? ""}>
+                    <dt className="text-ink-muted">آخرین خطا</dt>
+                    <dd className="text-ink truncate max-w-[60%]" title={s.last_error ?? ""}>
                       {s.last_error ?? "—"}
                     </dd>
                   </div>
@@ -123,14 +119,14 @@ function IntegrationsInner() {
                   <button
                     onClick={() => test.mutate(key)}
                     disabled={test.isPending}
-                    className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-[#1f2937] text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1f2937] disabled:opacity-40"
+                    className="px-3 py-1.5 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover disabled:opacity-40 focus-ring"
                   >
                     {test.isPending && test.variables === key ? "در حال آزمون..." : "آزمون اتصال"}
                   </button>
                   {href && (
                     <Link
                       href={href}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium"
+                      className="px-3 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium"
                     >
                       جزئیات
                     </Link>

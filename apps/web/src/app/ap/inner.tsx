@@ -46,17 +46,17 @@ export default function APInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">حساب‌های پرداختنی</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">حساب‌های پرداختنی</h1>
+          <p className="text-ink-muted text-sm">
             ماندهٔ بدهکاری به تأمین‌کنندگان و سررسیدها
           </p>
         </div>
         <ExportButtons data={items} tableId="ap-table" filename="ap-balances" />
       </div>
 
-      <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-        <div className="text-sm text-slate-500 dark:text-slate-400">جمع کل پرداختنی</div>
-        <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(totalPayable)}</div>
+      <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+        <div className="text-sm text-ink-muted">جمع کل پرداختنی</div>
+        <div className="text-2xl font-bold text-ink mt-1">{formatMoney(totalPayable)}</div>
       </div>
 
       <div id="ap-table">

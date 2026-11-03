@@ -35,38 +35,38 @@ export default function ReportsCashPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">گزارش صندوق و بانک</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">ماندهٔ دفتری/واقعی و مغایرت هر حساب</p>
+          <h1 className="text-xl font-bold text-ink">گزارش صندوق و بانک</h1>
+          <p className="text-ink-muted text-sm">ماندهٔ دفتری/واقعی و مغایرت هر حساب</p>
         </div>
         <ExportButtons data={items} tableId="cash-report-table" filename="cash-report" />
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+      <div className="flex flex-wrap items-end gap-3 bg-surface border border-line rounded-2xl p-4">
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">تاریخ (as of)</label>
-          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-slate-900 dark:text-slate-100" />
+          <label className="block text-xs text-ink-muted mb-1">تاریخ (as of)</label>
+          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60" />
         </div>
-        {asOf && <button onClick={() => setAsOf("")} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1f2937]">پاک کردن</button>}
+        {asOf && <button onClick={() => setAsOf("")} className="px-3 py-2 rounded-xl border border-line text-sm text-ink-muted hover:bg-surface-hover focus-ring">پاک کردن</button>}
       </div>
 
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table id="cash-report-table" className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right p-3">حساب</th>
-                <th className="text-right p-3">مانده دفتری</th>
-                <th className="text-right p-3">مانده واقعی</th>
-                <th className="text-right p-3">مغایرت</th>
-                <th className="text-right p-3">تاریخ</th>
+                <th className="text-start p-3">حساب</th>
+                <th className="text-start p-3">مانده دفتری</th>
+                <th className="text-start p-3">مانده واقعی</th>
+                <th className="text-start p-3">مغایرت</th>
+                <th className="text-start p-3">تاریخ</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={5} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
-              {!isLoading && items.length === 0 && <tr><td colSpan={5} className="text-center p-6 text-slate-400">داده‌ای برای نمایش نیست</td></tr>}
+              {isLoading && <tr><td colSpan={5} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>}
+              {!isLoading && items.length === 0 && <tr><td colSpan={5} className="text-center p-6 text-ink-subtle">داده‌ای برای نمایش نیست</td></tr>}
               {!isLoading && items.map((it, idx) => (
-                <tr key={idx} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+                <tr key={idx} className="border-t border-line hover:bg-surface-hover">
                   <td className="p-3">{it.title || "-"}</td>
                   <td className="p-3">{Number(it.balance_book || 0).toLocaleString("fa-IR")}</td>
                   <td className="p-3">{it.balance_actual != null ? Number(it.balance_actual).toLocaleString("fa-IR") : "-"}</td>

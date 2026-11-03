@@ -34,13 +34,13 @@ function ReceiptsInner() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">رسید خرید</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <h1 className="text-xl font-bold text-ink">رسید خرید</h1>
+        <p className="text-ink-muted text-sm">
           ثبت رسید کالای خریداری‌شده (GRN) و تطبیق با قبض تأمین‌کننده
         </p>
       </div>
 
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 text-sm text-amber-900 dark:text-amber-200">
+      <div className="bg-warning-soft border border-warning-line rounded-2xl p-5 text-sm text-warning-ink">
         <div className="font-semibold mb-1">ثبت رسید خرید هنوز در API فعال نشده است</div>
         <p className="leading-6">
           پایانهٔ اختصاصی «رسید خرید / GRN» در قرارداد فعلی وجود ندارد. جریان خرید از مسیر
@@ -55,10 +55,10 @@ function ReceiptsInner() {
           <Link
             key={l.href}
             href={l.href}
-            className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+            className="bg-surface border border-line rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
           >
-            <div className="font-semibold text-slate-900 dark:text-slate-100">{l.title}</div>
-            <div className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-6">{l.desc}</div>
+            <div className="font-semibold text-ink">{l.title}</div>
+            <div className="text-sm text-ink-muted mt-1 leading-6">{l.desc}</div>
           </Link>
         ))}
       </div>

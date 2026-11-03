@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
@@ -11,14 +10,38 @@ import { ADMIN_ROLES, FINANCE_ROLES, SALES_ROLES, WAREHOUSE_ROLES } from "@/lib/
 import DashboardCharts, { type ChartPoint } from "@/app/dashboard-charts";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { toPersianDate } from "@/lib/date";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CardLink, SectionTitle } from "@/components/ui/Card";
+import { StatCard, StatGrid, type StatTone } from "@/components/ui/StatCard";
+import { SegmentedControl } from "@/components/ui/Form";
+import { Badge } from "@/components/ui/Badge";
+import { SkeletonCard } from "@/components/ui/Feedback";
+import {
+  IconApproval,
+  IconChevronEnd,
+  IconClipboardCheck,
+  IconCustomer,
+  IconDelivery,
+  IconIntegration,
+  IconInvoice,
+  IconOrder,
+  IconReceivable,
+  IconRules,
+  IconTour,
+  IconTracking,
+  IconTransfer,
+  IconTreasury,
+  IconWallet,
+  IconWarehouse,
+} from "@/components/icons";
+import type { Icon } from "@/lib/navigation";
 
 /**
- * داشبورد لایه‌ای (ضمیمه C.۱) — KPIهای واقعی از API، به تفکیک لایهٔ نقش:
+ * داشبورد لایه‌ای — KPIهای واقعی از API، به تفکیک لایهٔ نقش:
  *
  *  - مدیرعامل/ادمین (executive): فروش امروز، فاکتورها، بدهکاری معوق، خزانه،
  *    تأییدهای در انتظار، نیروهای زنده + نمودار روند فروش
- *  - مدیر/فروشنده (sales): سفارش‌ها و فروش امروز، تورهای امروز، تأییدها،
- *    نیروهای زنده + نمودار روند فروش
+ *  - مدیر/فروشنده (sales): سفارش‌ها و فروش امروز، تورهای امروز، تأییدها، نیروهای زنده
  *  - مالی (finance): بدهکاری معوق، موقعیت خزانه، تأییدها، سلامت یکپارچه‌سازی‌ها
  *  - انبار (warehouse): موجودی بحرانی، انبارگردانی باز، انتقال در جریان، تحویل معوق
  *
@@ -71,7 +94,15 @@ function detectLayer(hasRole: (allowed: string[]) => boolean): Layer {
   return "executive";
 }
 
-type Card = { label: string; value: string; sub: string; loading?: boolean; href?: string };
+type Card = {
+  label: string;
+  value: string;
+  sub: string;
+  loading?: boolean;
+  href?: string;
+  icon: Icon;
+  tone: StatTone;
+};
 
 function DashboardInner() {
   const { user, hasRole } = useAuth();
@@ -247,24 +278,24 @@ function DashboardInner() {
       const overdue = (ar.data ?? []).reduce((acc, r) => acc + Math.max(0, num(r.total) - num(r.current)), 0);
       const cash = (treasury.data ?? []).reduce((acc, t) => acc + num(t.balance_book), 0);
       return [
-        { label: "سفارشات امروز", value: formatNumber((ordersToday.data ?? []).length), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading },
-        { label: "فاکتورهای صادرشده", value: formatNumber(invoicesToday), sub: "امروز · ثبت/پرداخت‌شده", loading: invoices.isLoading },
-        { label: "مبلغ فروش امروز", value: formatMoney(salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading },
-        { label: "بدهکاری معوق", value: formatMoney(overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading, href: "/ar" },
-        { label: "موقعیت خزانه", value: formatMoney(cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", loading: treasury.isLoading, href: "/treasury" },
-        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals" },
-        { label: "نیروهای میدانی زنده", value: formatNumber((tracking.data ?? []).length), sub: "روی خط در لحظه", loading: tracking.isLoading, href: "/tracking" },
+        { label: "سفارشات امروز", value: formatNumber((ordersToday.data ?? []).length), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading, icon: IconOrder, tone: "brand", href: "/orders" },
+        { label: "فاکتورهای صادرشده", value: formatNumber(invoicesToday), sub: "امروز · ثبت/پرداخت‌شده", loading: invoices.isLoading, icon: IconInvoice, tone: "info", href: "/invoices" },
+        { label: "مبلغ فروش امروز", value: formatMoney(salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading, icon: IconWallet, tone: "success" },
+        { label: "بدهکاری معوق", value: formatMoney(overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading, href: "/ar", icon: IconReceivable, tone: "warning" },
+        { label: "موقعیت خزانه", value: formatMoney(cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", loading: treasury.isLoading, href: "/treasury", icon: IconTreasury, tone: "info" },
+        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals", icon: IconApproval, tone: "warning" },
+        { label: "نیروهای میدانی زنده", value: formatNumber((tracking.data ?? []).length), sub: "روی خط در لحظه", loading: tracking.isLoading, href: "/tracking", icon: IconTracking, tone: "success" },
       ];
     }
     if (layer === "sales") {
       const t = tours.data ?? [];
       const activeTours = t.filter((x) => x.status === "active").length;
       return [
-        { label: "سفارشات امروز", value: formatNumber((ordersToday.data ?? []).length), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading, href: "/orders" },
-        { label: "مبلغ فروش امروز", value: formatMoney(salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading },
-        { label: "تورهای امروز", value: formatNumber(t.length), sub: `${formatNumber(activeTours)} تور در حال اجرا`, loading: tours.isLoading, href: "/tours" },
-        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals" },
-        { label: "نیروهای میدانی زنده", value: formatNumber((tracking.data ?? []).length), sub: "روی خط در لحظه", loading: tracking.isLoading, href: "/tracking" },
+        { label: "سفارشات امروز", value: formatNumber((ordersToday.data ?? []).length), sub: "ثبت‌شده تا این لحظه", loading: ordersToday.isLoading, href: "/orders", icon: IconOrder, tone: "brand" },
+        { label: "مبلغ فروش امروز", value: formatMoney(salesToday, "ریال"), sub: "جمع کل سفارش‌های امروز", loading: ordersToday.isLoading, icon: IconWallet, tone: "success" },
+        { label: "تورهای امروز", value: formatNumber(t.length), sub: `${formatNumber(activeTours)} تور در حال اجرا`, loading: tours.isLoading, href: "/tours", icon: IconTour, tone: "brand" },
+        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals", icon: IconApproval, tone: "warning" },
+        { label: "نیروهای میدانی زنده", value: formatNumber((tracking.data ?? []).length), sub: "روی خط در لحظه", loading: tracking.isLoading, href: "/tracking", icon: IconTracking, tone: "success" },
       ];
     }
     if (layer === "finance") {
@@ -272,10 +303,10 @@ function DashboardInner() {
       const cash = (treasury.data ?? []).reduce((acc, t) => acc + num(t.balance_book), 0);
       const unhealthy = (integrations.data ?? []).filter((s) => s.healthy === false).length;
       return [
-        { label: "بدهکاری معوق", value: formatMoney(overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading, href: "/ar" },
-        { label: "موقعیت خزانه", value: formatMoney(cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", loading: treasury.isLoading, href: "/treasury" },
-        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals" },
-        { label: "یکپارچه‌سازی نارسانا", value: formatNumber(unhealthy), sub: "سرویس بیرونی با خطا", loading: integrations.isLoading, href: "/integrations" },
+        { label: "بدهکاری معوق", value: formatMoney(overdue, "ریال"), sub: "سررسید گذشته (از AR)", loading: ar.isLoading, href: "/ar", icon: IconReceivable, tone: "warning" },
+        { label: "موقعیت خزانه", value: formatMoney(cash, "ریال"), sub: "ماندهٔ دفتری صندوق/بانک", loading: treasury.isLoading, href: "/treasury", icon: IconTreasury, tone: "info" },
+        { label: "تأییدهای در انتظار", value: formatNumber((approvals.data ?? []).length), sub: "نیازمند تصمیم", loading: approvals.isLoading, href: "/approvals", icon: IconApproval, tone: "warning" },
+        { label: "یکپارچه‌سازی نارسانا", value: formatNumber(unhealthy), sub: "سرویس بیرونی با خطا", loading: integrations.isLoading, href: "/integrations", icon: IconIntegration, tone: unhealthy > 0 ? "danger" : "success" },
       ];
     }
     // warehouse
@@ -284,108 +315,124 @@ function DashboardInner() {
     const inTransit = (transfers.data ?? []).filter((t) => t.status === "in_transit").length;
     const pendingDeliveries = (deliveries.data ?? []).filter((d) => PENDING_DELIVERY_STATUSES.has(d.status ?? "")).length;
     return [
-      { label: "موجودی بحرانی", value: formatNumber(critical), sub: "کالای با موجودی صفر", loading: stock.isLoading, href: "/warehouses" },
-      { label: "انبارگردانی باز", value: formatNumber(openCounts), sub: "پیش‌نویس/شمارش/بازبینی", loading: stocktakes.isLoading, href: "/stock-count" },
-      { label: "انتقال در جریان", value: formatNumber(inTransit), sub: "بین انباری در راه", loading: transfers.isLoading, href: "/transfers" },
-      { label: "تحویل معوق", value: formatNumber(pendingDeliveries), sub: "برنامه‌ریزی/ارسال/جزئی", loading: deliveries.isLoading, href: "/issues" },
+      { label: "موجودی بحرانی", value: formatNumber(critical), sub: "کالای با موجودی صفر", loading: stock.isLoading, href: "/warehouses", icon: IconWarehouse, tone: critical > 0 ? "danger" : "success" },
+      { label: "انبارگردانی باز", value: formatNumber(openCounts), sub: "پیش‌نویس/شمارش/بازبینی", loading: stocktakes.isLoading, href: "/stock-count", icon: IconClipboardCheck, tone: "info" },
+      { label: "انتقال در جریان", value: formatNumber(inTransit), sub: "بین انباری در راه", loading: transfers.isLoading, href: "/transfers", icon: IconTransfer, tone: "info" },
+      { label: "تحویل معوق", value: formatNumber(pendingDeliveries), sub: "برنامه‌ریزی/ارسال/جزئی", loading: deliveries.isLoading, href: "/issues", icon: IconDelivery, tone: "warning" },
     ];
   }, [layer, ordersToday.data, invoices.data, ar.data, treasury.data, approvals.data, tracking.data, tours.data, integrations.data, stock.data, stocktakes.data, transfers.data, deliveries.data, salesToday, today]);
 
   const showChart = layer === "executive" || layer === "sales";
 
-  const modules = [
-    { title: "سفارشات فروش", desc: "مدیریت چرخهٔ سفارش تا فاکتور", href: "/orders" },
-    { title: "مشتریان", desc: "پروفایل، اعتبار، مسیر و تاریخچه", href: "/customers" },
-    { title: "تورهای فروش", desc: "برنامه‌ریزی، اجرا و تسویهٔ تور", href: "/tours" },
-    { title: "رهگیری زنده", desc: "نقشهٔ زندهٔ نیروهای میدانی", href: "/tracking" },
-    { title: "انبار و موجودی", desc: "رسید، حواله، انتقال و انبارگردانی", href: "/warehouses" },
-    { title: "موتور قوانین", desc: "سقف اعتبار، تخفیف و تأیید خودکار", href: "/rules" },
-    { title: "حساب‌های دریافتنی", desc: "بدهکاری، سررسید، وصول", href: "/ar" },
-    { title: "خزانه‌داری", desc: "صندوق، بانک، چک‌ها", href: "/treasury" },
+  const modules: { title: string; desc: string; href: string; icon: Icon }[] = [
+    { title: "سفارشات فروش", desc: "مدیریت چرخهٔ سفارش تا فاکتور", href: "/orders", icon: IconOrder },
+    { title: "مشتریان", desc: "پروفایل، اعتبار، مسیر و تاریخچه", href: "/customers", icon: IconCustomer },
+    { title: "تورهای فروش", desc: "برنامه‌ریزی، اجرا و تسویهٔ تور", href: "/tours", icon: IconTour },
+    { title: "رهگیری زنده", desc: "نقشهٔ زندهٔ نیروهای میدانی", href: "/tracking", icon: IconTracking },
+    { title: "انبار و موجودی", desc: "رسید، حواله، انتقال و انبارگردانی", href: "/warehouses", icon: IconWarehouse },
+    { title: "موتور قوانین", desc: "سقف اعتبار، تخفیف و تأیید خودکار", href: "/rules", icon: IconRules },
+    { title: "حساب‌های دریافتنی", desc: "بدهکاری، سررسید، وصول", href: "/ar", icon: IconReceivable },
+    { title: "خزانه‌داری", desc: "صندوق، بانک، چک‌ها", href: "/treasury", icon: IconTreasury },
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">داشبورد اجرایی</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-            نمای لایهٔ «{LAYER_FA[layer]}» — عملکرد فروش و پخش مویرگی
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#1f2937] rounded-xl p-1">
-              {(Object.keys(LAYER_FA) as Layer[]).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLayer(l)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    layer === l
-                      ? "bg-white dark:bg-[#0f172a] text-emerald-700 dark:text-emerald-400 shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  {LAYER_FA[l]}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="text-sm text-slate-500 dark:text-slate-400">{toPersianDate(today)}</div>
-        </div>
-      </div>
+    <div className="space-y-7">
+      <PageHeader
+        title="داشبورد اجرایی"
+        description={`نمای لایهٔ «${LAYER_FA[layer]}» — عملکرد فروش و پخش مویرگی`}
+        actions={
+          <>
+            <Badge tone="neutral" size="md">
+              {toPersianDate(today)}
+            </Badge>
+            {isAdmin && (
+              <SegmentedControl<Layer>
+                ariaLabel="انتخاب لایهٔ نمایش"
+                value={layer}
+                onChange={setLayer}
+                options={(Object.keys(LAYER_FA) as Layer[]).map((key) => ({
+                  value: key,
+                  label: LAYER_FA[key],
+                }))}
+              />
+            )}
+          </>
+        }
+      />
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {cards.map((k) => {
-          const inner = (
-            <>
-              <div className="text-sm text-slate-500 dark:text-slate-400">{k.label}</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
-                {k.loading ? <span className="text-slate-300 dark:text-slate-600">…</span> : k.value}
-              </div>
-              <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">{k.sub}</div>
-            </>
-          );
-          const cls = "bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 shadow-sm";
-          return k.href ? (
-            <Link key={k.label} href={k.href} className={`${cls} hover:shadow-md hover:-translate-y-0.5 transition-all`}>
-              {inner}
-            </Link>
-          ) : (
-            <div key={k.label} className={cls}>
-              {inner}
-            </div>
+      <StatGrid>
+        {cards.map((card) => {
+          const CardIcon = card.icon;
+          return (
+            <StatCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              sub={card.sub}
+              href={card.href}
+              loading={card.loading}
+              tone={card.tone}
+              icon={<CardIcon />}
+            />
           );
         })}
-      </div>
+        {/* وقتی لایه کمتر از چهار کارت دارد، اسکلتون نگذار — چیدمان خودش جمع می‌شود */}
+      </StatGrid>
 
       {showChart && (
         <DashboardCharts
           data={chart}
           title="روند فروش"
+          description="جمع مبلغ سفارش‌ها در ۱۲ روز گذشته"
           unit="میلیون ریال"
           loading={ordersRecent.isLoading}
           emptyMessage="سفارشی برای رسم روند یافت نشد"
         />
       )}
 
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">دسترسی سریع</h2>
+      <section>
+        <SectionTitle>دسترسی سریع</SectionTitle>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {modules.map((module) => {
+            const ModuleIcon = module.icon;
+            return (
+              <CardLink key={module.title} href={module.href} className="group">
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    aria-hidden
+                    className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-alt text-ink-muted transition-colors group-hover:bg-brand-soft group-hover:text-brand-soft-ink"
+                  >
+                    <ModuleIcon className="size-5" />
+                  </span>
+                  <IconChevronEnd
+                    aria-hidden
+                    className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180"
+                  />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-ink">{module.title}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">{module.desc}</p>
+              </CardLink>
+            );
+          })}
         </div>
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {modules.map((m) => (
-            <Link
-              key={m.title}
-              href={m.href}
-              className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 hover:shadow-md hover:-translate-y-0.5 transition-all"
-            >
-              <div className="font-semibold text-slate-900 dark:text-slate-100">{m.title}</div>
-              <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">{m.desc}</div>
-            </Link>
-          ))}
-        </div>
+      </section>
+    </div>
+  );
+}
+
+/** اسکلتون داشبورد تا پیش از آماده‌شدن اولین کوئری، چیدمان خالی دیده نشود */
+export function DashboardSkeleton() {
+  return (
+    <div className="space-y-7">
+      <div className="space-y-2">
+        <div className="h-6 w-48 rounded-md bg-surface-alt" />
+        <div className="h-4 w-72 rounded-md bg-surface-alt" />
       </div>
+      <StatGrid>
+        {Array.from({ length: 4 }).map((_, index) => (
+          <SkeletonCard key={index} />
+        ))}
+      </StatGrid>
     </div>
   );
 }

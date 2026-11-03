@@ -174,12 +174,12 @@ export default function ProductsPage(): React.JSX.Element {
           e.preventDefault();
           void load(q, status);
         }}
-        className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
+        className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-4"
       >
         <label className="flex-1 text-sm">
           جست‌وجو (کد/نام)
           <input
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="مثلاً شیر یا P-100"
@@ -188,7 +188,7 @@ export default function ProductsPage(): React.JSX.Element {
         <label className="text-sm">
           وضعیت
           <select
-            className="mt-1 w-40 rounded-lg border border-slate-300 px-3 py-2"
+            className="h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1 w-40"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -203,26 +203,26 @@ export default function ProductsPage(): React.JSX.Element {
         </label>
         <button
           type="submit"
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover focus-ring"
         >
           جست‌وجو
         </button>
         <button
           type="button"
           onClick={() => void openForm()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-on-info hover:bg-info focus-ring"
         >
           + کالای جدید
         </button>
       </form>
 
       {notice && (
-        <p className="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-800">
+        <p className="mb-4 rounded-lg bg-brand-soft px-4 py-2 text-sm text-success-ink">
           {notice}
         </p>
       )}
       {listError && (
-        <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
+        <p className="mb-4 rounded-lg bg-danger-soft px-4 py-2 text-sm text-danger-ink">
           {listError}
         </p>
       )}
@@ -231,14 +231,14 @@ export default function ProductsPage(): React.JSX.Element {
       {showForm && (
         <form
           onSubmit={submitForm}
-          className="mb-6 rounded-xl border border-blue-200 bg-blue-50/40 p-5"
+          className="mb-6 rounded-xl border border-info-line bg-info-soft p-5"
         >
           <h2 className="mb-4 font-semibold">کالای جدید</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <label className="text-sm">
               کد کالا *
               <input
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
                 required
@@ -247,7 +247,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm sm:col-span-2">
               نام کالا *
               <input
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
@@ -256,7 +256,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               دسته‌بندی *
               <select
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.category_id}
                 onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 required
@@ -272,7 +272,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               واحد اندازه‌گیری *
               <select
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.base_uom_id}
                 onChange={(e) => setForm({ ...form, base_uom_id: e.target.value })}
                 required
@@ -288,7 +288,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               نوع توزیع
               <select
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.distribution_kind}
                 onChange={(e) =>
                   setForm({
@@ -307,7 +307,7 @@ export default function ProductsPage(): React.JSX.Element {
               <input
                 type="number"
                 min={0}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.min_order_qty}
                 onChange={(e) => setForm({ ...form, min_order_qty: e.target.value })}
               />
@@ -334,7 +334,7 @@ export default function ProductsPage(): React.JSX.Element {
                 <input
                   type="number"
                   min={1}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                   value={form.shelf_life_days}
                   onChange={(e) => setForm({ ...form, shelf_life_days: e.target.value })}
                 />
@@ -343,7 +343,7 @@ export default function ProductsPage(): React.JSX.Element {
           </div>
 
           {formError && (
-            <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink">
               {formError}
             </p>
           )}
@@ -352,14 +352,14 @@ export default function ProductsPage(): React.JSX.Element {
             <button
               type="submit"
               disabled={saving || !form.category_id || !form.base_uom_id}
-              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-on-info hover:bg-info disabled:opacity-50 focus-ring"
             >
               {saving ? 'در حال ثبت…' : 'ثبت کالا'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-lg border border-slate-300 px-5 py-2 text-sm"
+              className="rounded-lg border border-line-strong px-5 py-2 text-sm focus-ring"
             >
               انصراف
             </button>
@@ -368,9 +368,9 @@ export default function ProductsPage(): React.JSX.Element {
       )}
 
       {/* جدول فهرست */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-right text-slate-600">
+          <thead className="bg-surface-alt text-start text-ink-muted">
             <tr>
               <th className="px-4 py-3 font-medium">کد</th>
               <th className="px-4 py-3 font-medium">نام</th>
@@ -384,45 +384,39 @@ export default function ProductsPage(): React.JSX.Element {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-ink-subtle">
                   در حال دریافت فهرست…
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-ink-subtle">
                   کالایی یافت نشد
                 </td>
               </tr>
             )}
             {!loading &&
               items.map((p) => (
-                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                <tr key={p.id} className="border-t border-line hover:bg-surface-alt">
                   <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
                   <td className="px-4 py-3">{p.name}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        p.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : p.status === 'blocked'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-slate-100 text-slate-600'
-                      }`}
+                      className={`rounded-full px-2 py-0.5 text-xs ${ p.status === 'active' ? 'bg-brand-soft text-success-ink' : p.status === 'blocked' ? 'bg-danger-soft text-danger-ink' : 'bg-surface-alt text-ink-muted' }`}
                     >
                       {STATUS_LABEL[p.status] ?? p.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-ink-muted">
                     {DIST_LABEL[p.distribution_kind] ?? p.distribution_kind}
                   </td>
                   <td className="px-4 py-3">{p.min_order_qty}</td>
-                  <td className="px-4 py-3 text-slate-400">{p.row_version}</td>
+                  <td className="px-4 py-3 text-ink-subtle">{p.row_version}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => void toggleStatus(p)}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-white"
+                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
                     >
                       {p.status === 'active' ? 'مسدود کن' : 'فعال کن'}
                     </button>
@@ -433,7 +427,7 @@ export default function ProductsPage(): React.JSX.Element {
         </table>
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-3 flex items-center justify-between text-xs text-ink-subtle">
         <span>
           {items.length} کالا {nextCursor && '— صفحات بیشتری موجود است'}
         </span>
@@ -441,7 +435,7 @@ export default function ProductsPage(): React.JSX.Element {
           <button
             onClick={() => void load(q, status, nextCursor)}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-600 hover:bg-white disabled:opacity-50"
+            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface disabled:opacity-50 focus-ring"
           >
             {loading ? 'در حال دریافت…' : 'صفحه بعدی'}
           </button>
