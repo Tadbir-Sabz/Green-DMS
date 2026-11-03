@@ -179,7 +179,7 @@ export default function ProductsPage(): React.JSX.Element {
         <label className="flex-1 text-sm">
           جست‌وجو (کد/نام)
           <input
-            className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2 focus:border-info focus:outline-none"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="مثلاً شیر یا P-100"
@@ -188,7 +188,7 @@ export default function ProductsPage(): React.JSX.Element {
         <label className="text-sm">
           وضعیت
           <select
-            className="mt-1 w-40 rounded-lg border border-line-strong px-3 py-2"
+            className="h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1 w-40"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -238,7 +238,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               کد کالا *
               <input
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
                 required
@@ -247,7 +247,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm sm:col-span-2">
               نام کالا *
               <input
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
@@ -256,7 +256,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               دسته‌بندی *
               <select
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.category_id}
                 onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 required
@@ -272,7 +272,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               واحد اندازه‌گیری *
               <select
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.base_uom_id}
                 onChange={(e) => setForm({ ...form, base_uom_id: e.target.value })}
                 required
@@ -288,7 +288,7 @@ export default function ProductsPage(): React.JSX.Element {
             <label className="text-sm">
               نوع توزیع
               <select
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.distribution_kind}
                 onChange={(e) =>
                   setForm({
@@ -307,7 +307,7 @@ export default function ProductsPage(): React.JSX.Element {
               <input
                 type="number"
                 min={0}
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.min_order_qty}
                 onChange={(e) => setForm({ ...form, min_order_qty: e.target.value })}
               />
@@ -334,7 +334,7 @@ export default function ProductsPage(): React.JSX.Element {
                 <input
                   type="number"
                   min={1}
-                  className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                   value={form.shelf_life_days}
                   onChange={(e) => setForm({ ...form, shelf_life_days: e.target.value })}
                 />

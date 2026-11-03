@@ -160,7 +160,7 @@ export default function ApprovalsPage() {
                     <select
                       value={decision}
                       onChange={(e) => setDecision(e.target.value as (typeof DECISIONS)[number])}
-                      className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                      className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                     >
                       {DECISIONS.map((d) => (
                         <option key={d} value={d}>
@@ -175,7 +175,7 @@ export default function ApprovalsPage() {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       rows={2}
-                      className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                      className="w-full rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 px-3 py-2.5 text-sm leading-relaxed mt-1"
                     />
                   </div>
                   <button

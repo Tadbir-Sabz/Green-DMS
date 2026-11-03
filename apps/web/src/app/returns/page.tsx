@@ -181,7 +181,7 @@ export default function ReturnsPage() {
               <input
                 value={form.customer_id}
                 onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 placeholder="uuid"
               />
             </div>
@@ -190,7 +190,7 @@ export default function ReturnsPage() {
               <select
                 value={form.reason_code}
                 onChange={(e) => setForm({ ...form, reason_code: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
               >
                 {REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -204,7 +204,7 @@ export default function ReturnsPage() {
               <input
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
               />
             </div>
           </div>
@@ -229,7 +229,7 @@ export default function ReturnsPage() {
                       n[idx] = { ...it, product_id: e.target.value };
                       setItems(n);
                     }}
-                    className="px-3 py-2 rounded-xl border border-line bg-transparent"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <input
                     type="number"
@@ -242,7 +242,7 @@ export default function ReturnsPage() {
                       n[idx] = { ...it, qty: Number(e.target.value) };
                       setItems(n);
                     }}
-                    className="px-3 py-2 rounded-xl border border-line bg-transparent"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
               ))}
@@ -362,7 +362,7 @@ export default function ReturnsPage() {
                             },
                           }))
                         }
-                        className="px-2 py-1 rounded-lg border border-line bg-transparent text-xs"
+                        className="w-full h-8.5 px-2.5 text-[13px] rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <select
                         defaultValue="restock"
@@ -375,7 +375,7 @@ export default function ReturnsPage() {
                             },
                           }))
                         }
-                        className="px-2 py-1 rounded-lg border border-line bg-transparent text-xs"
+                        className="w-full h-8.5 px-2.5 text-[13px] rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8"
                       >
                         {DISPOSITIONS.map((d) => (
                           <option key={d} value={d}>

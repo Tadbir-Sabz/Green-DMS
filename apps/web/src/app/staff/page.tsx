@@ -118,7 +118,7 @@ export default function StaffPage() {
               <input
                 value={form.person_id}
                 onChange={(e) => setForm({ ...form, person_id: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 placeholder="uuid"
               />
             </div>
@@ -127,7 +127,7 @@ export default function StaffPage() {
               <input
                 value={form.job_position_code}
                 onChange={(e) => setForm({ ...form, job_position_code: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 placeholder="مثلاً salesperson_cold"
               />
             </div>
@@ -136,7 +136,7 @@ export default function StaffPage() {
               <input
                 value={form.employee_no}
                 onChange={(e) => setForm({ ...form, employee_no: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
               />
             </div>
             <div className="flex items-end pb-1">

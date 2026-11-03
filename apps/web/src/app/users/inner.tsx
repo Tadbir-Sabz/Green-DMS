@@ -201,23 +201,23 @@ export default function UsersInner() {
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs text-ink-muted">نام کاربری *</span>
-              <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" dir="ltr" />
+              <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" dir="ltr" />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">رمز عبور *</span>
-              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" dir="ltr" />
+              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" dir="ltr" />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">نام</span>
-              <input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
+              <input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">نام خانوادگی</span>
-              <input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
+              <input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">سطح دسترسی</span>
-              <select value={form.access_level} onChange={(e) => setForm({ ...form, access_level: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm">
+              <select value={form.access_level} onChange={(e) => setForm({ ...form, access_level: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1">
                 {Object.entries(ACCESS_FA).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}

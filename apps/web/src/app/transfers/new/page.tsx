@@ -46,11 +46,11 @@ export default function NewTransferPage() {
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-ink">از انبار (شناسه)</label>
-            <input value={form.from_warehouse_id} onChange={(e) => setForm({ ...form, from_warehouse_id: e.target.value })} className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-surface text-ink" />
+            <input value={form.from_warehouse_id} onChange={(e) => setForm({ ...form, from_warehouse_id: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
           </div>
           <div>
             <label className="text-sm text-ink">به انبار (شناسه)</label>
-            <input value={form.to_warehouse_id} onChange={(e) => setForm({ ...form, to_warehouse_id: e.target.value })} className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-surface text-ink" />
+            <input value={form.to_warehouse_id} onChange={(e) => setForm({ ...form, to_warehouse_id: e.target.value })} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
           </div>
         </div>
         <div>
@@ -61,9 +61,9 @@ export default function NewTransferPage() {
           <div className="space-y-2">
             {items.map((it, idx) => (
               <div key={idx} className="grid md:grid-cols-3 gap-2">
-                <input placeholder="شناسه کالا" value={it.product_id} onChange={(e) => { const n = [...items]; n[idx] = { ...it, product_id: e.target.value }; setItems(n); }} className="px-3 py-2 rounded-xl border border-line bg-surface text-ink" />
-                <input type="number" placeholder="تعداد" value={it.qty} onChange={(e) => { const n = [...items]; n[idx] = { ...it, qty: Number(e.target.value) }; setItems(n); }} className="px-3 py-2 rounded-xl border border-line bg-surface text-ink" />
-                <input placeholder="بچ (اختیاری)" value={it.batch_id} onChange={(e) => { const n = [...items]; n[idx] = { ...it, batch_id: e.target.value }; setItems(n); }} className="px-3 py-2 rounded-xl border border-line bg-surface text-ink" />
+                <input placeholder="شناسه کالا" value={it.product_id} onChange={(e) => { const n = [...items]; n[idx] = { ...it, product_id: e.target.value }; setItems(n); }} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60" />
+                <input type="number" placeholder="تعداد" value={it.qty} onChange={(e) => { const n = [...items]; n[idx] = { ...it, qty: Number(e.target.value) }; setItems(n); }} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60" />
+                <input placeholder="بچ (اختیاری)" value={it.batch_id} onChange={(e) => { const n = [...items]; n[idx] = { ...it, batch_id: e.target.value }; setItems(n); }} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60" />
               </div>
             ))}
           </div>

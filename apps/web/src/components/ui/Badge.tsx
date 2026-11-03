@@ -112,6 +112,7 @@ export const STATUS_TONE: Record<string, BadgeTone> = {
   enabled: "success",
   open: "info",
   closed: "neutral",
+  locked: "warning",
   inactive: "neutral",
   suspended: "warning",
   blocked: "danger",

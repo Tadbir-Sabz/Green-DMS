@@ -196,7 +196,7 @@ export default function PersonsPage(): React.JSX.Element {
         <label className="flex-1 text-sm">
           جست‌وجو (کد/نام/شناسه ملی)
           <input
-            className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2 focus:border-info focus:outline-none"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="مثلاً علی رضایی یا P-100"
@@ -205,7 +205,7 @@ export default function PersonsPage(): React.JSX.Element {
         <label className="text-sm">
           نوع شخص
           <select
-            className="mt-1 w-44 rounded-lg border border-line-strong px-3 py-2"
+            className="h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1 w-44"
             value={legalType}
             onChange={(e) => {
               setLegalType(e.target.value);
@@ -257,7 +257,7 @@ export default function PersonsPage(): React.JSX.Element {
             <label className="text-sm">
               کد شخص *
               <input
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.code}
                 maxLength={64}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -270,7 +270,7 @@ export default function PersonsPage(): React.JSX.Element {
             <label className="text-sm">
               نوع شخص *
               <select
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
                 value={form.legal_type}
                 onChange={(e) =>
                   setForm({
@@ -288,7 +288,7 @@ export default function PersonsPage(): React.JSX.Element {
               <label className="text-sm">
                 نام حقوقی *
                 <input
-                  className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                   value={form.legal_name}
                   maxLength={255}
                   onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
@@ -305,7 +305,7 @@ export default function PersonsPage(): React.JSX.Element {
                 <label className="text-sm">
                   نام
                   <input
-                    className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                     value={form.first_name}
                     maxLength={128}
                     onChange={(e) => setForm({ ...form, first_name: e.target.value })}
@@ -319,7 +319,7 @@ export default function PersonsPage(): React.JSX.Element {
                 <label className="text-sm">
                   نام خانوادگی
                   <input
-                    className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                     value={form.last_name}
                     maxLength={128}
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
@@ -336,7 +336,7 @@ export default function PersonsPage(): React.JSX.Element {
             <label className="text-sm">
               شناسه ملی
               <input
-                className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 value={form.national_id}
                 maxLength={10}
                 inputMode="numeric"
@@ -353,7 +353,7 @@ export default function PersonsPage(): React.JSX.Element {
               <label className="text-sm">
                 کد اقتصادی
                 <input
-                  className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                   value={form.economic_code}
                   maxLength={20}
                   onChange={(e) => setForm({ ...form, economic_code: e.target.value })}

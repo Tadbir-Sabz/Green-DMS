@@ -52,7 +52,7 @@ export default function WarehousesInner() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="جست‌وجوی کد/نام انبار"
-          className="px-3 py-2 rounded-xl border border-line bg-surface text-ink"
+          className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
       {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{(error as Error).message}</div>}

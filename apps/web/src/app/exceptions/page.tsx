@@ -77,7 +77,7 @@ export default function ExceptionsPage() {
           value={branchId}
           onChange={(e) => setBranchId(e.target.value)}
           placeholder="uuid شعبه"
-          className="w-full sm:max-w-md px-3 py-2 rounded-xl border border-line bg-transparent text-ink"
+          className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-md"
         />
       </div>
 

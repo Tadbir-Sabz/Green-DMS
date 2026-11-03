@@ -159,11 +159,11 @@ export default function RolesInner() {
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs text-ink-muted">کد نقش *</span>
-              <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="salesperson_cold" dir="ltr" className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
+              <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="salesperson_cold" dir="ltr" className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">نام نقش *</span>
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="فروشنده سرد" className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="فروشنده سرد" className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
             </label>
           </div>
           <label className="block">
@@ -174,7 +174,7 @@ export default function RolesInner() {
               rows={5}
               dir="ltr"
               placeholder={"sales.order.view\nsales.order.create\nmaster.customer.view"}
-              className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm font-mono"
+              className="w-full rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 px-3 py-2.5 text-sm leading-relaxed mt-1 font-mono"
             />
           </label>
           <p className="text-[11px] text-ink-subtle">

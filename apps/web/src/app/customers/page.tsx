@@ -106,7 +106,7 @@ function CustomersInner() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="جست‌وجوی مشتری..."
-              className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
             />
           </form>
           <ExportButtons data={items} tableId="customers-table" filename="customers" />

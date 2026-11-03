@@ -44,7 +44,7 @@ export default function ReportsCashPage() {
       <div className="flex flex-wrap items-end gap-3 bg-surface border border-line rounded-2xl p-4">
         <div>
           <label className="block text-xs text-ink-muted mb-1">تاریخ (as of)</label>
-          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="px-3 py-2 rounded-xl border border-line bg-transparent text-ink" />
+          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60" />
         </div>
         {asOf && <button onClick={() => setAsOf("")} className="px-3 py-2 rounded-xl border border-line text-sm text-ink-muted hover:bg-surface-hover">پاک کردن</button>}
       </div>

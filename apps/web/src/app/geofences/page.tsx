@@ -143,7 +143,7 @@ export default function GeofencesPage() {
               <input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
               />
             </div>
             <div>
@@ -151,7 +151,7 @@ export default function GeofencesPage() {
               <select
                 value={form.kind}
                 onChange={(e) => setForm({ ...form, kind: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
               >
                 {KINDS.map((k) => (
                   <option key={k} value={k}>
@@ -165,7 +165,7 @@ export default function GeofencesPage() {
               <input
                 value={form.customer_id}
                 onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 placeholder="uuid"
               />
             </div>
@@ -180,7 +180,7 @@ export default function GeofencesPage() {
               rows={4}
               dir="ltr"
               placeholder='{"type":"Polygon","coordinates":[[[51,35],[51.1,35],[51.1,35.1],[51,35.1],[51,35]]]}'
-              className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent font-mono text-xs"
+              className="w-full rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 px-3 py-2.5 text-sm leading-relaxed mt-1 font-mono"
             />
           </div>
           <div className="flex gap-2">

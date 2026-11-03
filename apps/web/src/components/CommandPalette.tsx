@@ -117,7 +117,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             onChange={(event) => setQuery(event.target.value)}
             placeholder="جست‌وجو در صفحه‌ها… (مثلاً فاکتور، خزانه، انبارگردانی)"
             aria-label="جست‌وجوی صفحه‌ها"
-            className="h-14 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-subtle"
+            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 flex-1"
           />
           <kbd className="hidden shrink-0 rounded-md border border-line bg-surface-alt px-1.5 py-0.5 font-mono text-[10px] text-ink-subtle sm:block">
             ESC

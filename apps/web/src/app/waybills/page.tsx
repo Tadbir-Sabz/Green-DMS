@@ -115,7 +115,7 @@ export default function WaybillsPage() {
               <input
                 value={form.sales_order_id}
                 onChange={(e) => setForm({ ...form, sales_order_id: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 placeholder="uuid"
               />
             </div>
@@ -124,7 +124,7 @@ export default function WaybillsPage() {
               <input
                 value={form.warehouse_id}
                 onChange={(e) => setForm({ ...form, warehouse_id: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
                 placeholder="uuid"
               />
             </div>
@@ -133,7 +133,7 @@ export default function WaybillsPage() {
               <input
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
               />
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function WaybillsPage() {
                       n[idx] = { ...it, product_id: e.target.value };
                       setItems(n);
                     }}
-                    className="px-3 py-2 rounded-xl border border-line bg-transparent"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <input
                     type="number"
@@ -171,7 +171,7 @@ export default function WaybillsPage() {
                       n[idx] = { ...it, qty: Number(e.target.value) };
                       setItems(n);
                     }}
-                    className="px-3 py-2 rounded-xl border border-line bg-transparent"
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
               ))}

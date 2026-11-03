@@ -6,6 +6,9 @@ import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/ui/DataTable";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { CONTROL, CONTROL_SIZES, stateClass } from "@/components/ui/Form";
+import { cn } from "@/lib/cn";
 import { JalaliDatePicker } from "@/components/ui/JalaliDatePicker";
 import { ExportButtons } from "@/components/reports/ExportButtons";
 import { useToast } from "@/components/ui/Toast";
@@ -38,22 +41,10 @@ const CLOSE_STATUS_FA: Record<string, string> = {
   closed: "بسته‌شده",
   approved: "تأییدشده",
 };
-const CLOSE_STATUS_COLOR: Record<string, string> = {
-  draft: "bg-surface-alt text-ink-muted",
-  closed: "bg-warning-soft text-warning-ink",
-  approved: "bg-brand-soft text-brand-soft-ink",
-};
+const CLOSE_STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", closed: "warning", approved: "brand" };
 
-const selectCls =
-  "px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink";
+const selectCls = cn(CONTROL, CONTROL_SIZES.md, stateClass(), "w-auto cursor-pointer pe-8");
 
-function Badge({ text, color }: { text: string; color?: string }) {
-  return (
-    <span className={`px-2 py-0.5 rounded-md text-xs ${color ?? "bg-surface-alt text-ink-muted"}`}>
-      {text}
-    </span>
-  );
-}
 
 function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
   return (
@@ -221,7 +212,7 @@ function ClosesPanel() {
     {
       key: "status",
       header: "وضعیت",
-      render: (c) => <Badge text={CLOSE_STATUS_FA[c.status ?? ""] ?? (c.status ?? "—")} color={CLOSE_STATUS_COLOR[c.status ?? ""]} />,
+      render: (c) => <Badge tone={CLOSE_STATUS_TONE[c.status ?? ""]}>{CLOSE_STATUS_FA[c.status ?? ""] ?? (c.status ?? "—")}</Badge>,
     },
     {
       key: "actions",

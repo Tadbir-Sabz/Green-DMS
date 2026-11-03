@@ -124,19 +124,19 @@ export default function RoutesPage() {
               placeholder="کد *"
               value={areaForm.code}
               onChange={(e) => setAreaForm({ ...areaForm, code: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
             />
             <input
               placeholder="نام *"
               value={areaForm.name}
               onChange={(e) => setAreaForm({ ...areaForm, name: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
             />
             <input
               placeholder="شناسه والد (اختیاری)"
               value={areaForm.parent_area_id}
               onChange={(e) => setAreaForm({ ...areaForm, parent_area_id: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
             />
             <button
               disabled={createArea.isPending}
@@ -186,7 +186,7 @@ export default function RoutesPage() {
             <select
               value={routeForm.area_id}
               onChange={(e) => setRouteForm({ ...routeForm, area_id: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8"
             >
               <option value="">منطقه *</option>
               {(areas.data ?? []).map((a) => (
@@ -199,18 +199,18 @@ export default function RoutesPage() {
               placeholder="کد *"
               value={routeForm.code}
               onChange={(e) => setRouteForm({ ...routeForm, code: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
             />
             <input
               placeholder="نام *"
               value={routeForm.name}
               onChange={(e) => setRouteForm({ ...routeForm, name: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
             />
             <select
               value={routeForm.visit_weekday}
               onChange={(e) => setRouteForm({ ...routeForm, visit_weekday: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8"
             >
               <option value="">روز بازدید</option>
               {WEEKDAYS.map((d, i) => (

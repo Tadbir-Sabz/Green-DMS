@@ -6,6 +6,9 @@ import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/ui/DataTable";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { CONTROL, CONTROL_SIZES, stateClass } from "@/components/ui/Form";
+import { cn } from "@/lib/cn";
 import { Modal } from "@/components/ui/Modal";
 import { JalaliDatePicker } from "@/components/ui/JalaliDatePicker";
 import { ExportButtons } from "@/components/reports/ExportButtons";
@@ -50,11 +53,7 @@ const JOURNAL_STATUS_FA: Record<string, string> = {
   posted: "صادرشده",
   voided: "باطل‌شده",
 };
-const JOURNAL_STATUS_COLOR: Record<string, string> = {
-  draft: "bg-surface-alt text-ink-muted",
-  posted: "bg-brand-soft text-brand-soft-ink",
-  voided: "bg-danger-soft text-danger-ink",
-};
+const JOURNAL_STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", posted: "brand", voided: "danger" };
 const SOURCE_TYPE_FA: Record<string, string> = {
   invoice: "فاکتور فروش",
   credit_note: "اعتبارنامه",
@@ -72,11 +71,7 @@ const SOURCE_TYPE_FA: Record<string, string> = {
   recurring: "ادواری",
 };
 const PERIOD_STATUS_FA: Record<string, string> = { open: "باز", closed: "بسته", locked: "قفل‌شده" };
-const PERIOD_STATUS_COLOR: Record<string, string> = {
-  open: "bg-brand-soft text-brand-soft-ink",
-  closed: "bg-surface-alt text-ink-muted",
-  locked: "bg-warning-soft text-warning-ink",
-};
+const PERIOD_STATUS_TONE: Record<string, BadgeTone> = { open: "brand", closed: "neutral", locked: "warning" };
 const NATURE_FA: Record<string, string> = { debit: "بدهکار", credit: "بستانکار" };
 const ACCOUNT_TYPE_FA: Record<string, string> = {
   asset: "دارایی",
@@ -102,18 +97,9 @@ const CURRENT_JY = todayJalali().jy;
 const YEAR_OPTIONS = [CURRENT_JY - 1, CURRENT_JY, CURRENT_JY + 1];
 const PERIOD_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-const selectCls =
-  "px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink";
-const inputCls =
-  "w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink";
+const selectCls = cn(CONTROL, CONTROL_SIZES.md, stateClass(), "w-auto cursor-pointer pe-8");
+const inputCls = cn(CONTROL, CONTROL_SIZES.md, stateClass());
 
-function Badge({ text, color }: { text: string; color?: string }) {
-  return (
-    <span className={`px-2 py-0.5 rounded-md text-xs ${color ?? "bg-surface-alt text-ink-muted"}`}>
-      {text}
-    </span>
-  );
-}
 
 function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
   return (
@@ -160,7 +146,7 @@ function TrialBalancePanel() {
     {
       key: "nature",
       header: "ماهیت",
-      render: (r) => <Badge text={NATURE_FA[r.nature ?? ""] ?? (r.nature ?? "—")} />,
+      render: (r) => <Badge>{NATURE_FA[r.nature ?? ""] ?? (r.nature ?? "—")}</Badge>,
     },
     { key: "debit", header: "جمع بدهکار", align: "end", render: (r) => formatMoney(r.debit_total) },
     { key: "credit", header: "جمع بستانکار", align: "end", render: (r) => formatMoney(r.credit_total) },
@@ -273,7 +259,7 @@ function JournalsPanel() {
     {
       key: "status",
       header: "وضعیت",
-      render: (j) => <Badge text={JOURNAL_STATUS_FA[j.status ?? ""] ?? (j.status ?? "—")} color={JOURNAL_STATUS_COLOR[j.status ?? ""]} />,
+      render: (j) => <Badge tone={JOURNAL_STATUS_TONE[j.status ?? ""]}>{JOURNAL_STATUS_FA[j.status ?? ""] ?? (j.status ?? "—")}</Badge>,
     },
   ];
 
@@ -320,7 +306,7 @@ function JournalsPanel() {
               <div><span className="text-ink-muted">شماره سند:</span> <span className="font-mono">{entry.doc_number ?? "—"}</span></div>
               <div><span className="text-ink-muted">تاریخ:</span> {toPersianDate(entry.entry_date)}</div>
               <div><span className="text-ink-muted">منبع:</span> {SOURCE_TYPE_FA[entry.source_type ?? ""] ?? (entry.source_type ?? "—")}</div>
-              <div><span className="text-ink-muted">وضعیت:</span> <Badge text={JOURNAL_STATUS_FA[entry.status ?? ""] ?? (entry.status ?? "—")} color={JOURNAL_STATUS_COLOR[entry.status ?? ""]} /></div>
+              <div><span className="text-ink-muted">وضعیت:</span> <Badge tone={JOURNAL_STATUS_TONE[entry.status ?? ""]}>{JOURNAL_STATUS_FA[entry.status ?? ""] ?? (entry.status ?? "—")}</Badge></div>
               <div><span className="text-ink-muted">صادرشده در:</span> {toPersianDateTime(entry.posted_at)}</div>
               <div className="sm:col-span-2"><span className="text-ink-muted">شرح:</span> {entry.description ?? "—"}</div>
             </div>
@@ -392,7 +378,7 @@ function AccountsPanel() {
       ),
     },
     { key: "level", header: "سطح", align: "center", render: (a) => <span className="text-xs">{a.level ?? "—"}</span> },
-    { key: "nature", header: "ماهیت", render: (a) => <Badge text={NATURE_FA[a.nature ?? ""] ?? (a.nature ?? "—")} /> },
+    { key: "nature", header: "ماهیت", render: (a) => <Badge>{NATURE_FA[a.nature ?? ""] ?? (a.nature ?? "—")}</Badge> },
     { key: "type", header: "نوع", render: (a) => <span className="text-xs">{ACCOUNT_TYPE_FA[a.account_type ?? ""] ?? (a.account_type ?? "—")}</span> },
     { key: "control", header: "نقش کنترلی", render: (a) => <span className="text-xs">{CONTROL_TYPE_FA[a.control_type ?? "none"] ?? "—"}</span> },
     {
@@ -510,7 +496,7 @@ function PeriodsPanel() {
     { key: "no", header: "دوره", align: "center", render: (p) => <span className="text-xs">{JALALI_MONTHS[(p.period_no ?? 1) - 1] ?? p.period_no}</span> },
     { key: "start", header: "از تاریخ", render: (p) => <span className="text-xs">{toPersianDate(p.start_date)}</span> },
     { key: "end", header: "تا تاریخ", render: (p) => <span className="text-xs">{toPersianDate(p.end_date)}</span> },
-    { key: "status", header: "وضعیت", render: (p) => <Badge text={PERIOD_STATUS_FA[p.status ?? ""] ?? (p.status ?? "—")} color={PERIOD_STATUS_COLOR[p.status ?? ""]} /> },
+    { key: "status", header: "وضعیت", render: (p) => <Badge tone={PERIOD_STATUS_TONE[p.status ?? ""]}>{PERIOD_STATUS_FA[p.status ?? ""] ?? (p.status ?? "—")}</Badge> },
     { key: "closed", header: "بسته‌شده در", render: (p) => <span className="text-xs">{p.closed_at ? toPersianDateTime(p.closed_at) : "—"}</span> },
     {
       key: "actions",

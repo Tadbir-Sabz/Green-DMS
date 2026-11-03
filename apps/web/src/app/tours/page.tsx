@@ -108,7 +108,7 @@ function ToursInner() {
         </div>
         <div>
           <label className="block text-xs text-ink-muted mb-1">نوع</label>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm">
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8">
             <option value="">همه</option>
             {Object.entries(KIND_FA).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -117,7 +117,7 @@ function ToursInner() {
         </div>
         <div>
           <label className="block text-xs text-ink-muted mb-1">وضعیت</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8">
             <option value="">همه</option>
             {Object.entries(STATUS_FA).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
