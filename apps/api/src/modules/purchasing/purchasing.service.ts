@@ -36,7 +36,10 @@ const unprocessable = (code: string, message_fa: string): UnprocessableEntityExc
 const assertId = (id: string, label: string): void => {
   if (!isUUID(id, '4')) throw badRequest('invalid_id', `شناسهٔ ${label} معتبر نیست.`);
 };
-const isMoney = (v: string | undefined): boolean => v != null && v !== '' && Number(v) >= 0;
+// مبلغِ اقلام/فاکتور: فیلدهای اختیاری (discount_amount/tax_amount) اگر نباشند
+// مجازند؛ اگر حاضر باشند باید عددی و نامنفی باشند. فیلدهای الزامی (unit_price/amount)
+// با @IsNumberString() همیشه حاضرند، پس این تنها مقدار منفی/غیرعددی را رد می‌کند.
+const isMoney = (v: string | undefined): boolean => v == null || v === '' || Number(v) >= 0;
 
 /**
  * ماژول خرید / Accounts-Payable (ماژول ۸) — سه سرویس روی جداول مهاجرت 0015:
