@@ -17,7 +17,10 @@ import {
 /** enumهای هماهنگ با قرارداد (openapi › schemas.Tour) و DDL مهاجرت 0011+0032 */
 export const TOUR_KINDS = ['cold', 'warm', 'distribution', 'telesales'] as const;
 export const TOUR_STATUSES = ['planned', 'active', 'settled', 'closed'] as const;
-export const VISIT_RESULTS = ['ordered', 'no_order', 'customer_absent'] as const;
+// هم‌تراز با CHECK جدول visit (مهاجرت 0011): مقادیر پیش‌تر (ordered/customer_absent)
+// توسط دیتابیس رد می‌شدند (check_violation → ۴۰۰) و پاسخ check-in ('order') با
+// اسکیمای قرارداد نمی‌خواند.
+export const VISIT_RESULTS = ['order', 'no_order', 'closed', 'payment_only', 'return_only'] as const;
 
 /** نقطه جغرافیایی — schemas.GeoPoint ([طول، عرض]) */
 export class GeoPointDto {

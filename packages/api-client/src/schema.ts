@@ -2706,7 +2706,9 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -2733,7 +2735,10 @@ export interface paths {
                         "application/json": components["schemas"]["Tour"];
                     };
                 };
-                422: components["responses"]["RuleRejected"];
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -2772,6 +2777,9 @@ export interface paths {
                         "application/json": components["schemas"]["Tour"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -2805,6 +2813,10 @@ export interface paths {
                         "application/json": components["schemas"]["Tour"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         trace?: never;
@@ -2839,6 +2851,9 @@ export interface paths {
                         "application/json": components["schemas"]["TourSettlement"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -2885,7 +2900,9 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -2917,7 +2934,10 @@ export interface paths {
                         "application/json": components["schemas"]["Visit"];
                     };
                 };
-                422: components["responses"]["RuleRejected"];
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -2956,6 +2976,9 @@ export interface paths {
                         "application/json": components["schemas"]["Visit"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -2989,6 +3012,10 @@ export interface paths {
                         "application/json": components["schemas"]["Visit"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         trace?: never;
@@ -8044,7 +8071,7 @@ export interface components {
             started_at?: string | null;
             /** Format: date-time */
             ended_at?: string | null;
-            note?: string;
+            note?: string | null;
         };
         /** @description تسویه تور — نقد دریافتی در برابر اسناد با مغایرت */
         TourSettlement: {
@@ -8075,11 +8102,14 @@ export interface components {
             check_out_at?: string | null;
             geo_in?: components["schemas"]["GeoPoint"] | null;
             geo_out?: components["schemas"]["GeoPoint"] | null;
-            accuracy_in_m?: number;
+            accuracy_in_m?: number | null;
             /** @description فاصله از موقعیت ثبت‌شده مشتری (متر) */
             distance_m?: string | null;
-            /** @enum {string|null} */
-            result?: "ordered" | "no_order" | "customer_absent" | null;
+            /**
+             * @description نتیجه بازدید — هم‌تراز با CHECK جدول visit (مهاجرت 0011)
+             * @enum {string|null}
+             */
+            result?: "order" | "no_order" | "closed" | "payment_only" | "return_only" | null;
             no_order_reason?: string | null;
             /** @description GPS جعلی تشخیص داده شد */
             readonly is_mocked?: boolean;
@@ -8087,7 +8117,7 @@ export interface components {
              * Format: uuid
              * @description یکتای آفلاین — ثبت تکراری = 409
              */
-            client_uuid?: string;
+            client_uuid?: string | null;
         };
         /** @description درخواست مشتری پیش از سفارش (تلفنی/پورتال/میدانی/پیامک) */
         CustomerRequest: {
