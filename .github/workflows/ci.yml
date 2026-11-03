@@ -73,11 +73,17 @@ jobs:
       - name: Contract drift (server routes vs OpenAPI)
         run: node scripts/contract-drift.mjs
 
-      - name: Web tests
-        run: npm run test:web
-
+      # API tests run first and Web tests / Build use `if: '!cancelled()'` so a
+      # failure in one suite can never hide the result of the others. The API
+      # tests are the ones that exercise real SQL against the PostGIS service,
+      # so their signal must always be reported.
       - name: API tests
         run: npm run test:api
 
+      - name: Web tests
+        if: '!cancelled()'
+        run: npm run test:web
+
       - name: Build (packages + api + web)
+        if: '!cancelled()'
         run: npm run build
