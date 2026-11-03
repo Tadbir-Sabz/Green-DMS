@@ -196,7 +196,7 @@ export class VisitsService {
     this.assertId(id, 'شناسهٔ بازدید معتبر نیست.');
     const existing = await this.repo.findVisit(companyId, id);
     if (!existing) throw new NotFoundException({ code: 'not_found', message_fa: 'بازدید یافت نشد.' });
-    if (dto.result && (dto.result === 'no_order' || dto.result === 'customer_absent') && !dto.no_order_reason) {
+    if (dto.result && (dto.result === 'no_order' || dto.result === 'closed') && !dto.no_order_reason) {
       // علت فقط برای بازدید بی‌نتیجه لازم است (نه سخت‌گیرانه؛ قرارداد اختیاری کرده)
     }
     const checkout = dto.check_out_at ?? existing.check_out_at;

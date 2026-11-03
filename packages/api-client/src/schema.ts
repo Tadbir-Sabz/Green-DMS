@@ -2049,6 +2049,7 @@ export interface paths {
                 400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
                 422: components["responses"]["RuleRejected"];
             };
         };
@@ -2705,7 +2706,9 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -2732,7 +2735,10 @@ export interface paths {
                         "application/json": components["schemas"]["Tour"];
                     };
                 };
-                422: components["responses"]["RuleRejected"];
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -2771,6 +2777,9 @@ export interface paths {
                         "application/json": components["schemas"]["Tour"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -2804,6 +2813,10 @@ export interface paths {
                         "application/json": components["schemas"]["Tour"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         trace?: never;
@@ -2838,6 +2851,9 @@ export interface paths {
                         "application/json": components["schemas"]["TourSettlement"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -2884,7 +2900,9 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -2916,7 +2934,10 @@ export interface paths {
                         "application/json": components["schemas"]["Visit"];
                     };
                 };
-                422: components["responses"]["RuleRejected"];
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -2955,6 +2976,9 @@ export interface paths {
                         "application/json": components["schemas"]["Visit"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -2988,6 +3012,10 @@ export interface paths {
                         "application/json": components["schemas"]["Visit"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         trace?: never;
@@ -4075,6 +4103,659 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/purchase-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست سفارش‌های خرید */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    status?: "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از سفارش‌های خرید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["PurchaseOrder"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت سفارش خرید (پیش‌نویس) با اقلام */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            responses: {
+                /** @description سفارش خرید ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک سفارش خرید با اقلام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سفارش خرید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تأیید سفارش خرید (draft → approved) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سفارش خرید تأیید شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PurchaseOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/supplier-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست فاکتورهای تأمین‌کنندگان */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    status?: "draft" | "matched" | "mismatch" | "approved" | "partially_paid" | "paid" | "voided";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از فاکتورهای تأمین‌کننده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["SupplierInvoice"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت فاکتور/صورت‌حساب تأمین‌کننده (پیش‌نویس) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SupplierInvoice"];
+                };
+            };
+            responses: {
+                /** @description فاکتور تأمین‌کننده ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierInvoice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/supplier-invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک فاکتور تأمین‌کننده با اقلام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فاکتور تأمین‌کننده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierInvoice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/supplier-invoices/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تأیید فاکتور تأمین‌کننده و ثبت بدهکاری در دفتر */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فاکتور تأیید شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierInvoice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-vouchers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست اسناد پرداخت به تأمین‌کنندگان */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    status?: "draft" | "posted" | "voided";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از اسناد پرداخت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["PaymentVoucher"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PaymentVoucher"];
+                };
+            };
+            responses: {
+                /** @description سند پرداخت ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentVoucher"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["RuleRejected"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-vouchers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک سند پرداخت با تخصیص‌ها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سند پرداخت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentVoucher"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goods-receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست رسیدهای انبار خرید (GRN) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    warehouse_id?: string;
+                    status?: "draft" | "posted" | "voided";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از رسیدهای انبار */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["GoodsReceipt"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت رسید انبار خرید (پیش‌نویس) با اقلام */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+            responses: {
+                /** @description رسید انبار ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoodsReceipt"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goods-receipts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک رسید انبار با اقلام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description رسید انبار */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoodsReceipt"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goods-receipts/{id}/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ثبت قطعی رسید انبار و اعمال اثر انبار و ارزش‌گذاری (draft → posted) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description رسید انبار ثبت قطعی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoodsReceipt"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/valuation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ارزش موجودی (میانگین متحرک) به ازای انبار/کالا */
+        get: {
+            parameters: {
+                query?: {
+                    warehouse_id?: string;
+                    product_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ارزش موجودی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["Valuation"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/treasury": {
         parameters: {
             query?: never;
@@ -4111,6 +4792,178 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/treasury/closes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست بستن‌های روزانهٔ خزانه شعبه‌ها */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    branch_id?: string;
+                    status?: "draft" | "closed" | "approved";
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از بستن‌های روزانه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["TreasuryClose"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت و بستن روزانهٔ خزانه یک شعبه */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TreasuryClose"];
+                };
+            };
+            responses: {
+                /** @description بستن روزانه ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TreasuryClose"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/treasury/closes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک بستن روزانهٔ خزانه */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description بستن روزانه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TreasuryClose"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/treasury/closes/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تأیید بستن روزانهٔ خزانه (closed → approved) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description بستن روزانه تأیید شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TreasuryClose"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -4358,6 +5211,344 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** درخت کدینگ حساب‌های دفتر کل (۴ سطح) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    nature?: "debit" | "credit";
+                    account_type?: "asset" | "liability" | "equity" | "revenue" | "expense" | "contra";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از حساب‌ها به ترتیب کد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["GlAccount"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** دوره‌های مالی (باز/بسته/قفل) */
+        get: {
+            parameters: {
+                query?: {
+                    fiscal_year?: number;
+                    status?: "open" | "closed" | "locked";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرست دوره‌ها (جدیدترین ابتدا) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["FiscalPeriod"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * ساخت/بازکردن یک دورهٔ مالی
+         * @description دوره با وضعیت `open` ساخته می‌شود؛ `(fiscal_year, period_no)` باید یکتا باشد
+         *     و `end_date ≥ start_date`. در غیر این صورت `409`/`400` با پیام فارسی.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FiscalPeriodCreate"];
+                };
+            };
+            responses: {
+                /** @description دوره ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FiscalPeriod"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/periods/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** بستن دورهٔ مالی (پس از آن سند جدید در این دوره رد می‌شود) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description دوره بسته شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FiscalPeriod"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/journals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست اسناد حسابداری */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    status?: "draft" | "posted" | "voided";
+                    source_type?: "invoice" | "credit_note" | "receipt" | "payment_voucher" | "goods_receipt" | "supplier_invoice" | "value_document" | "cash_txn" | "cheque" | "payroll" | "manual" | "opening" | "closing" | "recurring";
+                    fiscal_period_id?: string;
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از اسناد به ترتیب شماره سند */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["JournalEntry"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * ثبت و صدور سند دستیِ متوازن
+         * @description سند با وضعیت `posted` ثبت می‌شود. جمع بدهکار/بستانکار سطرها باید برابر باشد
+         *     (`fn_journal_balanced`)، هر سطر دقیقاً یک سمت غیر صفر داشته باشد
+         *     (`ck_journal_line_one_side`) و تاریخ سند داخل یک دورهٔ مالی «باز» قرار گیرد
+         *     (`fn_check_journal_period`). نقض هر یک → `422` با پیام فارسی.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["JournalEntryCreate"];
+                };
+            };
+            responses: {
+                /** @description سند ثبت و صادر شد (با سطرها) */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JournalEntry"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["RuleRejected"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/journals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات سند با سطرها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سند حسابداری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JournalEntry"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gl/trial-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تراز آزمایشی از نمای v_trial_balance (فقط اسناد صادرشده) */
+        get: {
+            parameters: {
+                query?: {
+                    fiscal_year?: number;
+                    period_no?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ردیف‌های تراز آزمایشی به ترتیب کد حساب */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["TrialBalanceRow"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -5011,6 +6202,9 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -5053,7 +6247,9 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -5088,6 +6284,8 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
             };
         };
@@ -6767,7 +7965,12 @@ export interface components {
             qty_delta: number;
             /** @enum {string} */
             reason_code: "damage" | "expiry" | "sample" | "internal_use" | "theft" | "count_fix" | "other";
-            note?: string;
+            note?: string | null;
+            /**
+             * Format: uuid
+             * @description کلید idempotency آفلاین — ثبت تکراری = 409
+             */
+            client_uuid?: string;
         };
         /** @description سند انبارگردانی با شمارش واقعی در برابر سیستم */
         StockTake: {
@@ -6868,7 +8071,7 @@ export interface components {
             started_at?: string | null;
             /** Format: date-time */
             ended_at?: string | null;
-            note?: string;
+            note?: string | null;
         };
         /** @description تسویه تور — نقد دریافتی در برابر اسناد با مغایرت */
         TourSettlement: {
@@ -6899,11 +8102,14 @@ export interface components {
             check_out_at?: string | null;
             geo_in?: components["schemas"]["GeoPoint"] | null;
             geo_out?: components["schemas"]["GeoPoint"] | null;
-            accuracy_in_m?: number;
+            accuracy_in_m?: number | null;
             /** @description فاصله از موقعیت ثبت‌شده مشتری (متر) */
             distance_m?: string | null;
-            /** @enum {string|null} */
-            result?: "ordered" | "no_order" | "customer_absent" | null;
+            /**
+             * @description نتیجه بازدید — هم‌تراز با CHECK جدول visit (مهاجرت 0011)
+             * @enum {string|null}
+             */
+            result?: "order" | "no_order" | "closed" | "payment_only" | "return_only" | null;
             no_order_reason?: string | null;
             /** @description GPS جعلی تشخیص داده شد */
             readonly is_mocked?: boolean;
@@ -6911,7 +8117,7 @@ export interface components {
              * Format: uuid
              * @description یکتای آفلاین — ثبت تکراری = 409
              */
-            client_uuid?: string;
+            client_uuid?: string | null;
         };
         /** @description درخواست مشتری پیش از سفارش (تلفنی/پورتال/میدانی/پیامک) */
         CustomerRequest: {
@@ -7183,6 +8389,156 @@ export interface components {
             /** Format: date */
             due_next?: string | null;
         };
+        /** @description قلم سفارش خرید (ماژول ۸ — مهاجرت 0015) */
+        PurchaseOrderLine: {
+            line_no?: number;
+            /** Format: uuid */
+            product_id?: string;
+            qty?: string;
+            qty_received?: string;
+            unit_price?: string;
+            discount_amount?: string;
+            tax_amount?: string;
+            line_total?: string;
+        };
+        /** @description سفارش خرید (ماژول ۸ — مهاجرت 0015) */
+        PurchaseOrder: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            readonly doc_number?: string;
+            readonly fiscal_year?: number;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: uuid */
+            warehouse_id: string;
+            /** Format: date */
+            order_date?: string;
+            /** Format: date */
+            expected_date?: string | null;
+            currency?: string;
+            readonly subtotal?: string;
+            readonly discount_total?: string;
+            readonly tax_total?: string;
+            readonly grand_total?: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
+            lines?: components["schemas"]["PurchaseOrderLine"][];
+        };
+        /** @description قلم رسید انبار خرید (ماژول ۸ — مهاجرت 0015، بدون line_no) */
+        GoodsReceiptLine: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            product_id?: string;
+            /** Format: uuid */
+            batch_id?: string | null;
+            /** Format: uuid */
+            purchase_order_line_id?: string | null;
+            qty_received?: string;
+            qty_rejected?: string;
+            unit_cost?: string;
+        };
+        /** @description رسید انبار خرید (GRN) — ماژول ۸، مهاجرت 0015 */
+        GoodsReceipt: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            readonly doc_number?: string;
+            readonly fiscal_year?: number;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: uuid */
+            warehouse_id: string;
+            /** Format: uuid */
+            purchase_order_id?: string | null;
+            /** Format: date-time */
+            readonly received_at?: string;
+            /** Format: uuid */
+            readonly received_by?: string | null;
+            /** @enum {string} */
+            readonly status?: "draft" | "posted" | "voided";
+            note?: string | null;
+            lines?: components["schemas"]["GoodsReceiptLine"][];
+        };
+        /** @description ارزش موجودی به ازای انبار/کالا (میانگین متحرک) — ماژول ۹، مهاجرت 0016 */
+        Valuation: {
+            /** Format: uuid */
+            warehouse_id?: string;
+            /** Format: uuid */
+            product_id?: string;
+            /** @enum {string} */
+            method?: "moving_avg" | "fifo" | "standard";
+            avg_cost?: string;
+            qty_on_hand?: string;
+            value_on_hand?: string;
+            last_purchase_cost?: string | null;
+        };
+        /** @description قلم فاکتور تأمین‌کننده (ماژول ۸) */
+        SupplierInvoiceLine: {
+            line_no?: number;
+            /** Format: uuid */
+            product_id?: string;
+            qty?: string;
+            unit_price?: string;
+            tax_amount?: string;
+            line_total?: string;
+        };
+        /** @description فاکتور/صورت‌حساب تأمین‌کننده (ماژول ۸ — مهاجرت 0015) */
+        SupplierInvoice: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** @description شماره فاکتورِ تأمین‌کننده */
+            doc_number: string;
+            /** @description شمارهٔ داخلی سامانه */
+            readonly internal_no?: string;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: uuid */
+            purchase_order_id?: string | null;
+            /** Format: date */
+            invoice_date?: string;
+            /** Format: date */
+            due_date?: string | null;
+            /** @description مبلغ خالص (بدون مالیات) */
+            amount: string;
+            tax_amount?: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "matched" | "mismatch" | "approved" | "partially_paid" | "paid" | "voided";
+            /** @enum {string} */
+            readonly match_status?: "pending" | "matched" | "price_variance" | "qty_variance" | "no_grn";
+            lines?: components["schemas"]["SupplierInvoiceLine"][];
+        };
+        /** @description سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها (ماژول ۸) */
+        PaymentVoucher: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            readonly doc_number?: string;
+            readonly fiscal_year?: number;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: date */
+            payment_date?: string;
+            /**
+             * Format: uuid
+             * @description از `payment_method`
+             */
+            method_id: string;
+            amount: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "posted" | "voided";
+            allocations?: {
+                /** Format: uuid */
+                supplier_invoice_id?: string;
+                amount?: string;
+            }[];
+        };
         /** @description مانده صندوق/بانک و مغایرت (ماژول ۱۰) */
         TreasuryPosition: {
             /** Format: uuid */
@@ -7196,6 +8552,32 @@ export interface components {
             variance?: string | null;
             /** Format: date */
             as_of?: string;
+        };
+        /** @description بستن روزانهٔ خزانه یک شعبه (ماژول ۱۰ — مهاجرت 0013) */
+        TreasuryClose: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** Format: date */
+            close_date: string;
+            /** @description نقد مورد انتظار صندوق */
+            cash_expected?: string;
+            /** @description نقد شمارش‌شده */
+            cash_counted?: string;
+            /** @description ماندهٔ بانک */
+            bank_balance?: string;
+            /** @description مبلغ چک‌های نزد صندوق */
+            cheque_in_hand_amount?: string;
+            /** @description مغایرت صندوق = شمارش‌شده − مورد انتظار */
+            readonly cash_variance?: string;
+            /** @enum {string} */
+            readonly status?: "draft" | "closed" | "approved";
+            note?: string | null;
+            /** Format: uuid */
+            readonly closed_by?: string | null;
+            /** Format: uuid */
+            readonly approved_by?: string | null;
         };
         /** @description چک دریافتی از مشتری یا صادری به تأمین‌کننده */
         Cheque: {
@@ -7249,6 +8631,156 @@ export interface components {
              * @description برای تسویه تور
              */
             tour_id?: string | null;
+        };
+        /** @description یک حساب در درخت کدینگ دفتر کل (ماژول ۹ — مهاجرت 0018) */
+        GlAccount: {
+            /** Format: uuid */
+            id?: string;
+            /** @description کد سلسله‌مراتبی حساب (تا ۴ سطح) */
+            code?: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+            level?: number;
+            title?: string;
+            /**
+             * @description ماهیت حساب
+             * @enum {string}
+             */
+            nature?: "debit" | "credit";
+            /** @enum {string} */
+            account_type?: "asset" | "liability" | "equity" | "revenue" | "expense" | "contra";
+            /** @description فقط حساب‌های سطح ۴ قابل ثبت مستقیم‌اند */
+            is_postable?: boolean;
+            /**
+             * @description نقش کنترلی حساب برای نگاشت خودکار رویدادها
+             * @enum {string|null}
+             */
+            control_type?: "ar" | "ap" | "inventory" | "cash" | "bank" | "tax" | "cheque_in_hand" | "cogs" | "none" | null;
+            currency?: string;
+            is_active?: boolean;
+        };
+        /** @description دورهٔ مالی (معمولاً ماهانه) — سند فقط در دورهٔ «باز» ثبت می‌شود */
+        FiscalPeriod: {
+            /** Format: uuid */
+            id?: string;
+            /** @description سال مالی شمسی */
+            fiscal_year?: number;
+            period_no?: number;
+            /** Format: date */
+            start_date?: string;
+            /** Format: date */
+            end_date?: string;
+            /** @enum {string} */
+            status?: "open" | "closed" | "locked";
+            /** Format: date-time */
+            closed_at?: string | null;
+        };
+        /** @description بدنهٔ ساخت یک دورهٔ مالی جدید (با وضعیت open) */
+        FiscalPeriodCreate: {
+            fiscal_year: number;
+            period_no: number;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+        };
+        /** @description یک سطر سند — دقیقاً یک سمت (بدهکار یا بستانکار) غیر صفر */
+        JournalLine: {
+            /** @description شناسهٔ بزرگ‌عدد (bigint) به‌صورت رشته */
+            id?: string;
+            line_no?: number;
+            /** Format: uuid */
+            account_id?: string;
+            account_code?: string;
+            account_title?: string;
+            description?: string;
+            debit?: string;
+            credit?: string;
+            /** @enum {string|null} */
+            party_type?: "customer" | "supplier" | "staff" | null;
+            /** Format: uuid */
+            party_id?: string | null;
+            /** @description ابعاد تحلیلی (مرکز هزینه، پروژه، …) */
+            dimensions?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description سند حسابداری (هدر) — جمع بدهکار/بستانکار برای سند غیر draft برابر است */
+        JournalEntry: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            branch_id?: string | null;
+            /** @description شمارهٔ سند (JV-سال-ترتیب) */
+            readonly doc_number?: string;
+            /** Format: uuid */
+            fiscal_period_id?: string;
+            /** Format: date */
+            entry_date?: string;
+            description?: string;
+            /** @enum {string} */
+            source_type?: "invoice" | "credit_note" | "receipt" | "payment_voucher" | "goods_receipt" | "supplier_invoice" | "value_document" | "cash_txn" | "cheque" | "payroll" | "manual" | "opening" | "closing" | "recurring";
+            /**
+             * Format: uuid
+             * @description شناسهٔ سند مبدأ (برای manual تهی)
+             */
+            source_id?: string | null;
+            total_debit?: string;
+            total_credit?: string;
+            /** @enum {string} */
+            status?: "draft" | "posted" | "voided";
+            /** Format: uuid */
+            reversal_of_id?: string | null;
+            /** Format: date-time */
+            posted_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** @description سطرها — فقط در پاسخ جزئیات/ثبت سند حاضر است، نه در فهرست */
+            lines?: components["schemas"]["JournalLine"][];
+        };
+        /** @description سطر درخواستی سند — باید دقیقاً یک سمت (debit یا credit) غیر صفر باشد */
+        JournalLineCreate: {
+            /** Format: uuid */
+            account_id: string;
+            description: string;
+            /** @description رشتهٔ اعشاری؛ سمت استفاده‌نشده را صفر/حذف بگذارید */
+            debit?: string;
+            credit?: string;
+            /** @enum {string} */
+            party_type?: "customer" | "supplier" | "staff";
+            /** Format: uuid */
+            party_id?: string;
+            dimensions?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description بدنهٔ ثبت سند دستیِ متوازن (حداقل دو سطر) */
+        JournalEntryCreate: {
+            /** Format: uuid */
+            branch_id: string;
+            /** Format: date */
+            entry_date: string;
+            description: string;
+            /**
+             * Format: uuid
+             * @description در صورت نبود، دورهٔ «باز» شامل entry_date به‌طور خودکار انتخاب می‌شود
+             */
+            fiscal_period_id?: string;
+            lines: components["schemas"]["JournalLineCreate"][];
+        };
+        /** @description یک ردیف تراز آزمایشی (جمع بدهکار/بستانکار و ماندهٔ هر حساب) */
+        TrialBalanceRow: {
+            fiscal_year?: number;
+            period_no?: number;
+            account_code?: string;
+            title?: string;
+            level?: number;
+            /** @enum {string} */
+            nature?: "debit" | "credit";
+            debit_total?: string;
+            credit_total?: string;
+            /** @description مانده (بدهکار − بستانکار) */
+            balance?: string;
         };
         /** @description نمونه موقعیت اپ میدانی (دسته‌ای از صف آفلاین) */
         LocationSample: {

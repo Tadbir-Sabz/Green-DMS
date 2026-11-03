@@ -106,6 +106,21 @@ export class StockRepository {
       if (wh.rowCount === 0) throw Object.assign(new Error('warehouse not found'), { pgCode: 'no_data' });
       const branchId = wh.rows[0].branch_id;
 
+      // idempotency آفلاین: client_uuid تکراری یعنی همان اصلاحیهٔ قبلی — رکورد
+      // تکراری نمی‌سازیم. دفتر client_sync_receipt یکتایی سراسری را برای جدول
+      // پارتیشن‌شدهٔ inventory_txn تضمین می‌کند (که ایندکس یکتای جزئی ندارد؛
+      // نگاه به §۹۶۳/§۱۶۵۶ سند طراحی).
+      if (dto.client_uuid) {
+        const dup = await client.query(
+          `select 1 from client_sync_receipt where client_uuid = $1`,
+          [dto.client_uuid],
+        );
+        if (dup.rows.length > 0) {
+          await client.query('rollback');
+          throw Object.assign(new Error('duplicate client_uuid'), { pgCode: 'dup_client_uuid' });
+        }
+      }
+
       const docNumber = dto.reason_code === 'count_fix' ? null : null; // شماره سند اختیاری
       const header = await client.query<{ id: string }>(
         `insert into stock_adjustment (branch_id, warehouse_id, doc_number, reason_code, status, note)
@@ -113,6 +128,16 @@ export class StockRepository {
         [branchId, dto.warehouse_id, docNumber, dto.reason_code, dto.note ?? null],
       );
       const headerId = header.rows[0].id;
+
+      // دفتر همگام‌سازی: client_uuid → موجودیتِ ساخته‌شده (uuid). تلاش مجدد شبکه
+      // با همان client_uuid به 409 می‌خورد و سند تکراری ثبت نمی‌شود.
+      if (dto.client_uuid) {
+        await client.query(
+          `insert into client_sync_receipt (client_uuid, entity_type, entity_id)
+           values ($1, 'stock_adjustment', $2)`,
+          [dto.client_uuid, headerId],
+        );
+      }
 
       const line = await client.query<{ id: string }>(
         `insert into stock_adjustment_line (stock_adjustment_id, product_id, batch_id, qty, unit_cost)
@@ -127,12 +152,12 @@ export class StockRepository {
         `with ins as (
            insert into inventory_txn
              (branch_id, warehouse_id, product_id, batch_id, txn_kind, qty, unit_cost,
-              source_type, source_id, source_line_id, occurred_at)
-           values ($1, $2, $3, $4, $5, $6, 0, 'stock_adjustment', $7, $8, now())
+              source_type, source_id, source_line_id, occurred_at, client_uuid)
+           values ($1, $2, $3, $4, $5, $6, 0, 'stock_adjustment', $7, $8, now(), $9)
            returning *
          )
          select fn_apply_stock_txn(ins) from ins`,
-        [branchId, dto.warehouse_id, dto.product_id, dto.batch_id ?? null, txnKind, dto.qty_delta, headerId, lineId],
+        [branchId, dto.warehouse_id, dto.product_id, dto.batch_id ?? null, txnKind, dto.qty_delta, headerId, lineId, dto.client_uuid ?? null],
       );
 
       await client.query('commit');

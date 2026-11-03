@@ -95,6 +95,83 @@ export class ListTreasuryQueryDto {
   bank_account_id?: string;
 }
 
+// ---------------- Treasury daily close ----------------
+
+/** enum هماهنگ با daily_treasury_close.status (DDL مهاجرت 0013) */
+export const TREASURY_CLOSE_STATUSES = ['draft', 'closed', 'approved'] as const;
+
+/** GET /treasury/closes — فهرست بستن‌های روزانهٔ خزانه */
+export class ListTreasuryClosesQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  cursor?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number = 50;
+
+  @IsOptional()
+  @IsUUID('4')
+  branch_id?: string;
+
+  @IsOptional()
+  @IsIn([...TREASURY_CLOSE_STATUSES])
+  status?: string;
+
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+}
+
+/**
+ * POST /treasury/closes — ثبت و بستن روزانهٔ خزانهٔ یک شعبه.
+ * مبالغ رشتهٔ اعشاری‌اند؛ ناندهی‌شده‌ها صفر درج می‌شوند (ستون‌ها not null default 0).
+ */
+export class CreateTreasuryCloseDto {
+  @IsUUID('4')
+  branch_id!: string;
+
+  @IsDateString()
+  close_date!: string;
+
+  @IsOptional()
+  @IsNumberString()
+  cash_expected?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  cash_counted?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  bank_balance?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  cheque_in_hand_amount?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  note?: string;
+}
+
+/** POST /treasury/closes/{id}/approve — تأیید بستن روزانه (اختیاری با یادداشت) */
+export class ApproveTreasuryCloseDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  note?: string;
+}
+
 // ---------------- Cheques ----------------
 
 /** GET /cheques */

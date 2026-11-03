@@ -53,7 +53,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install PostgreSQL client (psql for API test migrations)
@@ -73,11 +73,56 @@ jobs:
       - name: Contract drift (server routes vs OpenAPI)
         run: node scripts/contract-drift.mjs
 
-      - name: Web tests
-        run: npm run test:web
-
+      # API tests run first and Web tests / Build use `if: '!cancelled()'` so a
+      # failure in one suite can never hide the result of the others. The API
+      # tests are the ones that exercise real SQL against the PostGIS service,
+      # so their signal must always be reported.
       - name: API tests
-        run: npm run test:api
+        if: '!cancelled()'
+        id: apitest
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:api 2>&1 | tee /tmp/api.log
+
+      # همان الگوی diagnostic وب: چون لاگ‌های blob خواندنی نیستند و vitest هنگام
+      # شکست در سطح suite (top-level/beforeAll) هیچ annotation تستی صادر نمی‌کند،
+      # سر و دمِ لاگ API را به دو annotation تمیز تبدیل می‌کنیم تا از check-runs
+      # API خوانده شود.
+      - name: API failure diagnostic
+        if: "!cancelled() && steps.apitest.outcome == 'failure'"
+        shell: bash
+        run: |
+          [ -f /tmp/api.log ] || { echo "::error title=api-diag::/tmp/api.log missing"; exit 0; }
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          fail_msg=$(grep -nE "FAIL|Failed Suites|AssertionError|Error:|error:|expected|Nest can't|violates|✗|×" /tmp/api.log | head -n 40 | enc)
+          echo "::error title=api-log-failures::${fail_msg:-<none matched>}"
+          tail_msg=$(tail -n 50 /tmp/api.log | enc)
+          echo "::error title=api-log-tail::${tail_msg:-<empty>}"
+
+      - name: Web tests
+        if: '!cancelled()'
+        id: webtest
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:web 2>&1 | tee /tmp/web.log
+
+      # لاگ‌های blob برای ما قابل خواندن نیستند و vitest هنگام crash در
+      # import/collection هیچ annotation تستی صادر نمی‌کند. این stepِ جدا (با shell
+      # تازه پس از web) سر و دمِ لاگ را بعد از strip کردن ANSI/CR و escape کردن %
+      # به دو annotation تمیز تبدیل می‌کند تا از check-runs API خوانده شود.
+      - name: Web failure diagnostic
+        if: "!cancelled() && steps.webtest.outcome == 'failure'"
+        shell: bash
+        run: |
+          [ -f /tmp/web.log ] || { echo "::error title=web-diag::/tmp/web.log missing"; exit 0; }
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          head_msg=$(head -n 30 /tmp/web.log | enc)
+          echo "::error title=web-log-head::${head_msg:-<empty>}"
+          tail_msg=$(tail -n 45 /tmp/web.log | enc)
+          echo "::error title=web-log-tail::${tail_msg:-<empty>}"
 
       - name: Build (packages + api + web)
+        if: '!cancelled()'
         run: npm run build

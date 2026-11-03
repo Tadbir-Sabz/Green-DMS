@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -7,10 +7,10 @@
 }
 
 android {
-    namespace = "com.greendms.telesales"
+    namespace = "com.greendms.distributor"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.greendms.telesales"
+        applicationId = "com.greendms.distributor"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

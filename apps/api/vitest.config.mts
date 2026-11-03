@@ -8,6 +8,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
+    // guard رویداد 'error' کلاینت بی‌کار pg در teardown (57P01) تا یک uncaught
+    // exception کل اجرا را حتی با پاس‌شدن همهٔ تست‌ها نشکند (نگاه به setup-pg-guard).
+    setupFiles: ['./test/setup-pg-guard.ts'],
     environment: 'node',
     pool: 'forks',
     // هر فایل تست دیتابیس موقت خودش را می‌سازد و ۲۵ مهاجرت را در تراکنش واحد اجرا می‌کند؛

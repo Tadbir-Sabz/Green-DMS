@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -53,7 +53,6 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
-}
 
     // CameraX + ML Kit
     implementation("androidx.camera:camera-core:1.3.4")
@@ -63,4 +62,5 @@ dependencies {
 
     implementation("androidx.hilt:hilt-work:1.2.0")
     ksp("androidx.hilt:hilt-compiler:1.2.0")
+}
 

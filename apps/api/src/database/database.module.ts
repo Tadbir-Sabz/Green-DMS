@@ -17,14 +17,24 @@ export const PG_POOL = 'PG_POOL';
   providers: [
     {
       provide: PG_POOL,
-      useFactory: (): Pool =>
-        new TenantAwarePool(
-          new Pool({
-            connectionString: process.env.DATABASE_URL,
-            max: 10,
-            idleTimeoutMillis: 30_000,
-          }),
-        ) as unknown as Pool,
+      useFactory: (): Pool => {
+        const inner = new Pool({
+          connectionString: process.env.DATABASE_URL,
+          max: 10,
+          idleTimeoutMillis: 30_000,
+        });
+        // pg رویداد 'error' را برای clientهای بی‌کار منتشر می‌کند — مثلاً وقتی
+        // سرور اتصال را با «terminating connection due to administrator command»
+        // (57P01) می‌بندد، همان‌طور که در teardown تست‌ها رخ می‌دهد
+        // (pg_terminate_backend پیش از drop database). بدون listener، Node آن را
+        // به uncaught exception تبدیل و کل فرآیند/اجرای vitest را crash می‌کند؛
+        // طبق مستندات pg یک listener ثبت می‌کنیم. اتصالِ از دست رفته توسط خودِ
+        // pool بازیابی می‌شود، پس اینجا تنها خطا را ثبت می‌کنیم.
+        inner.on('error', (err: Error) => {
+          console.error('[PG_POOL] idle client error:', err.message);
+        });
+        return new TenantAwarePool(inner) as unknown as Pool;
+      },
     },
   ],
   exports: [PG_POOL],

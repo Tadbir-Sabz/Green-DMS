@@ -49,11 +49,17 @@ export class ReportsService {
         message_fa: 'مجوز مشاهدهٔ این گزارش را ندارید.',
       });
     }
-    const { rows } = await this.pool.query<QueryResultRow>(report.sql, [
-      companyId,
-      filter.from ?? null,
-      filter.to ?? null,
-    ]);
+    // هر گزارش دست‌کم $1 (company_id) را می‌گیرد؛ گزارش‌های زمانی $2 (from) و
+    // $3 (to) را هم مرجع می‌کنند، ولی گزارش‌های لحظه‌ای (ar_aging، customer_exposure،
+    // trial_balance و…) بازهٔ تاریخ ندارند و فقط $1 را مرجع می‌کنند. فرستادنِ
+    // پارامترِ بیش از تعدادِ مرجع‌شده، پستگرس را با «bind message supplies N
+    // parameters, but prepared statement requires M» به ۵۰۰ می‌اندازد؛ پس تعداد
+    // پارامترها را از خودِ SQL استنتاج و برش می‌زنیم (بدون تغییر در گزارش‌ها).
+    const referenced = [...report.sql.matchAll(/\$(\d+)/g)].map((m) => Number(m[1]));
+    const arity = referenced.length > 0 ? Math.max(...referenced) : 1;
+    const params = [companyId, filter.from ?? null, filter.to ?? null].slice(0, arity);
+
+    const { rows } = await this.pool.query<QueryResultRow>(report.sql, params);
     return {
       columns: report.columns.map((c: ReportColumn) => ({ key: c.key, title: c.title })),
       rows: rows as Record<string, unknown>[],

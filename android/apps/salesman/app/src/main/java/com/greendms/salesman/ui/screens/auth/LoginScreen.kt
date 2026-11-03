@@ -1,4 +1,4 @@
-﻿package com.greendms.salesman.ui.screens.auth
+package com.greendms.salesman.ui.screens.auth
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,11 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewModelScope
 import com.greendms.salesman.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
-import org.openapitools.client.apis.AuthApi
-import org.openapitools.client.models.AuthLoginPostRequest
+import com.greendms.api.client.apis.AuthApi
+import com.greendms.api.client.models.LoginRequest
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,14 +29,11 @@ class LoginViewModel @Inject constructor(
             loading = true
             error = null
             try {
-                val res = authApi.authLoginPost(AuthLoginPostRequest(username, password))
-                val token = (res as? Map<*,*>)?.get("access_token") as? String ?: (res as? Map<*,*>)?.get("token") as? String
-                if (token != null) {
-                    authRepo.saveToken(token)
-                    onSuccess()
-                } else {
-                    error = "عدم دریافت توکن"
-                }
+                // authLoginPost یک AuthSession بازمی‌گرداند؛ accessToken رشتهٔ
+                // غیرتهی است، پس نیازی به cast به Map نیست.
+                val res = authApi.authLoginPost(LoginRequest(username, password))
+                authRepo.saveToken(res.accessToken)
+                onSuccess()
             } catch (e: Exception) {
                 error = e.message
             } finally {

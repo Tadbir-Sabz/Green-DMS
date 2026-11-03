@@ -378,6 +378,51 @@ describe('INV — POST /stock/adjustments', () => {
     expectBodyMatchesSchema('post', '/stock/adjustments', 400, res.body);
     expect(res.body.code).toBe('validation_failed');
   });
+
+  it('client_uuid تکراری 409 ← duplicate_client_uuid (دفتر client_sync_receipt)', async () => {
+    const clientUuid = '22222222-2222-4222-8222-222222222222';
+    // wh2 (نه wh1): موجودی wh1/productId را که آزمون چرخهٔ شمارش به آن
+    // تکیه دارد (system_qty=10) دست‌نخورده می‌گذارد.
+    // بار اول: ثبت موفق با کلید idempotency
+    const first = await api()
+      .post('/api/v1/stock/adjustments')
+      .send({ warehouse_id: wh2, product_id: productId, qty_delta: 5, reason_code: 'count_fix', client_uuid: clientUuid })
+      .expect(201);
+    expectBodyMatchesSchema('post', '/stock/adjustments', 201, first.body);
+
+    // دفتر همگام‌سازی یک ردیف دارد و inventory_txn همان client_uuid را گرفته است
+    const receipt = await pool.query(
+      `select entity_type, entity_id::text as entity_id from client_sync_receipt where client_uuid = $1`,
+      [clientUuid],
+    );
+    expect(receipt.rows).toHaveLength(1);
+    expect(receipt.rows[0].entity_type).toBe('stock_adjustment');
+    const txn = await pool.query(
+      `select count(*)::int as n from inventory_txn where client_uuid = $1 and source_id = $2::uuid`,
+      [clientUuid, receipt.rows[0].entity_id],
+    );
+    expect(txn.rows[0].n).toBe(1);
+
+    // تلاش مجدد شبکه با همان client_uuid → 409 و سند تکراری ساخته نمی‌شود
+    const again = await api()
+      .post('/api/v1/stock/adjustments')
+      .send({ warehouse_id: wh2, product_id: productId, qty_delta: 5, reason_code: 'count_fix', client_uuid: clientUuid })
+      .expect(409);
+    expectBodyMatchesSchema('post', '/stock/adjustments', 409, again.body);
+    expect(again.body.code).toBe('duplicate_client_uuid');
+
+    // هنوز فقط یک ردیف دفتر و یک txn با این client_uuid وجود دارد
+    const afterReceipt = await pool.query(
+      `select count(*)::int as n from client_sync_receipt where client_uuid = $1`,
+      [clientUuid],
+    );
+    expect(afterReceipt.rows[0].n).toBe(1);
+    const afterTxn = await pool.query(
+      `select count(*)::int as n from inventory_txn where client_uuid = $1`,
+      [clientUuid],
+    );
+    expect(afterTxn.rows[0].n).toBe(1);
+  });
 });
 
 describe('INV — GET /stocktakes', () => {

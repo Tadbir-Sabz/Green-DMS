@@ -97,13 +97,17 @@ tags:
   - name: ar
     description: حسابداری فروش — دفتر مشتری و سنی بدهکاری
   - name: ap
-    description: حسابداری خرید — دفتر تأمین‌کننده
+    description: حسابداری خرید — دفتر تأمین‌کننده، سفارش خرید، فاکتور و سند پرداخت
+  - name: valuation
+    description: ارزش‌گذاری موجودی — بهای میانگین متحرک، لایه‌های بها و موجودی ریالی
   - name: treasury
     description: خزانه‌داری — صندوق و بانک
   - name: cheques
     description: چک‌های دریافتی/پرداختی
   - name: payments
     description: رسید وصول و تخصیص پرداخت
+  - name: gl
+    description: دفتر کل — کدینگ حساب‌ها، اسناد، دوره‌های مالی و تراز آزمایشی
   - name: tracking
     description: رهگیری موقعیت و مسیریابی
   - name: geofences
@@ -1135,6 +1139,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/RuleRejected' }
   /stocktakes:
     get:
@@ -1466,7 +1471,9 @@ paths:
                       items:
                         type: array
                         items: { $ref: '#/components/schemas/Tour' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [tours]
       summary: شروع/تخصیص تور (دریافت تور توسط فروشنده یا تخصیص مدیر)
@@ -1481,7 +1488,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Tour' }
-        '422': { $ref: '#/components/responses/RuleRejected' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /tours/{id}:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -1494,6 +1504,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Tour' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [tours]
@@ -1509,6 +1522,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Tour' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /tours/{id}/settlement:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -1521,6 +1538,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TourSettlement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /visits:
     get:
@@ -1544,7 +1564,9 @@ paths:
                       items:
                         type: array
                         items: { $ref: '#/components/schemas/Visit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [visits]
       summary: ثبت بازدید (check-in با مختصات — ضدتقلب GPS)
@@ -1563,7 +1585,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Visit' }
-        '422': { $ref: '#/components/responses/RuleRejected' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /visits/{id}:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -1576,6 +1601,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Visit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [visits]
@@ -1591,6 +1619,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Visit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------- زنجیره فروش: درخواست، سفارش، حواله، فاکتور ----------------
   /requests:
@@ -2112,6 +2144,311 @@ paths:
                         items: { $ref: '#/components/schemas/SupplierBalance' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  # ---------------- خرید: سفارش، فاکتور تأمین‌کننده، سند پرداخت ----------------
+  /purchase-orders:
+    get:
+      tags: [ap]
+      summary: فهرست سفارش‌های خرید
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, pending_approval, approved, partially_received, received, closed, cancelled] } }
+      responses:
+        '200':
+          description: صفحه‌ای از سفارش‌های خرید
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/PurchaseOrder' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت سفارش خرید (پیش‌نویس) با اقلام
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PurchaseOrder' }
+      responses:
+        '201':
+          description: سفارش خرید ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /purchase-orders/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک سفارش خرید با اقلام
+      responses:
+        '200':
+          description: سفارش خرید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /purchase-orders/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [ap]
+      summary: تأیید سفارش خرید (draft → approved)
+      responses:
+        '200':
+          description: سفارش خرید تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PurchaseOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /supplier-invoices:
+    get:
+      tags: [ap]
+      summary: فهرست فاکتورهای تأمین‌کنندگان
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, matched, mismatch, approved, partially_paid, paid, voided] } }
+      responses:
+        '200':
+          description: صفحه‌ای از فاکتورهای تأمین‌کننده
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/SupplierInvoice' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت فاکتور/صورت‌حساب تأمین‌کننده (پیش‌نویس)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierInvoice' }
+      responses:
+        '201':
+          description: فاکتور تأمین‌کننده ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierInvoice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /supplier-invoices/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک فاکتور تأمین‌کننده با اقلام
+      responses:
+        '200':
+          description: فاکتور تأمین‌کننده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierInvoice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /supplier-invoices/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [ap]
+      summary: تأیید فاکتور تأمین‌کننده و ثبت بدهکاری در دفتر
+      responses:
+        '200':
+          description: فاکتور تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupplierInvoice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /payment-vouchers:
+    get:
+      tags: [ap]
+      summary: فهرست اسناد پرداخت به تأمین‌کنندگان
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, posted, voided] } }
+      responses:
+        '200':
+          description: صفحه‌ای از اسناد پرداخت
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/PaymentVoucher' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentVoucher' }
+      responses:
+        '201':
+          description: سند پرداخت ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentVoucher' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /payment-vouchers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک سند پرداخت با تخصیص‌ها
+      responses:
+        '200':
+          description: سند پرداخت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentVoucher' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /goods-receipts:
+    get:
+      tags: [ap]
+      summary: فهرست رسیدهای انبار خرید (GRN)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: warehouse_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, posted, voided] } }
+      responses:
+        '200':
+          description: صفحه‌ای از رسیدهای انبار
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/GoodsReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت رسید انبار خرید (پیش‌نویس) با اقلام
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoodsReceipt' }
+      responses:
+        '201':
+          description: رسید انبار ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /goods-receipts/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک رسید انبار با اقلام
+      responses:
+        '200':
+          description: رسید انبار
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /goods-receipts/{id}/post:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [ap]
+      summary: ثبت قطعی رسید انبار و اعمال اثر انبار و ارزش‌گذاری (draft → posted)
+      responses:
+        '200':
+          description: رسید انبار ثبت قطعی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /valuation:
+    get:
+      tags: [valuation]
+      summary: ارزش موجودی (میانگین متحرک) به ازای انبار/کالا
+      parameters:
+        - { name: warehouse_id, in: query, schema: { type: string, format: uuid } }
+        - { name: product_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: ارزش موجودی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Valuation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   # ---------------- خزانه، چک، وصول ----------------
   /treasury:
     get:
@@ -2132,6 +2469,91 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/TreasuryPosition' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /treasury/closes:
+    get:
+      tags: [treasury]
+      summary: فهرست بستن‌های روزانهٔ خزانه شعبه‌ها
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: branch_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, closed, approved] } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: صفحه‌ای از بستن‌های روزانه
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/TreasuryClose' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [treasury]
+      summary: ثبت و بستن روزانهٔ خزانه یک شعبه
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TreasuryClose' }
+      responses:
+        '201':
+          description: بستن روزانه ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryClose' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /treasury/closes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [treasury]
+      summary: جزئیات یک بستن روزانهٔ خزانه
+      responses:
+        '200':
+          description: بستن روزانه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryClose' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /treasury/closes/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [treasury]
+      summary: تأیید بستن روزانهٔ خزانه (closed → approved)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        '200':
+          description: بستن روزانه تأیید شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryClose' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /cheques:
     get:
       tags: [cheques]
@@ -2249,6 +2671,176 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentReceipt' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------- دفتر کل (GL) ----------------
+  /gl/accounts:
+    get:
+      tags: [gl]
+      summary: درخت کدینگ حساب‌های دفتر کل (۴ سطح)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: nature, in: query, schema: { type: string, enum: [debit, credit] } }
+        - { name: account_type, in: query, schema: { type: string, enum: [asset, liability, equity, revenue, expense, contra] } }
+      responses:
+        '200':
+          description: صفحه‌ای از حساب‌ها به ترتیب کد
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/GlAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /gl/periods:
+    get:
+      tags: [gl]
+      summary: دوره‌های مالی (باز/بسته/قفل)
+      parameters:
+        - { name: fiscal_year, in: query, schema: { type: integer } }
+        - { name: status, in: query, schema: { type: string, enum: [open, closed, locked] } }
+      responses:
+        '200':
+          description: فهرست دوره‌ها (جدیدترین ابتدا)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FiscalPeriod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [gl]
+      summary: ساخت/بازکردن یک دورهٔ مالی
+      description: |
+        دوره با وضعیت `open` ساخته می‌شود؛ `(fiscal_year, period_no)` باید یکتا باشد
+        و `end_date ≥ start_date`. در غیر این صورت `409`/`400` با پیام فارسی.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FiscalPeriodCreate' }
+      responses:
+        '201':
+          description: دوره ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FiscalPeriod' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /gl/periods/{id}/close:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [gl]
+      summary: بستن دورهٔ مالی (پس از آن سند جدید در این دوره رد می‌شود)
+      responses:
+        '200':
+          description: دوره بسته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FiscalPeriod' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /gl/journals:
+    get:
+      tags: [gl]
+      summary: فهرست اسناد حسابداری
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: status, in: query, schema: { type: string, enum: [draft, posted, voided] } }
+        - { name: source_type, in: query, schema: { type: string, enum: [invoice, credit_note, receipt, payment_voucher, goods_receipt, supplier_invoice, value_document, cash_txn, cheque, payroll, manual, opening, closing, recurring] } }
+        - { name: fiscal_period_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: صفحه‌ای از اسناد به ترتیب شماره سند
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/JournalEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [gl]
+      summary: ثبت و صدور سند دستیِ متوازن
+      description: |
+        سند با وضعیت `posted` ثبت می‌شود. جمع بدهکار/بستانکار سطرها باید برابر باشد
+        (`fn_journal_balanced`)، هر سطر دقیقاً یک سمت غیر صفر داشته باشد
+        (`ck_journal_line_one_side`) و تاریخ سند داخل یک دورهٔ مالی «باز» قرار گیرد
+        (`fn_check_journal_period`). نقض هر یک → `422` با پیام فارسی.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JournalEntryCreate' }
+      responses:
+        '201':
+          description: سند ثبت و صادر شد (با سطرها)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JournalEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
+  /gl/journals/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [gl]
+      summary: جزئیات سند با سطرها
+      responses:
+        '200':
+          description: سند حسابداری
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JournalEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /gl/trial-balance:
+    get:
+      tags: [gl]
+      summary: تراز آزمایشی از نمای v_trial_balance (فقط اسناد صادرشده)
+      parameters:
+        - { name: fiscal_year, in: query, schema: { type: integer } }
+        - { name: period_no, in: query, schema: { type: integer, minimum: 1, maximum: 12 } }
+      responses:
+        '200':
+          description: ردیف‌های تراز آزمایشی به ترتیب کد حساب
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TrialBalanceRow' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------- رهگیری و مسیریابی ----------------
   /tracking/locations:
@@ -2583,6 +3175,9 @@ paths:
                   rows:
                     type: array
                     items: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /settings:
     get:
@@ -2602,7 +3197,9 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/SettingEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     patch:
       tags: [settings]
       summary: به‌روزرسانی تنظیمات (حوزه‌ها فقط برای خودشان)
@@ -2628,6 +3225,8 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/SettingEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /integrations:
     get:
@@ -3701,7 +4300,8 @@ components:
         batch_id: { type: [string, 'null'], format: uuid }
         qty_delta: { type: number }
         reason_code: { type: string, enum: [damage, expiry, sample, internal_use, theft, count_fix, other] }
-        note: { type: string }
+        note: { type: [string, 'null'] }
+        client_uuid: { type: string, format: uuid, description: کلید idempotency آفلاین — ثبت تکراری = 409 }
 
     StockTake:
       type: object
@@ -3790,7 +4390,7 @@ components:
         planned_start_at: { type: [string, 'null'], format: date-time }
         started_at: { type: [string, 'null'], format: date-time }
         ended_at: { type: [string, 'null'], format: date-time }
-        note: { type: string }
+        note: { type: [string, 'null'] }
 
     TourSettlement:
       type: object
@@ -3815,12 +4415,12 @@ components:
         check_out_at: { type: [string, 'null'], format: date-time }
         geo_in: { oneOf: [{ $ref: '#/components/schemas/GeoPoint' }, { type: 'null' }] }
         geo_out: { oneOf: [{ $ref: '#/components/schemas/GeoPoint' }, { type: 'null' }] }
-        accuracy_in_m: { type: number }
+        accuracy_in_m: { type: [number, 'null'] }
         distance_m: { type: [string, 'null'], description: فاصله از موقعیت ثبت‌شده مشتری (متر) }
-        result: { type: [string, 'null'], enum: [ordered, no_order, customer_absent, null] }
+        result: { type: [string, 'null'], enum: [order, no_order, closed, payment_only, return_only, null], description: نتیجه بازدید — هم‌تراز با CHECK جدول visit (مهاجرت 0011) }
         no_order_reason: { type: [string, 'null'] }
         is_mocked: { type: boolean, readOnly: true, description: GPS جعلی تشخیص داده شد }
-        client_uuid: { type: string, format: uuid, description: یکتای آفلاین — ثبت تکراری = 409 }
+        client_uuid: { type: [string, 'null'], format: uuid, description: یکتای آفلاین — ثبت تکراری = 409 }
 
     CustomerRequest:
       type: object
@@ -4042,6 +4642,158 @@ components:
         total_payable: { type: string }
         due_next: { type: [string, 'null'], format: date }
 
+    PurchaseOrderLine:
+      type: object
+      description: قلم سفارش خرید (ماژول ۸ — مهاجرت 0015)
+      properties:
+        line_no: { type: integer }
+        product_id: { type: string, format: uuid }
+        qty: { type: string }
+        qty_received: { type: string }
+        unit_price: { type: string }
+        discount_amount: { type: string }
+        tax_amount: { type: string }
+        line_total: { type: string }
+
+    PurchaseOrder:
+      type: object
+      # lines فقط در پاسخ جزئیات/ثبت می‌آید؛ فهرست (GET /purchase-orders) خلاصه
+      # بی‌سطر برمی‌گرداند (الگوی summary-vs-detail، مانند SupplierInvoice).
+      required: [branch_id, supplier_id, warehouse_id]
+      description: سفارش خرید (ماژول ۸ — مهاجرت 0015)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        supplier_id: { type: string, format: uuid }
+        warehouse_id: { type: string, format: uuid }
+        order_date: { type: string, format: date }
+        expected_date: { type: [string, 'null'], format: date }
+        currency: { type: string }
+        subtotal: { type: string, readOnly: true }
+        discount_total: { type: string, readOnly: true }
+        tax_total: { type: string, readOnly: true }
+        grand_total: { type: string, readOnly: true }
+        status:
+          type: string
+          readOnly: true
+          enum: [draft, pending_approval, approved, partially_received, received, closed, cancelled]
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PurchaseOrderLine' }
+
+    GoodsReceiptLine:
+      type: object
+      description: قلم رسید انبار خرید (ماژول ۸ — مهاجرت 0015، بدون line_no)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        batch_id: { type: [string, 'null'], format: uuid }
+        purchase_order_line_id: { type: [string, 'null'], format: uuid }
+        qty_received: { type: string }
+        qty_rejected: { type: string }
+        unit_cost: { type: string }
+
+    GoodsReceipt:
+      type: object
+      # lines فقط در پاسخ جزئیات/ثبت می‌آید؛ فهرست (GET /goods-receipts) خلاصهٔ
+      # بی‌سطر برمی‌گرداند (الگوی summary-vs-detail، مانند PurchaseOrder).
+      required: [branch_id, supplier_id, warehouse_id]
+      description: رسید انبار خرید (GRN) — ماژول ۸، مهاجرت 0015
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        supplier_id: { type: string, format: uuid }
+        warehouse_id: { type: string, format: uuid }
+        purchase_order_id: { type: [string, 'null'], format: uuid }
+        received_at: { type: string, format: date-time, readOnly: true }
+        received_by: { type: [string, 'null'], format: uuid, readOnly: true }
+        status:
+          type: string
+          readOnly: true
+          enum: [draft, posted, voided]
+        note: { type: [string, 'null'] }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/GoodsReceiptLine' }
+
+    Valuation:
+      type: object
+      description: ارزش موجودی به ازای انبار/کالا (میانگین متحرک) — ماژول ۹، مهاجرت 0016
+      properties:
+        warehouse_id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        method:
+          type: string
+          enum: [moving_avg, fifo, standard]
+        avg_cost: { type: string }
+        qty_on_hand: { type: string }
+        value_on_hand: { type: string }
+        last_purchase_cost: { type: [string, 'null'] }
+
+    SupplierInvoiceLine:
+      type: object
+      description: قلم فاکتور تأمین‌کننده (ماژول ۸)
+      properties:
+        line_no: { type: integer }
+        product_id: { type: string, format: uuid }
+        qty: { type: string }
+        unit_price: { type: string }
+        tax_amount: { type: string }
+        line_total: { type: string }
+
+    SupplierInvoice:
+      type: object
+      required: [branch_id, supplier_id, doc_number, amount]
+      description: فاکتور/صورت‌حساب تأمین‌کننده (ماژول ۸ — مهاجرت 0015)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, description: شماره فاکتورِ تأمین‌کننده }
+        internal_no: { type: string, readOnly: true, description: شمارهٔ داخلی سامانه }
+        supplier_id: { type: string, format: uuid }
+        purchase_order_id: { type: [string, 'null'], format: uuid }
+        invoice_date: { type: string, format: date }
+        due_date: { type: [string, 'null'], format: date }
+        amount: { type: string, description: مبلغ خالص (بدون مالیات) }
+        tax_amount: { type: string }
+        status:
+          type: string
+          readOnly: true
+          enum: [draft, matched, mismatch, approved, partially_paid, paid, voided]
+        match_status:
+          type: string
+          readOnly: true
+          enum: [pending, matched, price_variance, qty_variance, no_grn]
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierInvoiceLine' }
+
+    PaymentVoucher:
+      type: object
+      required: [branch_id, supplier_id, method_id, amount]
+      description: سند پرداخت به تأمین‌کننده با تخصیص به فاکتورها (ماژول ۸)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        supplier_id: { type: string, format: uuid }
+        payment_date: { type: string, format: date }
+        method_id: { type: string, format: uuid, description: از `payment_method` }
+        amount: { type: string }
+        status: { type: string, readOnly: true, enum: [draft, posted, voided] }
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              supplier_invoice_id: { type: string, format: uuid }
+              amount: { type: string }
+
     TreasuryPosition:
       type: object
       description: مانده صندوق/بانک و مغایرت (ماژول ۱۰)
@@ -4052,6 +4804,24 @@ components:
         balance_actual: { type: [string, 'null'], description: مانده اعلامی/صورت‌حساب بانک }
         variance: { type: [string, 'null'], description: مغایرت باز برای رسیدگی }
         as_of: { type: string, format: date }
+
+    TreasuryClose:
+      type: object
+      required: [branch_id, close_date]
+      description: بستن روزانهٔ خزانه یک شعبه (ماژول ۱۰ — مهاجرت 0013)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        close_date: { type: string, format: date }
+        cash_expected: { type: string, description: نقد مورد انتظار صندوق }
+        cash_counted: { type: string, description: نقد شمارش‌شده }
+        bank_balance: { type: string, description: ماندهٔ بانک }
+        cheque_in_hand_amount: { type: string, description: مبلغ چک‌های نزد صندوق }
+        cash_variance: { type: string, readOnly: true, description: مغایرت صندوق = شمارش‌شده − مورد انتظار }
+        status: { type: string, enum: [draft, closed, approved], readOnly: true }
+        note: { type: [string, 'null'] }
+        closed_by: { type: [string, 'null'], format: uuid, readOnly: true }
+        approved_by: { type: [string, 'null'], format: uuid, readOnly: true }
 
     Cheque:
       type: object
@@ -4090,6 +4860,137 @@ components:
               invoice_id: { type: string, format: uuid }
               amount: { type: string }
         tour_id: { type: [string, 'null'], format: uuid, description: برای تسویه تور }
+
+    GlAccount:
+      type: object
+      description: یک حساب در درخت کدینگ دفتر کل (ماژول ۹ — مهاجرت 0018)
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, description: کد سلسله‌مراتبی حساب (تا ۴ سطح) }
+        parent_id: { type: [string, 'null'], format: uuid }
+        level: { type: integer, minimum: 1, maximum: 4 }
+        title: { type: string }
+        nature: { type: string, enum: [debit, credit], description: ماهیت حساب }
+        account_type: { type: string, enum: [asset, liability, equity, revenue, expense, contra] }
+        is_postable: { type: boolean, description: فقط حساب‌های سطح ۴ قابل ثبت مستقیم‌اند }
+        control_type:
+          type: [string, 'null']
+          enum: [ar, ap, inventory, cash, bank, tax, cheque_in_hand, cogs, none, null]
+          description: نقش کنترلی حساب برای نگاشت خودکار رویدادها
+        currency: { type: string }
+        is_active: { type: boolean }
+
+    FiscalPeriod:
+      type: object
+      description: دورهٔ مالی (معمولاً ماهانه) — سند فقط در دورهٔ «باز» ثبت می‌شود
+      properties:
+        id: { type: string, format: uuid }
+        fiscal_year: { type: integer, description: سال مالی شمسی }
+        period_no: { type: integer, minimum: 1, maximum: 12 }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        status: { type: string, enum: [open, closed, locked] }
+        closed_at: { type: [string, 'null'], format: date-time }
+
+    FiscalPeriodCreate:
+      type: object
+      required: [fiscal_year, period_no, start_date, end_date]
+      description: بدنهٔ ساخت یک دورهٔ مالی جدید (با وضعیت open)
+      properties:
+        fiscal_year: { type: integer }
+        period_no: { type: integer, minimum: 1, maximum: 12 }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+
+    JournalLine:
+      type: object
+      description: یک سطر سند — دقیقاً یک سمت (بدهکار یا بستانکار) غیر صفر
+      properties:
+        id: { type: string, description: شناسهٔ بزرگ‌عدد (bigint) به‌صورت رشته }
+        line_no: { type: integer, minimum: 1 }
+        account_id: { type: string, format: uuid }
+        account_code: { type: string }
+        account_title: { type: string }
+        description: { type: string }
+        debit: { type: string }
+        credit: { type: string }
+        party_type: { type: [string, 'null'], enum: [customer, supplier, staff, null] }
+        party_id: { type: [string, 'null'], format: uuid }
+        dimensions:
+          type: object
+          additionalProperties: true
+          description: ابعاد تحلیلی (مرکز هزینه، پروژه، …)
+
+    JournalEntry:
+      type: object
+      description: سند حسابداری (هدر) — جمع بدهکار/بستانکار برای سند غیر draft برابر است
+      properties:
+        id: { type: string, format: uuid }
+        branch_id: { type: [string, 'null'], format: uuid }
+        doc_number: { type: string, readOnly: true, description: شمارهٔ سند (JV-سال-ترتیب) }
+        fiscal_period_id: { type: string, format: uuid }
+        entry_date: { type: string, format: date }
+        description: { type: string }
+        source_type:
+          type: string
+          enum: [invoice, credit_note, receipt, payment_voucher, goods_receipt, supplier_invoice, value_document, cash_txn, cheque, payroll, manual, opening, closing, recurring]
+        source_id: { type: [string, 'null'], format: uuid, description: شناسهٔ سند مبدأ (برای manual تهی) }
+        total_debit: { type: string }
+        total_credit: { type: string }
+        status: { type: string, enum: [draft, posted, voided] }
+        reversal_of_id: { type: [string, 'null'], format: uuid }
+        posted_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+        lines:
+          type: array
+          description: سطرها — فقط در پاسخ جزئیات/ثبت سند حاضر است، نه در فهرست
+          items: { $ref: '#/components/schemas/JournalLine' }
+
+    JournalLineCreate:
+      type: object
+      required: [account_id, description]
+      description: سطر درخواستی سند — باید دقیقاً یک سمت (debit یا credit) غیر صفر باشد
+      properties:
+        account_id: { type: string, format: uuid }
+        description: { type: string }
+        debit: { type: string, description: رشتهٔ اعشاری؛ سمت استفاده‌نشده را صفر/حذف بگذارید }
+        credit: { type: string }
+        party_type: { type: string, enum: [customer, supplier, staff] }
+        party_id: { type: string, format: uuid }
+        dimensions:
+          type: object
+          additionalProperties: true
+
+    JournalEntryCreate:
+      type: object
+      required: [branch_id, entry_date, description, lines]
+      description: بدنهٔ ثبت سند دستیِ متوازن (حداقل دو سطر)
+      properties:
+        branch_id: { type: string, format: uuid }
+        entry_date: { type: string, format: date }
+        description: { type: string }
+        fiscal_period_id:
+          type: string
+          format: uuid
+          description: در صورت نبود، دورهٔ «باز» شامل entry_date به‌طور خودکار انتخاب می‌شود
+        lines:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/JournalLineCreate' }
+
+    TrialBalanceRow:
+      type: object
+      description: یک ردیف تراز آزمایشی (جمع بدهکار/بستانکار و ماندهٔ هر حساب)
+      properties:
+        fiscal_year: { type: integer }
+        period_no: { type: integer }
+        account_code: { type: string }
+        title: { type: string }
+        level: { type: integer, minimum: 1, maximum: 4 }
+        nature: { type: string, enum: [debit, credit] }
+        debit_total: { type: string }
+        credit_total: { type: string }
+        balance: { type: string, description: مانده (بدهکار − بستانکار) }
 
     LocationSample:
       type: object

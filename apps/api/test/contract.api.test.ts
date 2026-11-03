@@ -39,7 +39,17 @@ const TEST_DB = 'greendms_contract_test';
 const PSQL = process.env.PSQL ?? 'C:/Program Files/PostgreSQL/16/bin/psql.exe';
 const SPEC_FILE = path.join(ROOT, 'packages', 'contracts', 'openapi.yaml');
 /** مسیرهای زیرساختی که عمداً در قرارداد نیستند */
-const OUT_OF_CONTRACT = new Set(['/api/health']);
+// health زیرساخت است و عمداً خارج از قرارداد API:
+// - common/health → @Controller('health') با prefix سراسری می‌شود /api/v1/health*
+//   (exclude:['api/health'] در main.ts فقط controller مسیرِ 'api/health' را بی‌prefix می‌کند،
+//    پس این یکی زیر /api/v1 می‌نشیند؛ CHECKLIST.md هم /api/v1/health/{live,ready} را می‌خواهد).
+// - health/ → @Controller('api/health') که exclude می‌شود و در /api/health می‌ماند.
+const OUT_OF_CONTRACT = new Set([
+  '/api/health',
+  '/api/v1/health',
+  '/api/v1/health/live',
+  '/api/v1/health/ready',
+]);
 /**
  * روت‌های اسکلت (فاز scaffold): ماژول‌های هنوز پیاده‌نشده فقط مسیر info
  * می‌دهند و جزئی از قرارداد نیستند؛ با پیاده‌سازی هر ماژول حذف می‌شوند.
