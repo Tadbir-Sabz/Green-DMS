@@ -124,7 +124,7 @@ export default function GeofencesPage() {
             setFormError(null);
             setShowForm((v) => !v);
           }}
-          className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover"
+          className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover focus-ring"
         >
           {showForm ? "بستن" : "محدوده جدید"}
         </button>
@@ -187,13 +187,13 @@ export default function GeofencesPage() {
             <button
               disabled={save.isPending}
               onClick={() => save.mutate()}
-              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring"
             >
               ذخیره
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover"
+              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover focus-ring"
             >
               انصراف
             </button>
@@ -222,7 +222,7 @@ export default function GeofencesPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEdit(g)}
-                      className="px-2 py-1 rounded-lg border border-line text-xs hover:bg-surface-hover"
+                      className="px-2 py-1 rounded-lg border border-line text-xs hover:bg-surface-hover focus-ring"
                     >
                       ویرایش
                     </button>
@@ -231,7 +231,7 @@ export default function GeofencesPage() {
                       onClick={() => {
                         if (confirm(`محدوده «${g.name}» حذف شود؟`)) remove.mutate(g.id);
                       }}
-                      className="px-2 py-1 rounded-lg border border-danger-line text-danger-ink text-xs hover:bg-danger-soft"
+                      className="px-2 py-1 rounded-lg border border-danger-line text-danger-ink text-xs hover:bg-danger-soft focus-ring"
                     >
                       حذف
                     </button>

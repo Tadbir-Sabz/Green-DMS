@@ -43,8 +43,8 @@ export default function NewStockCountPage() {
           <input value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1" />
         </div>
         <div className="flex gap-2">
-          <button disabled={create.isPending || !warehouseId} onClick={() => create.mutate()} className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50">ایجاد سند انبارگردانی</button>
-          <button onClick={() => router.push("/stock-count")} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink">انصراف</button>
+          <button disabled={create.isPending || !warehouseId} onClick={() => create.mutate()} className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring">ایجاد سند انبارگردانی</button>
+          <button onClick={() => router.push("/stock-count")} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink focus-ring">انصراف</button>
         </div>
       </div>
     </div>

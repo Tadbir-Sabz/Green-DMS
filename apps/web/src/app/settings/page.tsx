@@ -96,7 +96,7 @@ function SettingsInner() {
           <button
             onClick={() => save.mutate()}
             disabled={changed.length === 0 || save.isPending}
-            className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium"
+            className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed text-brand-ink text-sm font-medium focus-ring"
           >
             {save.isPending ? "در حال ذخیره..." : `ذخیرهٔ تغییرات (${changed.length})`}
           </button>

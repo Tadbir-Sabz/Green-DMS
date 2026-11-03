@@ -217,7 +217,7 @@ export default function LoginPage(): React.JSX.Element {
   return (
     <main className="flex min-h-screen bg-canvas">
       {/* ---------------------------- پنل برند ---------------------------- */}
-      <aside className="relative hidden w-[45%] max-w-2xl shrink-0 overflow-hidden bg-brand-active lg:block">
+      <aside className="relative hidden w-[45%] max-w-2xl shrink-0 overflow-hidden bg-gradient-to-br from-brand-panel to-brand-panel-deep lg:block">
         {/* بافت تزئینی — دایره‌های نرم و شبکهٔ ظریف بدون تصویر بیرونی */}
         <div
           aria-hidden
@@ -237,7 +237,7 @@ export default function LoginPage(): React.JSX.Element {
           }}
         />
 
-        <div className="relative flex h-full flex-col justify-between p-10 text-brand-ink xl:p-14">
+        <div className="relative flex h-full flex-col justify-between p-10 text-white xl:p-14">
           <div className="flex items-center gap-3">
             <span
               aria-hidden

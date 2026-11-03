@@ -119,14 +119,14 @@ function IntegrationsInner() {
                   <button
                     onClick={() => test.mutate(key)}
                     disabled={test.isPending}
-                    className="px-3 py-1.5 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover disabled:opacity-40"
+                    className="px-3 py-1.5 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover disabled:opacity-40 focus-ring"
                   >
                     {test.isPending && test.variables === key ? "در حال آزمون..." : "آزمون اتصال"}
                   </button>
                   {href && (
                     <Link
                       href={href}
-                      className="px-3 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium"
+                      className="px-3 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium"
                     >
                       جزئیات
                     </Link>

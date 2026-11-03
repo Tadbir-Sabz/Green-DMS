@@ -114,7 +114,7 @@ export default function RulesPage() {
         return (
           <button
             onClick={() => setExpanded(isOpen ? null : r.id ?? null)}
-            className="text-xs text-brand-soft-ink hover:underline"
+            className="text-xs text-brand-soft-ink hover:underline focus-ring"
           >
             {conds.length} شرط / {acts.length} اقدام {isOpen ? "▲" : "▼"}
             {isOpen && (
@@ -139,7 +139,7 @@ export default function RulesPage() {
         <button
           onClick={() => toggleActive(r)}
           disabled={toggling === r.id}
-          className={`px-2.5 py-1 rounded-lg text-xs border disabled:opacity-50 ${ r.is_active ? "border-brand-line text-brand-soft-ink hover:bg-brand-soft" : "border-line-strong text-ink-muted hover:bg-surface-hover" }`}
+          className={`focus-ring px-2.5 py-1 rounded-lg text-xs border disabled:opacity-50 ${ r.is_active ? "border-brand-line text-brand-soft-ink hover:bg-brand-soft" : "border-line-strong text-ink-muted hover:bg-surface-hover" }`}
         >
           {toggling === r.id ? "..." : r.is_active ? "فعال" : "غیرفعال"}
         </button>

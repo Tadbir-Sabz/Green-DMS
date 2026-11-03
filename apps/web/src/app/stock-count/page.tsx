@@ -111,7 +111,7 @@ function StockCountInner() {
           <button
             onClick={() => submit(s)}
             disabled={submitting === s.id}
-            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-xs"
+            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-xs focus-ring"
           >
             {submitting === s.id ? "..." : "پایان شمارش"}
           </button>
@@ -137,7 +137,7 @@ function StockCountInner() {
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
-          <Link href="/stock-count/new" className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium">
+          <Link href="/stock-count/new" className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium">
             انبارگردانی جدید
           </Link>
         </div>

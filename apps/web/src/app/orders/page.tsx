@@ -106,7 +106,7 @@ function OrdersInner() {
           <button
             onClick={() => approve(o)}
             disabled={approving === o.id}
-            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-xs"
+            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-xs focus-ring"
           >
             {approving === o.id ? "..." : "تأیید"}
           </button>

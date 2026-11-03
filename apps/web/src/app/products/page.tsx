@@ -203,14 +203,14 @@ export default function ProductsPage(): React.JSX.Element {
         </label>
         <button
           type="submit"
-          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover"
+          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover focus-ring"
         >
           جست‌وجو
         </button>
         <button
           type="button"
           onClick={() => void openForm()}
-          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-white hover:bg-info"
+          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-on-info hover:bg-info focus-ring"
         >
           + کالای جدید
         </button>
@@ -352,14 +352,14 @@ export default function ProductsPage(): React.JSX.Element {
             <button
               type="submit"
               disabled={saving || !form.category_id || !form.base_uom_id}
-              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-white hover:bg-info disabled:opacity-50"
+              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-on-info hover:bg-info disabled:opacity-50 focus-ring"
             >
               {saving ? 'در حال ثبت…' : 'ثبت کالا'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-lg border border-line-strong px-5 py-2 text-sm"
+              className="rounded-lg border border-line-strong px-5 py-2 text-sm focus-ring"
             >
               انصراف
             </button>
@@ -416,7 +416,7 @@ export default function ProductsPage(): React.JSX.Element {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => void toggleStatus(p)}
-                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface"
+                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
                     >
                       {p.status === 'active' ? 'مسدود کن' : 'فعال کن'}
                     </button>
@@ -435,7 +435,7 @@ export default function ProductsPage(): React.JSX.Element {
           <button
             onClick={() => void load(q, status, nextCursor)}
             disabled={loading}
-            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface disabled:opacity-50"
+            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface disabled:opacity-50 focus-ring"
           >
             {loading ? 'در حال دریافت…' : 'صفحه بعدی'}
           </button>

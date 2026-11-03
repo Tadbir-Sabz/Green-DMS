@@ -127,7 +127,7 @@ function ToursInner() {
         {(kind || status || tourDate) && (
           <button
             onClick={() => { setKind(""); setStatus(""); setTourDate(null); }}
-            className="px-3 py-2 rounded-xl border border-line-strong text-sm text-ink-muted hover:bg-surface-hover"
+            className="px-3 py-2 rounded-xl border border-line-strong text-sm text-ink-muted hover:bg-surface-hover focus-ring"
           >
             پاک کردن فیلترها
           </button>

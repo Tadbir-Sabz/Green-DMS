@@ -141,7 +141,7 @@ export default function RoutesPage() {
             <button
               disabled={createArea.isPending}
               onClick={() => createArea.mutate()}
-              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50 text-sm"
+              className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 text-sm focus-ring"
             >
               افزودن منطقه
             </button>
@@ -222,7 +222,7 @@ export default function RoutesPage() {
             <button
               disabled={createRoute.isPending}
               onClick={() => createRoute.mutate()}
-              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50 text-sm"
+              className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 text-sm focus-ring"
             >
               افزودن مسیر
             </button>

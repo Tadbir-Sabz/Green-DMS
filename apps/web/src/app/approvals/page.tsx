@@ -92,7 +92,7 @@ export default function ApprovalsPage() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm border ${ status === s ? "border-brand text-brand-soft-ink" : "border-line" }`}
+            className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${ status === s ? "border-brand text-brand-soft-ink" : "border-line" }`}
           >
             {s === "" ? "همه" : STATUS_FA[s]}
           </button>
@@ -181,7 +181,7 @@ export default function ApprovalsPage() {
                   <button
                     disabled={decide.isPending}
                     onClick={() => decide.mutate(selected)}
-                    className="w-full px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
+                    className="w-full px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring"
                   >
                     ثبت تصمیم
                   </button>

@@ -152,7 +152,7 @@ export default function UsersInner() {
       render: (u) => (
         <button
           onClick={() => toggleActive(u)}
-          className="px-2.5 py-1 rounded-lg border border-line-strong text-xs text-ink hover:bg-surface-hover"
+          className="px-2.5 py-1 rounded-lg border border-line-strong text-xs text-ink hover:bg-surface-hover focus-ring"
         >
           {u.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
         </button>
@@ -167,7 +167,7 @@ export default function UsersInner() {
           <h1 className="text-xl font-bold text-ink">کاربران</h1>
           <p className="text-ink-muted text-sm">کاربران سیستم، نقش‌ها و وضعیت دسترسی</p>
         </div>
-        <button onClick={openForm} className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium">
+        <button onClick={openForm} className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium focus-ring">
           کاربر جدید
         </button>
       </div>
@@ -187,10 +187,10 @@ export default function UsersInner() {
         title="ساخت کاربر جدید"
         footer={
           <>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover focus-ring">
               انصراف
             </button>
-            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium">
+            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-sm font-medium focus-ring">
               {saving ? "در حال ذخیره..." : "ذخیره"}
             </button>
           </>
@@ -239,7 +239,7 @@ export default function UsersInner() {
                         role_ids: on ? f.role_ids.filter((x) => x !== r.id) : [...f.role_ids, r.id!],
                       }))
                     }
-                    className={`px-3 py-1.5 rounded-lg text-xs border ${on ? "bg-brand border-brand text-white" : "border-line-strong text-ink"}`}
+                    className={`focus-ring px-3 py-1.5 rounded-lg text-xs border ${on ? "bg-brand border-brand text-white" : "border-line-strong text-ink"}`}
                   >
                     {r.name}
                   </button>

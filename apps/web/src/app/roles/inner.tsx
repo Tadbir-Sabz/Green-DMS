@@ -92,7 +92,7 @@ export default function RolesInner() {
         return (
           <button
             onClick={() => setExpanded(isExpanded ? null : r.id ?? null)}
-            className="text-xs text-brand-soft-ink hover:underline"
+            className="text-xs text-brand-soft-ink hover:underline focus-ring"
           >
             {codes.length} مجوز {isExpanded ? "▲" : "▼"}
             {isExpanded && (
@@ -124,7 +124,7 @@ export default function RolesInner() {
             setFormError(null);
             setShowForm(true);
           }}
-          className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium"
+          className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium focus-ring"
         >
           نقش جدید
         </button>
@@ -145,10 +145,10 @@ export default function RolesInner() {
         title="ساخت نقش جدید"
         footer={
           <>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover focus-ring">
               انصراف
             </button>
-            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium">
+            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-sm font-medium focus-ring">
               {saving ? "در حال ذخیره..." : "ذخیره"}
             </button>
           </>

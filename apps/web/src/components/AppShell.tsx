@@ -179,7 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           type="button"
           onClick={() => setMobileOpen(false)}
           aria-label="بستن منو"
-          className="ms-auto grid size-8 shrink-0 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-hover hover:text-ink md:hidden"
+          className="ms-auto grid size-8 shrink-0 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-hover hover:text-ink md:hidden focus-ring"
         >
           <IconClose className="size-4" />
         </button>
@@ -316,7 +316,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="باز کردن منو"
-          className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink md:hidden"
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink md:hidden focus-ring"
         >
           <IconMenu className="size-5" />
         </button>
@@ -347,7 +347,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           type="button"
           onClick={() => setPaletteOpen(true)}
           aria-label="جست‌وجوی سراسری"
-          className="hidden h-9 items-center gap-2 rounded-lg border border-line bg-surface-alt px-3 text-[13px] text-ink-subtle transition-colors hover:border-line-strong hover:text-ink-muted lg:flex lg:w-64"
+          className="hidden h-9 items-center gap-2 rounded-lg border border-line bg-surface-alt px-3 text-[13px] text-ink-subtle transition-colors hover:border-line-strong hover:text-ink-muted lg:flex lg:w-64 focus-ring"
         >
           <IconSearch className="size-4 shrink-0" />
           <span className="flex-1 text-start">جست‌وجو…</span>
@@ -461,7 +461,7 @@ function IconButtonMobile({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink lg:hidden"
+      className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink lg:hidden focus-ring"
     >
       {children}
     </button>

@@ -99,7 +99,7 @@ export default function StaffPage() {
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover"
+          className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover focus-ring"
         >
           {showForm ? "بستن" : "پرسنل جدید"}
         </button>
@@ -154,13 +154,13 @@ export default function StaffPage() {
             <button
               disabled={create.isPending}
               onClick={() => create.mutate()}
-              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring"
             >
               ثبت
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover"
+              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover focus-ring"
             >
               انصراف
             </button>
@@ -171,19 +171,19 @@ export default function StaffPage() {
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setIsField("")}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${!isField ? "border-brand text-brand-soft-ink" : "border-line"}`}
+          className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${!isField ? "border-brand text-brand-soft-ink" : "border-line"}`}
         >
           همه
         </button>
         <button
           onClick={() => setIsField("true")}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${isField === "true" ? "border-brand text-brand-soft-ink" : "border-line"}`}
+          className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${isField === "true" ? "border-brand text-brand-soft-ink" : "border-line"}`}
         >
           فقط میدانی‌ها
         </button>
         <button
           onClick={() => setIsField("false")}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${isField === "false" ? "border-brand text-brand-soft-ink" : "border-line"}`}
+          className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${isField === "false" ? "border-brand text-brand-soft-ink" : "border-line"}`}
         >
           غیرمیدانی
         </button>
@@ -214,7 +214,7 @@ export default function StaffPage() {
                   <button
                     disabled={toggle.isPending}
                     onClick={() => toggle.mutate(s)}
-                    className="px-2 py-1 rounded-lg border border-line text-xs hover:bg-surface-hover"
+                    className="px-2 py-1 rounded-lg border border-line text-xs hover:bg-surface-hover focus-ring"
                   >
                     {s.status === "active" ? "مسدودسازی" : "فعال‌سازی"}
                   </button>

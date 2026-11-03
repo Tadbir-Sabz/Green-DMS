@@ -96,7 +96,7 @@ export default function DevicesInner() {
           <button
             onClick={() => revoke(d)}
             disabled={revoking === d.id}
-            className="px-2.5 py-1 rounded-lg border border-danger-line text-xs text-danger-ink hover:bg-danger-soft disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg border border-danger-line text-xs text-danger-ink hover:bg-danger-soft disabled:opacity-50 focus-ring"
           >
             {revoking === d.id ? "..." : "ابطال"}
           </button>

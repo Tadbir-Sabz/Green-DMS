@@ -53,7 +53,7 @@ export default function MoadianPage() {
           <h1 className="text-xl font-bold text-ink">سامانه مؤدیان</h1>
           <p className="text-ink-muted text-sm">وضعیت صف ارسال فاکتور به سامانهٔ مؤدیان</p>
         </div>
-        <button onClick={() => refetch()} className="px-3 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink">بروزرسانی</button>
+        <button onClick={() => refetch()} className="px-3 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink focus-ring">بروزرسانی</button>
       </div>
       {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{(error as Error).message}</div>}
       <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">

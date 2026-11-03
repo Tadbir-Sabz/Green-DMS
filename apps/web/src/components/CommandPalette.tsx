@@ -126,7 +126,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             type="button"
             onClick={onClose}
             aria-label="بستن جست‌وجو"
-            className="grid size-7 shrink-0 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-hover hover:text-ink sm:hidden"
+            className="grid size-7 shrink-0 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-hover hover:text-ink sm:hidden focus-ring"
           >
             <IconClose className="size-4" />
           </button>

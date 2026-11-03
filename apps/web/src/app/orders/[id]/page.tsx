@@ -119,7 +119,7 @@ function OrderDetailInner() {
         <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">
           {(order.error as Error).message}
         </div>
-        <button onClick={() => router.back()} className="mt-4 text-sm text-brand-soft-ink hover:underline">
+        <button onClick={() => router.back()} className="mt-4 text-sm text-brand-soft-ink hover:underline focus-ring">
           بازگشت
         </button>
       </div>
@@ -130,7 +130,7 @@ function OrderDetailInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <button onClick={() => router.push("/orders")} className="text-xs text-ink-muted hover:text-brand-soft-ink mb-1">
+          <button onClick={() => router.push("/orders")} className="text-xs text-ink-muted hover:text-brand-soft-ink mb-1 focus-ring">
             → بازگشت به سفارش‌ها
           </button>
           <h1 className="text-xl font-bold text-ink">
@@ -149,7 +149,7 @@ function OrderDetailInner() {
             <button
               onClick={approve}
               disabled={approving}
-              className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium"
+              className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-sm font-medium focus-ring"
             >
               {approving ? "در حال تأیید..." : "تأیید سفارش"}
             </button>

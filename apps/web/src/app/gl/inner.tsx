@@ -108,7 +108,7 @@ function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void })
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className={`px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${ tab === t.id ? "border-brand text-brand-soft-ink font-semibold" : "border-transparent text-ink-muted hover:text-ink" }`}
+          className={`focus-ring px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${ tab === t.id ? "border-brand text-brand-soft-ink font-semibold" : "border-transparent text-ink-muted hover:text-ink" }`}
         >
           {t.label}
         </button>
@@ -507,7 +507,7 @@ function PeriodsPanel() {
           <button
             onClick={() => close.mutate(p.id as string)}
             disabled={close.isPending}
-            className="px-2.5 py-1 rounded-lg border border-warning-line text-xs text-warning-ink hover:bg-warning-soft disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg border border-warning-line text-xs text-warning-ink hover:bg-warning-soft disabled:opacity-50 focus-ring"
           >
             بستن دوره
           </button>
@@ -530,7 +530,7 @@ function PeriodsPanel() {
         {canManage && (
           <button
             onClick={() => { setShowCreate((v) => !v); setFormError(null); }}
-            className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover text-sm"
+            className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover text-sm focus-ring"
           >
             {showCreate ? "بستن فرم" : "دورهٔ جدید"}
           </button>
@@ -568,10 +568,10 @@ function PeriodsPanel() {
           </div>
           {formError && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{formError}</div>}
           <div className="flex gap-2">
-            <button onClick={() => create.mutate()} disabled={create.isPending} className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50 text-sm">
+            <button onClick={() => create.mutate()} disabled={create.isPending} className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 text-sm focus-ring">
               {create.isPending ? "در حال ساخت..." : "ذخیره"}
             </button>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-sm">
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-sm focus-ring">
               انصراف
             </button>
           </div>

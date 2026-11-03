@@ -220,14 +220,14 @@ export default function PersonsPage(): React.JSX.Element {
         </label>
         <button
           type="submit"
-          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover"
+          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover focus-ring"
         >
           جست‌وجو
         </button>
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-white hover:bg-info"
+          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-on-info hover:bg-info focus-ring"
         >
           + شخص جدید
         </button>
@@ -387,14 +387,14 @@ export default function PersonsPage(): React.JSX.Element {
             <button
               type="submit"
               disabled={saving || !form.code.trim()}
-              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-white hover:bg-info disabled:opacity-50"
+              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-on-info hover:bg-info disabled:opacity-50 focus-ring"
             >
               {saving ? 'در حال ثبت…' : editId ? 'ذخیره تغییرات' : 'ثبت شخص'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-lg border border-line-strong px-5 py-2 text-sm"
+              className="rounded-lg border border-line-strong px-5 py-2 text-sm focus-ring"
             >
               انصراف
             </button>
@@ -457,13 +457,13 @@ export default function PersonsPage(): React.JSX.Element {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEdit(p)}
-                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface"
+                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
                     >
                       ویرایش
                     </button>
                     <button
                       onClick={() => void toggleActive(p)}
-                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface"
+                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
                     >
                       {p.is_active ? 'غیرفعال کن' : 'فعال کن'}
                     </button>
@@ -480,7 +480,7 @@ export default function PersonsPage(): React.JSX.Element {
         {nextCursor && (
           <button
             onClick={() => void load(q, legalType, nextCursor)}
-            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface"
+            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface focus-ring"
           >
             بارگذاری موارد بعدی…
           </button>

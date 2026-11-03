@@ -129,7 +129,7 @@ function RequestsInner() {
             <button
               onClick={() => convert.mutate(r.id!)}
               disabled={convert.isPending}
-              className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-white text-xs font-medium"
+              className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-brand-ink text-xs font-medium focus-ring"
             >
               {convert.isPending && convert.variables === r.id ? "در حال تبدیل..." : "تبدیل به سفارش"}
             </button>
@@ -182,7 +182,7 @@ function RequestsInner() {
         {(status || channel) && (
           <button
             onClick={() => { setStatus(""); setChannel(""); }}
-            className="px-3 py-2 rounded-xl border border-line-strong text-sm text-ink-muted hover:bg-surface-hover"
+            className="px-3 py-2 rounded-xl border border-line-strong text-sm text-ink-muted hover:bg-surface-hover focus-ring"
           >
             پاک کردن فیلترها
           </button>

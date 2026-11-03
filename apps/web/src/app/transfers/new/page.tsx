@@ -56,7 +56,7 @@ export default function NewTransferPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="font-semibold text-ink">اقلام انتقال</div>
-            <button onClick={() => setItems([...items, { product_id: "", qty: 1, batch_id: "" }])} className="px-2 py-1 rounded-lg border border-line text-sm text-ink">افزودن قلم</button>
+            <button onClick={() => setItems([...items, { product_id: "", qty: 1, batch_id: "" }])} className="px-2 py-1 rounded-lg border border-line text-sm text-ink focus-ring">افزودن قلم</button>
           </div>
           <div className="space-y-2">
             {items.map((it, idx) => (
@@ -69,8 +69,8 @@ export default function NewTransferPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button disabled={create.isPending} onClick={() => create.mutate()} className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50">ذخیره پیش‌نویس</button>
-          <button onClick={() => router.push("/transfers")} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink">انصراف</button>
+          <button disabled={create.isPending} onClick={() => create.mutate()} className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring">ذخیره پیش‌نویس</button>
+          <button onClick={() => router.push("/transfers")} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink focus-ring">انصراف</button>
         </div>
       </div>
     </div>

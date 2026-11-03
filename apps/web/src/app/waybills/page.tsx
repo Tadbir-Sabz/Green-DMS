@@ -97,7 +97,7 @@ export default function WaybillsPage() {
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover"
+          className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover focus-ring"
         >
           {showForm ? "بستن" : "حواله جدید"}
         </button>
@@ -142,7 +142,7 @@ export default function WaybillsPage() {
               <div className="text-sm font-semibold text-ink">اقلام</div>
               <button
                 onClick={() => setItems([...items, { product_id: "", qty: 1 }])}
-                className="px-2 py-1 rounded-lg border border-line text-sm"
+                className="px-2 py-1 rounded-lg border border-line text-sm focus-ring"
               >
                 افزودن قلم
               </button>
@@ -181,13 +181,13 @@ export default function WaybillsPage() {
             <button
               disabled={create.isPending}
               onClick={() => create.mutate()}
-              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring"
             >
               ثبت پیش‌نویس
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover"
+              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover focus-ring"
             >
               انصراف
             </button>
@@ -198,7 +198,7 @@ export default function WaybillsPage() {
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setStatus("")}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${!status ? "border-brand text-brand-soft-ink" : "border-line"}`}
+          className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${!status ? "border-brand text-brand-soft-ink" : "border-line"}`}
         >
           همه
         </button>
@@ -206,7 +206,7 @@ export default function WaybillsPage() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm border ${status === s ? "border-brand text-brand-soft-ink" : "border-line"}`}
+            className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${status === s ? "border-brand text-brand-soft-ink" : "border-line"}`}
           >
             {STATUS_FA[s]}
           </button>

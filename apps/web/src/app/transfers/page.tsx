@@ -99,7 +99,7 @@ function TransfersInner() {
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
-          <Link href="/transfers/new" className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium">
+          <Link href="/transfers/new" className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-brand-ink text-sm font-medium">
             انتقال جدید
           </Link>
         </div>

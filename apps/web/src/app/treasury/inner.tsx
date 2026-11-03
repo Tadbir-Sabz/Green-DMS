@@ -53,7 +53,7 @@ function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void })
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className={`px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${ tab === t.id ? "border-brand text-brand-soft-ink font-semibold" : "border-transparent text-ink-muted hover:text-ink" }`}
+          className={`focus-ring px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${ tab === t.id ? "border-brand text-brand-soft-ink font-semibold" : "border-transparent text-ink-muted hover:text-ink" }`}
         >
           {t.label}
         </button>
@@ -223,7 +223,7 @@ function ClosesPanel() {
           <button
             onClick={() => approve.mutate(c.id as string)}
             disabled={approve.isPending}
-            className="px-2.5 py-1 rounded-lg border border-brand-line text-xs text-brand-soft-ink hover:bg-brand-soft disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg border border-brand-line text-xs text-brand-soft-ink hover:bg-brand-soft disabled:opacity-50 focus-ring"
           >
             تأیید
           </button>

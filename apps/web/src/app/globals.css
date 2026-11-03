@@ -73,6 +73,10 @@
      توکن نام‌دار تعریف می‌کنیم که هم درست کار می‌کند هم خواناتر است. */
   --color-surface-glass: var(--surface-glass);
   --color-brand-soft-hover: var(--brand-soft-hover);
+  /* پنل برند: برخلاف brand-active که در حالت شب روشن می‌شود، این توکن در هر دو
+     تم تیره می‌ماند تا متن سفید رویش همیشه کنتراست کافی (بیش از ۴٫۵:۱) داشته باشد. */
+  --color-brand-panel: var(--brand-panel);
+  --color-brand-panel-deep: var(--brand-panel-deep);
   --color-success-line: var(--success-line);
   --color-warning-line: var(--warning-line);
   --color-danger-line: var(--danger-line);
@@ -141,6 +145,8 @@
 
   --surface-glass: rgb(255 255 255 / 0.82);
   --brand-soft-hover: #d5efe4;
+  --brand-panel: #0b7a55;
+  --brand-panel-deep: #075c40;
   --success-line: #bfe5d5;
   --warning-line: #f6dcb6;
   --danger-line: #f2cbc6;
@@ -203,6 +209,8 @@
 
   --surface-glass: rgb(16 22 31 / 0.82);
   --brand-soft-hover: #16382b;
+  --brand-panel: #0a5c40;
+  --brand-panel-deep: #063f2c;
   --success-line: #1d4a38;
   --warning-line: #55401c;
   --danger-line: #572b28;
