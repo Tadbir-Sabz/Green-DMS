@@ -1,10 +1,10 @@
-﻿package com.greendms.salesman.navigation
+package com.greendms.salesman.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.greendms.salesman.ui.login.LoginScreen
+import com.greendms.salesman.ui.screens.auth.LoginScreen
 import com.greendms.salesman.ui.screens.HomeScreen
 import com.greendms.salesman.ui.screens.tour.TourScreen
 import com.greendms.salesman.ui.screens.order.OrderScreen

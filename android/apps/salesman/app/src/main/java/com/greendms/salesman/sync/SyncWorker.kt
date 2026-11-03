@@ -1,4 +1,4 @@
-﻿package com.greendms.salesman.sync
+package com.greendms.salesman.sync
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -8,10 +8,10 @@ import com.greendms.salesman.repository.AuthRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.openapitools.client.apis.OrdersApi
-import org.openapitools.client.apis.ToursApi
-import org.openapitools.client.apis.CustomersApi
-import org.openapitools.client.infrastructure.ApiClient
+import com.greendms.api.client.apis.OrdersApi
+import com.greendms.api.client.apis.ToursApi
+import com.greendms.api.client.apis.CustomersApi
+import com.greendms.api.client.infrastructure.ApiClient
 import javax.inject.Inject
 
 class SyncWorker @Inject constructor(
