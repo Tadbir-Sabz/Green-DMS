@@ -231,7 +231,7 @@ export default function ProductsPage(): React.JSX.Element {
       {showForm && (
         <form
           onSubmit={submitForm}
-          className="mb-6 rounded-xl border border-info/25 bg-info-soft/40 p-5"
+          className="mb-6 rounded-xl border border-info-line bg-info-soft p-5"
         >
           <h2 className="mb-4 font-semibold">کالای جدید</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -398,7 +398,7 @@ export default function ProductsPage(): React.JSX.Element {
             )}
             {!loading &&
               items.map((p) => (
-                <tr key={p.id} className="border-t border-line hover:bg-surface-alt/60">
+                <tr key={p.id} className="border-t border-line hover:bg-surface-alt">
                   <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
                   <td className="px-4 py-3">{p.name}</td>
                   <td className="px-4 py-3">

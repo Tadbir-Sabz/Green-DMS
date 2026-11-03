@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import type { ComponentProps, ReactNode, Ref } from "react";
 import { cn } from "@/lib/cn";
 import { IconLoader } from "@/components/icons";
 
@@ -38,7 +38,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
     "bg-brand text-brand-ink shadow-xs hover:bg-brand-hover active:bg-brand-active",
   secondary:
     "bg-surface text-ink border border-line shadow-xs hover:bg-surface-alt hover:border-line-strong",
-  soft: "bg-brand-soft text-brand-soft-ink hover:bg-brand-soft/70 active:bg-brand-soft",
+  soft: "bg-brand-soft text-brand-soft-ink hover:bg-brand-soft-hover active:bg-brand-soft",
   ghost: "text-ink-muted hover:bg-surface-hover hover:text-ink",
   danger: "bg-danger text-on-danger shadow-xs hover:brightness-110 active:brightness-95",
   "danger-soft":
@@ -65,7 +65,7 @@ type CommonProps = {
 };
 
 type ButtonAsButton = CommonProps &
-  Omit<ComponentPropsWithoutRef<"button">, keyof CommonProps> & { href?: undefined };
+  Omit<ComponentProps<"button">, keyof CommonProps> & { href?: undefined };
 
 type ButtonAsLink = CommonProps & {
   href: string;
@@ -81,10 +81,21 @@ function classes(variant: ButtonVariant, size: ButtonSize, block?: boolean, clas
 }
 
 export function Button(props: ButtonProps) {
-  const { variant = "secondary", size = "md", loading = false, block, className, children } = props;
+  // یک بار همهٔ پراپ‌های مخصوص طراحی را جدا می‌کنیم تا هیچ‌کدام به DOM نرسند.
+  // (پیش‌تر در شاخهٔ <button> تنها type/disabled جدا می‌شد و variant/size/loading/block
+  // به‌عنوان صفت نامعتبر روی عنصر DOM می‌نشستند → هشدار ری‌اکت.)
+  const {
+    variant = "secondary",
+    size = "md",
+    loading = false,
+    block,
+    className,
+    children,
+    ...rest
+  } = props as CommonProps;
 
   if ("href" in props && props.href !== undefined) {
-    const { href, target, rel, prefetch } = props;
+    const { href, target, rel, prefetch } = rest as ButtonAsLink;
     return (
       <Link
         href={href}
@@ -98,14 +109,15 @@ export function Button(props: ButtonProps) {
     );
   }
 
-  const { type = "button", disabled, ...rest } = props as ButtonAsButton;
+  const { type = "button", disabled, ref, ...buttonProps } = rest as ButtonAsButton;
   return (
     <button
+      ref={ref as Ref<HTMLButtonElement> | undefined}
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={classes(variant, size, block, className)}
-      {...rest}
+      {...buttonProps}
     >
       {loading && <IconLoader className="size-4 animate-spin" />}
       {children}

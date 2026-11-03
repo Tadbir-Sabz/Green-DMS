@@ -6,6 +6,8 @@ import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import AdminGuard from "@/components/auth/guards";
 import { useToast } from "@/components/ui/Toast";
+import { Input } from "@/components/ui/Form";
+import { Badge } from "@/components/ui/Badge";
 
 /**
  * تنظیمات سامانه — GET /settings (مؤثر) و PATCH /settings (به‌روزرسانی).
@@ -112,9 +114,9 @@ function SettingsInner() {
           <table className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted text-xs">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">کلید</th>
-                <th className="text-right px-4 py-3 font-medium">مقدار</th>
-                <th className="text-right px-4 py-3 font-medium">دامنه</th>
+                <th className="text-start px-4 py-3 font-medium">کلید</th>
+                <th className="text-start px-4 py-3 font-medium">مقدار</th>
+                <th className="text-start px-4 py-3 font-medium">دامنه</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -124,11 +126,20 @@ function SettingsInner() {
                   <tr key={`${it.key}:${it.scope_type ?? ""}:${it.scope_id ?? ""}`}>
                     <td className="px-4 py-2 font-mono text-xs text-ink">{it.key}</td>
                     <td className="px-4 py-2">
-                      <input
-                        value={draft[it.key] ?? ""}
-                        onChange={(e) => setDraft((d) => ({ ...d, [it.key]: e.target.value }))}
-                        className={`w-full px-3 py-1.5 rounded-lg border bg-surface text-sm text-ink ${ isChanged ? "border-amber-400" : "border-line" }`}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          size="sm"
+                          value={draft[it.key] ?? ""}
+                          onChange={(e) => setDraft((d) => ({ ...d, [it.key]: e.target.value }))}
+                          aria-label={`مقدار ${it.key}`}
+                          className={isChanged ? "border-warning" : undefined}
+                        />
+                        {isChanged && (
+                          <Badge tone="warning" size="sm">
+                            تغییر یافته
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2 text-xs text-ink-muted">
                       {SCOPE_FA[it.scope_type ?? ""] ?? it.scope_type ?? "—"}

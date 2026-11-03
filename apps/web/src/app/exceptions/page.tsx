@@ -82,7 +82,7 @@ export default function ExceptionsPage() {
       </div>
 
       {(error || list.isError) && (
-        <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">
           {error ?? (list.error as Error).message}
         </div>
       )}

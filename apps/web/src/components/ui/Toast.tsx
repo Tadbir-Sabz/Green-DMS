@@ -52,19 +52,19 @@ const DURATION: Record<ToastKind, number> = {
 
 const KIND_STYLE: Record<ToastKind, { box: string; icon: ReactNode }> = {
   success: {
-    box: "border-success/30 bg-success-soft text-success-ink",
+    box: "border-success-line bg-success-soft text-success-ink",
     icon: <IconCheckCircle className="size-4.5" />,
   },
   error: {
-    box: "border-danger/30 bg-danger-soft text-danger-ink",
+    box: "border-danger-line bg-danger-soft text-danger-ink",
     icon: <IconAlertCircle className="size-4.5" />,
   },
   warning: {
-    box: "border-warning/30 bg-warning-soft text-warning-ink",
+    box: "border-warning-line bg-warning-soft text-warning-ink",
     icon: <IconAlertTriangle className="size-4.5" />,
   },
   info: {
-    box: "border-info/30 bg-info-soft text-info-ink",
+    box: "border-info-line bg-info-soft text-info-ink",
     icon: <IconInfo className="size-4.5" />,
   },
 };

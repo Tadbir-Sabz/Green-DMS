@@ -248,7 +248,7 @@ export default function PersonsPage(): React.JSX.Element {
       {showForm && (
         <form
           onSubmit={submitForm}
-          className="mb-6 rounded-xl border border-info/25 bg-info-soft/40 p-5"
+          className="mb-6 rounded-xl border border-info-line bg-info-soft p-5"
         >
           <h2 className="mb-4 font-semibold">
             {editId ? 'ویرایش شخص' : 'شخص جدید'}
@@ -432,7 +432,7 @@ export default function PersonsPage(): React.JSX.Element {
               </tr>
             )}
             {items.map((p) => (
-              <tr key={p.id} className="border-t border-line hover:bg-surface-alt/60">
+              <tr key={p.id} className="border-t border-line hover:bg-surface-alt">
                 <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
                 <td className="px-4 py-3">{displayName(p)}</td>
                 <td className="px-4 py-3 text-ink-muted">

@@ -131,7 +131,7 @@ export default function GeofencesPage() {
       </div>
 
       {formError && (
-        <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{formError}</div>
       )}
 
       {showForm && (
@@ -231,7 +231,7 @@ export default function GeofencesPage() {
                       onClick={() => {
                         if (confirm(`محدوده «${g.name}» حذف شود؟`)) remove.mutate(g.id);
                       }}
-                      className="px-2 py-1 rounded-lg border border-danger/25 text-danger-ink text-xs hover:bg-danger-soft"
+                      className="px-2 py-1 rounded-lg border border-danger-line text-danger-ink text-xs hover:bg-danger-soft"
                     >
                       حذف
                     </button>

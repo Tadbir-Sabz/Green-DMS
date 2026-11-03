@@ -37,7 +37,7 @@ export default function ReportsInventoryPage() {
         </div>
         <ExportButtons data={items} tableId="inventory-report-table" filename="inventory-report" />
       </div>
-      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{(error as Error).message}</div>}
       <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table id="inventory-report-table" className="w-full text-sm">

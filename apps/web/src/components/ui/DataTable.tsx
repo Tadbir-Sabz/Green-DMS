@@ -79,7 +79,7 @@ export function DataTable<T>({
 }: {
   columns: Column<T>[];
   rows: T[];
-  rowKey: (row: T) => string | number;
+  rowKey: (row: T, index: number) => string | number;
   loading?: boolean;
   error?: ReactNode;
   emptyMessage?: ReactNode;
@@ -151,7 +151,7 @@ export function DataTable<T>({
 
   const toggleAll = (): void => {
     if (!onSelectedChange) return;
-    onSelectedChange(allSelected ? [] : visibleRows.map(rowKey));
+    onSelectedChange(allSelected ? [] : visibleRows.map((row, index) => rowKey(row, index)));
   };
 
   const toggleRow = (key: string | number): void => {
@@ -288,7 +288,7 @@ export function DataTable<T>({
             {!loading &&
               !error &&
               visibleRows.map((row, rowIndex) => {
-                const key = rowKey(row);
+                const key = rowKey(row, rowIndex);
                 const isSelected = selected.includes(key);
                 return (
                   <tr
@@ -299,10 +299,10 @@ export function DataTable<T>({
                       "transition-colors",
                       onRowClick && "cursor-pointer",
                       isSelected
-                        ? "bg-brand-soft/60"
+                        ? "bg-brand-soft"
                         : striped && rowIndex % 2 === 1
-                          ? "bg-surface-alt/40"
-                          : "hover:bg-surface-hover/70",
+                          ? "bg-surface-alt"
+                          : "hover:bg-surface-hover",
                     )}
                   >
                     {selectable && (
@@ -339,7 +339,7 @@ export function DataTable<T>({
       </div>
 
       {footer && (
-        <div className="border-t border-line bg-surface-alt/50 px-4 py-3 text-[13px]">{footer}</div>
+        <div className="border-t border-line bg-surface-alt px-4 py-3 text-[13px]">{footer}</div>
       )}
 
       {pagination && !loading && !error && <Pagination {...pagination} />}

@@ -116,7 +116,7 @@ function OrderDetailInner() {
   if (order.error)
     return (
       <div className="p-6">
-        <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">
           {(order.error as Error).message}
         </div>
         <button onClick={() => router.back()} className="mt-4 text-sm text-brand-soft-ink hover:underline">

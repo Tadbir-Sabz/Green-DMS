@@ -173,7 +173,7 @@ export default function ReturnsPage() {
         <div className="bg-surface border border-line rounded-2xl p-6 space-y-4">
           <div className="font-semibold">درخواست مرجوعی جدید</div>
           {formError && (
-            <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>
+            <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{formError}</div>
           )}
           <div className="grid md:grid-cols-3 gap-4">
             <div>
@@ -396,7 +396,7 @@ export default function ReturnsPage() {
               )}
 
               {decisionError && (
-                <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{decisionError}</div>
+                <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{decisionError}</div>
               )}
 
               <div className="border-t border-line pt-3">

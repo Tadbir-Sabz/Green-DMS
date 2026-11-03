@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { EmptyState, Skeleton } from "@/components/ui/Feedback";
+import { IconLock } from "@/components/icons";
 
 type RoleGuardProps = {
   /** کدهای نقش مجاز (RBAC نقش‌محور) */
@@ -12,6 +14,25 @@ type RoleGuardProps = {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 };
+
+/** اسکلتون تمام‌صفحه هنگام بررسی دسترسی — از «چشمک» محتوای واقعی جلوگیری می‌کند */
+function GuardLoading() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <span className="sr-only">در حال بررسی دسترسی…</span>
+      <div className="space-y-2">
+        <Skeleton className="h-7 w-52" />
+        <Skeleton className="h-4 w-80" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-32 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="h-72 rounded-2xl" />
+    </div>
+  );
+}
 
 /**
  * محافظ دسترسی.
@@ -40,10 +61,18 @@ export function RoleGuard({ allowed, permission, children, fallback }: RoleGuard
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading, allowed, permission, router]);
 
-  if (isLoading) return <div className="p-6 text-ink-muted">در حال بررسی دسترسی...</div>;
+  if (isLoading) return <GuardLoading />;
   if (!user) return null;
   if (!permitted()) {
-    return fallback || <div className="p-6 text-ink-muted">دسترسی غیرمجاز</div>;
+    return (
+      fallback || (
+        <EmptyState
+          icon={<IconLock />}
+          title="دسترسی غیرمجاز"
+          description="نقش یا مجوز لازم برای دیدن این بخش را ندارید. در صورت نیاز با مدیر سامانه تماس بگیرید."
+        />
+      )
+    );
   }
 
   return <>{children}</>;

@@ -1,17 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, errorMessage } from "@/lib/api";
 import { ExportButtons } from "@/components/reports/ExportButtons";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Form";
+import { Alert } from "@/components/ui/Feedback";
+import { DataTable, type Column } from "@/components/ui/DataTable";
+import { IconChart, IconClose, IconRefresh } from "@/components/icons";
+import { formatNumber } from "@/lib/format";
 
 type ReportColumn = { key?: string; title?: string };
-type ReportResult = { columns?: ReportColumn[]; rows?: Record<string, unknown>[] };
+type ReportRow = Record<string, unknown>;
+type ReportResult = { columns?: ReportColumn[]; rows?: ReportRow[] };
+
+/** آستانهٔ صفحه‌بندی سمت کلاینت — گزارش‌های بزرگ در یک صفحه رندر نمی‌شوند */
+const PAGE_SIZE = 50;
+
+/** آیا مقدار عددی است؟ (هم number و هم رشتهٔ اعشاریِ قرارداد) */
+function isNumeric(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string" && value.trim() !== "") return !Number.isNaN(Number(value));
+  return false;
+}
 
 /**
  * ReportRunner — اجرای گزارش از GET /reports/{key}?from&to&format=json.
+ *
  * ستون‌ها سمت سرور تعریف می‌شوند (report-registry) پس وب نیازی به hardcode
- * شکل داده ندارد. فیلتر بازهٔ تاریخ + خروجی Excel/PDF دارد.
+ * شکل داده ندارد. این جزء حالا از اجزای استاندارد سیستم طراحی استفاده می‌کند:
+ * سربدنهٔ صفحه، کارت فیلتر، DataTable با اسکلتون/حالت خالی، و صفحه‌بندی
+ * سمت کلاینت برای گزارش‌های پرحجم.
  */
 export function ReportRunner({
   reportKey,
@@ -26,9 +48,10 @@ export function ReportRunner({
 }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
   const tableId = `${filename}-table`;
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["report", reportKey, from, to],
     queryFn: async () => {
       const query: { from?: string; to?: string; format: "json" } = { format: "json" };
@@ -45,70 +68,132 @@ export function ReportRunner({
   const columns = data?.columns ?? [];
   const rows = data?.rows ?? [];
 
+  // با تغییر فیلتر، به صفحهٔ اول برگرد
+  const setRange = (nextFrom: string, nextTo: string): void => {
+    setFrom(nextFrom);
+    setTo(nextTo);
+    setPage(1);
+  };
+
+  const tableColumns = useMemo<Column<ReportRow>[]>(
+    () =>
+      columns.map((column, index) => ({
+        key: column.key ?? `col-${index}`,
+        header: column.title ?? column.key ?? "",
+        // ستون عددی: چپ‌چین (end در RTL) با ارقام جدولی
+        align: rows.some((row) => column.key && isNumeric(row[column.key])) ? "end" : "start",
+        sortValue: (row) => {
+          const value = column.key ? row[column.key] : null;
+          if (value == null) return null;
+          return isNumeric(value) ? Number(value) : String(value);
+        },
+        render: (row) => {
+          const value = column.key ? row[column.key] : "";
+          if (value == null || value === "") return <span className="text-ink-subtle">—</span>;
+          if (isNumeric(value)) {
+            return <span className="tnum">{formatNumber(Number(value))}</span>;
+          }
+          return <span className="whitespace-nowrap">{String(value)}</span>;
+        },
+      })),
+    [columns, rows],
+  );
+
+  const paginated = rows.length > PAGE_SIZE;
+  const pageRows = paginated
+    ? rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    : rows;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-ink">{title}</h1>
-          {subtitle && <p className="text-ink-muted text-sm">{subtitle}</p>}
-        </div>
-        <ExportButtons data={rows} tableId={tableId} filename={filename} />
-      </div>
-
-      {/* فیلتر بازهٔ تاریخ */}
-      <div className="flex flex-wrap items-end gap-3 bg-surface border border-line rounded-2xl p-4">
-        <div>
-          <label className="block text-xs text-ink-muted mb-1">از تاریخ</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-3 py-2 rounded-xl border border-line bg-transparent text-ink" />
-        </div>
-        <div>
-          <label className="block text-xs text-ink-muted mb-1">تا تاریخ</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-3 py-2 rounded-xl border border-line bg-transparent text-ink" />
-        </div>
-        {(from || to) && (
-          <button onClick={() => { setFrom(""); setTo(""); }} className="px-3 py-2 rounded-xl border border-line text-sm text-ink-muted hover:bg-surface-hover">
-            پاک کردن فیلتر
-          </button>
-        )}
-      </div>
-
-      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{(error as Error).message}</div>}
-
-      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table id={tableId} className="w-full text-sm">
-            <thead className="bg-surface-alt text-ink-muted">
-              <tr>
-                {columns.map((c, i) => (
-                  <th key={c.key ?? i} className="text-right p-3 font-medium whitespace-nowrap">{c.title ?? c.key ?? ""}</th>
-                ))}
-                {columns.length === 0 && <th className="text-right p-3 font-medium">—</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && (
-                <tr><td colSpan={Math.max(columns.length, 1)} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>
+      <PageHeader
+        title={title}
+        description={subtitle}
+        icon={<IconChart />}
+        actions={
+          <>
+            {isFetching && !isLoading && (
+              <span className="flex items-center gap-1.5 text-[11px] text-ink-subtle">
+                <IconRefresh className="size-3.5 animate-spin" />
+                در حال به‌روزرسانی
+              </span>
+            )}
+            <ExportButtons data={rows} tableId={tableId} filename={filename} />
+          </>
+        }
+        toolbar={
+          <>
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label="از تاریخ" htmlFor={`${filename}-from`} className="w-40">
+                <Input
+                  id={`${filename}-from`}
+                  type="date"
+                  value={from}
+                  onChange={(event) => setRange(event.target.value, to)}
+                />
+              </Field>
+              <Field label="تا تاریخ" htmlFor={`${filename}-to`} className="w-40">
+                <Input
+                  id={`${filename}-to`}
+                  type="date"
+                  value={to}
+                  onChange={(event) => setRange(from, event.target.value)}
+                />
+              </Field>
+              {(from || to) && (
+                <Button variant="ghost" size="md" onClick={() => setRange("", "")}>
+                  <IconClose className="size-4" />
+                  پاک کردن فیلتر
+                </Button>
               )}
-              {!isLoading && rows.length === 0 && (
-                <tr><td colSpan={Math.max(columns.length, 1)} className="text-center p-6 text-ink-subtle">داده‌ای برای نمایش نیست</td></tr>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="secondary" size="md" onClick={() => void refetch()} loading={isFetching}>
+                <IconRefresh className="size-4" />
+                اجرای دوباره
+              </Button>
+              {!isLoading && !error && (
+                <span className="tnum text-xs text-ink-subtle">
+                  {formatNumber(rows.length)} رکورد
+                </span>
               )}
-              {!isLoading && rows.map((row, ridx) => (
-                <tr key={ridx} className="border-t border-line hover:bg-surface-hover">
-                  {columns.map((c, cidx) => {
-                    const v = c.key ? row[c.key] : "";
-                    const numeric = typeof v === "number" || (typeof v === "string" && v !== "" && !Number.isNaN(Number(v)));
-                    return (
-                      <td key={c.key ?? cidx} className="p-3 whitespace-nowrap">
-                        {numeric ? Number(v).toLocaleString("fa-IR") : (v == null || v === "" ? "-" : String(v))}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          </>
+        }
+      />
+
+      {error && (
+        <Alert tone="danger" title="اجرای گزارش ناموفق بود">
+          {(error as Error).message}
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <Card padded={false}>
+          <CardBody className="space-y-3 py-6">
+            <div className="h-4 w-full rounded bg-surface-alt" />
+            <div className="h-4 w-5/6 rounded bg-surface-alt" />
+            <div className="h-4 w-4/6 rounded bg-surface-alt" />
+          </CardBody>
+        </Card>
+      ) : (
+        <DataTable
+          id={tableId}
+          columns={tableColumns}
+          rows={pageRows}
+          rowKey={(_row, index) => String(index)}
+          loading={false}
+          error={null}
+          emptyMessage="داده‌ای برای نمایش نیست"
+          emptyDescription="بازهٔ تاریخ را تغییر دهید یا گزارش را دوباره اجرا کنید."
+          emptyIcon={<IconChart />}
+          pagination={
+            paginated
+              ? { page, pageSize: PAGE_SIZE, total: rows.length, onPageChange: setPage }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }

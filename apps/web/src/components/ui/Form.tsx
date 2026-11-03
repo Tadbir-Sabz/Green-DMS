@@ -18,11 +18,16 @@ import { IconAlertCircle, IconCheck, IconChevronDown, IconClose, IconSearch } fr
  * «input با کلاس‌های خام + label دستی» در صفحات CRUD است.
  */
 
-const CONTROL =
+/**
+ * کلاس‌های پایهٔ ورودی‌ها — برون‌بری شده تا اجزای هم‌خانواده (مثل
+ * JalaliDatePicker) دقیقاً همان ارتفاع، حاشیه و حالت تمرکز ورودی‌ها را
+ * داشته باشند و ظاهر فرم‌ها یکدست بماند.
+ */
+export const CONTROL =
   "w-full rounded-lg border bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 " +
   "placeholder:text-ink-subtle focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
-const CONTROL_SIZES = {
+export const CONTROL_SIZES = {
   sm: "h-8.5 px-2.5 text-[13px]",
   md: "h-10 px-3 text-sm",
   lg: "h-11.5 px-3.5 text-[15px]",
@@ -30,7 +35,7 @@ const CONTROL_SIZES = {
 
 export type ControlSize = keyof typeof CONTROL_SIZES;
 
-function stateClass(invalid?: boolean) {
+export function stateClass(invalid?: boolean) {
   return invalid
     ? "border-danger focus-visible:outline-danger"
     : "border-line hover:border-line-strong";
@@ -364,7 +369,7 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label={ariaLabel}
       className={cn(
         "inline-flex items-center gap-1 rounded-xl border border-line bg-surface-alt p-1",
@@ -377,8 +382,7 @@ export function SegmentedControl<T extends string>({
           <button
             key={o.value}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-lg font-medium transition-all duration-150 focus-ring [&>svg]:size-4",

@@ -67,6 +67,17 @@
   --color-on-warning: var(--on-warning);
   --color-on-info: var(--on-info);
 
+  /* خطوط رنگی ملایم وضعیت‌ها و سطح شیشه‌ای سربدنه.
+     دلیل وجود این توکن‌ها: Tailwind v4 روی رنگ‌های var()-محور، اصلاح‌گر شفافیت
+     (/25 و…) را اعمال نمی‌کند و بی‌صدا حذف می‌شود؛ پس به‌جای آلفای موقت،
+     توکن نام‌دار تعریف می‌کنیم که هم درست کار می‌کند هم خواناتر است. */
+  --color-surface-glass: var(--surface-glass);
+  --color-brand-soft-hover: var(--brand-soft-hover);
+  --color-success-line: var(--success-line);
+  --color-warning-line: var(--warning-line);
+  --color-danger-line: var(--danger-line);
+  --color-info-line: var(--info-line);
+
   /* تمرکز */
   --color-ring: var(--ring);
 
@@ -128,6 +139,13 @@
   --neutral-soft: #eef1f6;
   --neutral-ink: #4a5768;
 
+  --surface-glass: rgb(255 255 255 / 0.82);
+  --brand-soft-hover: #d5efe4;
+  --success-line: #bfe5d5;
+  --warning-line: #f6dcb6;
+  --danger-line: #f2cbc6;
+  --info-line: #cbdcfa;
+
   --on-danger: #ffffff;
   --on-success: #ffffff;
   --on-warning: #ffffff;
@@ -182,6 +200,13 @@
   --info-ink: #a8c8fd;
   --neutral-soft: #1a2230;
   --neutral-ink: #a4b0c2;
+
+  --surface-glass: rgb(16 22 31 / 0.82);
+  --brand-soft-hover: #16382b;
+  --success-line: #1d4a38;
+  --warning-line: #55401c;
+  --danger-line: #572b28;
+  --info-line: #23405f;
 
   --on-danger: #2c0f0d;
   --on-success: #052018;

@@ -163,7 +163,7 @@ export function Modal({
         <div className={cn("max-h-[70vh] overflow-y-auto px-5 py-4", bodyClassName)}>{children}</div>
 
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface-alt/60 px-5 py-3.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface-alt px-5 py-3.5">
             {footer}
           </div>
         )}

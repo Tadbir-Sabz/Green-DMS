@@ -174,17 +174,17 @@ export function ErrorState({
 export type AlertTone = "info" | "success" | "warning" | "danger" | "brand";
 
 const ALERT_TONES: Record<AlertTone, { box: string; icon: ReactNode }> = {
-  info: { box: "bg-info-soft text-info-ink border-info/25", icon: <IconInfo className="size-4.5" /> },
+  info: { box: "bg-info-soft text-info-ink border-info-line", icon: <IconInfo className="size-4.5" /> },
   success: {
-    box: "bg-success-soft text-success-ink border-success/25",
+    box: "bg-success-soft text-success-ink border-success-line",
     icon: <IconCheckCircle className="size-4.5" />,
   },
   warning: {
-    box: "bg-warning-soft text-warning-ink border-warning/25",
+    box: "bg-warning-soft text-warning-ink border-warning-line",
     icon: <IconAlertTriangle className="size-4.5" />,
   },
   danger: {
-    box: "bg-danger-soft text-danger-ink border-danger/25",
+    box: "bg-danger-soft text-danger-ink border-danger-line",
     icon: <IconAlertCircle className="size-4.5" />,
   },
   brand: {

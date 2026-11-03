@@ -305,7 +305,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-canvas">
       {/* ------------------------------ سربدنه ------------------------------ */}
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/85 px-3 backdrop-blur-md sm:gap-3 sm:px-5">
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface-glass px-3 backdrop-blur-md sm:gap-3 sm:px-5">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
@@ -329,7 +329,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           type="button"
           onClick={() => setPaletteOpen(true)}
           aria-label="جست‌وجوی سراسری"
-          className="hidden h-9 items-center gap-2 rounded-lg border border-line bg-surface-alt/70 px-3 text-[13px] text-ink-subtle transition-colors hover:border-line-strong hover:text-ink-muted lg:flex lg:w-64"
+          className="hidden h-9 items-center gap-2 rounded-lg border border-line bg-surface-alt px-3 text-[13px] text-ink-subtle transition-colors hover:border-line-strong hover:text-ink-muted lg:flex lg:w-64"
         >
           <IconSearch className="size-4 shrink-0" />
           <span className="flex-1 text-start">جست‌وجو…</span>

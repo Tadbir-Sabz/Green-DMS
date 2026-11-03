@@ -102,7 +102,7 @@ export function CardFooter({ className, ...rest }: ComponentPropsWithoutRef<"div
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface-alt/60 px-5 py-3.5",
+        "flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface-alt px-5 py-3.5",
         className,
       )}
       {...rest}

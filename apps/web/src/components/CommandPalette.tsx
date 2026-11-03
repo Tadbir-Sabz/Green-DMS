@@ -179,7 +179,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-line bg-surface-alt/60 px-4 py-2.5 text-[11px] text-ink-subtle">
+        <div className="flex items-center justify-between gap-3 border-t border-line bg-surface-alt px-4 py-2.5 text-[11px] text-ink-subtle">
           <span className="flex items-center gap-2">
             <Key>↑</Key>
             <Key>↓</Key>

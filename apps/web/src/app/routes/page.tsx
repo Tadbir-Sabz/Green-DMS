@@ -112,7 +112,7 @@ export default function RoutesPage() {
       </div>
 
       {formError && (
-        <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{formError}</div>
       )}
 
       {/* مناطق */}

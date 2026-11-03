@@ -21,7 +21,7 @@ export default function GlobalError({
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
-      <div className="max-w-md w-full text-center bg-surface border border-danger/25 rounded-2xl p-8 shadow-sm">
+      <div className="max-w-md w-full text-center bg-surface border border-danger-line rounded-2xl p-8 shadow-sm">
         <div className="mx-auto w-12 h-12 rounded-full bg-danger-soft text-danger-ink flex items-center justify-center text-2xl font-bold mb-4">
           !
         </div>

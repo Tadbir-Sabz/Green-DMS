@@ -41,7 +41,7 @@ export default function NewTransferPage() {
         <h1 className="text-xl font-bold text-ink">ایجاد حواله انتقال بین انباری</h1>
         <p className="text-ink-muted text-sm">اطلاعات انبار مبدا/مقصد و اقلام را وارد کنید</p>
       </div>
-      {error && <div className="rounded-xl border border-danger/25 bg-danger-soft text-danger-ink text-sm p-3">{error}</div>}
+      {error && <div className="rounded-xl border border-danger-line bg-danger-soft text-danger-ink text-sm p-3">{error}</div>}
       <div className="bg-surface border border-line rounded-2xl p-6 shadow-sm space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <div>

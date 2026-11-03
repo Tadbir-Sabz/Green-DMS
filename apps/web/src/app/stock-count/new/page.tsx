@@ -36,7 +36,7 @@ export default function NewStockCountPage() {
         <h1 className="text-xl font-bold text-ink">شروع انبارگردانی</h1>
         <p className="text-ink-muted text-sm">انبار مورد نظر را انتخاب کنید تا سند شمارش (پیش‌نویس) ساخته شود</p>
       </div>
-      {error && <div className="rounded-xl border border-danger/25 bg-danger-soft text-danger-ink text-sm p-3">{error}</div>}
+      {error && <div className="rounded-xl border border-danger-line bg-danger-soft text-danger-ink text-sm p-3">{error}</div>}
       <div className="bg-surface border border-line rounded-2xl p-6 shadow-sm space-y-4">
         <div>
           <label className="text-sm text-ink">انبار (شناسه)</label>

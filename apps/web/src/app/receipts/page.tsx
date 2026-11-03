@@ -40,7 +40,7 @@ function ReceiptsInner() {
         </p>
       </div>
 
-      <div className="bg-warning-soft border border-warning/25 rounded-2xl p-5 text-sm text-warning-ink">
+      <div className="bg-warning-soft border border-warning-line rounded-2xl p-5 text-sm text-warning-ink">
         <div className="font-semibold mb-1">ثبت رسید خرید هنوز در API فعال نشده است</div>
         <p className="leading-6">
           پایانهٔ اختصاصی «رسید خرید / GRN» در قرارداد فعلی وجود ندارد. جریان خرید از مسیر

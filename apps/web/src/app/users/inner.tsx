@@ -197,7 +197,7 @@ export default function UsersInner() {
         }
       >
         <form onSubmit={submit} className="space-y-3">
-          {formError && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>}
+          {formError && <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{formError}</div>}
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs text-ink-muted">نام کاربری *</span>
