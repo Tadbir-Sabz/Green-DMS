@@ -8174,7 +8174,7 @@ export interface components {
             readonly grand_total?: string;
             /** @enum {string} */
             readonly status?: "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
-            lines: components["schemas"]["PurchaseOrderLine"][];
+            lines?: components["schemas"]["PurchaseOrderLine"][];
         };
         /** @description قلم فاکتور تأمین‌کننده (ماژول ۸) */
         SupplierInvoiceLine: {

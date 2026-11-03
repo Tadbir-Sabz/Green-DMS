@@ -4523,7 +4523,9 @@ components:
 
     PurchaseOrder:
       type: object
-      required: [branch_id, supplier_id, warehouse_id, lines]
+      # lines فقط در پاسخ جزئیات/ثبت می‌آید؛ فهرست (GET /purchase-orders) خلاصه
+      # بی‌سطر برمی‌گرداند (الگوی summary-vs-detail، مانند SupplierInvoice).
+      required: [branch_id, supplier_id, warehouse_id]
       description: سفارش خرید (ماژول ۸ — مهاجرت 0015)
       properties:
         id: { type: string, format: uuid, readOnly: true }
