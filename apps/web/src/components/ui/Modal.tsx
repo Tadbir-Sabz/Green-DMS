@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { IconClose } from "@/components/icons";
 
@@ -55,7 +55,16 @@ export function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
-  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
+  // useId به‌جای Math.random: شناسهٔ یکتا و پایدار بین SSR و کلاینت، تا روی
+  // id/aria-labelledby hydration mismatch نخوریم.
+  const titleId = useId();
+  // تازه‌ترین onClose در یک ref نگه داشته می‌شود تا اثرِ مدیریت تمرکز فقط به
+  // `open` وابسته باشد. پیش‌تر وابستگی به onClose بود و چون صفحه‌ها onClose را
+  // به‌صورت inline پاس می‌دهند، هر رندر والد (مثلاً هر کلید تایپ‌شده در فرمِ
+  // داخل مودال) اثر را از نو اجرا می‌کرد: تمرکز به دکمهٔ پشت مودال و سپس به
+  // اولین عنصر مودال می‌پرید و تایپ در فرم عملاً ممکن نبود.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +74,7 @@ export function Modal({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       // نگه‌داشتن تمرکز داخل دیالوگ (focus trap)
@@ -102,7 +111,7 @@ export function Modal({
       window.clearTimeout(timer);
       if (openerRef.current instanceof HTMLElement) openerRef.current.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

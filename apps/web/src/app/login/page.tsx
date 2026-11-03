@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, errorMessage, loadSessionContext, setSession } from '@/lib/api';
 import { Alert } from '@/components/ui/Feedback';
@@ -62,16 +62,17 @@ export default function LoginPage(): React.JSX.Element {
   const [resetSent, setResetSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // شمارش معکوس ارسال مجدد کد
+  // شمارش معکوس ارسال مجدد کد — یک interval واحد تا پایان شمارش. پیش‌تر این
+  // اثر به [cooldown] وابسته بود و چون interval هر ثانیه cooldown را کم می‌کرد،
+  // اثر هر ثانیه از نو اجرا و interval ساخته/پاک می‌شد. با وابستگی به بولینِ
+  // «در حال شمارش»، فقط یک interval برای کل شمارش ساخته می‌شود.
+  const cooling = cooldown > 0;
   useEffect(() => {
-    if (cooldown <= 0) return;
-    timer.current = setInterval(() => setCooldown((s) => s - 1), 1000);
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, [cooldown]);
+    if (!cooling) return;
+    const id = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [cooling]);
 
   const switchMode = (next: Mode): void => {
     setMode(next);
