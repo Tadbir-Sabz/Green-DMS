@@ -4,7 +4,11 @@ import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser } from '../identity-rbac/auth-context.decorator';
-import type {
+// NOTE: value import (NOT `import type`) — these DTO classes are the runtime
+// metatypes emitted via `design:paramtypes` (SWC decoratorMetadata). With
+// `import type` the binding is erased, ValidationPipe sees `Object`, and DTO
+// validation is silently skipped (e.g. @ArrayMinSize(2) on journal lines).
+import {
   CreateJournalDto,
   CreatePeriodDto,
   ListAccountsQueryDto,

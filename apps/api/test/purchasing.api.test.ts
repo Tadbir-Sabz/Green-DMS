@@ -212,8 +212,9 @@ beforeAll(async () => {
 
   // ---- دو تأمین‌کننده (دومی برای آزمون عدم تطابق supplier) ----
   const supPerson = await pool.query<{ id: string }>(
-    `insert into person (company_id, code, legal_type, first_name, last_name)
-     values ($1, 'SUP-1', 'legal', null, 'تأمین‌کنندهٔ یک') returning id`,
+    // legal_type='legal' → ck_person_name requires legal_name (NOT first/last).
+    `insert into person (company_id, code, legal_type, legal_name)
+     values ($1, 'SUP-1', 'legal', 'تأمین‌کنندهٔ یک') returning id`,
     [companyId],
   );
   supplierPersonId = supPerson.rows[0].id;
@@ -224,8 +225,9 @@ beforeAll(async () => {
     )
   ).rows[0].id;
   const sup2Person = await pool.query<{ id: string }>(
-    `insert into person (company_id, code, legal_type, first_name, last_name)
-     values ($1, 'SUP-2', 'legal', null, 'تأمین‌کنندهٔ دو') returning id`,
+    // legal_type='legal' → ck_person_name requires legal_name (NOT first/last).
+    `insert into person (company_id, code, legal_type, legal_name)
+     values ($1, 'SUP-2', 'legal', 'تأمین‌کنندهٔ دو') returning id`,
     [companyId],
   );
   supplier2Id = (

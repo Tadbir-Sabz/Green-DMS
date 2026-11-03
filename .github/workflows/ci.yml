@@ -82,7 +82,20 @@ jobs:
 
       - name: Web tests
         if: '!cancelled()'
-        run: npm run test:web
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:web 2>&1 | tee /tmp/web.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # لاگ‌های blob برای ما قابل خواندن نیستند؛ دمِ crash را به‌صورت
+            # ::error:: annotation بازنشر می‌کنیم تا از check-runs API خوانده شود.
+            echo "::error title=Web tests crashed::vitest exited $status with no per-test report — tail below"
+            tail -n 50 /tmp/web.log | sed 's/%/%25/g' | while IFS= read -r ln; do
+              echo "::error title=web-tail::${ln}"
+            done
+            exit "$status"
+          fi
 
       - name: Build (packages + api + web)
         if: '!cancelled()'
