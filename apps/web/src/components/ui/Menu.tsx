@@ -90,6 +90,10 @@ export function Dropdown({
     item.onSelect?.();
   };
 
+  // وقتی هنوز هیچ آیتمی «فعال» نشده (active === -1)، اولین آیتم قابل‌اجرا باید
+  // tabIndex=0 بگیرد تا با Tab بتوان وارد منوی باز شد (الگوی roving tabindex).
+  const firstEnabledIndex = items.findIndex((it) => !it.disabled);
+
   return (
     <div ref={rootRef} className={cn("relative", className)}>
       {trigger({
@@ -119,7 +123,7 @@ export function Dropdown({
                 type="button"
                 role="menuitem"
                 disabled={item.disabled}
-                tabIndex={active === index ? 0 : -1}
+                tabIndex={active === index || (active < 0 && index === firstEnabledIndex) ? 0 : -1}
                 onMouseEnter={() => setActive(index)}
                 onClick={() => run(item)}
                 className={cn(

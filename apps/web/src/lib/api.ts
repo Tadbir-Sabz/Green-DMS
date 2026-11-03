@@ -1,7 +1,6 @@
 "use client";
 
 import { createApiClient, type RefreshContext } from '@dms/api-client';
-import { useQuery } from '@tanstack/react-query';
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000") + "/api/v1";
 
@@ -183,42 +182,3 @@ export async function logout(): Promise<void> {
   clearSession();
 }
 
-export function useCustomers() {
-  return useQuery({
-    queryKey: ["customers"],
-    queryFn: async () => {
-      const res = await api.GET("/customers");
-      return res.data;
-    },
-  });
-}
-
-export function useOrders() {
-  return useQuery({
-    queryKey: ["orders"],
-    queryFn: async () => {
-      const res = await api.GET("/orders");
-      return res.data;
-    },
-  });
-}
-
-export function useInvoices() {
-  return useQuery({
-    queryKey: ["invoices"],
-    queryFn: async () => {
-      const res = await api.GET("/invoices");
-      return res.data;
-    },
-  });
-}
-
-export function useProducts() {
-  return useQuery({
-    queryKey: ["products"],
-    queryFn: async () => {
-      const res = await api.GET("/products");
-      return res.data;
-    },
-  });
-}
