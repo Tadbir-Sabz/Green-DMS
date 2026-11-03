@@ -98,6 +98,8 @@ tags:
     description: حسابداری فروش — دفتر مشتری و سنی بدهکاری
   - name: ap
     description: حسابداری خرید — دفتر تأمین‌کننده، سفارش خرید، فاکتور و سند پرداخت
+  - name: valuation
+    description: ارزش‌گذاری موجودی — بهای میانگین متحرک، لایه‌های بها و موجودی ریالی
   - name: treasury
     description: خزانه‌داری — صندوق و بانک
   - name: cheques
@@ -2322,6 +2324,102 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /goods-receipts:
+    get:
+      tags: [ap]
+      summary: فهرست رسیدهای انبار خرید (GRN)
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: warehouse_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [draft, posted, voided] } }
+      responses:
+        '200':
+          description: صفحه‌ای از رسیدهای انبار
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/GoodsReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [ap]
+      summary: ثبت رسید انبار خرید (پیش‌نویس) با اقلام
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoodsReceipt' }
+      responses:
+        '201':
+          description: رسید انبار ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /goods-receipts/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [ap]
+      summary: جزئیات یک رسید انبار با اقلام
+      responses:
+        '200':
+          description: رسید انبار
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /goods-receipts/{id}/post:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [ap]
+      summary: ثبت قطعی رسید انبار و اعمال اثر انبار و ارزش‌گذاری (draft → posted)
+      responses:
+        '200':
+          description: رسید انبار ثبت قطعی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /valuation:
+    get:
+      tags: [valuation]
+      summary: ارزش موجودی (میانگین متحرک) به ازای انبار/کالا
+      parameters:
+        - { name: warehouse_id, in: query, schema: { type: string, format: uuid } }
+        - { name: product_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: ارزش موجودی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Valuation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------- خزانه، چک، وصول ----------------
   /treasury:
@@ -4548,6 +4646,57 @@ components:
         lines:
           type: array
           items: { $ref: '#/components/schemas/PurchaseOrderLine' }
+
+    GoodsReceiptLine:
+      type: object
+      description: قلم رسید انبار خرید (ماژول ۸ — مهاجرت 0015، بدون line_no)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        batch_id: { type: [string, 'null'], format: uuid }
+        purchase_order_line_id: { type: [string, 'null'], format: uuid }
+        qty_received: { type: string }
+        qty_rejected: { type: string }
+        unit_cost: { type: string }
+
+    GoodsReceipt:
+      type: object
+      # lines فقط در پاسخ جزئیات/ثبت می‌آید؛ فهرست (GET /goods-receipts) خلاصهٔ
+      # بی‌سطر برمی‌گرداند (الگوی summary-vs-detail، مانند PurchaseOrder).
+      required: [branch_id, supplier_id, warehouse_id]
+      description: رسید انبار خرید (GRN) — ماژول ۸، مهاجرت 0015
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        branch_id: { type: string, format: uuid }
+        doc_number: { type: string, readOnly: true }
+        fiscal_year: { type: integer, readOnly: true }
+        supplier_id: { type: string, format: uuid }
+        warehouse_id: { type: string, format: uuid }
+        purchase_order_id: { type: [string, 'null'], format: uuid }
+        received_at: { type: string, format: date-time, readOnly: true }
+        received_by: { type: [string, 'null'], format: uuid, readOnly: true }
+        status:
+          type: string
+          readOnly: true
+          enum: [draft, posted, voided]
+        note: { type: [string, 'null'] }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/GoodsReceiptLine' }
+
+    Valuation:
+      type: object
+      description: ارزش موجودی به ازای انبار/کالا (میانگین متحرک) — ماژول ۹، مهاجرت 0016
+      properties:
+        warehouse_id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        method:
+          type: string
+          enum: [moving_avg, fifo, standard]
+        avg_cost: { type: string }
+        qty_on_hand: { type: string }
+        value_on_hand: { type: string }
+        last_purchase_cost: { type: [string, 'null'] }
 
     SupplierInvoiceLine:
       type: object

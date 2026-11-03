@@ -4521,6 +4521,213 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/goods-receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست رسیدهای انبار خرید (GRN) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                    supplier_id?: string;
+                    warehouse_id?: string;
+                    status?: "draft" | "posted" | "voided";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از رسیدهای انبار */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["GoodsReceipt"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت رسید انبار خرید (پیش‌نویس) با اقلام */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+            responses: {
+                /** @description رسید انبار ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoodsReceipt"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goods-receipts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات یک رسید انبار با اقلام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description رسید انبار */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoodsReceipt"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goods-receipts/{id}/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ثبت قطعی رسید انبار و اعمال اثر انبار و ارزش‌گذاری (draft → posted) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description رسید انبار ثبت قطعی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoodsReceipt"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/valuation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ارزش موجودی (میانگین متحرک) به ازای انبار/کالا */
+        get: {
+            parameters: {
+                query?: {
+                    warehouse_id?: string;
+                    product_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ارزش موجودی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["Valuation"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/treasury": {
         parameters: {
             query?: never;
@@ -8175,6 +8382,56 @@ export interface components {
             /** @enum {string} */
             readonly status?: "draft" | "pending_approval" | "approved" | "partially_received" | "received" | "closed" | "cancelled";
             lines?: components["schemas"]["PurchaseOrderLine"][];
+        };
+        /** @description قلم رسید انبار خرید (ماژول ۸ — مهاجرت 0015، بدون line_no) */
+        GoodsReceiptLine: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            product_id?: string;
+            /** Format: uuid */
+            batch_id?: string | null;
+            /** Format: uuid */
+            purchase_order_line_id?: string | null;
+            qty_received?: string;
+            qty_rejected?: string;
+            unit_cost?: string;
+        };
+        /** @description رسید انبار خرید (GRN) — ماژول ۸، مهاجرت 0015 */
+        GoodsReceipt: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            branch_id: string;
+            readonly doc_number?: string;
+            readonly fiscal_year?: number;
+            /** Format: uuid */
+            supplier_id: string;
+            /** Format: uuid */
+            warehouse_id: string;
+            /** Format: uuid */
+            purchase_order_id?: string | null;
+            /** Format: date-time */
+            readonly received_at?: string;
+            /** Format: uuid */
+            readonly received_by?: string | null;
+            /** @enum {string} */
+            readonly status?: "draft" | "posted" | "voided";
+            note?: string | null;
+            lines?: components["schemas"]["GoodsReceiptLine"][];
+        };
+        /** @description ارزش موجودی به ازای انبار/کالا (میانگین متحرک) — ماژول ۹، مهاجرت 0016 */
+        Valuation: {
+            /** Format: uuid */
+            warehouse_id?: string;
+            /** Format: uuid */
+            product_id?: string;
+            /** @enum {string} */
+            method?: "moving_avg" | "fifo" | "standard";
+            avg_cost?: string;
+            qty_on_hand?: string;
+            value_on_hand?: string;
+            last_purchase_cost?: string | null;
         };
         /** @description قلم فاکتور تأمین‌کننده (ماژول ۸) */
         SupplierInvoiceLine: {
