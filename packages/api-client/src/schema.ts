@@ -2049,6 +2049,7 @@ export interface paths {
                 400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
                 422: components["responses"]["RuleRejected"];
             };
         };
@@ -7931,6 +7932,11 @@ export interface components {
             /** @enum {string} */
             reason_code: "damage" | "expiry" | "sample" | "internal_use" | "theft" | "count_fix" | "other";
             note?: string;
+            /**
+             * Format: uuid
+             * @description کلید idempotency آفلاین — ثبت تکراری = 409
+             */
+            client_uuid?: string;
         };
         /** @description سند انبارگردانی با شمارش واقعی در برابر سیستم */
         StockTake: {

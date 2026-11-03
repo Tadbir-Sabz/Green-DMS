@@ -1139,6 +1139,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/RuleRejected' }
   /stocktakes:
     get:
@@ -4266,6 +4267,7 @@ components:
         qty_delta: { type: number }
         reason_code: { type: string, enum: [damage, expiry, sample, internal_use, theft, count_fix, other] }
         note: { type: string }
+        client_uuid: { type: string, format: uuid, description: کلید idempotency آفلاین — ثبت تکراری = 409 }
 
     StockTake:
       type: object

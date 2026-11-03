@@ -200,6 +200,11 @@ export class CreateStockAdjustmentDto {
   @IsNotEmpty()
   @MaxLength(500)
   note?: string;
+
+  /** کلید idempotency آفلاین — ثبت تکراری با همان client_uuid برابر است با 409 */
+  @IsOptional()
+  @IsUUID('4')
+  client_uuid?: string;
 }
 
 /** GET /transfers — صفحه‌بندی cursor */

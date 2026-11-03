@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -46,6 +47,14 @@ export class StockService {
     const e = err as { pgCode?: string; code?: string; constraint?: string; message?: string };
     if (e?.pgCode === 'no_data') {
       return badRequest('warehouse_not_found', 'انبار انتخاب‌شده در این شرکت یافت نشد.');
+    }
+    // client_uuid تکراری (پیش‌بررسی دفتر، یا نقض PK دفتر در رقابت هم‌زمان) →
+    // 409 conflict مطابق قرارداد آفلاین (عملیات تکراری سند جدید نمی‌سازد).
+    if (e?.pgCode === 'dup_client_uuid' || e?.code === '23505') {
+      return new ConflictException({
+        code: 'duplicate_client_uuid',
+        message_fa: 'این عملیات با client_uuid یکسان پیش‌تر ثبت شده است.',
+      });
     }
     if (e?.code === '23514' && !e.constraint) {
       // raise از fn_apply_stock_txn با errcode=check_violation (بدون constraint جدول)
