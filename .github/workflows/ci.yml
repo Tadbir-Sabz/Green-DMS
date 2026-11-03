@@ -82,20 +82,26 @@ jobs:
 
       - name: Web tests
         if: '!cancelled()'
+        id: webtest
         shell: bash
         run: |
           set -o pipefail
           npm run test:web 2>&1 | tee /tmp/web.log
-          status=${PIPESTATUS[0]}
-          if [ "$status" -ne 0 ]; then
-            # لاگ‌های blob برای ما قابل خواندن نیستند؛ دمِ crash را به‌صورت
-            # ::error:: annotation بازنشر می‌کنیم تا از check-runs API خوانده شود.
-            echo "::error title=Web tests crashed::vitest exited $status with no per-test report — tail below"
-            tail -n 50 /tmp/web.log | sed 's/%/%25/g' | while IFS= read -r ln; do
-              echo "::error title=web-tail::${ln}"
-            done
-            exit "$status"
-          fi
+
+      # لاگ‌های blob برای ما قابل خواندن نیستند و vitest هنگام crash در
+      # import/collection هیچ annotation تستی صادر نمی‌کند. این stepِ جدا (با shell
+      # تازه پس از web) سر و دمِ لاگ را بعد از strip کردن ANSI/CR و escape کردن %
+      # به دو annotation تمیز تبدیل می‌کند تا از check-runs API خوانده شود.
+      - name: Web failure diagnostic
+        if: "!cancelled() && steps.webtest.outcome == 'failure'"
+        shell: bash
+        run: |
+          [ -f /tmp/web.log ] || { echo "::error title=web-diag::/tmp/web.log missing"; exit 0; }
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          head_msg=$(head -n 30 /tmp/web.log | enc)
+          echo "::error title=web-log-head::${head_msg:-<empty>}"
+          tail_msg=$(tail -n 45 /tmp/web.log | enc)
+          echo "::error title=web-log-tail::${tail_msg:-<empty>}"
 
       - name: Build (packages + api + web)
         if: '!cancelled()'
