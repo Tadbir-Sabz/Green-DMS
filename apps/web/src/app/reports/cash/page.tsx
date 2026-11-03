@@ -55,11 +55,11 @@ export default function ReportsCashPage() {
           <table id="cash-report-table" className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right p-3">حساب</th>
-                <th className="text-right p-3">مانده دفتری</th>
-                <th className="text-right p-3">مانده واقعی</th>
-                <th className="text-right p-3">مغایرت</th>
-                <th className="text-right p-3">تاریخ</th>
+                <th className="text-start p-3">حساب</th>
+                <th className="text-start p-3">مانده دفتری</th>
+                <th className="text-start p-3">مانده واقعی</th>
+                <th className="text-start p-3">مغایرت</th>
+                <th className="text-start p-3">تاریخ</th>
               </tr>
             </thead>
             <tbody>

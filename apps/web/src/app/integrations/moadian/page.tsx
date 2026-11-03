@@ -61,11 +61,11 @@ export default function MoadianPage() {
         <table className="w-full text-sm">
           <thead className="bg-surface-alt text-ink-muted">
             <tr>
-              <th className="text-right p-3">فاکتور</th>
-              <th className="text-right p-3">وضعیت</th>
-              <th className="text-right p-3">تلاش</th>
-              <th className="text-right p-3">آخرین خطا</th>
-              <th className="text-right p-3">زمان</th>
+              <th className="text-start p-3">فاکتور</th>
+              <th className="text-start p-3">وضعیت</th>
+              <th className="text-start p-3">تلاش</th>
+              <th className="text-start p-3">آخرین خطا</th>
+              <th className="text-start p-3">زمان</th>
             </tr>
           </thead>
           <tbody>

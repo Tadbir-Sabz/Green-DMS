@@ -290,9 +290,9 @@ export default function ReturnsPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">شماره</th>
-                <th className="text-right px-4 py-3 font-medium">وضعیت</th>
-                <th className="text-right px-4 py-3 font-medium">دلیل</th>
+                <th className="text-start px-4 py-3 font-medium">شماره</th>
+                <th className="text-start px-4 py-3 font-medium">وضعیت</th>
+                <th className="text-start px-4 py-3 font-medium">دلیل</th>
               </tr>
             </thead>
             <tbody>

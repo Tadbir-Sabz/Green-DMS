@@ -13,16 +13,32 @@ import { IconChevronEnd } from "@/components/icons";
 
 export type Crumb = { label: ReactNode; href?: string };
 
-export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: string }) {
+export function Breadcrumbs({
+  items,
+  className,
+  markLastAsCurrent = true,
+}: {
+  items: Crumb[];
+  className?: string;
+  /**
+   * آیا آخرین قلم، «صفحهٔ جاری» است (غیرقابل کلیک و با aria-current="page")؟
+   *
+   * وقتی پوستهٔ برنامه عنوان صفحه را جداگانه نمایش می‌دهد، این مقدار را
+   * false می‌گذاریم و فقط اجداد را پاس می‌دهیم — وگرنه نام صفحهٔ جاری دو بار
+   * پشت‌سرهم دیده می‌شود و aria-current روی عنصر تکراری می‌نشیند.
+   */
+  markLastAsCurrent?: boolean;
+}) {
   if (!items.length) return null;
   return (
     <nav aria-label="مسیر راهنما" className={cn("min-w-0", className)}>
       <ol className="flex flex-wrap items-center gap-1 text-xs text-ink-subtle">
         {items.map((item, index) => {
           const last = index === items.length - 1;
+          const current = last && markLastAsCurrent;
           return (
             <li key={index} className="flex min-w-0 items-center gap-1">
-              {item.href && !last ? (
+              {item.href && !current ? (
                 <Link
                   href={item.href}
                   className="truncate rounded transition-colors hover:text-ink focus-ring"
@@ -30,7 +46,10 @@ export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: 
                   {item.label}
                 </Link>
               ) : (
-                <span aria-current={last ? "page" : undefined} className={cn("truncate", last && "font-medium text-ink-muted")}>
+                <span
+                  aria-current={current ? "page" : undefined}
+                  className={cn("truncate", current && "font-medium text-ink-muted")}
+                >
                   {item.label}
                 </span>
               )}

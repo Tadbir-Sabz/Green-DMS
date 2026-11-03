@@ -7,6 +7,7 @@ import { api, errorMessage } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
+import { Badge } from "@/components/ui/Badge";
 
 /**
  * نقش‌ها و دسترسی‌ها — GET/POST /roles (ماژول identity-rbac).
@@ -75,7 +76,9 @@ export default function RolesInner() {
         <span>
           {r.name}
           {r.is_system && (
-            <span className="mr-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] text-ink-muted">سیستمی</span>
+            <Badge tone="neutral" size="sm" className="ms-2">
+              سیستمی
+            </Badge>
           )}
         </span>
       ),
@@ -93,7 +96,7 @@ export default function RolesInner() {
           >
             {codes.length} مجوز {isExpanded ? "▲" : "▼"}
             {isExpanded && (
-              <span className="block mt-2 space-y-1 text-right">
+              <span className="block mt-2 space-y-1 text-start">
                 {codes.map((c) => (
                   <code key={c} dir="ltr" className="block px-2 py-0.5 rounded bg-surface-alt text-[11px] text-ink-muted">
                     {c}

@@ -118,7 +118,7 @@ export default function RulesPage() {
           >
             {conds.length} شرط / {acts.length} اقدام {isOpen ? "▲" : "▼"}
             {isOpen && (
-              <span className="block mt-2 space-y-2 text-right" dir="ltr">
+              <span className="block mt-2 space-y-2 text-start" dir="ltr">
                 <code className="block px-2 py-1 rounded bg-surface-alt text-[11px] whitespace-pre-wrap break-all">
                   {JSON.stringify(conds, null, 2)}
                 </code>

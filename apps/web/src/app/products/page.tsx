@@ -370,7 +370,7 @@ export default function ProductsPage(): React.JSX.Element {
       {/* جدول فهرست */}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-surface-alt text-right text-ink-muted">
+          <thead className="bg-surface-alt text-start text-ink-muted">
             <tr>
               <th className="px-4 py-3 font-medium">کد</th>
               <th className="px-4 py-3 font-medium">نام</th>

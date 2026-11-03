@@ -43,13 +43,13 @@ export default function ReportsInventoryPage() {
           <table id="inventory-report-table" className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right p-3">انبار</th>
-                <th className="text-right p-3">کالا</th>
-                <th className="text-right p-3">بچ</th>
-                <th className="text-right p-3">موجودی</th>
-                <th className="text-right p-3">رزرو</th>
-                <th className="text-right p-3">آزاد</th>
-                <th className="text-right p-3">ارزش موجودی</th>
+                <th className="text-start p-3">انبار</th>
+                <th className="text-start p-3">کالا</th>
+                <th className="text-start p-3">بچ</th>
+                <th className="text-start p-3">موجودی</th>
+                <th className="text-start p-3">رزرو</th>
+                <th className="text-start p-3">آزاد</th>
+                <th className="text-start p-3">ارزش موجودی</th>
               </tr>
             </thead>
             <tbody>

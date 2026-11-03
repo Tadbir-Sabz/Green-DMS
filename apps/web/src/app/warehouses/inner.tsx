@@ -60,10 +60,10 @@ export default function WarehousesInner() {
         <table className="w-full text-sm">
           <thead className="bg-surface-alt text-ink-muted">
             <tr>
-              <th className="text-right p-3">کد</th>
-              <th className="text-right p-3">نام</th>
-              <th className="text-right p-3">نوع</th>
-              <th className="text-right p-3">وضعیت</th>
+              <th className="text-start p-3">کد</th>
+              <th className="text-start p-3">نام</th>
+              <th className="text-start p-3">نوع</th>
+              <th className="text-start p-3">وضعیت</th>
             </tr>
           </thead>
           <tbody>

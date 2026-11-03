@@ -105,10 +105,10 @@ export default function ApprovalsPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">نوع سند</th>
-                <th className="text-right px-4 py-3 font-medium">مبلغ</th>
-                <th className="text-right px-4 py-3 font-medium">مرحله</th>
-                <th className="text-right px-4 py-3 font-medium">وضعیت</th>
+                <th className="text-start px-4 py-3 font-medium">نوع سند</th>
+                <th className="text-start px-4 py-3 font-medium">مبلغ</th>
+                <th className="text-start px-4 py-3 font-medium">مرحله</th>
+                <th className="text-start px-4 py-3 font-medium">وضعیت</th>
               </tr>
             </thead>
             <tbody>

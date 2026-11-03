@@ -41,9 +41,9 @@ export default function ReportsAPPage() {
           <table id="ap-report-table" className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right p-3">تأمین‌کننده</th>
-                <th className="text-right p-3">کل بدهی</th>
-                <th className="text-right p-3">سررسید بعدی</th>
+                <th className="text-start p-3">تأمین‌کننده</th>
+                <th className="text-start p-3">کل بدهی</th>
+                <th className="text-start p-3">سررسید بعدی</th>
               </tr>
             </thead>
             <tbody>

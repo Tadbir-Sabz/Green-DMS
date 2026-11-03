@@ -151,10 +151,10 @@ export default function RoutesPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">کد</th>
-                <th className="text-right px-4 py-3 font-medium">نام</th>
-                <th className="text-right px-4 py-3 font-medium">والد</th>
-                <th className="text-right px-4 py-3 font-medium">وضعیت</th>
+                <th className="text-start px-4 py-3 font-medium">کد</th>
+                <th className="text-start px-4 py-3 font-medium">نام</th>
+                <th className="text-start px-4 py-3 font-medium">والد</th>
+                <th className="text-start px-4 py-3 font-medium">وضعیت</th>
               </tr>
             </thead>
             <tbody>
@@ -232,11 +232,11 @@ export default function RoutesPage() {
           <table className="w-full text-sm">
             <thead className="bg-surface-alt text-ink-muted">
               <tr>
-                <th className="text-right px-4 py-3 font-medium">کد</th>
-                <th className="text-right px-4 py-3 font-medium">نام</th>
-                <th className="text-right px-4 py-3 font-medium">منطقه</th>
-                <th className="text-right px-4 py-3 font-medium">روز بازدید</th>
-                <th className="text-right px-4 py-3 font-medium">تعداد مشتری</th>
+                <th className="text-start px-4 py-3 font-medium">کد</th>
+                <th className="text-start px-4 py-3 font-medium">نام</th>
+                <th className="text-start px-4 py-3 font-medium">منطقه</th>
+                <th className="text-start px-4 py-3 font-medium">روز بازدید</th>
+                <th className="text-start px-4 py-3 font-medium">تعداد مشتری</th>
               </tr>
             </thead>
             <tbody>

@@ -194,12 +194,12 @@ export default function StaffPage() {
         <table className="w-full text-sm">
           <thead className="bg-surface-alt text-ink-muted">
             <tr>
-              <th className="text-right px-4 py-3 font-medium">شخص</th>
-              <th className="text-right px-4 py-3 font-medium">سمت</th>
-              <th className="text-right px-4 py-3 font-medium">شماره پرسنلی</th>
-              <th className="text-right px-4 py-3 font-medium">میدانی</th>
-              <th className="text-right px-4 py-3 font-medium">وضعیت</th>
-              <th className="text-right px-4 py-3 font-medium">عملیات</th>
+              <th className="text-start px-4 py-3 font-medium">شخص</th>
+              <th className="text-start px-4 py-3 font-medium">سمت</th>
+              <th className="text-start px-4 py-3 font-medium">شماره پرسنلی</th>
+              <th className="text-start px-4 py-3 font-medium">میدانی</th>
+              <th className="text-start px-4 py-3 font-medium">وضعیت</th>
+              <th className="text-start px-4 py-3 font-medium">عملیات</th>
             </tr>
           </thead>
           <tbody>

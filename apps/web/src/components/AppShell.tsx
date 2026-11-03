@@ -110,6 +110,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const match = navItems
       .filter((item) => isPathActive(pathname, item.href))
       .sort((a, b) => b.href.length - a.href.length)[0];
+    // گروهِ والد به‌عنوان قلم میانی: «داشبورد › گزارشات › گزارش فروش».
+    // گروه‌ها صفحهٔ مستقل ندارند، پس href نمی‌گیرند و غیرقابل کلیک‌اند.
+    const group = match
+      ? navGroups.find((g) => g.items.some((item) => item.href === match.href))
+      : undefined;
+    if (group) trail.push({ label: group.title });
     if (match && match.href === pathname) {
       trail.push({ label: match.label });
     } else if (match) {
@@ -316,10 +322,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
 
         <div className="min-w-0 flex-1">
+          {/*
+            مسیر راهنما فقط اجداد را نشان می‌دهد؛ نام صفحهٔ جاری در عنوان
+            پایین می‌آید. پیش‌تر آخرین قلم هم در مسیر و هم در عنوان تکرار
+            می‌شد («داشبورد › تنظیمات» و سپس «تنظیمات»).
+          */}
           {crumbs.length > 1 ? (
-            <Breadcrumbs items={crumbs} className="hidden sm:block" />
+            <Breadcrumbs
+              items={crumbs.slice(0, -1)}
+              markLastAsCurrent={false}
+              className="hidden sm:block"
+            />
           ) : null}
-          <p className="truncate text-[13px] font-semibold text-ink sm:text-sm">
+          <p
+            aria-current="page"
+            className="truncate text-[13px] font-semibold text-ink sm:text-sm"
+          >
             {crumbs.length > 0 ? crumbs[crumbs.length - 1].label : "داشبورد"}
           </p>
         </div>

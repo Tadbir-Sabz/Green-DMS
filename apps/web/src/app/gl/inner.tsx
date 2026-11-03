@@ -328,11 +328,11 @@ function JournalsPanel() {
               <table className="w-full text-sm">
                 <thead className="bg-surface-alt text-ink-muted">
                   <tr>
-                    <th className="p-2 text-right font-semibold">کد</th>
-                    <th className="p-2 text-right font-semibold">حساب</th>
-                    <th className="p-2 text-right font-semibold">شرح</th>
-                    <th className="p-2 text-left font-semibold">بدهکار</th>
-                    <th className="p-2 text-left font-semibold">بستانکار</th>
+                    <th className="p-2 text-start font-semibold">کد</th>
+                    <th className="p-2 text-start font-semibold">حساب</th>
+                    <th className="p-2 text-start font-semibold">شرح</th>
+                    <th className="p-2 text-end font-semibold">بدهکار</th>
+                    <th className="p-2 text-end font-semibold">بستانکار</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -341,14 +341,14 @@ function JournalsPanel() {
                       <td className="p-2 font-mono text-xs">{l.account_code ?? "—"}</td>
                       <td className="p-2">{l.account_title ?? "—"}</td>
                       <td className="p-2 text-xs text-ink-muted">{l.description ?? "—"}</td>
-                      <td className="p-2 text-left">{Number(l.debit) > 0 ? formatMoney(l.debit) : "—"}</td>
-                      <td className="p-2 text-left">{Number(l.credit) > 0 ? formatMoney(l.credit) : "—"}</td>
+                      <td className="p-2 text-end">{Number(l.debit) > 0 ? formatMoney(l.debit) : "—"}</td>
+                      <td className="p-2 text-end">{Number(l.credit) > 0 ? formatMoney(l.credit) : "—"}</td>
                     </tr>
                   ))}
                   <tr className="bg-surface-alt font-semibold">
                     <td className="p-2" colSpan={3}>جمع</td>
-                    <td className="p-2 text-left">{formatMoney(entry.total_debit)}</td>
-                    <td className="p-2 text-left">{formatMoney(entry.total_credit)}</td>
+                    <td className="p-2 text-end">{formatMoney(entry.total_debit)}</td>
+                    <td className="p-2 text-end">{formatMoney(entry.total_credit)}</td>
                   </tr>
                 </tbody>
               </table>

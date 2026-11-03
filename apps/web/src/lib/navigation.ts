@@ -175,15 +175,37 @@ export const navItems: (NavItem & { group: string })[] = navGroups.flatMap((grou
 );
 
 /** برچسب یک مسیر از روی پیکربندی منو (برای breadcrumb) */
+/**
+ * برچسب زیرمسیرهایی که از روی پیشوند قابل حدس نیستند.
+ *
+ * بدون این نگاشت، `/stock-count/new` همان «انبارگردانیِ» والد را برمی‌گرداند و
+ * نام صفحه دو بار (یکی در مسیر راهنما و یکی در عنوان) تکرار می‌شد.
+ */
+const SUBPATH_FA: Record<string, string> = {
+  "/stock-count/new": "ثبت انبارگردانی",
+  "/transfers/new": "ثبت انتقال",
+  "/integrations/moadian": "سامانه مودیان",
+  "/integrations/psp": "درگاه پرداخت",
+};
+
+/**
+ * برچسب فارسی یک مسیر — برای عنوان پوسته و مسیر راهنما.
+ * برای زیرمسیرهای پویا برچسب متمایز می‌سازد («ثبت …»، «جزئیات …») تا با
+ * برچسب والد اشتباه نشود.
+ */
 export function labelForPath(pathname: string): string | undefined {
   if (pathname === "/") return "داشبورد";
   const exact = navItems.find((item) => item.href === pathname);
   if (exact) return exact.label;
+  const known = SUBPATH_FA[pathname];
+  if (known) return known;
   // برای زیرمسیرها (مثل /orders/123) بلندترین پیشوند منطبق را پیدا کن
   const prefix = navItems
     .filter((item) => item.href !== "/" && pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
-  return prefix?.label;
+  if (!prefix) return undefined;
+  if (pathname.endsWith("/new")) return `ثبت ${prefix.label}`;
+  return `جزئیات ${prefix.label}`;
 }
 
 /** آیا این مسیر زیرمجموعهٔ آن آیتم منو است؟ */

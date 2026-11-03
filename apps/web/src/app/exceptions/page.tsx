@@ -91,10 +91,10 @@ export default function ExceptionsPage() {
         <table className="w-full text-sm">
           <thead className="bg-surface-alt text-ink-muted">
             <tr>
-              <th className="text-right px-4 py-3 font-medium">نوع</th>
-              <th className="text-right px-4 py-3 font-medium">شدت</th>
-              <th className="text-right px-4 py-3 font-medium">مرجع</th>
-              <th className="text-right px-4 py-3 font-medium">وضعیت</th>
+              <th className="text-start px-4 py-3 font-medium">نوع</th>
+              <th className="text-start px-4 py-3 font-medium">شدت</th>
+              <th className="text-start px-4 py-3 font-medium">مرجع</th>
+              <th className="text-start px-4 py-3 font-medium">وضعیت</th>
             </tr>
           </thead>
           <tbody>
