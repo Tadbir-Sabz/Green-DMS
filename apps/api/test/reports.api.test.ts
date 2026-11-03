@@ -289,6 +289,21 @@ describe('REP — GET /reports/{key} (اجرا)', () => {
     expect(colKeys).toContain('net_sales');
   });
 
+  it('همه کلیدهای گزارش برای ادمین 200 ← هیچ‌کدام ۵۰۰ نمی‌شود (رگرسیون پارامتر بازه)', async () => {
+    // فهرست مجاز را از خودِ API بگیر تا با registry همگام بماند؛ سپس هر گزارش را
+    // اجرا کن. گزارش‌های لحظه‌ای پیش‌تر به‌دلیل بایندِ ۳ پارامتر روی SQLِ تک‌پارامتر
+    // ۵۰۰ می‌شدند — این آزمون آن رگرسیون را برای همهٔ کلیدها قفل می‌کند.
+    const list = await api().get('/api/v1/reports').expect(200);
+    const keys = list.body.items.map((r: any) => r.key);
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      const res = await api().get(`/api/v1/reports/${key}`).expect(200);
+      expectBodyMatchesSchema('get', '/reports/{key}', 200, res.body);
+      expect(Array.isArray(res.body.columns)).toBe(true);
+      expect(Array.isArray(res.body.rows)).toBe(true);
+    }
+  });
+
   it('فیلتر بازه تاریخ (from/to) 200 ← schema', async () => {
     const res = await api()
       .get('/api/v1/reports/ar_aging')
