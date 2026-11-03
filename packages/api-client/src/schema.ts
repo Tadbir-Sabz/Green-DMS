@@ -7931,7 +7931,7 @@ export interface components {
             qty_delta: number;
             /** @enum {string} */
             reason_code: "damage" | "expiry" | "sample" | "internal_use" | "theft" | "count_fix" | "other";
-            note?: string;
+            note?: string | null;
             /**
              * Format: uuid
              * @description کلید idempotency آفلاین — ثبت تکراری = 409

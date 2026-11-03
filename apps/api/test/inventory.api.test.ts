@@ -381,10 +381,12 @@ describe('INV — POST /stock/adjustments', () => {
 
   it('client_uuid تکراری 409 ← duplicate_client_uuid (دفتر client_sync_receipt)', async () => {
     const clientUuid = '22222222-2222-4222-8222-222222222222';
+    // wh2 (نه wh1): موجودی wh1/productId را که آزمون چرخهٔ شمارش به آن
+    // تکیه دارد (system_qty=10) دست‌نخورده می‌گذارد.
     // بار اول: ثبت موفق با کلید idempotency
     const first = await api()
       .post('/api/v1/stock/adjustments')
-      .send({ warehouse_id: wh1, product_id: productId, qty_delta: 5, reason_code: 'count_fix', client_uuid: clientUuid })
+      .send({ warehouse_id: wh2, product_id: productId, qty_delta: 5, reason_code: 'count_fix', client_uuid: clientUuid })
       .expect(201);
     expectBodyMatchesSchema('post', '/stock/adjustments', 201, first.body);
 
@@ -404,7 +406,7 @@ describe('INV — POST /stock/adjustments', () => {
     // تلاش مجدد شبکه با همان client_uuid → 409 و سند تکراری ساخته نمی‌شود
     const again = await api()
       .post('/api/v1/stock/adjustments')
-      .send({ warehouse_id: wh1, product_id: productId, qty_delta: 5, reason_code: 'count_fix', client_uuid: clientUuid })
+      .send({ warehouse_id: wh2, product_id: productId, qty_delta: 5, reason_code: 'count_fix', client_uuid: clientUuid })
       .expect(409);
     expectBodyMatchesSchema('post', '/stock/adjustments', 409, again.body);
     expect(again.body.code).toBe('duplicate_client_uuid');

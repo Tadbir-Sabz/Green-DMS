@@ -4266,7 +4266,7 @@ components:
         batch_id: { type: [string, 'null'], format: uuid }
         qty_delta: { type: number }
         reason_code: { type: string, enum: [damage, expiry, sample, internal_use, theft, count_fix, other] }
-        note: { type: string }
+        note: { type: [string, 'null'] }
         client_uuid: { type: string, format: uuid, description: کلید idempotency آفلاین — ثبت تکراری = 409 }
 
     StockTake:
