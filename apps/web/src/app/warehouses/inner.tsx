@@ -45,20 +45,20 @@ export default function WarehousesInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">انبارها</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">انبار مرکزی، شعبه و خودرو (انبار سیار)</p>
+          <h1 className="text-xl font-bold text-ink">انبارها</h1>
+          <p className="text-ink-muted text-sm">انبار مرکزی، شعبه و خودرو (انبار سیار)</p>
         </div>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="جست‌وجوی کد/نام انبار"
-          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-white dark:bg-[#0b1026] text-slate-900 dark:text-slate-100"
+          className="px-3 py-2 rounded-xl border border-line bg-surface text-ink"
         />
       </div>
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
+          <thead className="bg-surface-alt text-ink-muted">
             <tr>
               <th className="text-right p-3">کد</th>
               <th className="text-right p-3">نام</th>
@@ -67,10 +67,10 @@ export default function WarehousesInner() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={4} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
-            {!isLoading && items.length === 0 && <tr><td colSpan={4} className="text-center p-6 text-slate-400">انباری یافت نشد</td></tr>}
+            {isLoading && <tr><td colSpan={4} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>}
+            {!isLoading && items.length === 0 && <tr><td colSpan={4} className="text-center p-6 text-ink-subtle">انباری یافت نشد</td></tr>}
             {!isLoading && items.map((w) => (
-              <tr key={w.id} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+              <tr key={w.id} className="border-t border-line hover:bg-surface-hover">
                 <td className="p-3 font-mono text-xs">{w.code}</td>
                 <td className="p-3">{w.name}</td>
                 <td className="p-3">{KIND_FA[w.kind] ?? w.kind}</td>

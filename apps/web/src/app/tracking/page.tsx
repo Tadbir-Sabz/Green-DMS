@@ -51,7 +51,7 @@ function TrackingInner() {
           href={`https://www.openstreetmap.org/?mlat=${l.lat}&mlon=${l.lng}#map=16/${l.lat}/${l.lng}`}
           target="_blank"
           rel="noreferrer"
-          className="font-mono text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
+          className="font-mono text-xs text-brand-soft-ink hover:underline"
           title="بازکردن در نقشه"
         >
           {coord(l.lat)}, {coord(l.lng)}
@@ -64,7 +64,7 @@ function TrackingInner() {
       header: "باتری",
       align: "end",
       render: (l) => (
-        <span className={`text-xs ${l.battery_pct != null && l.battery_pct <= 20 ? "text-rose-600 dark:text-rose-400" : ""}`}>
+        <span className={`text-xs ${l.battery_pct != null && l.battery_pct <= 20 ? "text-danger-ink" : ""}`}>
           {l.battery_pct != null ? `${l.battery_pct.toLocaleString("fa-IR")}٪` : "—"}
         </span>
       ),
@@ -74,9 +74,9 @@ function TrackingInner() {
       header: "موقعیت",
       render: (l) =>
         l.is_mocked ? (
-          <span className="px-2 py-0.5 rounded-md text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">شبیه‌سازی</span>
+          <span className="px-2 py-0.5 rounded-md text-xs bg-warning-soft text-warning-ink">شبیه‌سازی</span>
         ) : (
-          <span className="px-2 py-0.5 rounded-md text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{l.provider ?? "واقعی"}</span>
+          <span className="px-2 py-0.5 rounded-md text-xs bg-brand-soft text-brand-soft-ink">{l.provider ?? "واقعی"}</span>
         ),
     },
     { key: "sampled", header: "آخرین نمونه", render: (l) => <span className="text-xs">{toPersianDateTime(l.sampled_at)}</span> },
@@ -86,19 +86,19 @@ function TrackingInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">رهگیری زنده</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">رهگیری زنده</h1>
+          <p className="text-ink-muted text-sm">
             آخرین موقعیت نیروهای میدانی (PostGIS) — تازه‌سازی خودکار هر ۱۵ ثانیه
             {isFetching && !isLoading ? " · در حال به‌روزرسانی..." : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-ink-muted">
             {items.length.toLocaleString("fa-IR")} نیرو روی خط
           </span>
           <button
             onClick={() => refetch()}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1f2937]"
+            className="px-3 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover"
           >
             به‌روزرسانی
           </button>

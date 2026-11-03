@@ -35,17 +35,17 @@ export default function DashboardCharts({
   emptyMessage = "داده‌ای برای نمایش نیست",
 }: Props) {
   return (
-    <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 shadow-sm">
+    <div className="bg-surface border border-line rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <div className="font-semibold text-slate-900 dark:text-slate-100">{title}</div>
-        {unit && <div className="text-xs text-slate-400 dark:text-slate-500">{unit}</div>}
+        <div className="font-semibold text-ink">{title}</div>
+        {unit && <div className="text-xs text-ink-subtle">{unit}</div>}
       </div>
       {loading ? (
-        <div className="h-[300px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
+        <div className="h-[300px] flex items-center justify-center text-ink-subtle text-sm">
           در حال بارگذاری...
         </div>
       ) : data.length === 0 ? (
-        <div className="h-[300px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
+        <div className="h-[300px] flex items-center justify-center text-ink-subtle text-sm">
           {emptyMessage}
         </div>
       ) : (

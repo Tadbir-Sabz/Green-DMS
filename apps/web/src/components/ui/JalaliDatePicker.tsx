@@ -116,46 +116,46 @@ export function JalaliDatePicker({
         id={id}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className={`w-full flex items-center justify-between gap-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] px-3 py-2 text-sm text-slate-800 dark:text-slate-200 ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-emerald-400"}`}
+        className={`w-full flex items-center justify-between gap-2 rounded-xl border border-line-strong bg-surface px-3 py-2 text-sm text-ink ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-emerald-400"}`}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className={selected ? "" : "text-slate-400"}>
+        <span className={selected ? "" : "text-ink-subtle"}>
           {selected ? formatJalali(selected) : placeholder}
         </span>
-        <span aria-hidden className="text-slate-400">📅</span>
+        <span aria-hidden className="text-ink-subtle">📅</span>
       </button>
 
       {open && (
         <div
           role="dialog"
           aria-label="انتخاب تاریخ"
-          className="absolute z-50 mt-1 w-64 rounded-2xl border border-slate-200 dark:border-[#1f2937] bg-white dark:bg-[#111827] p-3 shadow-xl"
+          className="absolute z-50 mt-1 w-64 rounded-2xl border border-line bg-surface p-3 shadow-xl"
         >
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
               onClick={prevMonth}
               aria-label="ماه قبل"
-              className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1f2937] text-slate-600 dark:text-slate-300"
+              className="w-7 h-7 rounded-lg hover:bg-surface-hover text-ink-muted"
             >
               ›
             </button>
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <div className="text-sm font-semibold text-ink">
               {JALALI_MONTHS[view.jm - 1]} {toPersianDigits(view.jy)}
             </div>
             <button
               type="button"
               onClick={nextMonth}
               aria-label="ماه بعد"
-              className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1f2937] text-slate-600 dark:text-slate-300"
+              className="w-7 h-7 rounded-lg hover:bg-surface-hover text-ink-muted"
             >
               ‹
             </button>
           </div>
           <div className="grid grid-cols-7 gap-0.5 mb-1">
             {JALALI_WEEKDAYS.map((w) => (
-              <div key={w} className="text-center text-[11px] text-slate-400 py-1">
+              <div key={w} className="text-center text-[11px] text-ink-subtle py-1">
                 {w}
               </div>
             ))}
@@ -173,22 +173,14 @@ export function JalaliDatePicker({
                   type="button"
                   disabled={dis}
                   onClick={() => pick(d)}
-                  className={`h-8 rounded-lg text-xs transition-colors ${
-                    isSel
-                      ? "bg-emerald-600 text-white font-semibold"
-                      : dis
-                        ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                        : isToday
-                          ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1f2937]"
-                  }`}
+                  className={`h-8 rounded-lg text-xs transition-colors ${ isSel ? "bg-brand text-white font-semibold" : dis ? "text-ink-subtle cursor-not-allowed" : isToday ? "bg-brand-soft text-brand-soft-ink" : "text-ink hover:bg-surface-hover" }`}
                 >
                   {toPersianDigits(d)}
                 </button>
               );
             })}
           </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-[#1f2937]">
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-line">
             <button
               type="button"
               onClick={() => {
@@ -196,7 +188,7 @@ export function JalaliDatePicker({
                 onChange(jalaliToISO(t.jy, t.jm, t.jd));
                 setOpen(false);
               }}
-              className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+              className="text-xs text-brand-soft-ink hover:underline"
             >
               امروز
             </button>
@@ -207,7 +199,7 @@ export function JalaliDatePicker({
                   onChange(null);
                   setOpen(false);
                 }}
-                className="text-xs text-slate-500 hover:underline"
+                className="text-xs text-ink-muted hover:underline"
               >
                 پاک کردن
               </button>

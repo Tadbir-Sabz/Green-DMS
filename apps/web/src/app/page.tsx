@@ -308,30 +308,26 @@ function DashboardInner() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">داشبورد اجرایی</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
+          <h1 className="text-2xl font-bold text-ink">داشبورد اجرایی</h1>
+          <p className="text-ink-muted mt-1 text-sm">
             نمای لایهٔ «{LAYER_FA[layer]}» — عملکرد فروش و پخش مویرگی
           </p>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#1f2937] rounded-xl p-1">
+            <div className="flex items-center gap-1 bg-surface-alt rounded-xl p-1">
               {(Object.keys(LAYER_FA) as Layer[]).map((l) => (
                 <button
                   key={l}
                   onClick={() => setLayer(l)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    layer === l
-                      ? "bg-white dark:bg-[#0f172a] text-emerald-700 dark:text-emerald-400 shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${ layer === l ? "bg-surface text-brand-soft-ink shadow-sm" : "text-ink-muted hover:text-ink" }`}
                 >
                   {LAYER_FA[l]}
                 </button>
               ))}
             </div>
           )}
-          <div className="text-sm text-slate-500 dark:text-slate-400">{toPersianDate(today)}</div>
+          <div className="text-sm text-ink-muted">{toPersianDate(today)}</div>
         </div>
       </div>
 
@@ -339,14 +335,14 @@ function DashboardInner() {
         {cards.map((k) => {
           const inner = (
             <>
-              <div className="text-sm text-slate-500 dark:text-slate-400">{k.label}</div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
-                {k.loading ? <span className="text-slate-300 dark:text-slate-600">…</span> : k.value}
+              <div className="text-sm text-ink-muted">{k.label}</div>
+              <div className="text-2xl font-bold text-ink mt-2">
+                {k.loading ? <span className="text-ink-subtle">…</span> : k.value}
               </div>
-              <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">{k.sub}</div>
+              <div className="text-xs text-ink-subtle mt-2">{k.sub}</div>
             </>
           );
-          const cls = "bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 shadow-sm";
+          const cls = "bg-surface rounded-2xl border border-line p-5 shadow-sm";
           return k.href ? (
             <Link key={k.label} href={k.href} className={`${cls} hover:shadow-md hover:-translate-y-0.5 transition-all`}>
               {inner}
@@ -371,17 +367,17 @@ function DashboardInner() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">دسترسی سریع</h2>
+          <h2 className="text-lg font-semibold text-ink">دسترسی سریع</h2>
         </div>
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
           {modules.map((m) => (
             <Link
               key={m.title}
               href={m.href}
-              className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#1f2937] p-5 hover:shadow-md hover:-translate-y-0.5 transition-all"
+              className="bg-surface rounded-2xl border border-line p-5 hover:shadow-md hover:-translate-y-0.5 transition-all"
             >
-              <div className="font-semibold text-slate-900 dark:text-slate-100">{m.title}</div>
-              <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">{m.desc}</div>
+              <div className="font-semibold text-ink">{m.title}</div>
+              <div className="text-sm text-ink-muted mt-1">{m.desc}</div>
             </Link>
           ))}
         </div>

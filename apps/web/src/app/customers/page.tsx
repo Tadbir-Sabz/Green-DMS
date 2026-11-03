@@ -25,10 +25,10 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  suspended: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  blocked: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  closed: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
+  active: "bg-brand-soft text-brand-soft-ink",
+  suspended: "bg-warning-soft text-warning-ink",
+  blocked: "bg-danger-soft text-danger-ink",
+  closed: "bg-surface-alt text-ink-muted",
 };
 
 const CHANNEL_FA: Record<string, string> = {
@@ -71,9 +71,9 @@ function CustomersInner() {
       header: "موقعیت",
       render: (c) =>
         c.geo ? (
-          <span className="text-xs text-emerald-600">ثبت‌شده</span>
+          <span className="text-xs text-brand-soft-ink">ثبت‌شده</span>
         ) : (
-          <span className="text-xs text-slate-400">—</span>
+          <span className="text-xs text-ink-subtle">—</span>
         ),
     },
     { key: "created", header: "تاریخ ایجاد", render: (c) => <span className="text-xs">{toPersianDate(c.created_at)}</span> },
@@ -92,8 +92,8 @@ function CustomersInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">مشتریان</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">پروفایل، اعتبار، کانال و موقعیت مشتریان</p>
+          <h1 className="text-xl font-bold text-ink">مشتریان</h1>
+          <p className="text-ink-muted text-sm">پروفایل، اعتبار، کانال و موقعیت مشتریان</p>
         </div>
         <div className="flex items-center gap-2">
           <form
@@ -106,7 +106,7 @@ function CustomersInner() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="جست‌وجوی مشتری..."
-              className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink"
             />
           </form>
           <ExportButtons data={items} tableId="customers-table" filename="customers" />

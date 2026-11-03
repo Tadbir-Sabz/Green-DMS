@@ -75,7 +75,7 @@ export default function RolesInner() {
         <span>
           {r.name}
           {r.is_system && (
-            <span className="mr-2 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#1f2937] text-[10px] text-slate-500">سیستمی</span>
+            <span className="mr-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] text-ink-muted">سیستمی</span>
           )}
         </span>
       ),
@@ -89,17 +89,17 @@ export default function RolesInner() {
         return (
           <button
             onClick={() => setExpanded(isExpanded ? null : r.id ?? null)}
-            className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="text-xs text-brand-soft-ink hover:underline"
           >
             {codes.length} مجوز {isExpanded ? "▲" : "▼"}
             {isExpanded && (
               <span className="block mt-2 space-y-1 text-right">
                 {codes.map((c) => (
-                  <code key={c} dir="ltr" className="block px-2 py-0.5 rounded bg-slate-50 dark:bg-[#0b1220] text-[11px] text-slate-600 dark:text-slate-300">
+                  <code key={c} dir="ltr" className="block px-2 py-0.5 rounded bg-surface-alt text-[11px] text-ink-muted">
                     {c}
                   </code>
                 ))}
-                {codes.length === 0 && <span className="text-slate-400">بدون مجوز</span>}
+                {codes.length === 0 && <span className="text-ink-subtle">بدون مجوز</span>}
               </span>
             )}
           </button>
@@ -112,8 +112,8 @@ export default function RolesInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">نقش‌ها و دسترسی‌ها</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">تعریف نقش و نگاشت الگوهای مجوز</p>
+          <h1 className="text-xl font-bold text-ink">نقش‌ها و دسترسی‌ها</h1>
+          <p className="text-ink-muted text-sm">تعریف نقش و نگاشت الگوهای مجوز</p>
         </div>
         <button
           onClick={() => {
@@ -121,7 +121,7 @@ export default function RolesInner() {
             setFormError(null);
             setShowForm(true);
           }}
-          className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium"
+          className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium"
         >
           نقش جدید
         </button>
@@ -142,39 +142,39 @@ export default function RolesInner() {
         title="ساخت نقش جدید"
         footer={
           <>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover">
               انصراف
             </button>
-            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium">
+            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium">
               {saving ? "در حال ذخیره..." : "ذخیره"}
             </button>
           </>
         }
       >
         <form onSubmit={submit} className="space-y-3">
-          {formError && <div className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-lg px-3 py-2">{formError}</div>}
+          {formError && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>}
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">کد نقش *</span>
-              <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="salesperson_cold" dir="ltr" className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm" />
+              <span className="text-xs text-ink-muted">کد نقش *</span>
+              <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="salesperson_cold" dir="ltr" className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">نام نقش *</span>
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="فروشنده سرد" className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm" />
+              <span className="text-xs text-ink-muted">نام نقش *</span>
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="فروشنده سرد" className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
             </label>
           </div>
           <label className="block">
-            <span className="text-xs text-slate-500 dark:text-slate-400">الگوهای مجوز (هر خط یا با کاما جدا شود)</span>
+            <span className="text-xs text-ink-muted">الگوهای مجوز (هر خط یا با کاما جدا شود)</span>
             <textarea
               value={form.permission_codes}
               onChange={(e) => setForm({ ...form, permission_codes: e.target.value })}
               rows={5}
               dir="ltr"
               placeholder={"sales.order.view\nsales.order.create\nmaster.customer.view"}
-              className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm font-mono"
+              className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm font-mono"
             />
           </label>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-ink-subtle">
             از «*» برای همهٔ مجوزها یا «x.y.*» برای یک زیرمجموعه استفاده کنید.
           </p>
         </form>

@@ -26,11 +26,11 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  approved: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-  in_transit: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  received: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  voided: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  draft: "bg-surface-alt text-ink-muted",
+  approved: "bg-info-soft text-info-ink",
+  in_transit: "bg-warning-soft text-warning-ink",
+  received: "bg-brand-soft text-brand-soft-ink",
+  voided: "bg-danger-soft text-danger-ink",
 };
 
 function TransfersInner() {
@@ -85,21 +85,21 @@ function TransfersInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">انتقال بین انباری</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">بارگیری خودرو و انتقال بین شعب</p>
+          <h1 className="text-xl font-bold text-ink">انتقال بین انباری</h1>
+          <p className="text-ink-muted text-sm">بارگیری خودرو و انتقال بین شعب</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+            className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink"
           >
             <option value="">همهٔ وضعیت‌ها</option>
             {Object.entries(STATUS_FA).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
-          <Link href="/transfers/new" className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
+          <Link href="/transfers/new" className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium">
             انتقال جدید
           </Link>
         </div>

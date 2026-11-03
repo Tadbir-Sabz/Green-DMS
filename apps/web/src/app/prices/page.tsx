@@ -56,9 +56,9 @@ function PricesInner() {
       header: "وضعیت",
       render: (p) =>
         p.is_active ? (
-          <span className="px-2 py-0.5 rounded-md text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">فعال</span>
+          <span className="px-2 py-0.5 rounded-md text-xs bg-brand-soft text-brand-soft-ink">فعال</span>
         ) : (
-          <span className="px-2 py-0.5 rounded-md text-xs bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300">غیرفعال</span>
+          <span className="px-2 py-0.5 rounded-md text-xs bg-surface-alt text-ink-muted">غیرفعال</span>
         ),
     },
   ];
@@ -67,14 +67,14 @@ function PricesInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">لیست‌های قیمت</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">قیمت‌گذاری کالاها به تفکیک نوع مشتری؛ قیمت مشتری‌محور اولویت دارد</p>
+          <h1 className="text-xl font-bold text-ink">لیست‌های قیمت</h1>
+          <p className="text-ink-muted text-sm">قیمت‌گذاری کالاها به تفکیک نوع مشتری؛ قیمت مشتری‌محور اولویت دارد</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+            className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink"
           >
             <option value="">همهٔ انواع</option>
             {Object.entries(KIND_FA).map(([k, v]) => (

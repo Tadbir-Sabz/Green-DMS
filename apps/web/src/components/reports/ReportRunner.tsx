@@ -49,35 +49,35 @@ export function ReportRunner({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{title}</h1>
-          {subtitle && <p className="text-slate-500 dark:text-slate-400 text-sm">{subtitle}</p>}
+          <h1 className="text-xl font-bold text-ink">{title}</h1>
+          {subtitle && <p className="text-ink-muted text-sm">{subtitle}</p>}
         </div>
         <ExportButtons data={rows} tableId={tableId} filename={filename} />
       </div>
 
       {/* فیلتر بازهٔ تاریخ */}
-      <div className="flex flex-wrap items-end gap-3 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+      <div className="flex flex-wrap items-end gap-3 bg-surface border border-line rounded-2xl p-4">
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">از تاریخ</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-slate-900 dark:text-slate-100" />
+          <label className="block text-xs text-ink-muted mb-1">از تاریخ</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-3 py-2 rounded-xl border border-line bg-transparent text-ink" />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">تا تاریخ</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-slate-900 dark:text-slate-100" />
+          <label className="block text-xs text-ink-muted mb-1">تا تاریخ</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-3 py-2 rounded-xl border border-line bg-transparent text-ink" />
         </div>
         {(from || to) && (
-          <button onClick={() => { setFrom(""); setTo(""); }} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+          <button onClick={() => { setFrom(""); setTo(""); }} className="px-3 py-2 rounded-xl border border-line text-sm text-ink-muted hover:bg-surface-hover">
             پاک کردن فیلتر
           </button>
         )}
       </div>
 
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{(error as Error).message}</div>}
 
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table id={tableId} className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
                 {columns.map((c, i) => (
                   <th key={c.key ?? i} className="text-right p-3 font-medium whitespace-nowrap">{c.title ?? c.key ?? ""}</th>
@@ -87,13 +87,13 @@ export function ReportRunner({
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={Math.max(columns.length, 1)} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>
+                <tr><td colSpan={Math.max(columns.length, 1)} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>
               )}
               {!isLoading && rows.length === 0 && (
-                <tr><td colSpan={Math.max(columns.length, 1)} className="text-center p-6 text-slate-400">داده‌ای برای نمایش نیست</td></tr>
+                <tr><td colSpan={Math.max(columns.length, 1)} className="text-center p-6 text-ink-subtle">داده‌ای برای نمایش نیست</td></tr>
               )}
               {!isLoading && rows.map((row, ridx) => (
-                <tr key={ridx} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+                <tr key={ridx} className="border-t border-line hover:bg-surface-hover">
                   {columns.map((c, cidx) => {
                     const v = c.key ? row[c.key] : "";
                     const numeric = typeof v === "number" || (typeof v === "string" && v !== "" && !Number.isNaN(Number(v)));

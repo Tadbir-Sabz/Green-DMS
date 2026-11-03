@@ -46,7 +46,7 @@ export default function ARInner() {
       header: "بیش از ۹۰ روز",
       align: "end",
       render: (r) => (
-        <span className={Number(r.over_90) > 0 ? "text-rose-600 font-medium" : ""}>{formatMoney(r.over_90)}</span>
+        <span className={Number(r.over_90) > 0 ? "text-danger-ink font-medium" : ""}>{formatMoney(r.over_90)}</span>
       ),
     },
     { key: "total", header: "جمع", align: "end", render: (r) => <span className="font-semibold">{formatMoney(r.total)}</span> },
@@ -56,8 +56,8 @@ export default function ARInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">حساب‌های دریافتنی</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">حساب‌های دریافتنی</h1>
+          <p className="text-ink-muted text-sm">
             ماندهٔ بدهکاری مشتریان با تحلیل سنی
           </p>
         </div>
@@ -70,13 +70,13 @@ export default function ARInner() {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">جمع کل دریافتنی</div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(totalDue)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">جمع کل دریافتنی</div>
+          <div className="text-2xl font-bold text-ink mt-1">{formatMoney(totalDue)}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">معوق بیش از ۹۰ روز</div>
-          <div className="text-2xl font-bold text-rose-600 mt-1">{formatMoney(totalOver90)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">معوق بیش از ۹۰ روز</div>
+          <div className="text-2xl font-bold text-danger-ink mt-1">{formatMoney(totalOver90)}</div>
         </div>
       </div>
 

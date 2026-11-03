@@ -24,13 +24,13 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  accepted: "bg-emerald-100 text-emerald-700",
-  sent: "bg-sky-100 text-sky-700",
-  sending: "bg-sky-100 text-sky-700",
-  queued: "bg-slate-100 text-slate-600",
-  retrying: "bg-amber-100 text-amber-700",
-  rejected: "bg-rose-100 text-rose-700",
-  dead: "bg-rose-100 text-rose-700",
+  accepted: "bg-brand-soft text-brand-soft-ink",
+  sent: "bg-info-soft text-info-ink",
+  sending: "bg-info-soft text-info-ink",
+  queued: "bg-surface-alt text-ink-muted",
+  retrying: "bg-warning-soft text-warning-ink",
+  rejected: "bg-danger-soft text-danger-ink",
+  dead: "bg-danger-soft text-danger-ink",
 };
 
 /** سامانه مؤدیان — GET /integrations/moadian/status (صف ارسال فاکتور) */
@@ -50,16 +50,16 @@ export default function MoadianPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">سامانه مؤدیان</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">وضعیت صف ارسال فاکتور به سامانهٔ مؤدیان</p>
+          <h1 className="text-xl font-bold text-ink">سامانه مؤدیان</h1>
+          <p className="text-ink-muted text-sm">وضعیت صف ارسال فاکتور به سامانهٔ مؤدیان</p>
         </div>
-        <button onClick={() => refetch()} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937] text-slate-700 dark:text-slate-200">بروزرسانی</button>
+        <button onClick={() => refetch()} className="px-3 py-2 rounded-xl border border-line hover:bg-surface-hover text-ink">بروزرسانی</button>
       </div>
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-[#1f2937] font-semibold text-slate-900 dark:text-slate-100">صف ارسال</div>
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-line font-semibold text-ink">صف ارسال</div>
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
+          <thead className="bg-surface-alt text-ink-muted">
             <tr>
               <th className="text-right p-3">فاکتور</th>
               <th className="text-right p-3">وضعیت</th>
@@ -69,17 +69,17 @@ export default function MoadianPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={5} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
-            {!isLoading && items.length === 0 && <tr><td colSpan={5} className="text-center p-6 text-slate-400">صفی برای نمایش نیست</td></tr>}
+            {isLoading && <tr><td colSpan={5} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>}
+            {!isLoading && items.length === 0 && <tr><td colSpan={5} className="text-center p-6 text-ink-subtle">صفی برای نمایش نیست</td></tr>}
             {!isLoading && items.map((j) => (
-              <tr key={j.id} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+              <tr key={j.id} className="border-t border-line hover:bg-surface-hover">
                 <td className="p-3 font-mono text-xs">{j.invoice_id ? j.invoice_id.slice(0, 8) : "-"}</td>
                 <td className="p-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[j.status] ?? "bg-slate-100 text-slate-600"}`}>{STATUS_FA[j.status] ?? j.status}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLOR[j.status] ?? "bg-surface-alt text-ink-muted"}`}>{STATUS_FA[j.status] ?? j.status}</span>
                 </td>
                 <td className="p-3">{j.attempt_count ?? 0}</td>
-                <td className="p-3 text-xs text-rose-600 max-w-[240px] truncate" title={j.last_error ?? undefined}>{j.last_error || "-"}</td>
-                <td className="p-3 text-xs text-slate-500">{j.created_at || "-"}</td>
+                <td className="p-3 text-xs text-danger-ink max-w-[240px] truncate" title={j.last_error ?? undefined}>{j.last_error || "-"}</td>
+                <td className="p-3 text-xs text-ink-muted">{j.created_at || "-"}</td>
               </tr>
             ))}
           </tbody>

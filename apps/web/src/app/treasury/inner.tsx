@@ -39,17 +39,17 @@ const CLOSE_STATUS_FA: Record<string, string> = {
   approved: "تأییدشده",
 };
 const CLOSE_STATUS_COLOR: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  closed: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  draft: "bg-surface-alt text-ink-muted",
+  closed: "bg-warning-soft text-warning-ink",
+  approved: "bg-brand-soft text-brand-soft-ink",
 };
 
 const selectCls =
-  "px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200";
+  "px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink";
 
 function Badge({ text, color }: { text: string; color?: string }) {
   return (
-    <span className={`px-2 py-0.5 rounded-md text-xs ${color ?? "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300"}`}>
+    <span className={`px-2 py-0.5 rounded-md text-xs ${color ?? "bg-surface-alt text-ink-muted"}`}>
       {text}
     </span>
   );
@@ -57,16 +57,12 @@ function Badge({ text, color }: { text: string; color?: string }) {
 
 function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
   return (
-    <div className="flex flex-wrap gap-1 border-b border-slate-200 dark:border-[#1f2937]">
+    <div className="flex flex-wrap gap-1 border-b border-line">
       {TABS.map((t) => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className={`px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${
-            tab === t.id
-              ? "border-emerald-600 text-emerald-700 dark:text-emerald-400 font-semibold"
-              : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
+          className={`px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${ tab === t.id ? "border-brand text-brand-soft-ink font-semibold" : "border-transparent text-ink-muted hover:text-ink" }`}
         >
           {t.label}
         </button>
@@ -111,7 +107,7 @@ function PositionsPanel() {
       align: "end",
       render: (r) => {
         const v = Number(r.variance ?? 0);
-        const cls = v > 0 ? "text-rose-600 font-medium" : v < 0 ? "text-amber-600" : "text-slate-400";
+        const cls = v > 0 ? "text-danger-ink font-medium" : v < 0 ? "text-warning-ink" : "text-ink-subtle";
         return <span className={cls}>{r.variance != null ? formatMoney(r.variance) : "—"}</span>;
       },
     },
@@ -120,7 +116,7 @@ function PositionsPanel() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <p className="text-ink-muted text-sm">
           ماندهٔ صندوق و بانک‌ها به‌همراه مغایرت‌گیری
         </p>
         <div className="flex items-center gap-2">
@@ -132,13 +128,13 @@ function PositionsPanel() {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">جمع ماندهٔ دفتری</div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(totalBook)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">جمع ماندهٔ دفتری</div>
+          <div className="text-2xl font-bold text-ink mt-1">{formatMoney(totalBook)}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">جمع مغایرت باز</div>
-          <div className={`text-2xl font-bold mt-1 ${totalVariance !== 0 ? "text-rose-600" : "text-slate-900 dark:text-slate-100"}`}>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">جمع مغایرت باز</div>
+          <div className={`text-2xl font-bold mt-1 ${totalVariance !== 0 ? "text-danger-ink" : "text-ink"}`}>
             {formatMoney(totalVariance)}
           </div>
         </div>
@@ -204,7 +200,7 @@ function ClosesPanel() {
       key: "branch",
       header: "شعبه",
       render: (c) => (
-        <span className="font-mono text-[10px] text-slate-400" title={c.branch_id ?? ""}>
+        <span className="font-mono text-[10px] text-ink-subtle" title={c.branch_id ?? ""}>
           {c.branch_id ? `${c.branch_id.slice(0, 8)}…` : "—"}
         </span>
       ),
@@ -217,7 +213,7 @@ function ClosesPanel() {
       align: "end",
       render: (c) => {
         const v = Number(c.cash_variance ?? 0);
-        const cls = v < 0 ? "text-rose-600 font-medium" : v > 0 ? "text-emerald-600" : "text-slate-400";
+        const cls = v < 0 ? "text-danger-ink font-medium" : v > 0 ? "text-brand-soft-ink" : "text-ink-subtle";
         return <span className={cls}>{formatMoney(c.cash_variance)}</span>;
       },
     },
@@ -236,7 +232,7 @@ function ClosesPanel() {
           <button
             onClick={() => approve.mutate(c.id as string)}
             disabled={approve.isPending}
-            className="px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg border border-brand-line text-xs text-brand-soft-ink hover:bg-brand-soft disabled:opacity-50"
           >
             تأیید
           </button>
@@ -249,7 +245,7 @@ function ClosesPanel() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">وضعیت</label>
+            <label className="block text-xs text-ink-muted mb-1">وضعیت</label>
             <select value={status} onChange={(e) => setStatus(e.target.value as CloseStatus | "")} className={selectCls}>
               <option value="">همه</option>
               <option value="draft">پیش‌نویس</option>
@@ -258,13 +254,13 @@ function ClosesPanel() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">از تاریخ</label>
+            <label className="block text-xs text-ink-muted mb-1">از تاریخ</label>
             <div className="w-44">
               <JalaliDatePicker value={from} onChange={setFrom} placeholder="از تاریخ..." />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">تا تاریخ</label>
+            <label className="block text-xs text-ink-muted mb-1">تا تاریخ</label>
             <div className="w-44">
               <JalaliDatePicker value={to} onChange={setTo} placeholder="تا تاریخ..." />
             </div>
@@ -293,8 +289,8 @@ export default function TreasuryInner() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">خزانه‌داری</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <h1 className="text-xl font-bold text-ink">خزانه‌داری</h1>
+        <p className="text-ink-muted text-sm">
           ماندهٔ صندوق و بانک‌ها، مغایرت‌گیری و بستن روزانهٔ خزانه
         </p>
       </div>

@@ -33,10 +33,10 @@ const STATUS_FA: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  planned: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  active: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  settled: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  closed: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+  planned: "bg-surface-alt text-ink-muted",
+  active: "bg-warning-soft text-warning-ink",
+  settled: "bg-brand-soft text-brand-soft-ink",
+  closed: "bg-info-soft text-info-ink",
 };
 
 function ToursInner() {
@@ -95,20 +95,20 @@ function ToursInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">تورها</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">برنامه‌ریزی، اجرا و تسویهٔ تورهای فروش و توزیع</p>
+          <h1 className="text-xl font-bold text-ink">تورها</h1>
+          <p className="text-ink-muted text-sm">برنامه‌ریزی، اجرا و تسویهٔ تورهای فروش و توزیع</p>
         </div>
         <ExportButtons data={items} tableId="tours-table" filename="tours" />
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+      <div className="flex flex-wrap items-end gap-3 bg-surface border border-line rounded-2xl p-4">
         <div className="w-44">
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">تاریخ تور</label>
+          <label className="block text-xs text-ink-muted mb-1">تاریخ تور</label>
           <JalaliDatePicker value={tourDate} onChange={setTourDate} placeholder="همهٔ تاریخ‌ها" />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">نوع</label>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm">
+          <label className="block text-xs text-ink-muted mb-1">نوع</label>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm">
             <option value="">همه</option>
             {Object.entries(KIND_FA).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -116,8 +116,8 @@ function ToursInner() {
           </select>
         </div>
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">وضعیت</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm">
+          <label className="block text-xs text-ink-muted mb-1">وضعیت</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm">
             <option value="">همه</option>
             {Object.entries(STATUS_FA).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -127,7 +127,7 @@ function ToursInner() {
         {(kind || status || tourDate) && (
           <button
             onClick={() => { setKind(""); setStatus(""); setTourDate(null); }}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1f2937]"
+            className="px-3 py-2 rounded-xl border border-line-strong text-sm text-ink-muted hover:bg-surface-hover"
           >
             پاک کردن فیلترها
           </button>

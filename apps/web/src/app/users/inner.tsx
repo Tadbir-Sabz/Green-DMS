@@ -122,9 +122,9 @@ export default function UsersInner() {
       header: "نقش‌ها",
       render: (u) => (
         <div className="flex flex-wrap gap-1">
-          {(u.role_ids ?? []).length === 0 && <span className="text-slate-400">—</span>}
+          {(u.role_ids ?? []).length === 0 && <span className="text-ink-subtle">—</span>}
           {(u.role_ids ?? []).map((id) => (
-            <span key={id} className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#1f2937] text-xs">
+            <span key={id} className="px-2 py-0.5 rounded-md bg-surface-alt text-xs">
               {roleName(id)}
             </span>
           ))}
@@ -136,11 +136,11 @@ export default function UsersInner() {
       header: "وضعیت",
       render: (u) => {
         if (u.locked_until && new Date(u.locked_until) > new Date())
-          return <span className="text-rose-600 text-xs">قفل (تا {toPersianDateTime(u.locked_until)})</span>;
+          return <span className="text-danger-ink text-xs">قفل (تا {toPersianDateTime(u.locked_until)})</span>;
         return u.is_active ? (
-          <span className="text-emerald-600 text-xs">فعال</span>
+          <span className="text-brand-soft-ink text-xs">فعال</span>
         ) : (
-          <span className="text-slate-400 text-xs">غیرفعال</span>
+          <span className="text-ink-subtle text-xs">غیرفعال</span>
         );
       },
     },
@@ -152,7 +152,7 @@ export default function UsersInner() {
       render: (u) => (
         <button
           onClick={() => toggleActive(u)}
-          className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-[#1f2937] text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1f2937]"
+          className="px-2.5 py-1 rounded-lg border border-line-strong text-xs text-ink hover:bg-surface-hover"
         >
           {u.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
         </button>
@@ -164,10 +164,10 @@ export default function UsersInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">کاربران</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">کاربران سیستم، نقش‌ها و وضعیت دسترسی</p>
+          <h1 className="text-xl font-bold text-ink">کاربران</h1>
+          <p className="text-ink-muted text-sm">کاربران سیستم، نقش‌ها و وضعیت دسترسی</p>
         </div>
-        <button onClick={openForm} className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
+        <button onClick={openForm} className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium">
           کاربر جدید
         </button>
       </div>
@@ -187,37 +187,37 @@ export default function UsersInner() {
         title="ساخت کاربر جدید"
         footer={
           <>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border border-line-strong text-sm text-ink hover:bg-surface-hover">
               انصراف
             </button>
-            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium">
+            <button onClick={submit} disabled={saving} className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium">
               {saving ? "در حال ذخیره..." : "ذخیره"}
             </button>
           </>
         }
       >
         <form onSubmit={submit} className="space-y-3">
-          {formError && <div className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-lg px-3 py-2">{formError}</div>}
+          {formError && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>}
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">نام کاربری *</span>
-              <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm" dir="ltr" />
+              <span className="text-xs text-ink-muted">نام کاربری *</span>
+              <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" dir="ltr" />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">رمز عبور *</span>
-              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm" dir="ltr" />
+              <span className="text-xs text-ink-muted">رمز عبور *</span>
+              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" dir="ltr" />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">نام</span>
-              <input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm" />
+              <span className="text-xs text-ink-muted">نام</span>
+              <input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">نام خانوادگی</span>
-              <input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm" />
+              <span className="text-xs text-ink-muted">نام خانوادگی</span>
+              <input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm" />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-500 dark:text-slate-400">سطح دسترسی</span>
-              <select value={form.access_level} onChange={(e) => setForm({ ...form, access_level: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm">
+              <span className="text-xs text-ink-muted">سطح دسترسی</span>
+              <select value={form.access_level} onChange={(e) => setForm({ ...form, access_level: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm">
                 {Object.entries(ACCESS_FA).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
@@ -225,7 +225,7 @@ export default function UsersInner() {
             </label>
           </div>
           <div>
-            <span className="text-xs text-slate-500 dark:text-slate-400">نقش‌ها</span>
+            <span className="text-xs text-ink-muted">نقش‌ها</span>
             <div className="mt-1 flex flex-wrap gap-2">
               {(roles ?? []).map((r) => {
                 const on = form.role_ids.includes(r.id!);
@@ -239,13 +239,13 @@ export default function UsersInner() {
                         role_ids: on ? f.role_ids.filter((x) => x !== r.id) : [...f.role_ids, r.id!],
                       }))
                     }
-                    className={`px-3 py-1.5 rounded-lg text-xs border ${on ? "bg-emerald-600 border-emerald-600 text-white" : "border-slate-300 dark:border-[#1f2937] text-slate-700 dark:text-slate-200"}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs border ${on ? "bg-brand border-brand text-white" : "border-line-strong text-ink"}`}
                   >
                     {r.name}
                   </button>
                 );
               })}
-              {(roles ?? []).length === 0 && <span className="text-xs text-slate-400">نقشی تعریف نشده است</span>}
+              {(roles ?? []).length === 0 && <span className="text-xs text-ink-subtle">نقشی تعریف نشده است</span>}
             </div>
           </div>
         </form>

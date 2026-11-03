@@ -40,10 +40,10 @@ export function RoleGuard({ allowed, permission, children, fallback }: RoleGuard
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading, allowed, permission, router]);
 
-  if (isLoading) return <div className="p-6 text-slate-500">در حال بررسی دسترسی...</div>;
+  if (isLoading) return <div className="p-6 text-ink-muted">در حال بررسی دسترسی...</div>;
   if (!user) return null;
   if (!permitted()) {
-    return fallback || <div className="p-6 text-slate-500">دسترسی غیرمجاز</div>;
+    return fallback || <div className="p-6 text-ink-muted">دسترسی غیرمجاز</div>;
   }
 
   return <>{children}</>;

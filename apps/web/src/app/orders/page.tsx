@@ -32,13 +32,13 @@ const STATUS_FA: Record<string, string> = {
 const STATUS_FILTERS = ["", "draft", "pending_approval", "approved", "delivered", "invoiced"] as const;
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  pending_approval: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  delivered: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-  invoiced: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  cancelled: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  rejected: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  draft: "bg-surface-alt text-ink-muted",
+  pending_approval: "bg-warning-soft text-warning-ink",
+  approved: "bg-brand-soft text-brand-soft-ink",
+  delivered: "bg-info-soft text-info-ink",
+  invoiced: "bg-info-soft text-info-ink",
+  cancelled: "bg-danger-soft text-danger-ink",
+  rejected: "bg-danger-soft text-danger-ink",
 };
 
 function OrdersInner() {
@@ -80,7 +80,7 @@ function OrdersInner() {
       key: "doc",
       header: "شماره",
       render: (o) => (
-        <Link href={`/orders/${o.id}`} className="font-mono text-xs text-emerald-700 dark:text-emerald-400 hover:underline">
+        <Link href={`/orders/${o.id}`} className="font-mono text-xs text-brand-soft-ink hover:underline">
           {o.doc_number ?? "—"}
         </Link>
       ),
@@ -92,7 +92,7 @@ function OrdersInner() {
       key: "status",
       header: "وضعیت",
       render: (o) => (
-        <span className={`px-2 py-0.5 rounded-md text-xs ${STATUS_COLOR[o.status ?? ""] ?? "bg-slate-100 text-slate-600"}`}>
+        <span className={`px-2 py-0.5 rounded-md text-xs ${STATUS_COLOR[o.status ?? ""] ?? "bg-surface-alt text-ink-muted"}`}>
           {STATUS_FA[o.status ?? ""] ?? o.status}
         </span>
       ),
@@ -106,7 +106,7 @@ function OrdersInner() {
           <button
             onClick={() => approve(o)}
             disabled={approving === o.id}
-            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs"
+            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-xs"
           >
             {approving === o.id ? "..." : "تأیید"}
           </button>
@@ -118,14 +118,14 @@ function OrdersInner() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">سفارش‌های فروش</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">چرخهٔ سفارش از ثبت تا تأیید و فاکتور</p>
+          <h1 className="text-xl font-bold text-ink">سفارش‌های فروش</h1>
+          <p className="text-ink-muted text-sm">چرخهٔ سفارش از ثبت تا تأیید و فاکتور</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200"
+            className="px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink"
           >
             {STATUS_FILTERS.map((s) => (
               <option key={s} value={s}>

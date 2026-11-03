@@ -156,11 +156,11 @@ export default function LoginPage(): React.JSX.Element {
   };
 
   const inputClass =
-    'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none';
+    'mt-1 w-full rounded-lg border border-line-strong px-3 py-2 focus:border-info focus:outline-none';
 
   const tabClass = (active: boolean): string =>
     `rounded-md px-3 py-1.5 font-medium transition ${
-      active ? 'bg-white text-blue-700 shadow' : 'text-slate-500'
+      active ? 'bg-surface text-info-ink shadow' : 'text-ink-muted'
     }`;
 
   const modeTitle =
@@ -171,18 +171,18 @@ export default function LoginPage(): React.JSX.Element {
         : 'کد بازیابی را درخواست و رمز عبور جدید را تعیین کنید';
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-surface-alt p-4">
       <form
         onSubmit={
           mode === 'password' ? submitPassword : mode === 'otp' ? verifyCode : submitReset
         }
-        className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+        className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-sm"
       >
         <h1 className="text-xl font-bold">ورود به سامانه پخش مویرگی</h1>
-        <p className="mt-1 text-sm text-slate-500">{modeTitle}</p>
+        <p className="mt-1 text-sm text-ink-muted">{modeTitle}</p>
 
         {/* انتخاب روش */}
-        <div className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1 text-sm">
+        <div className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-surface-alt p-1 text-sm">
           <button type="button" onClick={() => switchMode('password')} className={tabClass(mode === 'password')}>
             رمز عبور
           </button>
@@ -239,7 +239,7 @@ export default function LoginPage(): React.JSX.Element {
                 type="button"
                 onClick={() => void requestCode('login')}
                 disabled={busy || cooldown > 0}
-                className="mb-0.5 shrink-0 rounded-lg border border-blue-600 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                className="mb-0.5 shrink-0 rounded-lg border border-info px-3 py-2 text-sm font-medium text-info-ink hover:bg-info-soft disabled:opacity-50"
               >
                 {cooldown > 0
                   ? `ارسال مجدد (${cooldown})`
@@ -248,7 +248,7 @@ export default function LoginPage(): React.JSX.Element {
                     : 'درخواست کد'}
               </button>
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-ink-muted">
               کد به شماره موبایل ثبت‌شدهٔ شما پیامک می‌شود و تا ۲ دقیقه معتبر است.
             </p>
           </>
@@ -274,7 +274,7 @@ export default function LoginPage(): React.JSX.Element {
                 type="button"
                 onClick={() => void requestCode('password_reset')}
                 disabled={busy || cooldown > 0}
-                className="mb-0.5 shrink-0 rounded-lg border border-blue-600 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                className="mb-0.5 shrink-0 rounded-lg border border-info px-3 py-2 text-sm font-medium text-info-ink hover:bg-info-soft disabled:opacity-50"
               >
                 {cooldown > 0
                   ? `ارسال مجدد (${cooldown})`
@@ -310,7 +310,7 @@ export default function LoginPage(): React.JSX.Element {
               />
             </label>
 
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-ink-muted">
               کد به موبایل ثبت‌شدهٔ شما پیامک می‌شود (تا ۲ دقیقه معتبر)؛ پس از تغییر رمز،
               همه نشست‌های باز شما بسته می‌شود.
             </p>
@@ -318,17 +318,17 @@ export default function LoginPage(): React.JSX.Element {
         )}
 
         {notice && (
-          <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>
+          <p className="mt-4 rounded-lg bg-brand-soft px-3 py-2 text-sm text-brand-soft-ink">{notice}</p>
         )}
 
         {error && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink">{error}</p>
         )}
 
         <button
           type="submit"
           disabled={busy}
-          className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="mt-6 w-full rounded-lg bg-info px-4 py-2 font-medium text-white hover:bg-info disabled:opacity-50"
         >
           {busy
             ? 'در حال پردازش…'
@@ -339,7 +339,7 @@ export default function LoginPage(): React.JSX.Element {
                 : 'تغییر رمز عبور'}
         </button>
 
-        <p className="mt-4 text-center text-xs text-slate-400">دمو: admin / Admin@1234</p>
+        <p className="mt-4 text-center text-xs text-ink-subtle">دمو: admin / Admin@1234</p>
       </form>
     </main>
   );

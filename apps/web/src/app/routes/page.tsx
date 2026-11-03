@@ -107,49 +107,49 @@ export default function RoutesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">مناطق و مسیرهای فروش</h1>
-        <p className="text-slate-500 text-sm">حوزه‌های جغرافیایی و ترتیب بازدید مشتریان در هر مسیر</p>
+        <h1 className="text-xl font-bold text-ink">مناطق و مسیرهای فروش</h1>
+        <p className="text-ink-muted text-sm">حوزه‌های جغرافیایی و ترتیب بازدید مشتریان در هر مسیر</p>
       </div>
 
       {formError && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</div>
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>
       )}
 
       {/* مناطق */}
       <section className="space-y-4">
-        <div className="font-semibold text-slate-800 dark:text-slate-200">مناطق (حوزه‌ها)</div>
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+        <div className="font-semibold text-ink">مناطق (حوزه‌ها)</div>
+        <div className="bg-surface border border-line rounded-2xl p-4">
           <div className="grid md:grid-cols-4 gap-3">
             <input
               placeholder="کد *"
               value={areaForm.code}
               onChange={(e) => setAreaForm({ ...areaForm, code: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             />
             <input
               placeholder="نام *"
               value={areaForm.name}
               onChange={(e) => setAreaForm({ ...areaForm, name: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             />
             <input
               placeholder="شناسه والد (اختیاری)"
               value={areaForm.parent_area_id}
               onChange={(e) => setAreaForm({ ...areaForm, parent_area_id: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             />
             <button
               disabled={createArea.isPending}
               onClick={() => createArea.mutate()}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 text-sm"
+              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50 text-sm"
             >
               افزودن منطقه
             </button>
           </div>
         </div>
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden">
+        <div className="bg-surface border border-line rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
                 <th className="text-right px-4 py-3 font-medium">کد</th>
                 <th className="text-right px-4 py-3 font-medium">نام</th>
@@ -159,7 +159,7 @@ export default function RoutesPage() {
             </thead>
             <tbody>
               {(areas.data ?? []).map((a) => (
-                <tr key={a.id} className="border-t border-slate-100 dark:border-[#1f2937]">
+                <tr key={a.id} className="border-t border-line">
                   <td className="px-4 py-3 font-mono">{a.code}</td>
                   <td className="px-4 py-3">{a.name}</td>
                   <td className="px-4 py-3 font-mono text-xs">{a.parent_area_id ? a.parent_area_id.slice(0, 8) + "…" : "—"}</td>
@@ -168,7 +168,7 @@ export default function RoutesPage() {
               ))}
               {!areas.isLoading && (areas.data?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-6 text-center text-ink-subtle">
                     منطقه‌ای ثبت نشده است
                   </td>
                 </tr>
@@ -180,13 +180,13 @@ export default function RoutesPage() {
 
       {/* مسیرها */}
       <section className="space-y-4">
-        <div className="font-semibold text-slate-800 dark:text-slate-200">مسیرهای بازدید</div>
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
+        <div className="font-semibold text-ink">مسیرهای بازدید</div>
+        <div className="bg-surface border border-line rounded-2xl p-4">
           <div className="grid md:grid-cols-5 gap-3">
             <select
               value={routeForm.area_id}
               onChange={(e) => setRouteForm({ ...routeForm, area_id: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             >
               <option value="">منطقه *</option>
               {(areas.data ?? []).map((a) => (
@@ -199,18 +199,18 @@ export default function RoutesPage() {
               placeholder="کد *"
               value={routeForm.code}
               onChange={(e) => setRouteForm({ ...routeForm, code: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             />
             <input
               placeholder="نام *"
               value={routeForm.name}
               onChange={(e) => setRouteForm({ ...routeForm, name: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             />
             <select
               value={routeForm.visit_weekday}
               onChange={(e) => setRouteForm({ ...routeForm, visit_weekday: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-sm"
+              className="px-3 py-2 rounded-xl border border-line bg-transparent text-sm"
             >
               <option value="">روز بازدید</option>
               {WEEKDAYS.map((d, i) => (
@@ -222,15 +222,15 @@ export default function RoutesPage() {
             <button
               disabled={createRoute.isPending}
               onClick={() => createRoute.mutate()}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 text-sm"
+              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50 text-sm"
             >
               افزودن مسیر
             </button>
           </div>
         </div>
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden">
+        <div className="bg-surface border border-line rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
                 <th className="text-right px-4 py-3 font-medium">کد</th>
                 <th className="text-right px-4 py-3 font-medium">نام</th>
@@ -241,7 +241,7 @@ export default function RoutesPage() {
             </thead>
             <tbody>
               {(routes.data ?? []).map((r) => (
-                <tr key={r.id} className="border-t border-slate-100 dark:border-[#1f2937]">
+                <tr key={r.id} className="border-t border-line">
                   <td className="px-4 py-3 font-mono">{r.code}</td>
                   <td className="px-4 py-3">{r.name}</td>
                   <td className="px-4 py-3">{areaName(r.area_id)}</td>
@@ -251,7 +251,7 @@ export default function RoutesPage() {
               ))}
               {!routes.isLoading && (routes.data?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-6 text-center text-ink-subtle">
                     مسیری ثبت نشده است
                   </td>
                 </tr>

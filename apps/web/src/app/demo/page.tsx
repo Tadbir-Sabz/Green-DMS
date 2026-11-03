@@ -25,7 +25,7 @@ export default function DemoPage() {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-green-600 to-teal-700 text-white p-8">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand via-brand to-brand-active text-white p-8">
         <div className="relative z-10">
           <div className="flex items-center justify-between">
             <div>
@@ -49,8 +49,8 @@ export default function DemoPage() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">ماژول‌های سیستم</h2>
-          <div className="text-sm text-slate-500 dark:text-slate-400">انتخاب و ورود سریع</div>
+          <h2 className="text-lg font-bold text-ink">ماژول‌های سیستم</h2>
+          <div className="text-sm text-ink-muted">انتخاب و ورود سریع</div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {modules.map((m, idx) => (
@@ -58,15 +58,15 @@ export default function DemoPage() {
               key={m.title}
               href={m.href}
               onMouseEnter={() => setActive(idx)}
-              className="group relative overflow-hidden bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all"
+              className="group relative overflow-hidden bg-surface border border-line rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all"
             >
               <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${m.color}`}></div>
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">{m.title}</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">{m.desc}</div>
+                  <div className="font-semibold text-ink">{m.title}</div>
+                  <div className="text-sm text-ink-muted mt-1">{m.desc}</div>
                 </div>
-                <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-[#0f172a] group-hover:scale-110 transition-transform flex items-center justify-center">→</div>
+                <div className="w-9 h-9 rounded-xl bg-surface-alt group-hover:scale-110 transition-transform flex items-center justify-center">→</div>
               </div>
             </Link>
           ))}
@@ -74,9 +74,9 @@ export default function DemoPage() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-6 shadow-sm">
-          <div className="font-semibold text-slate-900 dark:text-slate-100 mb-3">ویژگی‌های برجسته</div>
-          <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+        <div className="bg-surface border border-line rounded-2xl p-6 shadow-sm">
+          <div className="font-semibold text-ink mb-3">ویژگی‌های برجسته</div>
+          <ul className="space-y-2 text-sm text-ink">
             <li>• قراردادمحور با OpenAPI و کلاینت خودکار</li>
             <li>• RBAC، احراز هویت و گارد مسیرها</li>
             <li>• موتور قوانین و گردش‌کار تأیید</li>
@@ -85,9 +85,9 @@ export default function DemoPage() {
             <li>• یکپارچه‌سازی مؤدیان و درگاه پرداخت</li>
           </ul>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-6 shadow-sm">
-          <div className="font-semibold text-slate-900 dark:text-slate-100 mb-3">اپلیکیشن میدانی اندروید</div>
-          <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+        <div className="bg-surface border border-line rounded-2xl p-6 shadow-sm">
+          <div className="font-semibold text-ink mb-3">اپلیکیشن میدانی اندروید</div>
+          <ul className="space-y-2 text-sm text-ink">
             <li>• آفلاین‌اول با Room و Outbox</li>
             <li>• همگام‌سازی با WorkManager</li>
             <li>• اسکن بارکد با CameraX + ML Kit</li>

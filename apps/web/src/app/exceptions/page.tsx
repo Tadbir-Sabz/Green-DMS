@@ -67,29 +67,29 @@ export default function ExceptionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">صف استثناها</h1>
-        <p className="text-slate-500 text-sm">رویدادهای خارج از قاعده که نیازمند بازبینی انسانی‌اند</p>
+        <h1 className="text-xl font-bold text-ink">صف استثناها</h1>
+        <p className="text-ink-muted text-sm">رویدادهای خارج از قاعده که نیازمند بازبینی انسانی‌اند</p>
       </div>
 
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4">
-        <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">شناسهٔ شعبه *</label>
+      <div className="bg-surface border border-line rounded-2xl p-4">
+        <label className="block text-xs text-ink-muted mb-1">شناسهٔ شعبه *</label>
         <input
           value={branchId}
           onChange={(e) => setBranchId(e.target.value)}
           placeholder="uuid شعبه"
-          className="w-full sm:max-w-md px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent text-slate-900 dark:text-slate-100"
+          className="w-full sm:max-w-md px-3 py-2 rounded-xl border border-line bg-transparent text-ink"
         />
       </div>
 
       {(error || list.isError) && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">
           {error ?? (list.error as Error).message}
         </div>
       )}
 
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500">
+          <thead className="bg-surface-alt text-ink-muted">
             <tr>
               <th className="text-right px-4 py-3 font-medium">نوع</th>
               <th className="text-right px-4 py-3 font-medium">شدت</th>
@@ -99,7 +99,7 @@ export default function ExceptionsPage() {
           </thead>
           <tbody>
             {items.map((e) => (
-              <tr key={e.id} className="border-t border-slate-100 dark:border-[#1f2937]">
+              <tr key={e.id} className="border-t border-line">
                 <td className="px-4 py-3">{KIND_FA[e.kind] ?? e.kind}</td>
                 <td className="px-4 py-3">{SEVERITY_FA[e.severity] ?? e.severity}</td>
                 <td className="px-4 py-3 font-mono text-xs">
@@ -110,7 +110,7 @@ export default function ExceptionsPage() {
             ))}
             {!list.isLoading && items.length === 0 && !list.isError && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={4} className="px-4 py-8 text-center text-ink-subtle">
                   {branchId.trim() ? "استثنایی ثبت نشده است" : "برای دیدن استثناها، شناسهٔ شعبه را وارد کنید"}
                 </td>
               </tr>

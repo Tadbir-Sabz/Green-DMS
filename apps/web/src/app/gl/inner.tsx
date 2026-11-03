@@ -51,9 +51,9 @@ const JOURNAL_STATUS_FA: Record<string, string> = {
   voided: "باطل‌شده",
 };
 const JOURNAL_STATUS_COLOR: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  posted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  voided: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  draft: "bg-surface-alt text-ink-muted",
+  posted: "bg-brand-soft text-brand-soft-ink",
+  voided: "bg-danger-soft text-danger-ink",
 };
 const SOURCE_TYPE_FA: Record<string, string> = {
   invoice: "فاکتور فروش",
@@ -73,9 +73,9 @@ const SOURCE_TYPE_FA: Record<string, string> = {
 };
 const PERIOD_STATUS_FA: Record<string, string> = { open: "باز", closed: "بسته", locked: "قفل‌شده" };
 const PERIOD_STATUS_COLOR: Record<string, string> = {
-  open: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  closed: "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300",
-  locked: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  open: "bg-brand-soft text-brand-soft-ink",
+  closed: "bg-surface-alt text-ink-muted",
+  locked: "bg-warning-soft text-warning-ink",
 };
 const NATURE_FA: Record<string, string> = { debit: "بدهکار", credit: "بستانکار" };
 const ACCOUNT_TYPE_FA: Record<string, string> = {
@@ -103,13 +103,13 @@ const YEAR_OPTIONS = [CURRENT_JY - 1, CURRENT_JY, CURRENT_JY + 1];
 const PERIOD_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const selectCls =
-  "px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200";
+  "px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink";
 const inputCls =
-  "w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#1f2937] bg-white dark:bg-[#0f172a] text-sm text-slate-800 dark:text-slate-200";
+  "w-full px-3 py-2 rounded-xl border border-line-strong bg-surface text-sm text-ink";
 
 function Badge({ text, color }: { text: string; color?: string }) {
   return (
-    <span className={`px-2 py-0.5 rounded-md text-xs ${color ?? "bg-slate-100 text-slate-600 dark:bg-[#1f2937] dark:text-slate-300"}`}>
+    <span className={`px-2 py-0.5 rounded-md text-xs ${color ?? "bg-surface-alt text-ink-muted"}`}>
       {text}
     </span>
   );
@@ -117,16 +117,12 @@ function Badge({ text, color }: { text: string; color?: string }) {
 
 function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
   return (
-    <div className="flex flex-wrap gap-1 border-b border-slate-200 dark:border-[#1f2937]">
+    <div className="flex flex-wrap gap-1 border-b border-line">
       {TABS.map((t) => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className={`px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${
-            tab === t.id
-              ? "border-emerald-600 text-emerald-700 dark:text-emerald-400 font-semibold"
-              : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
+          className={`px-4 py-2.5 text-sm rounded-t-xl border-b-2 -mb-px transition-colors ${ tab === t.id ? "border-brand text-brand-soft-ink font-semibold" : "border-transparent text-ink-muted hover:text-ink" }`}
         >
           {t.label}
         </button>
@@ -173,7 +169,7 @@ function TrialBalancePanel() {
       header: "مانده",
       align: "end",
       render: (r) => (
-        <span className={`font-medium ${Number(r.balance) < 0 ? "text-rose-600" : ""}`}>{formatMoney(r.balance)}</span>
+        <span className={`font-medium ${Number(r.balance) < 0 ? "text-danger-ink" : ""}`}>{formatMoney(r.balance)}</span>
       ),
     },
   ];
@@ -183,7 +179,7 @@ function TrialBalancePanel() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">سال مالی</label>
+            <label className="block text-xs text-ink-muted mb-1">سال مالی</label>
             <select value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} className={selectCls}>
               <option value="">همه</option>
               {YEAR_OPTIONS.map((y) => (
@@ -192,7 +188,7 @@ function TrialBalancePanel() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">دوره</label>
+            <label className="block text-xs text-ink-muted mb-1">دوره</label>
             <select value={periodNo} onChange={(e) => setPeriodNo(e.target.value)} className={selectCls}>
               <option value="">کل سال</option>
               {PERIOD_OPTIONS.map((p) => (
@@ -205,17 +201,17 @@ function TrialBalancePanel() {
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">جمع بدهکار</div>
-          <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(totalDebit)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">جمع بدهکار</div>
+          <div className="text-xl font-bold text-ink mt-1">{formatMoney(totalDebit)}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">جمع بستانکار</div>
-          <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{formatMoney(totalCredit)}</div>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">جمع بستانکار</div>
+          <div className="text-xl font-bold text-ink mt-1">{formatMoney(totalCredit)}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-4 shadow-sm">
-          <div className="text-sm text-slate-500 dark:text-slate-400">وضعیت تراز</div>
-          <div className={`text-xl font-bold mt-1 ${balanced ? "text-emerald-600" : "text-rose-600"}`}>
+        <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm">
+          <div className="text-sm text-ink-muted">وضعیت تراز</div>
+          <div className={`text-xl font-bold mt-1 ${balanced ? "text-brand-soft-ink" : "text-danger-ink"}`}>
             {balanced ? "متوازن ✓" : "ناتراز"}
           </div>
         </div>
@@ -269,7 +265,7 @@ function JournalsPanel() {
   const entry = detail.data;
 
   const columns: Column<JournalEntry>[] = [
-    { key: "doc", header: "شماره سند", render: (j) => <span className="font-mono text-xs text-emerald-700 dark:text-emerald-400">{j.doc_number ?? "—"}</span> },
+    { key: "doc", header: "شماره سند", render: (j) => <span className="font-mono text-xs text-brand-soft-ink">{j.doc_number ?? "—"}</span> },
     { key: "date", header: "تاریخ", render: (j) => <span className="text-xs">{toPersianDate(j.entry_date)}</span> },
     { key: "desc", header: "شرح", render: (j) => <span className="text-xs">{j.description ?? "—"}</span> },
     { key: "source", header: "منبع", render: (j) => <span className="text-xs">{SOURCE_TYPE_FA[j.source_type ?? ""] ?? (j.source_type ?? "—")}</span> },
@@ -285,7 +281,7 @@ function JournalsPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">وضعیت</label>
+          <label className="block text-xs text-ink-muted mb-1">وضعیت</label>
           <select value={status} onChange={(e) => setStatus(e.target.value as JournalStatus | "")} className={selectCls}>
             <option value="">همه</option>
             {(Object.keys(JOURNAL_STATUS_FA) as JournalStatus[]).map((s) => (
@@ -294,7 +290,7 @@ function JournalsPanel() {
           </select>
         </div>
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">منبع سند</label>
+          <label className="block text-xs text-ink-muted mb-1">منبع سند</label>
           <select value={sourceType} onChange={(e) => setSourceType(e.target.value as JournalSourceType | "")} className={selectCls}>
             <option value="">همه</option>
             {(Object.keys(SOURCE_TYPE_FA) as JournalSourceType[]).map((s) => (
@@ -316,21 +312,21 @@ function JournalsPanel() {
       />
 
       <Modal open={!!selectedId} onClose={() => setSelectedId(null)} title="جزئیات سند حسابداری" wide>
-        {detail.isLoading && <div className="text-sm text-slate-500 py-6 text-center">در حال بارگذاری...</div>}
-        {detail.error && <div className="text-sm text-rose-600 py-6 text-center">{(detail.error as Error).message}</div>}
+        {detail.isLoading && <div className="text-sm text-ink-muted py-6 text-center">در حال بارگذاری...</div>}
+        {detail.error && <div className="text-sm text-danger-ink py-6 text-center">{(detail.error as Error).message}</div>}
         {entry && (
           <div className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <div><span className="text-slate-500">شماره سند:</span> <span className="font-mono">{entry.doc_number ?? "—"}</span></div>
-              <div><span className="text-slate-500">تاریخ:</span> {toPersianDate(entry.entry_date)}</div>
-              <div><span className="text-slate-500">منبع:</span> {SOURCE_TYPE_FA[entry.source_type ?? ""] ?? (entry.source_type ?? "—")}</div>
-              <div><span className="text-slate-500">وضعیت:</span> <Badge text={JOURNAL_STATUS_FA[entry.status ?? ""] ?? (entry.status ?? "—")} color={JOURNAL_STATUS_COLOR[entry.status ?? ""]} /></div>
-              <div><span className="text-slate-500">صادرشده در:</span> {toPersianDateTime(entry.posted_at)}</div>
-              <div className="sm:col-span-2"><span className="text-slate-500">شرح:</span> {entry.description ?? "—"}</div>
+              <div><span className="text-ink-muted">شماره سند:</span> <span className="font-mono">{entry.doc_number ?? "—"}</span></div>
+              <div><span className="text-ink-muted">تاریخ:</span> {toPersianDate(entry.entry_date)}</div>
+              <div><span className="text-ink-muted">منبع:</span> {SOURCE_TYPE_FA[entry.source_type ?? ""] ?? (entry.source_type ?? "—")}</div>
+              <div><span className="text-ink-muted">وضعیت:</span> <Badge text={JOURNAL_STATUS_FA[entry.status ?? ""] ?? (entry.status ?? "—")} color={JOURNAL_STATUS_COLOR[entry.status ?? ""]} /></div>
+              <div><span className="text-ink-muted">صادرشده در:</span> {toPersianDateTime(entry.posted_at)}</div>
+              <div className="sm:col-span-2"><span className="text-ink-muted">شرح:</span> {entry.description ?? "—"}</div>
             </div>
-            <div className="overflow-x-auto border border-slate-200 dark:border-[#1f2937] rounded-xl">
+            <div className="overflow-x-auto border border-line rounded-xl">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-[#0b1220] text-slate-600 dark:text-slate-300">
+                <thead className="bg-surface-alt text-ink-muted">
                   <tr>
                     <th className="p-2 text-right font-semibold">کد</th>
                     <th className="p-2 text-right font-semibold">حساب</th>
@@ -339,17 +335,17 @@ function JournalsPanel() {
                     <th className="p-2 text-left font-semibold">بستانکار</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#1f2937]">
+                <tbody className="divide-y divide-line">
                   {(entry.lines ?? []).map((l) => (
                     <tr key={l.id ?? l.line_no}>
                       <td className="p-2 font-mono text-xs">{l.account_code ?? "—"}</td>
                       <td className="p-2">{l.account_title ?? "—"}</td>
-                      <td className="p-2 text-xs text-slate-500">{l.description ?? "—"}</td>
+                      <td className="p-2 text-xs text-ink-muted">{l.description ?? "—"}</td>
                       <td className="p-2 text-left">{Number(l.debit) > 0 ? formatMoney(l.debit) : "—"}</td>
                       <td className="p-2 text-left">{Number(l.credit) > 0 ? formatMoney(l.credit) : "—"}</td>
                     </tr>
                   ))}
-                  <tr className="bg-slate-50 dark:bg-[#0b1220] font-semibold">
+                  <tr className="bg-surface-alt font-semibold">
                     <td className="p-2" colSpan={3}>جمع</td>
                     <td className="p-2 text-left">{formatMoney(entry.total_debit)}</td>
                     <td className="p-2 text-left">{formatMoney(entry.total_credit)}</td>
@@ -403,7 +399,7 @@ function AccountsPanel() {
       key: "postable",
       header: "ثبت‌پذیر",
       align: "center",
-      render: (a) => (a.is_postable ? <span className="text-emerald-600 text-xs">بله</span> : <span className="text-slate-400 text-xs">خیر</span>),
+      render: (a) => (a.is_postable ? <span className="text-brand-soft-ink text-xs">بله</span> : <span className="text-ink-subtle text-xs">خیر</span>),
     },
   ];
 
@@ -412,7 +408,7 @@ function AccountsPanel() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">ماهیت</label>
+            <label className="block text-xs text-ink-muted mb-1">ماهیت</label>
             <select value={nature} onChange={(e) => setNature(e.target.value as AccountNature | "")} className={selectCls}>
               <option value="">همه</option>
               <option value="debit">بدهکار</option>
@@ -420,7 +416,7 @@ function AccountsPanel() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">نوع حساب</label>
+            <label className="block text-xs text-ink-muted mb-1">نوع حساب</label>
             <select value={accountType} onChange={(e) => setAccountType(e.target.value as AccountType | "")} className={selectCls}>
               <option value="">همه</option>
               {(Object.keys(ACCOUNT_TYPE_FA) as AccountType[]).map((t) => (
@@ -525,7 +521,7 @@ function PeriodsPanel() {
           <button
             onClick={() => close.mutate(p.id as string)}
             disabled={close.isPending}
-            className="px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg border border-warning/25 text-xs text-warning-ink hover:bg-warning-soft disabled:opacity-50"
           >
             بستن دوره
           </button>
@@ -537,7 +533,7 @@ function PeriodsPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">سال مالی</label>
+          <label className="block text-xs text-ink-muted mb-1">سال مالی</label>
           <select value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} className={selectCls}>
             <option value="">همه</option>
             {YEAR_OPTIONS.map((y) => (
@@ -548,7 +544,7 @@ function PeriodsPanel() {
         {canManage && (
           <button
             onClick={() => { setShowCreate((v) => !v); setFormError(null); }}
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 text-sm"
+            className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover text-sm"
           >
             {showCreate ? "بستن فرم" : "دورهٔ جدید"}
           </button>
@@ -556,11 +552,11 @@ function PeriodsPanel() {
       </div>
 
       {showCreate && canManage && (
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 space-y-4">
-          <div className="font-semibold text-slate-900 dark:text-slate-100">ساخت دورهٔ مالی</div>
+        <div className="bg-surface border border-line rounded-2xl p-5 space-y-4">
+          <div className="font-semibold text-ink">ساخت دورهٔ مالی</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">سال مالی *</label>
+              <label className="block text-xs text-ink-muted mb-1">سال مالی *</label>
               <select value={form.fiscal_year} onChange={(e) => setForm({ ...form, fiscal_year: e.target.value })} className={inputCls}>
                 {YEAR_OPTIONS.map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -568,7 +564,7 @@ function PeriodsPanel() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">دوره *</label>
+              <label className="block text-xs text-ink-muted mb-1">دوره *</label>
               <select value={form.period_no} onChange={(e) => setForm({ ...form, period_no: e.target.value })} className={inputCls}>
                 {PERIOD_OPTIONS.map((p) => (
                   <option key={p} value={p}>{JALALI_MONTHS[p - 1]} ({p})</option>
@@ -576,20 +572,20 @@ function PeriodsPanel() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">از تاریخ *</label>
+              <label className="block text-xs text-ink-muted mb-1">از تاریخ *</label>
               <JalaliDatePicker value={form.start_date || null} onChange={(iso) => setForm({ ...form, start_date: iso ?? "" })} placeholder="شروع دوره" />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">تا تاریخ *</label>
+              <label className="block text-xs text-ink-muted mb-1">تا تاریخ *</label>
               <JalaliDatePicker value={form.end_date || null} onChange={(iso) => setForm({ ...form, end_date: iso ?? "" })} placeholder="پایان دوره" />
             </div>
           </div>
-          {formError && <div className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900 rounded-lg px-3 py-2">{formError}</div>}
+          {formError && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>}
           <div className="flex gap-2">
-            <button onClick={() => create.mutate()} disabled={create.isPending} className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 text-sm">
+            <button onClick={() => create.mutate()} disabled={create.isPending} className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50 text-sm">
               {create.isPending ? "در حال ساخت..." : "ذخیره"}
             </button>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937] text-sm">
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover text-sm">
               انصراف
             </button>
           </div>
@@ -614,8 +610,8 @@ export default function GLInner() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">دفتر کل</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <h1 className="text-xl font-bold text-ink">دفتر کل</h1>
+        <p className="text-ink-muted text-sm">
           کدینگ حساب‌ها، اسناد حسابداری، دوره‌های مالی و تراز آزمایشی
         </p>
       </div>

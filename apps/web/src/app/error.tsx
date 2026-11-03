@@ -21,24 +21,24 @@ export default function GlobalError({
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
-      <div className="max-w-md w-full text-center bg-white dark:bg-[#111827] border border-rose-200 dark:border-rose-900 rounded-2xl p-8 shadow-sm">
-        <div className="mx-auto w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300 flex items-center justify-center text-2xl font-bold mb-4">
+      <div className="max-w-md w-full text-center bg-surface border border-danger/25 rounded-2xl p-8 shadow-sm">
+        <div className="mx-auto w-12 h-12 rounded-full bg-danger-soft text-danger-ink flex items-center justify-center text-2xl font-bold mb-4">
           !
         </div>
-        <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-lg font-bold text-ink">
           خطایی رخ داد
         </h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-sm text-ink-muted">
           {error.message || "هنگام نمایش این صفحه خطای غیرمنتظره‌ای پیش آمد."}
         </p>
         {error.digest && (
-          <p className="mt-1 text-xs text-slate-400" dir="ltr">
+          <p className="mt-1 text-xs text-ink-subtle" dir="ltr">
             ref: {error.digest}
           </p>
         )}
         <button
           onClick={reset}
-          className="mt-5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium"
+          className="mt-5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium"
         >
           تلاش دوباره
         </button>

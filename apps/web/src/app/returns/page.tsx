@@ -158,39 +158,39 @@ export default function ReturnsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">درخواست‌های مرجوعی</h1>
-          <p className="text-slate-500 text-sm">ثبت، تأیید و تعیین تکلیف نهایی کالای برگشتی</p>
+          <h1 className="text-xl font-bold text-ink">درخواست‌های مرجوعی</h1>
+          <p className="text-ink-muted text-sm">ثبت، تأیید و تعیین تکلیف نهایی کالای برگشتی</p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+          className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover"
         >
           {showForm ? "بستن" : "مرجوعی جدید"}
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-6 space-y-4">
+        <div className="bg-surface border border-line rounded-2xl p-6 space-y-4">
           <div className="font-semibold">درخواست مرجوعی جدید</div>
           {formError && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</div>
+            <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{formError}</div>
           )}
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="text-sm text-slate-700 dark:text-slate-300">شناسه مشتری *</label>
+              <label className="text-sm text-ink">شناسه مشتری *</label>
               <input
                 value={form.customer_id}
                 onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
                 placeholder="uuid"
               />
             </div>
             <div>
-              <label className="text-sm text-slate-700 dark:text-slate-300">دلیل *</label>
+              <label className="text-sm text-ink">دلیل *</label>
               <select
                 value={form.reason_code}
                 onChange={(e) => setForm({ ...form, reason_code: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
               >
                 {REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -200,20 +200,20 @@ export default function ReturnsPage() {
               </select>
             </div>
             <div>
-              <label className="text-sm text-slate-700 dark:text-slate-300">یادداشت</label>
+              <label className="text-sm text-ink">یادداشت</label>
               <input
                 value={form.note}
                 onChange={(e) => setForm({ ...form, note: e.target.value })}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                className="w-full mt-1 px-3 py-2 rounded-xl border border-line bg-transparent"
               />
             </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">اقلام</div>
+              <div className="text-sm font-semibold text-ink">اقلام</div>
               <button
                 onClick={() => setItems([...items, { product_id: "", qty: 1 }])}
-                className="px-2 py-1 rounded-lg border border-slate-200 dark:border-[#1f2937] text-sm"
+                className="px-2 py-1 rounded-lg border border-line text-sm"
               >
                 افزودن قلم
               </button>
@@ -229,7 +229,7 @@ export default function ReturnsPage() {
                       n[idx] = { ...it, product_id: e.target.value };
                       setItems(n);
                     }}
-                    className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                    className="px-3 py-2 rounded-xl border border-line bg-transparent"
                   />
                   <input
                     type="number"
@@ -242,7 +242,7 @@ export default function ReturnsPage() {
                       n[idx] = { ...it, qty: Number(e.target.value) };
                       setItems(n);
                     }}
-                    className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] bg-transparent"
+                    className="px-3 py-2 rounded-xl border border-line bg-transparent"
                   />
                 </div>
               ))}
@@ -252,13 +252,13 @@ export default function ReturnsPage() {
             <button
               disabled={create.isPending}
               onClick={() => create.mutate()}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
             >
               ثبت درخواست
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]"
+              className="px-4 py-2 rounded-xl border border-line hover:bg-surface-hover"
             >
               انصراف
             </button>
@@ -269,7 +269,7 @@ export default function ReturnsPage() {
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setStatus("")}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${!status ? "border-emerald-500 text-emerald-700" : "border-slate-200 dark:border-[#1f2937]"}`}
+          className={`px-3 py-1.5 rounded-lg text-sm border ${!status ? "border-brand text-brand-soft-ink" : "border-line"}`}
         >
           همه
         </button>
@@ -277,7 +277,7 @@ export default function ReturnsPage() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm border ${status === s ? "border-emerald-500 text-emerald-700" : "border-slate-200 dark:border-[#1f2937]"}`}
+            className={`px-3 py-1.5 rounded-lg text-sm border ${status === s ? "border-brand text-brand-soft-ink" : "border-line"}`}
           >
             {STATUS_FA[s]}
           </button>
@@ -285,10 +285,10 @@ export default function ReturnsPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden">
-          {list.isError && <div className="p-4 text-sm text-red-600">{(list.error as Error).message}</div>}
+        <div className="lg:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden">
+          {list.isError && <div className="p-4 text-sm text-danger-ink">{(list.error as Error).message}</div>}
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
                 <th className="text-right px-4 py-3 font-medium">شماره</th>
                 <th className="text-right px-4 py-3 font-medium">وضعیت</th>
@@ -300,9 +300,7 @@ export default function ReturnsPage() {
                 <tr
                   key={r.id}
                   onClick={() => setSelected(r)}
-                  className={`border-t border-slate-100 dark:border-[#1f2937] cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1f2937] ${
-                    selected?.id === r.id ? "bg-emerald-50 dark:bg-emerald-900/20" : ""
-                  }`}
+                  className={`border-t border-line cursor-pointer hover:bg-surface-hover ${ selected?.id === r.id ? "bg-brand-soft" : "" }`}
                 >
                   <td className="px-4 py-3 font-mono">{r.doc_number}</td>
                   <td className="px-4 py-3">{STATUS_FA[r.status] ?? r.status}</td>
@@ -311,7 +309,7 @@ export default function ReturnsPage() {
               ))}
               {!list.isLoading && (list.data?.items?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={3} className="px-4 py-8 text-center text-ink-subtle">
                     درخواستی ثبت نشده است
                   </td>
                 </tr>
@@ -320,17 +318,17 @@ export default function ReturnsPage() {
           </table>
         </div>
 
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl p-5 h-fit space-y-3">
+        <div className="bg-surface border border-line rounded-2xl p-5 h-fit space-y-3">
           <div className="font-semibold">جزئیات مرجوعی</div>
-          {!current && <div className="text-sm text-slate-400">یک ردیف را انتخاب کنید</div>}
+          {!current && <div className="text-sm text-ink-subtle">یک ردیف را انتخاب کنید</div>}
           {current && (
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500">شماره</span>
+                <span className="text-ink-muted">شماره</span>
                 <span className="font-mono">{current.doc_number}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">وضعیت</span>
+                <span className="text-ink-muted">وضعیت</span>
                 <span>{STATUS_FA[current.status] ?? current.status}</span>
               </div>
 
@@ -338,15 +336,15 @@ export default function ReturnsPage() {
                 <button
                   disabled={approve.isPending}
                   onClick={() => approve.mutate(current.id)}
-                  className="w-full px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="w-full px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
                 >
                   تأیید مرجوعی
                 </button>
               )}
 
               {(current.status === "approved" || current.status === "partially_approved") && (
-                <div className="space-y-2 border-t border-slate-100 dark:border-[#1f2937] pt-3">
-                  <div className="text-slate-500">تعیین تکلیف اقلام</div>
+                <div className="space-y-2 border-t border-line pt-3">
+                  <div className="text-ink-muted">تعیین تکلیف اقلام</div>
                   {(detail.data?.lines ?? []).map((l) => (
                     <div key={l.product_id} className="grid grid-cols-3 gap-2 items-center">
                       <span className="font-mono text-xs truncate">{l.product_id.slice(0, 8)}…</span>
@@ -364,7 +362,7 @@ export default function ReturnsPage() {
                             },
                           }))
                         }
-                        className="px-2 py-1 rounded-lg border border-slate-200 dark:border-[#1f2937] bg-transparent text-xs"
+                        className="px-2 py-1 rounded-lg border border-line bg-transparent text-xs"
                       />
                       <select
                         defaultValue="restock"
@@ -377,7 +375,7 @@ export default function ReturnsPage() {
                             },
                           }))
                         }
-                        className="px-2 py-1 rounded-lg border border-slate-200 dark:border-[#1f2937] bg-transparent text-xs"
+                        className="px-2 py-1 rounded-lg border border-line bg-transparent text-xs"
                       >
                         {DISPOSITIONS.map((d) => (
                           <option key={d} value={d}>
@@ -390,7 +388,7 @@ export default function ReturnsPage() {
                   <button
                     disabled={receive.isPending}
                     onClick={() => receive.mutate(current.id)}
-                    className="w-full px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="w-full px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
                   >
                     ثبت نهایی دریافت
                   </button>
@@ -398,11 +396,11 @@ export default function ReturnsPage() {
               )}
 
               {decisionError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{decisionError}</div>
+                <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{decisionError}</div>
               )}
 
-              <div className="border-t border-slate-100 dark:border-[#1f2937] pt-3">
-                <div className="text-slate-500 mb-2">اقلام</div>
+              <div className="border-t border-line pt-3">
+                <div className="text-ink-muted mb-2">اقلام</div>
                 <ul className="space-y-1">
                   {(detail.data?.lines ?? []).map((l) => (
                     <li key={l.product_id} className="flex justify-between text-xs">
@@ -413,7 +411,7 @@ export default function ReturnsPage() {
                       </span>
                     </li>
                   ))}
-                  {(detail.data?.lines ?? []).length === 0 && <li className="text-slate-400">قلمی ثبت نشده</li>}
+                  {(detail.data?.lines ?? []).length === 0 && <li className="text-ink-subtle">قلمی ثبت نشده</li>}
                 </ul>
               </div>
             </div>

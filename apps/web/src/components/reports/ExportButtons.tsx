@@ -42,7 +42,7 @@ export function ExportButtons({
         <button
           onClick={handleExcel}
           disabled={loading === "excel"}
-          className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="px-3 py-2 rounded-xl border border-line hover:bg-surface-hover disabled:opacity-50"
         >
           {loading === "excel" ? "در حال صادرات..." : "Excel"}
         </button>
@@ -51,7 +51,7 @@ export function ExportButtons({
         <button
           onClick={handlePDF}
           disabled={loading === "pdf"}
-          className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="px-3 py-2 rounded-xl border border-line hover:bg-surface-hover disabled:opacity-50"
         >
           {loading === "pdf" ? "در حال صادرات..." : "PDF"}
         </button>

@@ -32,16 +32,16 @@ export default function ReportsInventoryPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">گزارش موجودی</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">ماندهٔ انبار به تفکیک انبار/کالا/بچ</p>
+          <h1 className="text-xl font-bold text-ink">گزارش موجودی</h1>
+          <p className="text-ink-muted text-sm">ماندهٔ انبار به تفکیک انبار/کالا/بچ</p>
         </div>
         <ExportButtons data={items} tableId="inventory-report-table" filename="inventory-report" />
       </div>
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{(error as Error).message}</div>}
-      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1f2937] rounded-2xl overflow-hidden shadow-sm">
+      {error && <div className="text-sm text-danger-ink bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">{(error as Error).message}</div>}
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table id="inventory-report-table" className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-[#1f2937] text-slate-500 dark:text-slate-400">
+            <thead className="bg-surface-alt text-ink-muted">
               <tr>
                 <th className="text-right p-3">انبار</th>
                 <th className="text-right p-3">کالا</th>
@@ -53,10 +53,10 @@ export default function ReportsInventoryPage() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={7} className="text-center p-6 text-slate-500">در حال بارگذاری...</td></tr>}
-              {!isLoading && items.length === 0 && <tr><td colSpan={7} className="text-center p-6 text-slate-400">داده‌ای برای نمایش نیست</td></tr>}
+              {isLoading && <tr><td colSpan={7} className="text-center p-6 text-ink-muted">در حال بارگذاری...</td></tr>}
+              {!isLoading && items.length === 0 && <tr><td colSpan={7} className="text-center p-6 text-ink-subtle">داده‌ای برای نمایش نیست</td></tr>}
               {!isLoading && items.map((it, idx) => (
-                <tr key={idx} className="border-t border-slate-100 dark:border-[#1f2937] hover:bg-slate-50 dark:hover:bg-[#1f2937]">
+                <tr key={idx} className="border-t border-line hover:bg-surface-hover">
                   <td className="p-3 font-mono text-xs" title={it.warehouse_id}>{it.warehouse_id.slice(0, 8)}</td>
                   <td className="p-3 font-mono text-xs" title={it.product_id}>{it.product_id.slice(0, 8)}</td>
                   <td className="p-3 font-mono text-xs">{it.batch_id ? it.batch_id.slice(0, 8) : "-"}</td>
