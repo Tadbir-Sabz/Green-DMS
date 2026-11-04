@@ -5,9 +5,13 @@ import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser } from '../identity-rbac/auth-context.decorator';
 import type { OrderView } from './order.service';
-import type { ListInvoicesQueryDto, CreateInvoiceDto } from './invoice.dto';
-import type { CreateRequestDto, ListRequestsQueryDto, UpdateRequestDto } from './request.dto';
-import type { ListDeliveriesQueryDto, UpdateDeliveryDto } from './delivery.dto';
+// این DTOها باید «value import» باشند نه `import type`: NestJS نوع پارامترِ
+// @Body/@Query را از metadata بازتاب‌شده می‌خواند و `import type` در زمان کامپایل
+// پاک می‌شود، پس ValidationPipe بی‌صدا برای این سه کنترلر (requests/invoices/
+// deliveries) نادیده گرفته می‌شد. Row/Service/Page فقط نوع‌اند و type می‌مانند.
+import { ListInvoicesQueryDto, CreateInvoiceDto } from './invoice.dto';
+import { CreateRequestDto, ListRequestsQueryDto, UpdateRequestDto } from './request.dto';
+import { ListDeliveriesQueryDto, UpdateDeliveryDto } from './delivery.dto';
 import type {
   DeliveryRow,
   InvoiceRow,
