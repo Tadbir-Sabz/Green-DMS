@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { RoleGuard } from "@/components/auth/RoleGuard";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody, SectionTitle } from "@/components/ui/Card";
 import { StatCard, StatGrid, type StatTone } from "@/components/ui/StatCard";
 import { DataTable, type Column } from "@/components/ui/DataTable";
@@ -105,26 +104,60 @@ function BiInner() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="داشبورد BI"
-        description="شاخص‌های کلانِ فروش و وصولی، و تحلیل ABC مشتریان و کالاها"
-      />
+      {/* سربرگِ بازطراحی‌شده (گامِ اولِ بازطراحیِ محدودِ سطوحِ کلیدی): نوارِ فرمانِ
+          برند با انتخابِ بازهٔ درون‌خطی. همهٔ منطق/داده‌ها/پرس‌وجوها و RTL بدونِ
+          تغییر حفظ شده‌اند — فقط لایهٔ بصری. */}
+      <section className="rounded-2xl border border-brand-line bg-brand-panel p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-ink">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <div className="space-y-1">
+              <h1 className="text-xl font-extrabold tracking-tight text-ink sm:text-2xl">
+                داشبورد BI
+              </h1>
+              <p className="text-sm leading-6 text-ink-muted">
+                شاخص‌های کلانِ فروش و وصولی، تحلیلِ ABC مشتریان و کالاها، و پیش‌بینیِ فروش
+              </p>
+            </div>
+          </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-ink-muted">بازهٔ فروش/وصولی:</span>
-        {DAY_OPTIONS.map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setDays(d)}
-            className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${
-              days === d ? "border-brand text-brand-soft-ink" : "border-line"
-            }`}
-          >
-            {d} روز
-          </button>
-        ))}
-      </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-ink-subtle">بازهٔ فروش/وصولی</span>
+            <div
+              className="flex items-center gap-1 rounded-xl border border-line bg-surface p-1"
+              role="group"
+              aria-label="بازهٔ زمانی"
+            >
+              {DAY_OPTIONS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDays(d)}
+                  aria-pressed={days === d}
+                  className={`focus-ring rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    days === d
+                      ? "bg-brand text-ink-inverse shadow-sm"
+                      : "text-ink-muted hover:bg-surface-hover"
+                  }`}
+                >
+                  {d} روز
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {kpi.isLoading && (
         <StatGrid>
