@@ -155,4 +155,21 @@ export class AttachmentsService {
     const url = await this.storage.presignedGet(row.storage_key, DOWNLOAD_URL_TTL);
     return { url, expires_in: DOWNLOAD_URL_TTL };
   }
+
+  /**
+   * فهرستِ ضمیمه‌های یک موجودیت (owner) در دامنهٔ شرکتِ نشست — برای نمایشِ POD/اسناد
+   * روی فرم‌ها. هر مورد یک URL امضاشدهٔ کوتاه‌عمر دارد.
+   */
+  async listForOwner(
+    ownerType: string,
+    ownerId: string,
+    ctx: UploadContext,
+  ): Promise<AttachmentView[]> {
+    const rows = await this.repo.listByOwner(ctx.companyId, ownerType, ownerId);
+    return Promise.all(
+      rows.map(async (row) =>
+        toView(row, await this.storage.presignedGet(row.storage_key, DOWNLOAD_URL_TTL)),
+      ),
+    );
+  }
 }

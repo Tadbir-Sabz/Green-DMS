@@ -7,6 +7,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -20,6 +21,7 @@ import { ATTACHMENTS_SERVICE } from './tokens';
 import type { AttachmentsService, UploadedFile as StoredFile } from './attachments.service';
 import { MAX_UPLOAD_BYTES } from './attachments.service';
 import {
+  ListAttachmentsQueryDto,
   UploadAttachmentDto,
   type AttachmentUrlView,
   type AttachmentView,
@@ -51,6 +53,18 @@ export class AttachmentsController {
     @CurrentUser('companyId') companyId: string,
   ): Promise<AttachmentView> {
     return this.service.upload(file, meta, { userId: userId ?? null, companyId });
+  }
+
+  @Get()
+  @RequirePermissions('attachment.view')
+  list(
+    @Query() query: ListAttachmentsQueryDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('companyId') companyId: string,
+  ): Promise<{ items: AttachmentView[] }> {
+    return this.service
+      .listForOwner(query.owner_type, query.owner_id, { userId: userId ?? null, companyId })
+      .then((items) => ({ items }));
   }
 
   @Get(':id/url')

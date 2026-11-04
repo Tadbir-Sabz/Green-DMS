@@ -7,6 +7,7 @@ export const ATTACHMENT_OWNER_TYPES = [
   'journal_entry',
   'receipt',
   'return_request',
+  'sales_order',
   'product',
   'stock_count',
   'other',
@@ -18,6 +19,15 @@ export type AttachmentOwnerType = (typeof ATTACHMENT_OWNER_TYPES)[number];
  * ValidationPipe سراسری این‌ها را اعتبارسنجی می‌کند.
  */
 export class UploadAttachmentDto {
+  @IsIn([...ATTACHMENT_OWNER_TYPES], { message: 'نوعِ مالکِ ضمیمه معتبر نیست.' })
+  owner_type!: AttachmentOwnerType;
+
+  @IsUUID('4', { message: 'شناسهٔ مالکِ ضمیمه باید UUID معتبر باشد.' })
+  owner_id!: string;
+}
+
+/** کوئریِ فهرستِ ضمیمه‌های یک موجودیت: GET /attachments?owner_type=&owner_id= */
+export class ListAttachmentsQueryDto {
   @IsIn([...ATTACHMENT_OWNER_TYPES], { message: 'نوعِ مالکِ ضمیمه معتبر نیست.' })
   owner_type!: AttachmentOwnerType;
 

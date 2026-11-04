@@ -3229,6 +3229,35 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /attachments:
+    get:
+      tags: [attachments]
+      summary: فهرستِ ضمیمه‌های یک موجودیت (owner) در دامنهٔ شرکتِ نشست
+      parameters:
+        - name: owner_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [pod, invoice, journal_entry, receipt, return_request, sales_order, product, stock_count, other]
+        - name: owner_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ضمیمه‌های موجودیت (هر مورد با URL امضاشدهٔ کوتاه‌عمر)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Attachment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [attachments]
       summary: بارگذاری ضمیمه / مدرک تحویل (POD) — multipart/form-data
@@ -3248,7 +3277,7 @@ paths:
                     application/pdf؛ سقف حجم پیش‌فرض ۸ مگابایت.
                 owner_type:
                   type: string
-                  enum: [pod, invoice, journal_entry, receipt, return_request, product, stock_count, other]
+                  enum: [pod, invoice, journal_entry, receipt, return_request, sales_order, product, stock_count, other]
                   description: نوعِ موجودیتِ مالکِ ضمیمه
                 owner_id:
                   type: string
@@ -5204,7 +5233,7 @@ components:
         id: { type: string, format: uuid }
         owner_type:
           type: string
-          enum: [pod, invoice, journal_entry, receipt, return_request, product, stock_count, other]
+          enum: [pod, invoice, journal_entry, receipt, return_request, sales_order, product, stock_count, other]
         owner_id: { type: string, format: uuid }
         file_name: { type: string }
         content_type: { type: string }

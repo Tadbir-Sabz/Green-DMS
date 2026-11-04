@@ -6298,7 +6298,35 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** فهرستِ ضمیمه‌های یک موجودیت (owner) در دامنهٔ شرکتِ نشست */
+        get: {
+            parameters: {
+                query: {
+                    owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "sales_order" | "product" | "stock_count" | "other";
+                    owner_id: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ضمیمه‌های موجودیت (هر مورد با URL امضاشدهٔ کوتاه‌عمر) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Attachment"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
         put?: never;
         /** بارگذاری ضمیمه / مدرک تحویل (POD) — multipart/form-data */
         post: {
@@ -6320,7 +6348,7 @@ export interface paths {
                          * @description نوعِ موجودیتِ مالکِ ضمیمه
                          * @enum {string}
                          */
-                        owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "product" | "stock_count" | "other";
+                        owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "sales_order" | "product" | "stock_count" | "other";
                         /**
                          * Format: uuid
                          * @description شناسهٔ موجودیتِ مالک (مثلاً شناسهٔ delivery برای POD)
@@ -9072,7 +9100,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "product" | "stock_count" | "other";
+            owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "sales_order" | "product" | "stock_count" | "other";
             /** Format: uuid */
             owner_id: string;
             file_name: string;

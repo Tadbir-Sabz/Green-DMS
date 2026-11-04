@@ -154,6 +154,53 @@ export const api = createApiClient({
   refresh,
 });
 
+/** شکلِ ضمیمهٔ بازگشتی از POST /attachments (هم‌راستا با schemas.Attachment) */
+export interface UploadedAttachment {
+  id: string;
+  owner_type: string;
+  owner_id: string;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  url: string;
+  created_at: string;
+}
+
+/**
+ * بارگذاری ضمیمه (multipart/form-data) با fetch خام. openapi-fetch برای بدنهٔ
+ * multipart تایپِ سخت‌گیرانه دارد، پس اینجا مستقیم FormData می‌فرستیم و از همان
+ * زیرساختِ توکن/تازه‌سازی نشست استفاده می‌کنیم: ۴۰۱ → یک‌بار refresh و تلاش مجدد.
+ */
+export async function uploadAttachment(
+  file: File,
+  ownerType: string,
+  ownerId: string,
+): Promise<UploadedAttachment> {
+  const send = (token: string | null) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('owner_type', ownerType);
+    fd.append('owner_id', ownerId);
+    return fetch(`${BASE_URL}/attachments`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+  };
+
+  let res = await send(getToken());
+  if (res.status === 401) {
+    const ok = await refresh({ tokenSent: getToken() });
+    if (ok) res = await send(getToken());
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => undefined);
+    throw new Error(errorMessage(err));
+  }
+  return (await res.json()) as UploadedAttachment;
+}
+
 /**
  * بارگذاری نشست جاری از GET /auth/me و ذخیره در localStorage['dms_user'].
  * بدون توکن → null (کاربر وارد نشده). 401 پس از تلاش refresh → پاک کردن نشست.
