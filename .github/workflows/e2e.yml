@@ -1,0 +1,83 @@
+# workflow تستِ سرتاسری (Playwright) در محیطِ ایزوله
+# یک پشتهٔ کامل با docker compose بالا می‌آید (postgres/postgis + redis + minio +
+# api + وب)، مهاجرت‌ها هنگامِ بوتِ api خودکار اعمال می‌شوند (AUTO_MIGRATE=true)،
+# سپس Playwright یک جریانِ تجاریِ واقعی را می‌سنجد: خودخدمت‌دهیِ استقرار → ورودِ
+# مدیر → پیمایش تا داشبورد BI. مرورگرها فقط اینجا (در CI) نصب و اجرا می‌شوند.
+name: e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: Playwright E2E (پشتهٔ ایزولهٔ docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # نصبِ وابستگی‌ها و مرورگرِ Playwright پیش از بالا آوردنِ پشته تا زمان
+      # ساختِ ایمیج‌ها و نصبِ مرورگر هم‌پوشانی داشته باشد.
+      - name: install deps
+        run: npm ci
+
+      - name: install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: boot the full stack (build images)
+        run: |
+          docker compose up -d --build
+          docker compose ps
+
+      - name: wait for API health (migrations auto-run on boot)
+        run: |
+          for i in $(seq 1 80); do
+            if curl -sf http://localhost:4000/api/health >/dev/null; then
+              echo "api healthy after ${i} tries"; break
+            fi
+            sleep 3
+          done
+          curl -sf http://localhost:4000/api/health >/dev/null
+
+      - name: wait for web
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/login >/dev/null; then
+              echo "web up after ${i} tries"; break
+            fi
+            sleep 3
+          done
+          curl -sf http://localhost:3000/login >/dev/null
+
+      - name: run Playwright E2E
+        run: npm run test:e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          CI: true
+
+      - name: upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: compose logs (on failure)
+        if: failure()
+        run: docker compose logs --tail=300
+
+      - name: tear down
+        if: always()
+        run: docker compose down -v
