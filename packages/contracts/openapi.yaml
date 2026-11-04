@@ -3317,6 +3317,47 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /bi/kpi:
+    get:
+      tags: [bi]
+      summary: شاخص‌های کلانِ فروش/وصولی/ماندهٔ AR (داشبورد BI)
+      parameters:
+        - name: days
+          in: query
+          description: بازهٔ روزهای اخیر برای فروش/وصولی (پیش‌فرض ۳۰)
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+      responses:
+        '200':
+          description: KPIهای شرکتِ نشست
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BiKpi' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /bi/abc-customers:
+    get:
+      tags: [bi]
+      summary: طبقه‌بندی ABC مشتریان بر پایهٔ درآمد (قانونِ پارتو)
+      responses:
+        '200':
+          description: فهرستِ طبقه‌بندی‌شدهٔ مشتریان
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AbcResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /bi/abc-products:
+    get:
+      tags: [bi]
+      summary: طبقه‌بندی ABC کالاها بر پایهٔ درآمد (قانونِ پارتو)
+      responses:
+        '200':
+          description: فهرستِ طبقه‌بندی‌شدهٔ کالاها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AbcResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /integrations:
     get:
       tags: [integrations]
@@ -5225,6 +5266,51 @@ components:
         module: { type: string }
         required_permission: { type: string }
 
+    BiKpi:
+      type: object
+      description: شاخص‌های کلانِ داشبورد BI برای شرکتِ نشست
+      required:
+        [period_days, sales, collected, gross, ar_balance, ar_overdue, open_invoice_count, active_customer_count]
+      properties:
+        period_days: { type: integer, description: بازهٔ روزهایِ فروش/وصولی }
+        sales: { type: string, description: خالصِ فروشِ بازه (decimal، از mv_daily_sales.net_sales) }
+        collected: { type: string, description: وصولیِ بازه (decimal) }
+        gross: { type: string, description: ناخالصِ فروشِ بازه (decimal) }
+        ar_balance: { type: string, description: کلِ ماندهٔ دریافتنیِ باز (decimal، از mv_ar_aging.total_due) }
+        ar_overdue: { type: string, description: ماندهٔ سررسیدگذشته (decimal) }
+        open_invoice_count: { type: integer, description: تعداد فاکتورهای باز }
+        active_customer_count: { type: integer, description: تعداد مشتریان با ماندهٔ باز }
+        collection_rate:
+          type: [number, 'null']
+          format: float
+          description: نسبتِ وصول به فروشِ بازه (۰..۱)؛ null اگر فروشی نبوده
+    AbcEntry:
+      type: object
+      description: یک قلمِ طبقه‌بندی‌شده در تحلیل ABC
+      required: [id, code, name, revenue, share_pct, cumulative_pct, class]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        revenue: { type: string, description: درآمد (decimal) }
+        qty: { type: string, description: مقدارِ فروش (decimal) — فقط در ABC کالاها }
+        share_pct: { type: number, format: float, description: سهم از کلِ درآمد (٪) }
+        cumulative_pct: { type: number, format: float, description: مجموعِ تجمعی تا این قلم (٪) }
+        class: { type: string, enum: [A, B, C] }
+    AbcResult:
+      type: object
+      required: [items, thresholds, total_revenue]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AbcEntry' }
+        thresholds:
+          type: object
+          required: [a, b]
+          properties:
+            a: { type: number, description: آستانهٔ درصدیِ کلاسِ A }
+            b: { type: number, description: آستانهٔ درصدیِ کلاسِ B }
+        total_revenue: { type: string, description: کلِ درآمد (decimal) }
     Attachment:
       type: object
       description: یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده)

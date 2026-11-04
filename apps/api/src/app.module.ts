@@ -19,6 +19,7 @@ import { GlModule } from './modules/gl/gl.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { BiModule } from './modules/bi/bi.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 
@@ -27,9 +28,10 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
  * Identity & RBAC / Master Data / Inventory / Rules Engine / Sales /
  * Tours & Visits / Tracking & Routing / Finance / Integrations / Reports
  *
- * BiModule، PortalModule و RoutingModule اینجا ثبت نشده‌اند: کنترلرهایشان داده
- * ساختگی (صفر و آرایه خالی) بدون AuthGuard برمی‌گردانند. تا پیاده‌سازی واقعی
- * (فاز مالی/رهگیری/پورتال) این ماژول‌ها سرو نمی‌شوند تا endpoint قلابی باز نشود.
+ * PortalModule و RoutingModule هنوز اینجا ثبت نشده‌اند: اسکلت‌شان دادهٔ ساختگی
+ * (صفر/آرایه خالی) بدون AuthGuard برمی‌گرداند و تا پیاده‌سازی واقعی (پورتال B2B و
+ * بهینه‌ساز مسیر) سرو نمی‌شوند تا endpoint قلابی باز نشود. BiModule پیاده‌سازی
+ * واقعی شد (KPI و ABC روی materialized viewهای گزارش‌دهی) و پایین ثبت شده است.
  */
 @Module({
   imports: [
@@ -53,6 +55,8 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     PurchasingModule,
     IntegrationsModule,
     ReportsModule,
+    // داشبورد BI — KPI و طبقه‌بندی ABC روی materialized viewهای گزارش‌دهی
+    BiModule,
     SettingsModule,
     // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
     AttachmentsModule,

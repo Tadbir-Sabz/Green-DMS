@@ -63,11 +63,9 @@ const SCAFFOLD_ROUTES = new Set([
   '/api/v1/sales',
   '/api/v1/tracking',
   '/api/v1/finance',
-  //stubهای BI/پورتال/مسیریابی — داده ساختگی برمی‌گردانند، جزو قرارداد نیستند
+  // info-only ماژول BI (مسیرهای دادهٔ /bi/kpi و /bi/abc-* پیاده‌سازی و مستند شدند)
   '/api/v1/bi',
-  '/api/v1/bi/kpi',
-  '/api/v1/bi/abc-customers',
-  '/api/v1/bi/abc-products',
+  // stubهای پورتال/مسیریابی — داده ساختگی برمی‌گردانند، جزو قرارداد نیستند
   '/api/v1/portal',
   '/api/v1/portal/invoices',
   '/api/v1/portal/balance',

@@ -6437,6 +6437,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bi/kpi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** شاخص‌های کلانِ فروش/وصولی/ماندهٔ AR (داشبورد BI) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description بازهٔ روزهای اخیر برای فروش/وصولی (پیش‌فرض ۳۰) */
+                    days?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description KPIهای شرکتِ نشست */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BiKpi"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bi/abc-customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** طبقه‌بندی ABC مشتریان بر پایهٔ درآمد (قانونِ پارتو) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ طبقه‌بندی‌شدهٔ مشتریان */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AbcResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bi/abc-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** طبقه‌بندی ABC کالاها بر پایهٔ درآمد (قانونِ پارتو) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ طبقه‌بندی‌شدهٔ کالاها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AbcResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations": {
         parameters: {
             query?: never;
@@ -9094,6 +9211,64 @@ export interface components {
             title?: string;
             module?: string;
             required_permission?: string;
+        };
+        /** @description شاخص‌های کلانِ داشبورد BI برای شرکتِ نشست */
+        BiKpi: {
+            /** @description بازهٔ روزهایِ فروش/وصولی */
+            period_days: number;
+            /** @description خالصِ فروشِ بازه (decimal، از mv_daily_sales.net_sales) */
+            sales: string;
+            /** @description وصولیِ بازه (decimal) */
+            collected: string;
+            /** @description ناخالصِ فروشِ بازه (decimal) */
+            gross: string;
+            /** @description کلِ ماندهٔ دریافتنیِ باز (decimal، از mv_ar_aging.total_due) */
+            ar_balance: string;
+            /** @description ماندهٔ سررسیدگذشته (decimal) */
+            ar_overdue: string;
+            /** @description تعداد فاکتورهای باز */
+            open_invoice_count: number;
+            /** @description تعداد مشتریان با ماندهٔ باز */
+            active_customer_count: number;
+            /**
+             * Format: float
+             * @description نسبتِ وصول به فروشِ بازه (۰..۱)؛ null اگر فروشی نبوده
+             */
+            collection_rate?: number | null;
+        };
+        /** @description یک قلمِ طبقه‌بندی‌شده در تحلیل ABC */
+        AbcEntry: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @description درآمد (decimal) */
+            revenue: string;
+            /** @description مقدارِ فروش (decimal) — فقط در ABC کالاها */
+            qty?: string;
+            /**
+             * Format: float
+             * @description سهم از کلِ درآمد (٪)
+             */
+            share_pct: number;
+            /**
+             * Format: float
+             * @description مجموعِ تجمعی تا این قلم (٪)
+             */
+            cumulative_pct: number;
+            /** @enum {string} */
+            class: "A" | "B" | "C";
+        };
+        AbcResult: {
+            items: components["schemas"]["AbcEntry"][];
+            thresholds: {
+                /** @description آستانهٔ درصدیِ کلاسِ A */
+                a: number;
+                /** @description آستانهٔ درصدیِ کلاسِ B */
+                b: number;
+            };
+            /** @description کلِ درآمد (decimal) */
+            total_revenue: string;
         };
         /** @description یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده) */
         Attachment: {
