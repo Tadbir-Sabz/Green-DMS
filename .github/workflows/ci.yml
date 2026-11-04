@@ -68,23 +68,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client
 
-      # MinIO به‌عنوان service container قابل اتکا نیست (بدون آرگومان `server /data`
-      # سرویس نمی‌دهد)، پس با docker به‌صورت گام‌ِ‌اجرایی بالا می‌آید و تا آماده‌شدن
-      # health endpoint صبر می‌کنیم. bucket توسط خودِ StorageService ساخته می‌شود.
-      - name: Start MinIO (object storage for attachment uploads)
-        run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio123 \
-            minio/minio server /data
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
-              echo "MinIO ready after ${i} tries"; break
-            fi
-            sleep 2
-          done
-          curl -sf http://localhost:9000/minio/health/live >/dev/null
-
       # `npm ci` runs the root `prepare` script, which builds the shared packages.
+      # IMPORTANT: npm ci runs BEFORE any docker/object-storage step so a transient
+      # MinIO or Docker-Hub-rate-limit failure can never skip the install and
+      # cascade into "command not found" (exit 127) across every later step.
       - run: npm ci
 
       - name: Typecheck (packages + api + web)
@@ -95,6 +82,27 @@ jobs:
 
       - name: Contract drift (server routes vs OpenAPI)
         run: node scripts/contract-drift.mjs
+
+      # MinIO به‌عنوان service container قابل اتکا نیست (بدون آرگومان `server /data`
+      # سرویس نمی‌دهد)، پس با docker به‌صورت گامِ اجرایی — و پس از npm ci و بررسی‌های
+      # ایستا — بالا می‌آید. pull با چند تلاشِ مجدد چون Docker Hub آی‌پیِ رانرهای
+      # اشتراکیِ گیت‌هاب را محدود (rate-limit) می‌کند. bucket را خودِ StorageService می‌سازد.
+      - name: Start MinIO (object storage for attachment uploads)
+        run: |
+          for attempt in 1 2 3; do
+            docker pull minio/minio:latest && break
+            echo "MinIO pull attempt ${attempt} failed; retrying in 15s..."; sleep 15
+          done
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio123 \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO ready after ${i} tries"; break
+            fi
+            sleep 2
+          done
+          curl -sf http://localhost:9000/minio/health/live >/dev/null
 
       # API tests run first and Web tests / Build use `if: '!cancelled()'` so a
       # failure in one suite can never hide the result of the others. The API

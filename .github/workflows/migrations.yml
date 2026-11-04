@@ -64,4 +64,21 @@ jobs:
         run: npm ci
 
       - name: تست چرخه مهاجرت (up → down → up)
-        run: npm run test:migrations
+        id: migtest
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:migrations 2>&1 | tee /tmp/mig.log
+
+      # لاگ‌های blob از بیرون خواندنی نیستند؛ دمِ لاگ را به annotation تمیز تبدیل
+      # می‌کنیم تا خطای واقعیِ SQL (در صورتِ شکست) از check-runs API دیده شود.
+      - name: Migration failure diagnostic
+        if: "!cancelled() && steps.migtest.outcome == 'failure'"
+        shell: bash
+        run: |
+          [ -f /tmp/mig.log ] || { echo "::error title=mig-diag::/tmp/mig.log missing"; exit 0; }
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          fail_msg=$(grep -nE "ERROR|error|مهاجرت|violates|syntax|does not exist|already exists|FAIL|mismatch|تفاوت|ناهمسان" /tmp/mig.log | head -n 40 | enc)
+          echo "::error title=mig-log-failures::${fail_msg:-<none matched>}"
+          tail_msg=$(tail -n 60 /tmp/mig.log | enc)
+          echo "::error title=mig-log-tail::${tail_msg:-<empty>}"
