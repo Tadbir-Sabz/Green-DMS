@@ -57,6 +57,13 @@ function setMinioEnv(overrides: Record<string, string> = {}) {
   for (const [k, v] of Object.entries(overrides)) process.env[k] = v;
 }
 
+// در CI متغیرهای MINIO_* در سطحِ job ست شده‌اند (ci.yml). هر تست باید با محیطِ
+// پاک شروع شود، وگرنه تستِ «fail-closed وقتی MINIO_* ست نشده» به‌اشتباه پیکربندیِ
+// محیط را می‌بیند و config() را نمی‌اندازد. این beforeEach تست را hermetic می‌کند.
+beforeEach(() => {
+  for (const key of ENV_KEYS) delete process.env[key];
+});
+
 afterEach(() => {
   for (const key of ENV_KEYS) delete process.env[key];
 });
