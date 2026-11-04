@@ -118,4 +118,22 @@ export class BiRepository {
     );
     return rows;
   }
+
+  /** سریِ روزانهٔ فروشِ خالص برای پیش‌بینی (mv_daily_sales) — به ترتیبِ تاریخ. */
+  async forecastHistory(
+    companyId: string,
+    days: number,
+  ): Promise<{ day: string; net_sales: string }[]> {
+    const { rows } = await this.pool.query<{ day: string; net_sales: string }>(
+      `select sale_date::text       as day,
+              sum(net_sales)::text as net_sales
+         from mv_daily_sales
+        where company_id = $1
+          and sale_date >= current_date - ($2::int - 1)
+        group by sale_date
+        order by sale_date`,
+      [companyId, days],
+    );
+    return rows;
+  }
 }

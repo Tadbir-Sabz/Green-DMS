@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { BI_REPOSITORY } from './tokens';
 import type { BiRepository } from './bi.repository';
+import { forecastDaily } from './forecast';
 
 /** ورودیِ طبقه‌بندی ABC — revenue به‌صورت عدد (از ::text در ریپازیتوری تبدیل شده) */
 export interface AbcInput {
@@ -39,6 +40,21 @@ export interface AbcResult {
   items: AbcEntry[];
   thresholds: { a: number; b: number };
   total_revenue: string;
+}
+
+export interface BiForecastPoint {
+  date: string;
+  value: string; // فروشِ خالصِ پیش‌بینی‌شده (decimal string)
+}
+
+export interface BiForecast {
+  method: 'holt-linear';
+  history_days: number;
+  horizon_days: number;
+  points: BiForecastPoint[];
+  total: string; // مجموعِ افق
+  trend_per_day: string; // مؤلفهٔ روند (تغییرِ روزانهٔ سطح)
+  direction: 'up' | 'down' | 'flat';
 }
 
 const round = (n: number, digits: number): number => {
@@ -122,5 +138,26 @@ export class BiService {
     }));
     const { items, totalRevenue } = classifyAbc(input);
     return { items, thresholds: { a: 80, b: 95 }, total_revenue: round(totalRevenue, 2).toFixed(2) };
+  }
+
+  /**
+   * پیش‌بینیِ فروشِ روزانه برای `horizon` روزِ آینده با هموارسازیِ خطیِ هالت رویِ
+   * سریِ `historyDays` روزِ اخیر (mv_daily_sales). منطقِ پیش‌بینی در forecast.ts
+   * خالص و تست‌شده است؛ اینجا فقط دادهٔ تاریخی را می‌گیرد و خروجی را شکل می‌دهد.
+   */
+  async forecast(companyId: string, historyDays: number, horizon: number): Promise<BiForecast> {
+    const rows = await this.repo.forecastHistory(companyId, historyDays);
+    const { points, trend } = forecastDaily(rows, horizon);
+    const total = points.reduce((s, p) => s + p.value, 0);
+    const direction: BiForecast['direction'] = trend > 0.01 ? 'up' : trend < -0.01 ? 'down' : 'flat';
+    return {
+      method: 'holt-linear',
+      history_days: historyDays,
+      horizon_days: horizon,
+      points: points.map((p) => ({ date: p.date, value: round(p.value, 2).toFixed(2) })),
+      total: round(total, 2).toFixed(2),
+      trend_per_day: round(trend, 2).toFixed(2),
+      direction,
+    };
   }
 }

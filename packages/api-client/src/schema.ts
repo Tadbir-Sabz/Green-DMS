@@ -6554,6 +6554,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bi/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** پیش‌بینیِ فروشِ روزانه (هموارسازیِ خطیِ هالت رویِ سابقهٔ فروش) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description طولِ سابقهٔ روزهایِ گذشته برای برازش (پیش‌فرض ۹۰، ۱..۳۶۵) */
+                    days?: number;
+                    /** @description تعدادِ روزهایِ آینده برای پیش‌بینی (پیش‌فرض ۷، ۱..۹۰) */
+                    horizon?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نقاطِ پیش‌بینیِ فروشِ خالصِ روزانه به‌همراه روند */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BiForecast"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/routing/optimize": {
         parameters: {
             query?: never;
@@ -9340,6 +9383,26 @@ export interface components {
             };
             /** @description کلِ درآمد (decimal) */
             total_revenue: string;
+        };
+        BiForecastPoint: {
+            /** Format: date */
+            date: string;
+            /** @description فروشِ خالصِ پیش‌بینی‌شده (decimal string) */
+            value: string;
+        };
+        /** @description پیش‌بینیِ فروشِ روزانه با هموارسازیِ خطیِ هالت */
+        BiForecast: {
+            /** @enum {string} */
+            method: "holt-linear";
+            history_days: number;
+            horizon_days: number;
+            points: components["schemas"]["BiForecastPoint"][];
+            /** @description مجموعِ فروشِ پیش‌بینی‌شده در افق */
+            total: string;
+            /** @description مؤلفهٔ روند (تغییرِ روزانهٔ سطح) */
+            trend_per_day: string;
+            /** @enum {string} */
+            direction: "up" | "down" | "flat";
         };
         /** @description یک توقفِ ترتیب‌داده‌شده در مسیرِ بهینه */
         OptimizedStop: {

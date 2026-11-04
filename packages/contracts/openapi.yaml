@@ -3358,6 +3358,27 @@ paths:
               schema: { $ref: '#/components/schemas/AbcResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /bi/forecast:
+    get:
+      tags: [bi]
+      summary: پیش‌بینیِ فروشِ روزانه (هموارسازیِ خطیِ هالت رویِ سابقهٔ فروش)
+      parameters:
+        - name: days
+          in: query
+          description: طولِ سابقهٔ روزهایِ گذشته برای برازش (پیش‌فرض ۹۰، ۱..۳۶۵)
+          schema: { type: integer, minimum: 1, maximum: 365, default: 90 }
+        - name: horizon
+          in: query
+          description: تعدادِ روزهایِ آینده برای پیش‌بینی (پیش‌فرض ۷، ۱..۹۰)
+          schema: { type: integer, minimum: 1, maximum: 90, default: 7 }
+      responses:
+        '200':
+          description: نقاطِ پیش‌بینیِ فروشِ خالصِ روزانه به‌همراه روند
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BiForecast' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /routing/optimize:
     post:
       tags: [routing]
@@ -5343,6 +5364,26 @@ components:
             a: { type: number, description: آستانهٔ درصدیِ کلاسِ A }
             b: { type: number, description: آستانهٔ درصدیِ کلاسِ B }
         total_revenue: { type: string, description: کلِ درآمد (decimal) }
+    BiForecastPoint:
+      type: object
+      required: [date, value]
+      properties:
+        date: { type: string, format: date }
+        value: { type: string, description: فروشِ خالصِ پیش‌بینی‌شده (decimal string) }
+    BiForecast:
+      type: object
+      description: پیش‌بینیِ فروشِ روزانه با هموارسازیِ خطیِ هالت
+      required: [method, history_days, horizon_days, points, total, trend_per_day, direction]
+      properties:
+        method: { type: string, enum: [holt-linear] }
+        history_days: { type: integer }
+        horizon_days: { type: integer }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/BiForecastPoint' }
+        total: { type: string, description: مجموعِ فروشِ پیش‌بینی‌شده در افق }
+        trend_per_day: { type: string, description: مؤلفهٔ روند (تغییرِ روزانهٔ سطح) }
+        direction: { type: string, enum: [up, down, flat] }
     OptimizedStop:
       type: object
       description: یک توقفِ ترتیب‌داده‌شده در مسیرِ بهینه
