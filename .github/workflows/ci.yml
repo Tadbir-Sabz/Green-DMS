@@ -47,6 +47,13 @@ jobs:
       SMS_PROVIDER: log
       # psql binary used by the API tests to apply migrations (installed below).
       PSQL: psql
+      # MinIO — آبجکت‌استوریج ضمیمه‌ها/POD. در گام «Start MinIO» با docker بالا می‌آید.
+      # StorageService هنگام اولین put به‌صورت خودکار bucket را می‌سازد (ensureBucket).
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: greendms
+      MINIO_USE_SSL: 'false'
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +67,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # MinIO به‌عنوان service container قابل اتکا نیست (بدون آرگومان `server /data`
+      # سرویس نمی‌دهد)، پس با docker به‌صورت گام‌ِ‌اجرایی بالا می‌آید و تا آماده‌شدن
+      # health endpoint صبر می‌کنیم. bucket توسط خودِ StorageService ساخته می‌شود.
+      - name: Start MinIO (object storage for attachment uploads)
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio123 \
+            minio/minio server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO ready after ${i} tries"; break
+            fi
+            sleep 2
+          done
+          curl -sf http://localhost:9000/minio/health/live >/dev/null
 
       # `npm ci` runs the root `prepare` script, which builds the shared packages.
       - run: npm ci

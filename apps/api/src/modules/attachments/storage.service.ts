@@ -28,6 +28,7 @@ export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private cachedClient?: Client;
   private cachedConfig?: ObjectStorageConfig;
+  private bucketEnsured = false;
 
   /** خواندن و اعتبارسنجی پیکربندی از env؛ کش می‌شود. در صورت نقص → 503 ساختاریافته. */
   config(): ObjectStorageConfig {
@@ -72,9 +73,22 @@ export class StorageService {
     return this.cachedClient;
   }
 
+  /** اطمینان از وجودِ bucket (یک‌بار)؛ اگر نبود ساخته می‌شود تا استقرار/CI خودکفا باشد. */
+  private async ensureBucket(): Promise<void> {
+    if (this.bucketEnsured) return;
+    const { bucket, region } = this.config();
+    const client = this.getClient();
+    if (!(await client.bucketExists(bucket))) {
+      await client.makeBucket(bucket, region ?? '');
+      this.logger.log(`created bucket "${bucket}"`);
+    }
+    this.bucketEnsured = true;
+  }
+
   /** ذخیرهٔ یک شیء؛ Content-Type ست می‌شود تا هنگام دانلود درست سرو شود. */
   async put(key: string, body: Buffer, contentType: string): Promise<void> {
     const { bucket } = this.config();
+    await this.ensureBucket();
     await this.getClient().putObject(bucket, key, body, body.length, {
       'Content-Type': contentType,
     });

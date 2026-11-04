@@ -19,12 +19,16 @@ import {
 const putObject = vi.fn();
 const presignedGetObject = vi.fn();
 const removeObject = vi.fn();
+const bucketExists = vi.fn();
+const makeBucket = vi.fn();
 vi.mock('minio', () => ({
   // باید «کلاس» باشد تا new Client(...) کار کند (تابعِ پیکانی constructor ندارد)
   Client: class {
     putObject = putObject;
     presignedGetObject = presignedGetObject;
     removeObject = removeObject;
+    bucketExists = bucketExists;
+    makeBucket = makeBucket;
   },
 }));
 
@@ -92,6 +96,9 @@ describe('StorageService — واگذاری به کلاینت minio', () => {
     putObject.mockReset();
     presignedGetObject.mockReset();
     removeObject.mockReset();
+    bucketExists.mockReset();
+    makeBucket.mockReset();
+    bucketExists.mockResolvedValue(true); // پیش‌فرض: bucket از قبل هست
     setMinioEnv();
   });
 
@@ -105,6 +112,15 @@ describe('StorageService — واگذاری به کلاینت minio', () => {
       2,
       { 'Content-Type': 'image/png' },
     );
+  });
+
+  it('اگر bucket نباشد، put آن را می‌سازد (خودکفا برای CI/استقرار)', async () => {
+    bucketExists.mockResolvedValue(false);
+    makeBucket.mockResolvedValue(undefined);
+    putObject.mockResolvedValue({ etag: 'x' });
+    await new StorageService().put('k', Buffer.from('hi'), 'image/png');
+    expect(makeBucket).toHaveBeenCalledWith('greendms', '');
+    expect(putObject).toHaveBeenCalled();
   });
 
   it('presignedGet → presignedGetObject با ttl', async () => {
