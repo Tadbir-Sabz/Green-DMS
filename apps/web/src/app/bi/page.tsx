@@ -7,7 +7,7 @@ import { api, errorMessage } from "@/lib/api";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody, SectionTitle } from "@/components/ui/Card";
-import { StatCard, StatGrid } from "@/components/ui/StatCard";
+import { StatCard, StatGrid, type StatTone } from "@/components/ui/StatCard";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { SkeletonCard, ErrorState } from "@/components/ui/Feedback";
@@ -18,14 +18,22 @@ import { formatMoney, formatNumber } from "@/lib/format";
  *   GET /bi/kpi?days=         → کارت‌های شاخص (فروش/وصولی/ماندهٔ AR/نرخ وصول)
  *   GET /bi/abc-customers     → جدولِ طبقه‌بندی ABC مشتریان
  *   GET /bi/abc-products      → جدولِ طبقه‌بندی ABC کالاها
+ *   GET /bi/forecast?horizon=  → پیش‌بینیِ فروشِ روزانه (افقِ قابلِ انتخاب)
  * دسترسی با reports.dashboard.view (هم‌راستا با منو و گاردِ سمتِ سرور).
  */
 
 type BiKpi = components["schemas"]["BiKpi"];
 type AbcResult = components["schemas"]["AbcResult"];
 type AbcEntry = components["schemas"]["AbcEntry"];
+type BiForecast = components["schemas"]["BiForecast"];
+type BiForecastPoint = components["schemas"]["BiForecastPoint"];
 
 const DAY_OPTIONS = [30, 90, 180] as const;
+const HORIZON_OPTIONS = [7, 14, 30] as const;
+const directionTone = (d: BiForecast["direction"]): StatTone =>
+  d === "up" ? "success" : d === "down" ? "danger" : "neutral";
+const directionFa = (d: BiForecast["direction"]): string =>
+  d === "up" ? "صعودی" : d === "down" ? "نزولی" : "خنثی";
 const classTone = (c: AbcEntry["class"]): BadgeTone =>
   c === "A" ? "success" : c === "B" ? "warning" : "neutral";
 
@@ -52,6 +60,7 @@ function abcColumns(withQty: boolean): Column<AbcEntry>[] {
 
 function BiInner() {
   const [days, setDays] = useState<number>(30);
+  const [horizon, setHorizon] = useState<number>(7);
 
   const kpi = useQuery({
     queryKey: ["bi-kpi", days],
@@ -79,6 +88,20 @@ function BiInner() {
       return res.data as AbcResult;
     },
   });
+
+  const forecast = useQuery({
+    queryKey: ["bi-forecast", horizon],
+    queryFn: async () => {
+      const res = await api.GET("/bi/forecast", { params: { query: { horizon } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return res.data as BiForecast;
+    },
+  });
+
+  const forecastColumns: Column<BiForecastPoint>[] = [
+    { key: "date", header: "تاریخ", render: (r) => <span dir="ltr">{r.date}</span> },
+    { key: "value", header: "فروشِ پیش‌بینی‌شده", render: (r) => formatMoney(r.value) },
+  ];
 
   return (
     <div className="space-y-6">
@@ -160,6 +183,60 @@ function BiInner() {
               rowKey={(r) => r.id}
               emptyMessage="دادهٔ کافی برای تحلیل ABC وجود ندارد"
             />
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody>
+          <SectionTitle>پیش‌بینیِ فروش</SectionTitle>
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-sm text-ink-muted">افق:</span>
+            {HORIZON_OPTIONS.map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setHorizon(h)}
+                className={`focus-ring rounded-lg border px-3 py-1.5 text-sm ${
+                  horizon === h ? "border-brand text-brand-soft-ink" : "border-line"
+                }`}
+              >
+                {h} روز
+              </button>
+            ))}
+          </div>
+          {forecast.isLoading && <SkeletonCard />}
+          {forecast.isError && (
+            <ErrorState compact message={errorMessage(forecast.error)} onRetry={() => forecast.refetch()} />
+          )}
+          {forecast.data && (
+            <div className="space-y-4">
+              <StatGrid cols={3}>
+                <StatCard
+                  label={`فروشِ ${horizon} روزِ آینده`}
+                  value={formatMoney(forecast.data.total)}
+                  tone="brand"
+                  sub="هموارسازیِ خطیِ هالت"
+                />
+                <StatCard
+                  label="روندِ روزانه"
+                  value={formatMoney(forecast.data.trend_per_day)}
+                  tone={directionTone(forecast.data.direction)}
+                />
+                <StatCard
+                  label="جهتِ روند"
+                  value={directionFa(forecast.data.direction)}
+                  tone="neutral"
+                  sub={`سابقهٔ ${forecast.data.history_days} روز`}
+                />
+              </StatGrid>
+              <DataTable
+                columns={forecastColumns}
+                rows={forecast.data.points}
+                rowKey={(r) => r.date}
+                emptyMessage="دادهٔ تاریخیِ کافی برای پیش‌بینی وجود ندارد"
+              />
+            </div>
           )}
         </CardBody>
       </Card>
