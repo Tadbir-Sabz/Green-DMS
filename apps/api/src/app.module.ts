@@ -20,6 +20,7 @@ import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BiModule } from './modules/bi/bi.module';
+import { RoutingModule } from './modules/routing/routing.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 
@@ -28,10 +29,11 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
  * Identity & RBAC / Master Data / Inventory / Rules Engine / Sales /
  * Tours & Visits / Tracking & Routing / Finance / Integrations / Reports
  *
- * PortalModule و RoutingModule هنوز اینجا ثبت نشده‌اند: اسکلت‌شان دادهٔ ساختگی
- * (صفر/آرایه خالی) بدون AuthGuard برمی‌گرداند و تا پیاده‌سازی واقعی (پورتال B2B و
- * بهینه‌ساز مسیر) سرو نمی‌شوند تا endpoint قلابی باز نشود. BiModule پیاده‌سازی
- * واقعی شد (KPI و ABC روی materialized viewهای گزارش‌دهی) و پایین ثبت شده است.
+ * PortalModule هنوز اینجا ثبت نشده است: اسکلتش دادهٔ ساختگی برمی‌گرداند و تا
+ * پیاده‌سازی واقعیِ پورتال B2B سرو نمی‌شود تا endpoint قلابی باز نشود.
+ * BiModule (KPI و ABC روی materialized viewهای گزارش‌دهی) و RoutingModule
+ * (بهینه‌ساز مسیر TSP روی مختصاتِ PostGIS مشتریان) پیاده‌سازی واقعی شدند و
+ * پایین ثبت شده‌اند.
  */
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     ReportsModule,
     // داشبورد BI — KPI و طبقه‌بندی ABC روی materialized viewهای گزارش‌دهی
     BiModule,
+    // بهینه‌ساز مسیر ویزیت (TSP) روی مختصاتِ PostGIS مشتریان
+    RoutingModule,
     SettingsModule,
     // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
     AttachmentsModule,

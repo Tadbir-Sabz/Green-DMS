@@ -50,7 +50,6 @@ const SCAFFOLD_ROUTES = new Set([
   '/portal/balance',
   '/portal/orders',
   '/routing',
-  '/routing/optimize',
 ]);
 
 const args = new Set(process.argv.slice(2));

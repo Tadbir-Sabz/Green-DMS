@@ -71,8 +71,7 @@ const SCAFFOLD_ROUTES = new Set([
   '/api/v1/portal/balance',
   '/api/v1/portal/orders',
   '/api/v1/routing',
-  '/api/v1/routing/optimize',
-  // tours و integrations پیش‌تر اسکلت بودند؛ اکنون endpoint واقعی و مستندند
+  // routing/optimize پیاده‌سازی و مستند شد (بهینه‌ساز TSP)؛ بی/تور/یکپارچه‌سازی هم واقعی‌اند
 ]);
 const API_PREFIX = '/api/v1';
 

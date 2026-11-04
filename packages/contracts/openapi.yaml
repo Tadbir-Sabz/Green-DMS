@@ -3358,6 +3358,38 @@ paths:
               schema: { $ref: '#/components/schemas/AbcResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /routing/optimize:
+    post:
+      tags: [routing]
+      summary: بهینه‌سازی مسیر ویزیت (TSP) — ترتیبِ بهینهٔ توقف‌ها با کمینه مسافت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                route_id:
+                  type: string
+                  format: uuid
+                  description: بهینه‌سازیِ همهٔ مشتریانِ یک مسیرِ ویزیت
+                customer_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: فهرستِ صریحِ توقف‌ها (اگر route_id داده نشود)
+                start_lat: { type: number, format: double, minimum: -90, maximum: 90, description: عرضِ جغرافیاییِ دپو/نقطهٔ شروع }
+                start_lng: { type: number, format: double, minimum: -180, maximum: 180, description: طولِ جغرافیاییِ دپو/نقطهٔ شروع }
+                avg_speed_kmh: { type: number, format: double, minimum: 1, maximum: 150, description: سرعت متوسط (پیش‌فرض ۳۰) }
+                service_min_per_stop: { type: number, format: double, minimum: 0, maximum: 240, description: زمان خدمت در هر توقف به دقیقه (پیش‌فرض ۵) }
+      responses:
+        '200':
+          description: مسیرِ بهینه‌شده با ترتیبِ توقف‌ها و برآورد مسافت/زمان
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoutingOptimization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /integrations:
     get:
       tags: [integrations]
@@ -5311,6 +5343,32 @@ components:
             a: { type: number, description: آستانهٔ درصدیِ کلاسِ A }
             b: { type: number, description: آستانهٔ درصدیِ کلاسِ B }
         total_revenue: { type: string, description: کلِ درآمد (decimal) }
+    OptimizedStop:
+      type: object
+      description: یک توقفِ ترتیب‌داده‌شده در مسیرِ بهینه
+      required: [customer_id, code, name, lat, lng, sequence, leg_distance_km, cumulative_distance_km, eta_min]
+      properties:
+        customer_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        sequence: { type: integer, description: ترتیبِ بازدید (۱-based) }
+        leg_distance_km: { type: number, format: float, description: فاصله از توقفِ قبلی }
+        cumulative_distance_km: { type: number, format: float, description: مسافتِ تجمعی از شروع }
+        eta_min: { type: number, format: float, description: زمانِ تخمینیِ رسیدن از شروع (دقیقه) }
+    RoutingOptimization:
+      type: object
+      required: [route_id, stop_count, stops, total_distance_km, total_duration_min, savings_percent]
+      properties:
+        route_id: { type: [string, 'null'], format: uuid }
+        stop_count: { type: integer }
+        stops:
+          type: array
+          items: { $ref: '#/components/schemas/OptimizedStop' }
+        total_distance_km: { type: number, format: float }
+        total_duration_min: { type: number, format: float }
+        savings_percent: { type: number, format: float, description: درصدِ بهبود نسبت به ترتیبِ ورودی }
     Attachment:
       type: object
       description: یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده)

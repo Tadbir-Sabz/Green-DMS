@@ -6554,6 +6554,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/routing/optimize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** بهینه‌سازی مسیر ویزیت (TSP) — ترتیبِ بهینهٔ توقف‌ها با کمینه مسافت */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description بهینه‌سازیِ همهٔ مشتریانِ یک مسیرِ ویزیت
+                         */
+                        route_id?: string;
+                        /** @description فهرستِ صریحِ توقف‌ها (اگر route_id داده نشود) */
+                        customer_ids?: string[];
+                        /**
+                         * Format: double
+                         * @description عرضِ جغرافیاییِ دپو/نقطهٔ شروع
+                         */
+                        start_lat?: number;
+                        /**
+                         * Format: double
+                         * @description طولِ جغرافیاییِ دپو/نقطهٔ شروع
+                         */
+                        start_lng?: number;
+                        /**
+                         * Format: double
+                         * @description سرعت متوسط (پیش‌فرض ۳۰)
+                         */
+                        avg_speed_kmh?: number;
+                        /**
+                         * Format: double
+                         * @description زمان خدمت در هر توقف به دقیقه (پیش‌فرض ۵)
+                         */
+                        service_min_per_stop?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description مسیرِ بهینه‌شده با ترتیبِ توقف‌ها و برآورد مسافت/زمان */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RoutingOptimization"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations": {
         parameters: {
             query?: never;
@@ -9269,6 +9340,49 @@ export interface components {
             };
             /** @description کلِ درآمد (decimal) */
             total_revenue: string;
+        };
+        /** @description یک توقفِ ترتیب‌داده‌شده در مسیرِ بهینه */
+        OptimizedStop: {
+            /** Format: uuid */
+            customer_id: string;
+            code: string;
+            name: string;
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lng: number;
+            /** @description ترتیبِ بازدید (۱-based) */
+            sequence: number;
+            /**
+             * Format: float
+             * @description فاصله از توقفِ قبلی
+             */
+            leg_distance_km: number;
+            /**
+             * Format: float
+             * @description مسافتِ تجمعی از شروع
+             */
+            cumulative_distance_km: number;
+            /**
+             * Format: float
+             * @description زمانِ تخمینیِ رسیدن از شروع (دقیقه)
+             */
+            eta_min: number;
+        };
+        RoutingOptimization: {
+            /** Format: uuid */
+            route_id: string | null;
+            stop_count: number;
+            stops: components["schemas"]["OptimizedStop"][];
+            /** Format: float */
+            total_distance_km: number;
+            /** Format: float */
+            total_duration_min: number;
+            /**
+             * Format: float
+             * @description درصدِ بهبود نسبت به ترتیبِ ورودی
+             */
+            savings_percent: number;
         };
         /** @description یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده) */
         Attachment: {
