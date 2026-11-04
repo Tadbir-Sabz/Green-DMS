@@ -60,7 +60,11 @@ jobs:
           curl -sf http://localhost:3000/login >/dev/null
 
       - name: run Playwright E2E
-        run: npm run test:e2e
+        id: e2etest
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee /tmp/e2e.log
         env:
           E2E_BASE_URL: http://localhost:3000
           CI: true
@@ -74,9 +78,21 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: compose logs (on failure)
+      - name: compose diagnostics (on failure, as annotations)
         if: failure()
-        run: docker compose logs --tail=300
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          ps_msg=$(docker compose ps -a 2>&1 | tail -n 25 | enc)
+          echo "::error title=e2e-compose-ps::${ps_msg:-<empty>}"
+          api_msg=$(docker compose logs --no-color --tail 45 api 2>&1 | enc)
+          echo "::error title=e2e-api-log::${api_msg:-<empty>}"
+          web_msg=$(docker compose logs --no-color --tail 25 web 2>&1 | enc)
+          echo "::error title=e2e-web-log::${web_msg:-<empty>}"
+          if [ -f /tmp/e2e.log ]; then
+            t=$(tail -n 40 /tmp/e2e.log | enc); echo "::error title=e2e-test-log::${t:-<empty>}"
+          fi
+          docker compose logs --tail=200 || true
 
       - name: tear down
         if: always()
