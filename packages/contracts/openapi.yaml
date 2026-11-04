@@ -3379,6 +3379,68 @@ paths:
               schema: { $ref: '#/components/schemas/BiForecast' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /billing/invoices:
+    get:
+      tags: [billing]
+      summary: فهرستِ صورتحساب‌های اشتراکِ اجاره (ledger، بدونِ پرداخت)
+      responses:
+        '200':
+          description: فهرستِ صورتحساب‌ها (نزولیِ تاریخِ صدور)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BillingInvoice' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /billing/invoices/{id}:
+    get:
+      tags: [billing]
+      summary: جزئیاتِ یک صورتحسابِ اشتراک
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: صورتحسابِ اشتراک
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingInvoice' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /onboarding/register:
+    post:
+      tags: [onboarding]
+      summary: خودخدمت‌دهیِ ثبتِ اجارهٔ جدید (شرکت + شعبه + نقش‌ها + حسابِ مدیر)
+      description: >-
+        عمومی و بدونِ نشست. در تولید باید پشتِ نرخ‌گذاری/CAPTCHA/کدِ دعوت قرار گیرد
+        (یادداشتِ امنیتی در گزارشِ تحویل). ساختِ اجاره اتمی است (یا همه یا هیچ).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company_code, company_name, admin_email, admin_password]
+              properties:
+                company_code: { type: string, minLength: 2, maxLength: 32, pattern: '^[A-Za-z0-9_-]+$' }
+                company_name: { type: string, minLength: 2, maxLength: 160 }
+                admin_email: { type: string, format: email, maxLength: 160 }
+                admin_password: { type: string, format: password, minLength: 8, maxLength: 128 }
+                admin_first_name: { type: string, maxLength: 60 }
+                admin_last_name: { type: string, maxLength: 60 }
+      responses:
+        '201':
+          description: اجاره و حسابِ مدیر ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterTenantResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /portal/auth/login:
     post:
       tags: [portal]
@@ -5497,6 +5559,29 @@ components:
             a: { type: number, description: آستانهٔ درصدیِ کلاسِ A }
             b: { type: number, description: آستانهٔ درصدیِ کلاسِ B }
         total_revenue: { type: string, description: کلِ درآمد (decimal) }
+    BillingInvoice:
+      type: object
+      description: صورتحسابِ دوره‌ایِ اشتراک (ledger) — بدونِ پرداخت؛ وضعیت issued/void
+      required: [id, invoice_no, period_start, period_end, amount, currency, status, notes, issued_at]
+      properties:
+        id: { type: string, format: uuid }
+        invoice_no: { type: string }
+        period_start: { type: string, format: date }
+        period_end: { type: string, format: date }
+        amount: { type: string, description: decimal string }
+        currency: { type: string }
+        status: { type: string, enum: [issued, void] }
+        notes: { type: [string, 'null'] }
+        issued_at: { type: string, format: date-time }
+    RegisterTenantResult:
+      type: object
+      description: نتیجهٔ خودخدمت‌دهیِ استقرار — شناسه‌های اجارهٔ تازه و حسابِ مدیر
+      required: [company_id, branch_id, app_user_id, admin_username]
+      properties:
+        company_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        app_user_id: { type: string, format: uuid }
+        admin_username: { type: string }
     PortalIdentity:
       type: object
       required: [id, email, display_name, company_id, customer_id]

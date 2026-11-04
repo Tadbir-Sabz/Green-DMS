@@ -6597,6 +6597,139 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرستِ صورتحساب‌های اشتراکِ اجاره (ledger، بدونِ پرداخت) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ صورتحساب‌ها (نزولیِ تاریخِ صدور) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingInvoice"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** جزئیاتِ یک صورتحسابِ اشتراک */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صورتحسابِ اشتراک */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingInvoice"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/onboarding/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * خودخدمت‌دهیِ ثبتِ اجارهٔ جدید (شرکت + شعبه + نقش‌ها + حسابِ مدیر)
+         * @description عمومی و بدونِ نشست. در تولید باید پشتِ نرخ‌گذاری/CAPTCHA/کدِ دعوت قرار گیرد (یادداشتِ امنیتی در گزارشِ تحویل). ساختِ اجاره اتمی است (یا همه یا هیچ).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        company_code: string;
+                        company_name: string;
+                        /** Format: email */
+                        admin_email: string;
+                        /** Format: password */
+                        admin_password: string;
+                        admin_first_name?: string;
+                        admin_last_name?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description اجاره و حسابِ مدیر ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RegisterTenantResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/portal/auth/login": {
         parameters: {
             query?: never;
@@ -9712,6 +9845,34 @@ export interface components {
             };
             /** @description کلِ درآمد (decimal) */
             total_revenue: string;
+        };
+        /** @description صورتحسابِ دوره‌ایِ اشتراک (ledger) — بدونِ پرداخت؛ وضعیت issued/void */
+        BillingInvoice: {
+            /** Format: uuid */
+            id: string;
+            invoice_no: string;
+            /** Format: date */
+            period_start: string;
+            /** Format: date */
+            period_end: string;
+            /** @description decimal string */
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            status: "issued" | "void";
+            notes: string | null;
+            /** Format: date-time */
+            issued_at: string;
+        };
+        /** @description نتیجهٔ خودخدمت‌دهیِ استقرار — شناسه‌های اجارهٔ تازه و حسابِ مدیر */
+        RegisterTenantResult: {
+            /** Format: uuid */
+            company_id: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** Format: uuid */
+            app_user_id: string;
+            admin_username: string;
         };
         PortalIdentity: {
             /** Format: uuid */

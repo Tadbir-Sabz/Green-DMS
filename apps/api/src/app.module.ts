@@ -22,6 +22,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { BiModule } from './modules/bi/bi.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { PortalModule } from './modules/portal/portal.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 
@@ -63,6 +65,10 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     RoutingModule,
     // پورتال B2B مشتریان — هویتِ جداگانه (portal_user) و JWT با audience مجزا
     PortalModule,
+    // خودخدمت‌دهیِ استقرار — ساختِ اتمیِ اجارهٔ جدید (شرکت/شعبه/نقش‌ها/مدیر)
+    OnboardingModule,
+    // صورتحسابِ اشتراک (ledger، فقط خواندن) — بدونِ درگاهِ پرداخت/اشتراکِ پولی
+    BillingModule,
     SettingsModule,
     // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
     AttachmentsModule,

@@ -67,6 +67,8 @@ const SCAFFOLD_ROUTES = new Set([
   '/api/v1/bi',
   // stubهای پورتال/مسیریابی — داده ساختگی برمی‌گردانند، جزو قرارداد نیستند
   '/api/v1/portal',
+  '/api/v1/onboarding',
+  '/api/v1/billing',
   '/api/v1/routing',
   // routing/optimize پیاده‌سازی و مستند شد (بهینه‌ساز TSP)؛ بی/تور/یکپارچه‌سازی هم واقعی‌اند
 ]);
