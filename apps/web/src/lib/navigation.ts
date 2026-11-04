@@ -147,6 +147,7 @@ export const navGroups: NavGroup[] = [
     title: "گزارشات",
     icon: IconChart,
     items: [
+      { href: "/bi", label: "داشبورد BI", icon: IconChart, perm: "reports.dashboard.view", hint: "KPI و تحلیل ABC مشتریان و کالاها" },
       { href: "/reports/sales", label: "گزارش فروش", icon: IconTrendUp, perm: "reports.dashboard.view", hint: "فروش به تفکیک دوره" },
       { href: "/reports/inventory", label: "گزارش موجودی", icon: IconLayers, perm: "reports.dashboard.view", hint: "مانده و گردش کالا" },
       { href: "/reports/ar", label: "گزارش دریافتنی", icon: IconReceivable, perm: "reports.dashboard.view", hint: "سن‌شدن بدهی" },
