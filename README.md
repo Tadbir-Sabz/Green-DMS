@@ -62,8 +62,13 @@ npm run dev:api             # http://localhost:4000/api/v1
 npm run dev:web             # http://localhost:3000
 ```
 
-The web app reads `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`) and
-calls the API under the `/api/v1` prefix.
+The web app calls the API under the `/api/v1` prefix. By default the base URL is
+**relative** (same-origin) and the Next server proxies `/api/*` to the backend
+(`API_PROXY_TARGET`, default `http://127.0.0.1:4000`). So the browser never
+assumes the API sits on its own `localhost` — which is what breaks login behind a
+reverse proxy / preview URL / remote host — and no CORS is required. To call an
+API on a **separate origin** directly instead, set `NEXT_PUBLIC_API_URL` at
+**build** time (it is inlined into the browser bundle); the proxy is then unused.
 
 ## Scripts
 
@@ -102,8 +107,11 @@ the OpenAPI document (`--allow-drift` to report without failing).
 ## Deployment
 
 - `docker-compose.yml` runs the full stack (postgres, redis, minio, api, web).
-  `NEXT_PUBLIC_API_URL` is inlined into the web bundle at **build** time, so it
-  is passed as a build-arg there.
+  The web defaults to a **relative** API base and the Next server proxies
+  `/api/*` to the `api` container (`API_PROXY_TARGET=http://api:4000`), so it
+  works for local and remote deploys without CORS or a browser-side host
+  assumption. `NEXT_PUBLIC_API_URL` (a build-arg, inlined into the web bundle)
+  overrides this to call a separate API origin directly.
 - `.env.production.example` documents every variable the code actually reads
   (API, web, SMS, Moadian, PSP, storage). Copy and fill it for production.
 - See `docs/deploy/PRODUCTION_DEPLOYMENT.md` and `docs/deploy/CHECKLIST.md`.

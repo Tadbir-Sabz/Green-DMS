@@ -2,7 +2,14 @@
 
 import { createApiClient, type RefreshContext } from '@dms/api-client';
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000") + "/api/v1";
+// پیش‌فرض «مسیر نسبیِ هم‌مبدأ» است (نه http://localhost:4000). دلیل: وقتی وب پشت
+// پروکسی سرو می‌شود (محیط پیش‌نمایش یا تولیدِ ریموت)، مرورگرِ کاربر روی localhost
+// خودش هیچ API ندارد و درخواست به localhost:4000 هرگز به بک‌اندِ واقعی نمی‌رسد →
+// ورود شکست می‌خورد و کاربر به پنل نمی‌رسد. با مسیر نسبی، درخواست /api/* به همان
+// مبدأ وب می‌رود و next.config (rewrites) آن را سمتِ سرور به بک‌اند پروکسی می‌کند
+// (API_PROXY_TARGET، پیش‌فرض http://localhost:4000) — بدون نیاز به CORS.
+// برای صدا زدنِ مستقیمِ یک API روی دامنهٔ دیگر، NEXT_PUBLIC_API_URL را در زمان build ست کنید.
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "") + "/api/v1";
 
 export const TOKEN_KEY = 'dms.access_token';
 export const USERNAME_KEY = 'dms.username';
