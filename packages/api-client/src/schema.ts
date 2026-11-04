@@ -6597,6 +6597,335 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/portal/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ورود به پورتال مشتری (ایمیل + رمز) — توکن با audience مجزا از کارکنان */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: email */
+                        email: string;
+                        /** Format: password */
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description نشستِ پورتال صادر شد (توکن دسترسی + refresh) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalSessionResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                423: components["responses"]["Locked"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تازه‌سازیِ توکن پورتال (چرخش refresh) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        refresh_token: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description نشستِ تازه صادر شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalSessionResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** خروج از پورتال (باطل‌کردن نشستِ جاری) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نشست باطل شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            revoked: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** حسابِ پورتال و مشتریِ وابستهٔ جاری */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description شناسهٔ حسابِ پورتال + کد/نام مشتری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalMe"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فاکتورهای ثبت‌شدهٔ مشتریِ پورتال */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ فاکتورها (نزولیِ تاریخ) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalInvoice"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** سفارش‌های مشتریِ پورتال (غیرِ پیش‌نویس) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ سفارش‌ها (نزولیِ تاریخ) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalOrder"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ماندهٔ حساب و وضعیتِ اعتبارِ مشتریِ پورتال */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ماندهٔ دریافتنی، معوق، سقف و اعتبارِ باقی‌مانده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalBalance"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ساختِ حسابِ پورتال برای یک مشتری (توسطِ کارکنان، master.customer.update) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customer_id: string;
+                        /** Format: email */
+                        email: string;
+                        /** Format: password */
+                        password: string;
+                        display_name?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description حسابِ پورتال ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalIdentity"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/routing/optimize": {
         parameters: {
             query?: never;
@@ -9383,6 +9712,64 @@ export interface components {
             };
             /** @description کلِ درآمد (decimal) */
             total_revenue: string;
+        };
+        PortalIdentity: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            display_name: string | null;
+            /** Format: uuid */
+            company_id: string;
+            /** Format: uuid */
+            customer_id: string;
+        };
+        PortalSessionResponse: {
+            access_token: string;
+            refresh_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /** @description عمرِ توکن دسترسی به ثانیه */
+            expires_in: number;
+            portal_user: components["schemas"]["PortalIdentity"];
+        };
+        PortalMe: components["schemas"]["PortalIdentity"] & {
+            customer_code: string;
+            customer_name: string;
+        };
+        PortalInvoice: {
+            /** Format: uuid */
+            id: string;
+            doc_number: string;
+            fiscal_year: number;
+            /** Format: date */
+            invoice_date: string;
+            /** Format: date */
+            due_date: string | null;
+            /** @description decimal string */
+            grand_total: string;
+            /** @description decimal string */
+            paid_amount: string;
+            status: string;
+        };
+        PortalOrder: {
+            /** Format: uuid */
+            id: string;
+            doc_number: string;
+            fiscal_year: number;
+            /** Format: date */
+            order_date: string;
+            /** @description decimal string */
+            grand_total: string;
+            status: string;
+        };
+        PortalBalance: {
+            /** @description ماندهٔ دریافتنیِ کل (decimal string) */
+            outstanding: string;
+            /** @description معوق (decimal string) */
+            overdue: string;
+            credit_limit: string | null;
+            credit_available: string | null;
         };
         BiForecastPoint: {
             /** Format: date */

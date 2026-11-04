@@ -21,6 +21,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BiModule } from './modules/bi/bi.module';
 import { RoutingModule } from './modules/routing/routing.module';
+import { PortalModule } from './modules/portal/portal.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 
@@ -29,11 +30,10 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
  * Identity & RBAC / Master Data / Inventory / Rules Engine / Sales /
  * Tours & Visits / Tracking & Routing / Finance / Integrations / Reports
  *
- * PortalModule هنوز اینجا ثبت نشده است: اسکلتش دادهٔ ساختگی برمی‌گرداند و تا
- * پیاده‌سازی واقعیِ پورتال B2B سرو نمی‌شود تا endpoint قلابی باز نشود.
- * BiModule (KPI و ABC روی materialized viewهای گزارش‌دهی) و RoutingModule
- * (بهینه‌ساز مسیر TSP روی مختصاتِ PostGIS مشتریان) پیاده‌سازی واقعی شدند و
- * پایین ثبت شده‌اند.
+ * همهٔ ماژول‌ها اکنون پیاده‌سازی واقعی دارند و ثبت شده‌اند (دیگر اسکلتِ سرو‌شده
+ * نداریم): BiModule (KPI/ABC/پیش‌بینی روی materialized viewهای گزارش‌دهی)،
+ * RoutingModule (بهینه‌ساز مسیر TSP روی مختصاتِ PostGIS مشتریان) و PortalModule
+ * (پورتال B2B مشتریان با هویتِ جداگانهٔ portal_user و JWT با audience مجزا).
  */
 @Module({
   imports: [
@@ -61,6 +61,8 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     BiModule,
     // بهینه‌ساز مسیر ویزیت (TSP) روی مختصاتِ PostGIS مشتریان
     RoutingModule,
+    // پورتال B2B مشتریان — هویتِ جداگانه (portal_user) و JWT با audience مجزا
+    PortalModule,
     SettingsModule,
     // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
     AttachmentsModule,

@@ -46,9 +46,6 @@ const SCAFFOLD_ROUTES = new Set([
   '/finance',
   '/bi',
   '/portal',
-  '/portal/invoices',
-  '/portal/balance',
-  '/portal/orders',
   '/routing',
 ]);
 
