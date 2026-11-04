@@ -91,12 +91,12 @@ jobs:
         run: |
           set +e
           for attempt in 1 2 3; do
-            docker pull quay.io/minio/minio:latest && break
+            docker pull minio/minio:latest && break
             echo "MinIO pull attempt ${attempt} failed; retrying in 15s..."; sleep 15
           done
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio123 \
-            quay.io/minio/minio:latest server /data --console-address ":9001"
+            minio/minio:latest server /data --console-address ":9001"
           run_rc=$?
           for i in $(seq 1 30); do
             if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
