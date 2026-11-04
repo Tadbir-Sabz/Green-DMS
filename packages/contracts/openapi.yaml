@@ -3228,6 +3228,66 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /attachments:
+    post:
+      tags: [attachments]
+      summary: بارگذاری ضمیمه / مدرک تحویل (POD) — multipart/form-data
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, owner_type, owner_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: >-
+                    بایت‌های فایل. انواع مجاز: image/jpeg، image/png، image/webp،
+                    application/pdf؛ سقف حجم پیش‌فرض ۸ مگابایت.
+                owner_type:
+                  type: string
+                  enum: [pod, invoice, journal_entry, receipt, return_request, product, stock_count, other]
+                  description: نوعِ موجودیتِ مالکِ ضمیمه
+                owner_id:
+                  type: string
+                  format: uuid
+                  description: شناسهٔ موجودیتِ مالک (مثلاً شناسهٔ delivery برای POD)
+      responses:
+        '201':
+          description: فایل در آبجکت‌استوریج ذخیره و metadata ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attachment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413':
+          description: حجم فایل بیش از حدِ مجاز است
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: نوع فایل مجاز نیست
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachments/{id}/url:
+    get:
+      tags: [attachments]
+      summary: دریافت URL امضاشدهٔ کوتاه‌عمر برای دانلود ضمیمه
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: URL امضاشدهٔ دانلود (بدون bucket عمومی)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentUrl' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /integrations:
     get:
       tags: [integrations]
@@ -5136,6 +5196,28 @@ components:
         module: { type: string }
         required_permission: { type: string }
 
+    Attachment:
+      type: object
+      description: یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده)
+      required: [id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, url, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        owner_type:
+          type: string
+          enum: [pod, invoice, journal_entry, receipt, return_request, product, stock_count, other]
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
+        sha256: { type: string, description: اثرِ انگشت SHA-256 محتوای فایل }
+        url: { type: string, format: uri, description: URL امضاشدهٔ کوتاه‌عمر برای دانلود }
+        created_at: { type: string, format: date-time }
+    AttachmentUrl:
+      type: object
+      required: [url, expires_in]
+      properties:
+        url: { type: string, format: uri, description: URL امضاشدهٔ دانلود }
+        expires_in: { type: integer, description: عمرِ URL به ثانیه }
     SettingEntry:
       type: object
       required: [key, value]

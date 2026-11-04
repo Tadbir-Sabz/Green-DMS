@@ -20,6 +20,7 @@ import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
 
 /**
  * ریشه اپ API — چیدمان ماژول‌ها دقیقاً Core Modules سند §۳.۳:
@@ -53,6 +54,8 @@ import { SettingsModule } from './modules/settings/settings.module';
     IntegrationsModule,
     ReportsModule,
     SettingsModule,
+    // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
+    AttachmentsModule,
   ],
   providers: [
     // قرارداد Error با request_id برای همهٔ استثناها — باگ‌ها فقط در سمت سرور لاگ می‌شوند

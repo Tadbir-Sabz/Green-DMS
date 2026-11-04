@@ -6291,6 +6291,124 @@ export interface paths {
         };
         trace?: never;
     };
+    "/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** بارگذاری ضمیمه / مدرک تحویل (POD) — multipart/form-data */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description بایت‌های فایل. انواع مجاز: image/jpeg، image/png، image/webp، application/pdf؛ سقف حجم پیش‌فرض ۸ مگابایت.
+                         */
+                        file: string;
+                        /**
+                         * @description نوعِ موجودیتِ مالکِ ضمیمه
+                         * @enum {string}
+                         */
+                        owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "product" | "stock_count" | "other";
+                        /**
+                         * Format: uuid
+                         * @description شناسهٔ موجودیتِ مالک (مثلاً شناسهٔ delivery برای POD)
+                         */
+                        owner_id: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description فایل در آبجکت‌استوریج ذخیره و metadata ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Attachment"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description حجم فایل بیش از حدِ مجاز است */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description نوع فایل مجاز نیست */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachments/{id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** دریافت URL امضاشدهٔ کوتاه‌عمر برای دانلود ضمیمه */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description URL امضاشدهٔ دانلود (بدون bucket عمومی) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUrl"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations": {
         parameters: {
             query?: never;
@@ -8948,6 +9066,36 @@ export interface components {
             title?: string;
             module?: string;
             required_permission?: string;
+        };
+        /** @description یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده) */
+        Attachment: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "product" | "stock_count" | "other";
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            /** @description اثرِ انگشت SHA-256 محتوای فایل */
+            sha256: string;
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ کوتاه‌عمر برای دانلود
+             */
+            url: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AttachmentUrl: {
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ دانلود
+             */
+            url: string;
+            /** @description عمرِ URL به ثانیه */
+            expires_in: number;
         };
         /** @description تنظیم با دامنه — حوزه‌ها فقط محدوده خود را می‌بینند (ماژول ۱۱) */
         SettingEntry: {

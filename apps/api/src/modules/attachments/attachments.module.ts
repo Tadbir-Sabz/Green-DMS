@@ -1,0 +1,27 @@
+import { Module } from '@nestjs/common';
+import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
+import { AttachmentsController } from './attachments.controller';
+import { AttachmentsRepository } from './attachments.repository';
+import { AttachmentsService } from './attachments.service';
+import { StorageService } from './storage.service';
+import { ATTACHMENTS_REPOSITORY, ATTACHMENTS_SERVICE, STORAGE_SERVICE } from './tokens';
+
+/**
+ * ماژول ضمیمه‌ها — بارگذاری/دریافت فایل (POD، فاکتور، سند حسابداری، …) روی
+ * آبجکت‌استوریج MinIO/S3 و جدول attachment (مهاجرت 0002 + ستون company_id از 0035).
+ * IdentityRbacModule برای AuthGuard/PermissionsGuard و @CurrentUser وارد می‌شود.
+ */
+@Module({
+  imports: [IdentityRbacModule],
+  controllers: [AttachmentsController],
+  providers: [
+    StorageService,
+    { provide: STORAGE_SERVICE, useExisting: StorageService },
+    AttachmentsRepository,
+    { provide: ATTACHMENTS_REPOSITORY, useExisting: AttachmentsRepository },
+    AttachmentsService,
+    { provide: ATTACHMENTS_SERVICE, useExisting: AttachmentsService },
+  ],
+  exports: [ATTACHMENTS_SERVICE, STORAGE_SERVICE],
+})
+export class AttachmentsModule {}
