@@ -107,9 +107,11 @@ alter default privileges in schema public
 alter default privileges in schema public
   grant usage, select, update on sequences to dms_app;
 
--- استثنا: جدولِ ممیزیِ استقرار. نقشِ برنامه فقط «می‌نویسد» و نمی‌تواند تاریخچهٔ
--- دیگر اجاره‌ها را بخواند (سیاستِ SELECT عمداً تعریف نشده ⇒ خواندن رد می‌شود).
-revoke select on onboarding_attempt from dms_app, dms_readonly;
+-- استثنا: جدولِ ممیزیِ استقرار.
+-- «نخواندنِ» تاریخچهٔ دیگر اجاره‌ها اینجا با RLS تضمین می‌شود نه با REVOKE:
+-- سیاستِ فقط-INSERT تعریف شده و چون سیاستِ SELECT/ALL وجود ندارد، هر پرس‌وجویِ
+-- خواندن برایِ نقشِ برنامه «صفر ردیف» برمی‌گرداند (deny-by-defaultِ خودِ RLS).
+-- این یکنواخت‌تر از ترکیبِ ACL+RLS است و رفتارِ قابلِ آزمونِ قطعی دارد.
 grant insert on onboarding_attempt to dms_app;
 
 -- توابعِ کاری
@@ -125,6 +127,51 @@ alter table billing_invoice force row level security;
 alter table invoice         force row level security;
 alter table portal_session  force row level security;
 alter table portal_user     force row level security;
+
+-- ---------------------------------------------------------------------------
+-- ۴-۱) بازتعریفِ سیاست‌هایِ «پیشین» با fn_current_company_id
+-- ---------------------------------------------------------------------------
+-- سیاست‌هایِ مهاجرت‌هایِ 0021/0036/0037/0039 مستقیماً
+-- current_setting('app.company_id')::uuid را صدا می‌زدند. آن شکل:
+--   * اگر GUC ست نشده باشد ⇒ خطایِ 42704 (unrecognized configuration parameter)
+--   * اگر مقدارش UUID نباشد ⇒ خطایِ 22P02 (invalid input syntax for type uuid)
+-- یعنی «پرتابِ خطا» به‌جایِ «صفر ردیف». از نظرِ امنیت هر دو بسته‌اند، اما رفتارِ
+-- یکنواختِ fail-closed (و قابلِ آزمونِ قطعی) این است که همهٔ سیاست‌ها زمینهٔ اجاره
+-- را از «یک» تابعِ واحد بخوانند. معنا حفظ شده: همان ستون، همان مقایسه.
+drop policy if exists p_attachment_tenant on attachment;
+create policy p_attachment_tenant on attachment
+  for all
+  using (attachment.company_id = fn_current_company_id())
+  with check (attachment.company_id = fn_current_company_id());
+
+drop policy if exists p_billing_invoice_tenant on billing_invoice;
+create policy p_billing_invoice_tenant on billing_invoice
+  for all
+  using (billing_invoice.company_id = fn_current_company_id())
+  with check (billing_invoice.company_id = fn_current_company_id());
+
+drop policy if exists p_portal_user_tenant on portal_user;
+create policy p_portal_user_tenant on portal_user
+  for all
+  using (portal_user.company_id = fn_current_company_id())
+  with check (portal_user.company_id = fn_current_company_id());
+
+drop policy if exists p_portal_session_tenant on portal_session;
+create policy p_portal_session_tenant on portal_session
+  for all
+  using (portal_session.company_id = fn_current_company_id())
+  with check (portal_session.company_id = fn_current_company_id());
+
+-- سیاستِ اجاره‌ایِ invoice (از راهِ شعبه). سیاستِ دومِ آن یعنی p_invoice_scope
+-- عمداً دست‌نخورده می‌ماند: آن سیاست بر پایهٔ user_scope (دامنهٔ دادهٔ کاربرِ
+-- کارکن) است و نه اجاره، و تغییرِ معنایش خارج از دامنهٔ این مهاجرت است.
+drop policy if exists p_invoice_tenant on invoice;
+create policy p_invoice_tenant on invoice
+  for all
+  using (invoice.branch_id in (select id from branch
+                                where branch.company_id = fn_current_company_id()))
+  with check (invoice.branch_id in (select id from branch
+                                     where branch.company_id = fn_current_company_id()));
 
 -- ---------------------------------------------------------------------------
 -- ۵) سیاستِ ممیزیِ استقرار (فقط نوشتن، پیش از وجودِ اجاره)

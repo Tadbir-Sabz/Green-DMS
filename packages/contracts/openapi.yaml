@@ -361,9 +361,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '400': { $ref: '#/components/responses/BadRequest' }
-        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
-        '429': { $ref: '#/components/responses/TooManyRequests' }
   /users/{id}:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -3458,7 +3456,9 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/RegisterTenantResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /portal/auth/login:
     post:
       tags: [portal]

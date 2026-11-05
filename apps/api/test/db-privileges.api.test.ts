@@ -468,7 +468,7 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
           `select p.pronargs::int as nargs,
                   pg_get_function_result(p.oid) as result,
                   p.prosecdef,
-                  p.proconfig,
+                  p.proconfig as config,
                   p.proacl::text as acl
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public' and p.proname = 'fn_portal_find_login'`,
@@ -499,7 +499,7 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
   it('fn_provision_company هم SECURITY DEFINER با search_path پین‌شده و بدونِ EXECUTE عمومی است', async () => {
     const { rows } = await asRuntime('none', (c) =>
       c.query<{ prosecdef: boolean; config: string[] | null; acl: string | null }>(
-        `select p.prosecdef, p.proconfig, p.proacl::text as acl
+        `select p.prosecdef, p.proconfig as config, p.proacl::text as acl
            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname = 'public' and p.proname = 'fn_provision_company'`,
       ),
@@ -550,11 +550,24 @@ describe('ممیزیِ استقرار — نوشتن مجاز، خواندنِ �
     expect(real.rows[0].n).toBeGreaterThanOrEqual(2);
   });
 
-  it('SELECT مستقیم هم برایِ نقشِ برنامه از سطحِ امتیاز رد می‌شود', async () => {
-    const code = await asRuntime('none', (c) =>
-      expectRlsDenied(c.query(`select * from onboarding_attempt limit 1`), 'audit select'),
+  it('خواندن با RLS رد می‌شود نه با ACL: امتیازِ SELECT هست ولی صفر ردیف برمی‌گردد', async () => {
+    // طراحیِ عمدی: «نخواندنِ» ممیزی از راهِ نبودِ سیاستِ SELECT در RLS تضمین می‌شود
+    // (deny-by-default)، نه از راهِ REVOKE. این یکنواخت‌تر است و با بقیهٔ جدول‌ها
+    // یک سازوکار دارد. این آزمون هر دو نیمه را ثابت می‌کند.
+    const priv = await asRuntime('none', (c) =>
+      c
+        .query<{ sel: boolean; ins: boolean }>(
+          `select has_table_privilege($1, 'onboarding_attempt', 'select') as sel,
+                  has_table_privilege($1, 'onboarding_attempt', 'insert') as ins`,
+          [RUNTIME_ROLE],
+        )
+        .then((r) => r.rows[0]),
     );
-    // ممکن است ۴۲۵۰۱ (GRANT) باشد یا صفر ردیف (RLS)؛ هر دو «نشت ندارد» یعنی می‌دهد
-    expect(['42501', '']).toContain(code);
+    expect(priv.ins).toBe(true); // نوشتنِ ممیزی مجاز است
+    const rows = await asRuntime(companyA, (c) =>
+      c.query(`select * from onboarding_attempt`).then((r) => r.rows),
+    );
+    expect(rows).toEqual([]); // ولی هیچ ردیفی دیده نمی‌شود
+    expect(priv.sel).toBe(true); // امتیاز هست؛ آنچه جلوی نشت را می‌گیرد RLS است
   });
 });

@@ -10,7 +10,9 @@
 
 -- ۱) توابعِ SECURITY DEFINERِ افزوده‌شده
 drop function if exists fn_portal_find_login(text);
-drop function if exists fn_current_company_id();
+-- توجه: fn_current_company_id «نمی‌تواند» اینجا حذف شود، چون ۶۷ سیاستِ RLS به آن
+-- وابسته‌اند (cannot drop function ... because other objects depend on it).
+-- حذفش به «پایانِ» این فایل منتقل شد، یعنی پس از آنکه همهٔ سیاست‌ها برداشته شدند.
 
 -- fn_provision_company را به رفتارِ پیشین (SECURITY INVOKER) برمی‌گردانیم
 alter function fn_provision_company(text, text, text, text, text, text) security invoker;
@@ -335,3 +337,28 @@ begin
   end loop;
 end
 $$;
+
+-- نکته: سیاست‌هایی که در 0041 «بازتعریف» شدند (p_attachment_tenant,
+-- p_billing_invoice_tenant, p_portal_user_tenant, p_portal_session_tenant,
+-- p_invoice_tenant) در پایین حذف می‌شوند و سپس با همان معنایِ اصلی از مهاجرت‌هایِ
+-- 0021/0036/0037/0039 بازسازی می‌گردند تا وضعیتِ پیش از 0041 دقیقاً برگردد.
+drop policy if exists p_attachment_tenant on attachment;
+create policy p_attachment_tenant on attachment
+  using (company_id = current_setting('app.company_id')::uuid);
+drop policy if exists p_billing_invoice_tenant on billing_invoice;
+create policy p_billing_invoice_tenant on billing_invoice
+  using (company_id = current_setting('app.company_id')::uuid);
+drop policy if exists p_portal_user_tenant on portal_user;
+create policy p_portal_user_tenant on portal_user
+  using (company_id = current_setting('app.company_id')::uuid);
+drop policy if exists p_portal_session_tenant on portal_session;
+create policy p_portal_session_tenant on portal_session
+  using (company_id = current_setting('app.company_id')::uuid);
+drop policy if exists p_invoice_tenant on invoice;
+create policy p_invoice_tenant on invoice
+  using (branch_id in (select id from branch
+                        where company_id = current_setting('app.company_id')::uuid));
+
+-- ۷) اکنون که هیچ سیاستی به آن وابسته نیست، تابعِ زمینهٔ اجاره حذف می‌شود
+-- (این خط عمداً در پایان است؛ ترتیبِ نادرست باعثِ شکستِ down می‌شد).
+drop function if exists fn_current_company_id();

@@ -489,9 +489,7 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["BadRequest"];
-                403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
-                429: components["responses"]["TooManyRequests"];
             };
         };
         delete?: never;
@@ -6728,7 +6726,9 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
             };
         };
         delete?: never;
