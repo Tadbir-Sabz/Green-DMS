@@ -260,9 +260,14 @@ jobs:
           docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
 
           # نامزد|آرگومانِ اجرا|پورت|access|secret|health-path
-          CANDIDATES='localstack/localstack:3.9|-e SERVICES=s3 -e AWS_ACCESS_KEY_ID=minio -e AWS_SECRET_ACCESS_KEY=minio123|4566|minio|minio123|/_localstack/health
-          seaweedfs/seaweedfs:3.76|server -s3 -s3.port=9000 -ip=0.0.0.0 -dir=/data -master.defaultReplication=000|9000|minio|minio123|/
-          adobe/s3mock:3.9.1||8090|minio|minio123|/
+          # ترتیب بر پایهٔ شاهدِ اجرایِ قبلیِ همین گام: adobe/s3mock:3.9.1 واقعاً pull شد و
+          # بالا آمد (pull_rc=0) و فقط به‌خاطرِ «رقابتِ زمانِ آماده‌سازی» (health_http=000،
+          # socket hang up) در round-trip رد شد ⇒ اول آن، با تلاشِ مجدد. نامِ درستِ تصویرِ
+          # SeaweedFS در Docker Hub «chrislusf/seaweedfs» است (seaweedfs/seaweedfs وجود ندارد و
+          # «pull access denied» می‌داد). localstack:3.9 در اجرایِ قبلی «not found» شد.
+          CANDIDATES='adobe/s3mock:3.9.1||8090|minio|minio123|/
+          chrislusf/seaweedfs:3.76|server -s3 -s3.port=9000 -ip=0.0.0.0 -dir=/tmp/weed -master.defaultReplication=000|9000|minio|minio123|/
+          localstack/localstack:3.9|-e SERVICES=s3 -e AWS_ACCESS_KEY_ID=minio -e AWS_SECRET_ACCESS_KEY=minio123|4566|minio|minio123|/_localstack/health
           quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z|server /data --console-address :9001|9000|minio|minio123|/minio/health/live'
 
           # اسکریپتِ round-trip با «همان» کلاینتی که برنامه استفاده می‌کند (minio از node_modules
@@ -270,7 +275,7 @@ jobs:
           cat > ./.s3-roundtrip.mjs <<'EOF'
           import { Client } from 'minio';
           const [endpoint, port, access, secret, bucket] = process.argv.slice(2);
-          const c = new Client({ endPoint: endpoint, port: Number(port), useSSL: false, accessKey: access, secretKey: secret });
+          const c = new Client({ endPoint: endpoint, port: Number(port), useSSL: false, accessKey: access, secretKey: secret, region: 'us-east-1' });
           const key = `probe/${Date.now()}.txt`;
           if (!(await c.bucketExists(bucket))) await c.makeBucket(bucket);
           await c.putObject(bucket, key, Buffer.from('greendms s3 probe'), 19, { 'Content-Type': 'text/plain' });
@@ -310,8 +315,17 @@ jobs:
             if [ -n "$CHEALTH" ]; then
               curl -s -o /dev/null -w "health_http=%{http_code}\n" "http://localhost:${CPORT}${CHEALTH}" | tee -a /tmp/s3-probe.log
             fi
-            { echo "----- S3 round-trip ${CAND} -----"; node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms; echo "roundtrip_rc=$?"; } 2>&1 | tee -a /tmp/s3-probe.log
-            if tail -n 40 /tmp/s3-probe.log | grep -q '"ok":true'; then
+            # تلاشِ مجدد: باز شدنِ پورتِ منتشرشده توسطِ docker-proxy پیش از آماده‌شدنِ خودِ
+            # سرویس، «socket hang up» می‌دهد (دقیقاً همان چیزی که s3mock در اجرایِ قبلی خورد).
+            OK=0
+            for attempt in $(seq 1 12); do
+              echo "----- S3 round-trip ${CAND} (attempt ${attempt}) -----" >>/tmp/s3-probe.log
+              if node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms 2>>/tmp/s3-probe.log | tee -a /tmp/s3-probe.log | grep -q '"ok":true'; then
+                OK=1; echo "round-trip PASSED for ${CAND} on attempt ${attempt}"; break
+              fi
+              sleep 5
+            done
+            if [ "$OK" -eq 1 ]; then
               IMAGE="$CAND"; DIGEST="$CAND_DIGEST"; PORT="$CPORT"; AKEY="$CKEY"; SKEY="$CSEC"
               echo "SELECTED ${IMAGE} digest=${DIGEST:-unresolved} port=${PORT}"
               break
@@ -327,7 +341,7 @@ jobs:
 
           if [ -z "$IMAGE" ]; then
             echo "::error title=BLOCKED-s3-unavailable::No S3-compatible candidate image could be pulled AND pass a real S3 round-trip; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed, NOT skipped)"
-            echo "::error title=s3-candidates-tried::localstack/localstack:3.9, seaweedfs/seaweedfs:3.76, adobe/s3mock:3.9.1, quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z"
+            echo "::error title=s3-candidates-tried::adobe/s3mock:3.9.1, chrislusf/seaweedfs:3.76, localstack/localstack:3.9, quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z"
             echo "::error title=s3-probe-log::$(head -c 4000 /tmp/s3-probe.log | enc)"
             echo "::error title=s3-docker-env::$( { docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'; docker info --format 'mirrors={{.RegistryConfig.Mirrors}}'; docker images | head -n 15; docker ps -a; } 2>&1 | enc)"
             exit 1
