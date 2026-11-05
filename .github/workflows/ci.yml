@@ -320,6 +320,21 @@ jobs:
             OK=0
             for attempt in $(seq 1 12); do
               echo "----- S3 round-trip ${CAND} (attempt ${attempt}) -----" >>/tmp/s3-probe.log
+              # تشخیصِ کامل پیش از هر تلاش: وضعیتِ container، پورت‌هایِ نگاشت‌شده، پاسخِ خامِ HTTP
+              # با سربرگ‌ها، و لاگِ خودِ سرویس. «socket hang up» بدونِ اینها قابلِ ریشه‌یابی نیست
+              # (می‌تواند آماده‌نبودنِ سرویس، پورتِ اشتباه، یا الزامِ HTTPS باشد).
+              {
+                echo "--- docker inspect ${CAND} ---"
+                docker inspect s3probe --format 'state={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} ports={{json .NetworkSettings.Ports}} ip={{.NetworkSettings.IPAddress}}' 2>&1
+                echo "--- published ports ---"; docker port s3probe 2>&1
+                echo "--- curl -sv http://localhost:${CPORT}${CHEALTH} ---"
+                curl -sv --max-time 10 "http://localhost:${CPORT}${CHEALTH}" 2>&1 | head -n 25
+                echo "--- curl -s http://localhost:${CPORT}/ (root) ---"
+                curl -s --max-time 10 -o /dev/null -w 'root_http=%{http_code}\n' "http://localhost:${CPORT}/" 2>&1
+                echo "--- listening sockets in container ---"
+                docker exec s3probe sh -c 'netstat -tlnp 2>/dev/null || ss -tlnp 2>/dev/null || cat /proc/net/tcp' 2>&1 | head -n 15
+                echo "--- container logs (tail) ---"; docker logs --tail 60 s3probe 2>&1
+              } >>/tmp/s3-probe.log 2>&1
               if node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms </dev/null 2>>/tmp/s3-probe.log | tee -a /tmp/s3-probe.log | grep -q '"ok":true'; then
                 OK=1; echo "round-trip PASSED for ${CAND} on attempt ${attempt}"; break
               fi

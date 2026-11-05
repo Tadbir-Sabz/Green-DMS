@@ -7,6 +7,8 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 import pg from 'pg';
+import { IntegrationsQueue, type ClaimedJob } from '../src/modules/integrations/queue/integrations.queue';
+import { runAsJobTenant } from '../src/database/job-context';
 
 /**
  * اثباتِ «جداسازیِ واقعیِ اجاره‌ها در پایگاه‌داده» زیرِ نقشِ زمانِ اجرایِ برنامه.
@@ -111,6 +113,12 @@ let personA = '';
 let personB = '';
 let phoneA = '';
 let phoneB = '';
+let appUserA = '';
+let appUserB = '';
+let roleA = '';
+let permissionCode = '';
+let authSessionA = '';
+const otpUser = 'priv_otp_user';
 
 beforeAll(async () => {
   adminPool = new pg.Pool({ connectionString: adminUrl.toString(), max: 1 });
@@ -172,6 +180,21 @@ beforeAll(async () => {
   await ownerPool.query(`insert into audit_log (company_id, action, entity_type, entity_id, at) values ($1,'create','invoice',$2, now())`, [companyA, invoiceA]);
   await ownerPool.query(`insert into audit_log (company_id, action, entity_type, entity_id, at) values ($1,'create','invoice',$2, now())`, [companyB, invoiceB]);
   await ownerPool.query(`insert into audit_log (company_id, action, entity_type, at) values (null,'login','auth', now())`);
+
+  // --- fixture برایِ هویتِ پیش‌اجاره (0043)، OTP (0045) و صفِ یکپارچه‌سازی (0044) ---
+  appUserA = (await ownerPool.query(`insert into app_user (person_id, username, password_hash, access_level) values ($1,'priv_user_a','x','web') returning id`, [personA])).rows[0].id;
+  appUserB = (await ownerPool.query(`insert into app_user (person_id, username, password_hash, access_level) values ($1,'priv_user_b','x','web') returning id`, [personB])).rows[0].id;
+  roleA = (await ownerPool.query(`insert into role (company_id, code, name) values ($1,'priv_role','نقش آ') returning id`, [companyA])).rows[0].id;
+  permissionCode = (await ownerPool.query(`select code from permission order by code limit 1`)).rows[0].code;
+  await ownerPool.query(`insert into user_role (app_user_id, role_id) values ($1,$2)`, [appUserA, roleA]);
+  await ownerPool.query(`insert into role_permission (role_id, permission_code) values ($1,$2)`, [roleA, permissionCode]);
+  authSessionA = (await ownerPool.query(`insert into auth_session (app_user_id, refresh_token_hash, expires_at) values ($1,$2, now() + interval '1 day') returning id`, [appUserA, crypto.randomBytes(24).toString('hex')])).rows[0].id;
+  await ownerPool.query(`insert into user_scope (app_user_id, scope_type, scope_id) values ($1,'branch',$2)`, [appUserA, branchA]);
+
+  // شغلِ صف برایِ هر دو اجاره — از راهِ «خودِ» enqueue برنامه تا ستون‌ها/قیدها واقعی باشند
+  const queue = new IntegrationsQueue(ownerPool as never);
+  await queue.enqueue({ type: 'psp.charge', payload: { branch_id: branchA, terminal_id: 'T-A', psp: 'privpsp', amount: '1000' } });
+  await queue.enqueue({ type: 'psp.charge', payload: { branch_id: branchB, terminal_id: 'T-B', psp: 'privpsp', amount: '2000' } });
 
   // --- فعال‌سازیِ نقشِ زمانِ اجرا: LOGIN + رمزِ تصادفیِ یکبارمصرف ---
   await adminPool.query(
@@ -807,5 +830,340 @@ describe('پارتیشن‌ها (0042) — دسترسیِ مستقیم نمی‌
       expect(r.relforcerowsecurity).toBe(true);
       expect(r.has_policy).toBe(true);
     }
+  });
+});
+
+describe('هویتِ پیش‌اجاره (0043) — ورودِ کارمند بدونِ دسترسیِ نامحدود به جدول‌ها', () => {
+  it('دسترسیِ مستقیم به پنج جدولِ هویت، پیش از اجاره: صفر ردیف', async () => {
+    const r = await asRuntime('none', async (c) => ({
+      app_user: (await c.query(`select count(*)::int n from app_user`)).rows[0].n,
+      auth_session: (await c.query(`select count(*)::int n from auth_session`)).rows[0].n,
+      user_scope: (await c.query(`select count(*)::int n from user_scope`)).rows[0].n,
+      user_role: (await c.query(`select count(*)::int n from user_role`)).rows[0].n,
+      role_permission: (await c.query(`select count(*)::int n from role_permission`)).rows[0].n,
+    }));
+    expect(Object.values(r)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('با زمینهٔ اجاره، همان جداول فقط دادهٔ همان اجاره را می‌دهند', async () => {
+    const r = await asRuntime(companyA, async (c) => ({
+      users: (await c.query(`select id from app_user`)).rows.map((x) => x.id),
+      sessions: (await c.query(`select id from auth_session`)).rows.map((x) => x.id),
+      roles: (await c.query(`select role_id from user_role`)).rows.map((x) => x.role_id),
+      perms: (await c.query(`select permission_code from role_permission`)).rows.map((x) => x.permission_code),
+      scopes: (await c.query(`select scope_id from user_scope`)).rows.map((x) => x.scope_id),
+    }));
+    expect(r.users).toEqual([appUserA]);
+    expect(r.sessions).toEqual([authSessionA]);
+    expect(r.roles).toEqual([roleA]);
+    expect(r.perms).toEqual([permissionCode]);
+    expect(r.scopes).toEqual([branchA]);
+  });
+
+  it('اجارهٔ B کاربر/نشست/نقشِ A را نمی‌بیند', async () => {
+    const r = await asRuntime(companyB, async (c) => ({
+      users: (await c.query(`select id from app_user`)).rows.map((x) => x.id),
+      sessions: (await c.query(`select id from auth_session`)).rows.map((x) => x.id),
+    }));
+    expect(r.users).toEqual([appUserB]);
+    expect(r.users).not.toContain(appUserA);
+    expect(r.sessions).not.toContain(authSessionA);
+  });
+
+  it('fn_auth_find_user پیش از اجاره «دقیقاً یک سطر» با اجارهٔ درست برمی‌گرداند', async () => {
+    const rows = await asRuntime('none', (c) =>
+      c.query(`select * from fn_auth_find_user($1, null)`, ['priv_user_a']),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(appUserA);
+    expect(rows[0].company_id).toBe(companyA);
+    expect(rows[0].username).toBe('priv_user_a');
+    // کمینهٔ ستون‌ها: نه refresh_token_hash، نه mfa_secret_enc، نه سایر ستون‌های app_user
+    const cols = Object.keys(rows[0]).sort();
+    expect(cols).toEqual(
+      [
+        'access_level', 'company_id', 'created_at', 'failed_attempts', 'id', 'is_active',
+        'is_locked', 'last_login_at', 'locked_until', 'password_hash', 'person_active',
+        'staff_id', 'username',
+      ].sort(),
+    );
+    expect(cols).not.toContain('mfa_secret_enc');
+    expect(cols).not.toContain('refresh_token_hash');
+  });
+
+  it('تابع ابزارِ بازیابیِ دلخواه نیست: بدونِ پارامتر یا با الگویِ % هیچ ردیفی نمی‌دهد', async () => {
+    const none = await asRuntime('none', (c) =>
+      c.query(`select * from fn_auth_find_user(null, null)`),
+    );
+    expect(none).toHaveLength(0);
+    const wildcard = await asRuntime('none', (c) =>
+      c.query(`select * from fn_auth_find_user($1, null)`, ['%']),
+    );
+    expect(wildcard).toHaveLength(0);
+    const foreignId = await asRuntime('none', (c) =>
+      c.query(`select * from fn_auth_find_user(null, $1)`, [appUserB]),
+    );
+    // پیدا کردنِ کاربر با شناسهٔ خودش برایِ اعتبارسنجیِ نشست لازم است، ولی فقط «همان یک» کاربر
+    expect(foreignId).toHaveLength(1);
+    expect(foreignId[0].id).toBe(appUserB);
+  });
+
+  it('تابع company_id پارامتر ندارد ⇒ انتخابِ اجاره از بیرون ممکن نیست', async () => {
+    const r = await asRuntime('none', async (c) =>
+      (
+        await c.query(
+          `select p.proname, p.prosecdef, p.proconfig, p.pronargs,
+                  pg_get_function_identity_arguments(p.oid) as args,
+                  p.proacl::text as acl
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname like 'fn\\_auth\\_%'`,
+        )
+      ).rows,
+    );
+    expect(r.length).toBeGreaterThanOrEqual(12);
+    for (const f of r) {
+      expect(f.prosecdef, `${f.proname} must be SECURITY DEFINER`).toBe(true);
+      expect(String(f.proconfig), `${f.proname} must pin search_path`).toContain(
+        'search_path=public, pg_temp',
+      );
+      expect(String(f.args).toLowerCase(), `${f.proname} must not take a company`).not.toContain(
+        'company',
+      );
+      // EXECUTE عمومی نداشته باشد: ورودیِ PUBLIC با grantee خالی ظاهر می‌شود
+      expect(f.acl ?? '', `${f.proname} must not be executable by PUBLIC`).not.toMatch(
+        /(^|[{,])=X\//,
+      );
+    }
+  });
+
+  it('ویوهایِ شکلِ خروجی مستقیماً قابلِ خواندن نیستند (تنها مسیر، تابع است)', async () => {
+    const code = await asRuntime('none', (c) =>
+      expectRlsDenied(c.query(`select * from v_auth_user limit 1`), 'direct view read'),
+    );
+    expect(code).toBe('42501');
+  });
+
+  it('نقش‌ها و مجوزها پیش از اجاره از راهِ تابع خوانده می‌شوند (ساختِ توکن)', async () => {
+    const rows = await asRuntime('none', (c) =>
+      c.query(`select role_id, role_code, permission_code from fn_auth_roles_permissions($1)`, [
+        appUserA,
+      ]),
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].role_id).toBe(roleA);
+    expect(rows.map((x) => x.permission_code)).toContain(permissionCode);
+    const empty = await asRuntime('none', (c) =>
+      c.query(`select * from fn_auth_roles_permissions($1)`, [
+        '00000000-0000-4000-8000-000000000000',
+      ]),
+    );
+    expect(empty).toHaveLength(0);
+  });
+
+  it('چرخهٔ نشست: ساخت پیش از اجاره، سپس «مالکیتِ نشست» به همان اجاره مقید می‌ماند', async () => {
+    const hash = crypto.randomBytes(24).toString('hex');
+    const created = await asRuntime('none', (c) =>
+      c.query(
+        `select fn_auth_create_session($1,$2,$3,$4,$5,$6) as id`,
+        [appUserA, hash, 'dev-1', '10.0.0.1', 'vitest', new Date(Date.now() + 3600_000).toISOString()],
+      ),
+    );
+    const sid = created[0].id as string;
+    expect(sid).toBeTruthy();
+
+    // پیدا کردنِ نشست با hash پیش از اجاره، و با شناسه پس از اجاره
+    const byHash = await asRuntime('none', (c) =>
+      c.query(`select * from fn_auth_find_session(null, $1)`, [hash]),
+    );
+    expect(byHash).toHaveLength(1);
+    expect(byHash[0].company_id).toBe(companyA);
+    expect(byHash[0].app_user_id).toBe(appUserA);
+    expect(Object.keys(byHash[0])).not.toContain('refresh_token_hash');
+
+    const seenByA = await asRuntime(companyA, (c) =>
+      c.query(`select id from auth_session where id = $1`, [sid]),
+    );
+    expect(seenByA).toHaveLength(1);
+    const seenByB = await asRuntime(companyB, (c) =>
+      c.query(`select id from auth_session where id = $1`, [sid]),
+    );
+    expect(seenByB).toHaveLength(0); // انتقالِ اجاره: نشستِ A برایِ B نامرئی است
+  });
+
+  it('نوشتنِ چرخهٔ ورود از راهِ تابع، فقط همان کاربر را تغییر می‌دهد', async () => {
+    await asRuntime('none', (c) => c.query(`select fn_auth_login_success($1)`, [appUserB]));
+    const after = await ownerPool.query(
+      `select id, last_login_at, failed_attempts from app_user where id = any($1::uuid[])`,
+      [[appUserA, appUserB]],
+    );
+    const a = after.rows.find((x) => x.id === appUserA);
+    const b = after.rows.find((x) => x.id === appUserB);
+    expect(b?.last_login_at).toBeTruthy();
+    expect(a?.last_login_at).toBeFalsy(); // ورودِ B هرگز رویِ A اثر نمی‌گذارد
+  });
+
+  it('نقشِ فقط‌خواندن نمی‌تواند هیچ‌یک از توابعِ هویت را صدا بزند', async () => {
+    // نقشِ dms_readonly عمداً LOGIN/رمز ندارد (کمینه‌امتیاز)، پس بررسیِ قطعی از ACL کاتالوگ
+    // انجام می‌شود: نه EXECUTE عمومی، نه EXECUTE برایِ dms_readonly، برایِ همهٔ توابعِ ممتاز.
+    const { rows } = await ownerPool.query(
+      `select p.proname, p.proacl::text as acl
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and (p.proname like 'fn\\_auth\\_%' or p.proname like 'fn\\_otp\\_%'
+           or p.proname like 'fn\\_job\\_%')`,
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(18);
+    for (const f of rows) {
+      expect(f.acl ?? '', `${f.proname} must not be PUBLIC-executable`).not.toMatch(/(^|[{,])=X\//);
+      expect(String(f.acl), `${f.proname} must not grant EXECUTE to dms_readonly`).not.toContain(
+        'dms_readonly=X',
+      );
+    }
+  });
+});
+
+describe('auth_otp (0045) — پنجرهٔ پیش‌اجارهٔ OTP بدونِ خواندنِ مستقیمِ جدول', () => {
+  it('دسترسیِ مستقیم به auth_otp همیشه رد می‌شود (حتی با زمینهٔ اجاره)', async () => {
+    for (const scope of ['none', companyA]) {
+      const code = await asRuntime(scope, (c) =>
+        expectRlsDenied(c.query(`select id from auth_otp limit 1`), 'direct auth_otp read'),
+      );
+      // سیاستِ «ردِ کامل» ⇒ RLS خطایِ 42501 می‌دهد (نه صفر ردیف) چون هیچ سیاستِ مجازی نیست
+      expect(code).toBe('42501');
+    }
+  });
+
+  it('چرخهٔ کاملِ OTP از راهِ توابع: صدور، یافتن، شمارش تلاش، مصرفِ اتمیک', async () => {
+    await asRuntime('none', (c) =>
+      c.query(`select fn_otp_issue($1,$2,$3,$4,$5)`, [otpUser, '09120000000', 'login', 'hash-1', 120]),
+    );
+    const pending = await asRuntime('none', (c) =>
+      c.query(`select * from fn_otp_find_pending($1)`, [otpUser]),
+    );
+    expect(pending).toHaveLength(1);
+    expect(pending[0].code_hash).toBe('hash-1');
+    const id = pending[0].id as string;
+
+    const attempts = await asRuntime('none', (c) =>
+      c.query(`select fn_otp_attempt($1) as n`, [id]),
+    );
+    expect(Number(attempts[0].n)).toBe(1);
+
+    const rate = await asRuntime('none', (c) =>
+      c.query(`select last_sent_at, count_since from fn_otp_rate($1,'login', now() - interval '1 hour')`, [
+        otpUser,
+      ]),
+    );
+    expect(Number(rate[0].count_since)).toBeGreaterThanOrEqual(1);
+    expect(rate[0].last_sent_at).toBeTruthy();
+
+    const first = await asRuntime('none', (c) => c.query(`select fn_otp_consume($1) as ok`, [id]));
+    expect(first[0].ok).toBe(true);
+    const second = await asRuntime('none', (c) => c.query(`select fn_otp_consume($1) as ok`, [id]));
+    expect(second[0].ok).toBe(false); // رقابت/تکرار ⇒ فقط اولین برنده است
+  });
+
+  it('username ناموجود ⇒ صفر ردیف و بدونِ خطا (طراحیِ «بی‌اثر و بی‌صدا» حفظ شد)', async () => {
+    const rows = await asRuntime('none', (c) =>
+      c.query(`select * from fn_otp_find_pending($1)`, ['no_such_user_anywhere']),
+    );
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ اجاره از رکوردِ پایدار', () => {
+  let claimed: ClaimedJob[] = [];
+
+  it('نقشِ برنامه می‌تواند شغل‌هایِ سررسیده را بردارد و اجارهٔ هرکدام مشتق شود', async () => {
+    claimed = await asRuntime('none', async (c) => {
+      const { rows } = await c.query<ClaimedJob>(
+        `select kind, job_id, company_id, branch_id, attempt_count, payload
+           from fn_job_claim_integration($1)`,
+        [10],
+      );
+      return rows;
+    });
+    expect(claimed.length).toBeGreaterThanOrEqual(2);
+    const companies = claimed.map((j) => j.company_id).sort();
+    expect(companies).toEqual([companyA, companyB].sort());
+    // هویتِ اجاره از رکوردِ پایدار (branch) آمده، نه از payload
+    for (const j of claimed) {
+      expect(j.company_id).toBeTruthy();
+      expect(j.branch_id).toBeTruthy();
+      expect(JSON.stringify(j.payload)).not.toContain(String(j.company_id));
+    }
+  });
+
+  it('داخلِ زمینهٔ اجارهٔ A: شغلِ A به‌روزرسانی می‌شود و شغلِ B صفر ردیف می‌خورد', async () => {
+    const jobA = claimed.find((j) => j.company_id === companyA) as ClaimedJob;
+    const jobB = claimed.find((j) => j.company_id === companyB) as ClaimedJob;
+    const jobPool = new pg.Pool({ connectionString: appUrl.toString(), max: 2 });
+    try {
+      const r = await runAsJobTenant(jobPool as never, companyA, async () => {
+        const own = await jobPool.query(
+          `update psp_transaction set status = 'retrying' where id = $1`,
+          [jobA.job_id],
+        );
+        const foreign = await jobPool.query(
+          `update psp_transaction set status = 'retrying' where id = $1`,
+          [jobB.job_id],
+        );
+        return { own: own.rowCount ?? 0, foreign: foreign.rowCount ?? 0 };
+      });
+      expect(r.own).toBe(1);
+      expect(r.foreign).toBe(0);
+    } finally {
+      await jobPool.end();
+    }
+    const still = await ownerPool.query(`select id, status from psp_transaction where id = $1`, [
+      jobB.job_id,
+    ]);
+    expect(still.rows[0].status).toBe('sending'); // شغلِ B دست‌نخورده ماند
+  });
+
+  it('بدونِ زمینهٔ اجاره، نوشتنِ وضعیتِ شغل ممکن نیست (fail-closed، موفقِ بی‌صدا نداریم)', async () => {
+    const jobA = claimed.find((j) => j.company_id === companyA) as ClaimedJob;
+    const n = await asRuntime('none', async (c) =>
+      (await c.query(`update psp_transaction set status = 'success' where id = $1`, [jobA.job_id]))
+        .rowCount ?? 0,
+    );
+    expect(n).toBe(0);
+  });
+
+  it('پس از پایانِ job، connectionِ بازگشتی به استخر زمینهٔ اجاره را نشت نمی‌دهد', async () => {
+    const jobPool = new pg.Pool({ connectionString: appUrl.toString(), max: 1 });
+    try {
+      await runAsJobTenant(jobPool as never, companyA, async () => {
+        const inside = await jobPool.query(`select count(*)::int n from app_user`);
+        expect(inside.rows[0].n).toBe(1);
+      });
+      // همان تک‌connectionِ استخر دوباره گرفته می‌شود؛ اگر پاک‌سازی نشده باشد دادهٔ A دیده می‌شود
+      const leaked = await jobPool.connect();
+      try {
+        const after = await leaked.query(`select count(*)::int n from app_user`);
+        expect(after.rows[0].n).toBe(0);
+        const guc = await leaked.query(`select current_setting('app.company_id', true) as v`);
+        expect(guc.rows[0].v ?? '').toBe('');
+      } finally {
+        leaked.release();
+      }
+    } finally {
+      await jobPool.end();
+    }
+  });
+
+  it('نقشِ برنامه نمی‌تواند kindِ ناشناخته به fn_job_mark_dead بدهد (سوییچِ بسته)', async () => {
+    const code = await asRuntime('none', async (c) => {
+      try {
+        await c.query(`select fn_job_mark_dead($1, $2, $3)`, [
+          'drop table app_user; --',
+          claimed[0].job_id,
+          'x',
+        ]);
+        return 'no-error';
+      } catch (err) {
+        return (err as { code?: string }).code ?? '';
+      }
+    });
+    expect(code).toBe('22023');
   });
 });
