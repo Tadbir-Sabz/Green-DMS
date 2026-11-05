@@ -168,7 +168,7 @@ cluster-wideاند و آزمون‌هایِ موازی هم‌زمان مهاج�
 موجود/production نمی‌رود؛ رمزِ پیش‌فرض یک مقدارِ دورانداختنیِ محلی است و با
 `APP_DB_PASSWORD` جای‌گزین می‌شود (هیچ رمزِ واقعی در مخزن نیست).
 
-**شاهدِ اجرایی:** ۱۰ تستِ DB-free (`runtime-identity.test.ts`) برایِ قواعدِ محیطی و هر شش
+**شاهدِ اجرایی:** ۹ تستِ DB-free (`runtime-identity.test.ts`) برایِ قواعدِ محیطی و هر شش
 بررسی + دو تستِ **Postgresِ واقعی**: (الف) دقیقاً همان سوءپیکربندیِ یافته —
 `APP_DATABASE_URL` رویِ نقشِ مدیریتی — زیرِ `NODE_ENV=production` با پیامِ «ابرکاربر» **رد
 می‌شود**، و برایِ مقایسه همان هویت **بدونِ زمینهٔ اجاره ردیفِ اجاره‌محور می‌خواند**
@@ -180,6 +180,11 @@ production پرتاب نمی‌کند ولی مشکلات را گزارش می�
 ---
 
 ## ۵) فرمان‌هایِ آزمون و خروجیِ واقعی
+
+شمارِ دقیقِ تست‌هایِ TASK-14 (خروجیِ واقعیِ `vitest`):
+`tenant-connection-lifecycle` **۱۱**، `queue-failure-persistence` **۸**، `runtime-identity` **۹**
+(مجموعاً ۲۸ تستِ تازهٔ DB-free) و `db-privileges.api.test.ts` از ۶۱ به **۶۵** بلوکِ `it` رسید
+(۴ شاهدِ Postgresِ واقعی).
 
 ```bash
 $ npx tsc -p apps/api/tsconfig.json --noEmit
