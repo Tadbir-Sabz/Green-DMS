@@ -361,7 +361,9 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /users/{id}:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -3430,7 +3432,23 @@ paths:
                 company_code: { type: string, minLength: 2, maxLength: 32, pattern: '^[A-Za-z0-9_-]+$' }
                 company_name: { type: string, minLength: 2, maxLength: 160 }
                 admin_email: { type: string, format: email, maxLength: 160 }
-                admin_password: { type: string, format: password, minLength: 8, maxLength: 128 }
+                admin_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 128
+                  description: >-
+                    رمزِ مدیر. علاوه بر طولِ حداقلی، باید دستِ‌کم ۳ دسته از نویسه‌ها
+                    (حروفِ کوچک، حروفِ بزرگ، رقم، نماد) را داشته باشد و از فهرستِ
+                    رمزهایِ رایج نباشد؛ در غیرِ این صورت با ۴۰۰ و کدِ weak_password
+                    رد می‌شود.
+                invite_code:
+                  type: string
+                  maxLength: 64
+                  description: >-
+                    کدِ دعوت — فقط وقتی لازم است که سرور با ONBOARDING_MODE=invite
+                    پیکربندی شده باشد. در حالتِ پیش‌فرض (open) نادیده گرفته می‌شود.
+                    نامعتبر/نبودِ آن با ۴۰۳ رد می‌شود.
                 admin_first_name: { type: string, maxLength: 60 }
                 admin_last_name: { type: string, maxLength: 60 }
       responses:
@@ -4185,8 +4203,13 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     TooManyRequests:
-      description: نرخ درخواست بیش از حد مجاز
+      description: >-
+        نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و
+        retry_after_sec را دارد؛ Retry-After هم به‌صورتِ سرصفحهٔ استاندارد برمی‌گردد.
       headers:
+        Retry-After:
+          description: ثانیه‌هایِ باقی‌مانده تا پایانِ پنجرهٔ نرخ
+          schema: { type: integer, minimum: 1 }
         RateLimit-Limit:
           schema: { type: integer }
         RateLimit-Remaining:

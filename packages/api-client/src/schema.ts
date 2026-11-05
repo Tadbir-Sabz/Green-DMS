@@ -489,7 +489,9 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
             };
         };
         delete?: never;
@@ -6703,8 +6705,13 @@ export interface paths {
                         company_name: string;
                         /** Format: email */
                         admin_email: string;
-                        /** Format: password */
+                        /**
+                         * Format: password
+                         * @description رمزِ مدیر. علاوه بر طولِ حداقلی، باید دستِ‌کم ۳ دسته از نویسه‌ها (حروفِ کوچک، حروفِ بزرگ، رقم، نماد) را داشته باشد و از فهرستِ رمزهایِ رایج نباشد؛ در غیرِ این صورت با ۴۰۰ و کدِ weak_password رد می‌شود.
+                         */
                         admin_password: string;
+                        /** @description کدِ دعوت — فقط وقتی لازم است که سرور با ONBOARDING_MODE=invite پیکربندی شده باشد. در حالتِ پیش‌فرض (open) نادیده گرفته می‌شود. نامعتبر/نبودِ آن با ۴۰۳ رد می‌شود. */
+                        invite_code?: string;
                         admin_first_name?: string;
                         admin_last_name?: string;
                     };
@@ -10293,9 +10300,11 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description نرخ درخواست بیش از حد مجاز */
+        /** @description نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و retry_after_sec را دارد؛ Retry-After هم به‌صورتِ سرصفحهٔ استاندارد برمی‌گردد. */
         TooManyRequests: {
             headers: {
+                /** @description ثانیه‌هایِ باقی‌مانده تا پایانِ پنجرهٔ نرخ */
+                "Retry-After"?: number;
                 "RateLimit-Limit"?: number;
                 "RateLimit-Remaining"?: number;
                 "RateLimit-Reset"?: number;

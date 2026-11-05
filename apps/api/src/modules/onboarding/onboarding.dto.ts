@@ -25,6 +25,15 @@ export class RegisterTenantDto {
   @MaxLength(128)
   admin_password!: string;
 
+  /**
+   * کدِ دعوت — فقط وقتی لازم است که ONBOARDING_MODE=invite پیکربندی شده باشد.
+   * در حالتِ پیش‌فرض (open) نادیده گرفته می‌شود تا خودخدمت‌دهیِ موجود نشکند.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  invite_code?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(60)
