@@ -97,12 +97,16 @@ jobs:
           done
           cat /tmp/minio-pull.log
           if [ -z "$IMAGE" ]; then
-            echo "::error title=BLOCKED-e2e-minio-image::No candidate MinIO image could be pulled; the stack cannot boot and browser tests were NOT executed"
+            # غیرکُشنده: اجازه می‌دهد گامِ «build images» اجرا شود تا ساختِ ایمیجِ
+            # api/web مستقل از دسترس‌پذیریِ MinIO راستی‌آزمایی شود؛ سپس gate بعد از
+            # build با وضعیتِ صریحِ BLOCKED شکست می‌دهد.
             echo "::error title=e2e-minio-pull-log::$(head -c 3000 /tmp/minio-pull.log | enc)"
-            exit 1
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null)
           echo "MINIO_IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+          echo "resolved=true" >> "$GITHUB_OUTPUT"
           echo "::notice title=e2e-minio-image-resolved::image=${IMAGE} digest=${DIGEST:-unresolved}"
 
       # build جدا از up تا مشخص شود blocker «ساختِ ایمیج» است یا «pull/ایجادِ کانتینر».
@@ -122,6 +126,17 @@ jobs:
             echo "::error title=e2e-build-tail::$(tail -n 60 /tmp/compose-build.log | enc)"
             exit $BUILD_RC
           fi
+
+      # gate: اگر تصویرِ MinIO قابلِ دستیابی نباشد، پشته نمی‌تواند بالا بیاید و تستِ
+      # مرورگر اجرا نمی‌شود. وضعیت به‌صورتِ صریح BLOCKED گزارش می‌شود — نه skipِ بی‌صدا
+      # و نه FAILِ گمراه‌کنندهٔ تست. چون این گام بعد از «build images» است، ساختِ
+      # ایمیجِ api/web پیش‌تر مستقل از MinIO راستی‌آزمایی شده است.
+      - name: assert MinIO resolved (BLOCKED gate)
+        if: steps.minioimg.outputs.resolved != 'true'
+        shell: bash
+        run: |
+          echo "::error title=BLOCKED-e2e-minio-image::No candidate MinIO image could be pulled (quay.io/minio/minio:latest -> 401 UNAUTHORIZED, minio/minio:latest -> pull access denied); the compose stack cannot boot, so browser tests were NOT executed"
+          exit 1
 
       - name: start the stack (no build)
         id: up

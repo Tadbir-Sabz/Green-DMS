@@ -228,7 +228,9 @@ describe('RLS — اثربخشی زیرِ نقشِ واقعیِ اپلیکیشن
     // زیرِ نقشِ RLS‌پذیر، سیاستِ portal_user به app.company_id نیاز دارد؛ پس این مسیر
     // یا خطا می‌دهد یا صفر ردیف — یعنی طراحیِ فعلی به bypass نقشِ اپ متکی است.
     expect(probePool, 'probePool باید در تستِ قبل ساخته شده باشد').toBeTruthy();
-    await probePool!.query(`grant select on portal_user to "${PROBE_ROLE}"`);
+    // GRANT باید با نقشِ مالک/ادمین اجرا شود، نه با خودِ نقشِ probe — وگرنه
+    // «permission denied for table portal_user» (42501) می‌گیریم.
+    await pool.query(`grant select on portal_user to "${PROBE_ROLE}"`);
 
     // گامِ ۱ — با زمینهٔ درست: سیاستِ portal_user برای نقشِ RLS‌پذیر کار می‌کند و
     // کاربرِ آزمون را دقیقاً با customerِ خودش برمی‌گرداند.
