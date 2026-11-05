@@ -50,7 +50,6 @@ const ROLE_ARGV = `t15_argv_role_${RUN}`;
 const ROLE_SQL = `t17_sql_role_${RUN}`;
 const ROLE_VULN = `t17_vuln_role_${RUN}`;
 const ROLE_FAIL = `t17_fail_role_${RUN}`;
-const ROLE_CALLER = `t17_caller_role_${RUN}`;
 const ROLE_NEWLINE = `t17_newline_role_${RUN}`;
 /** رمزِ بدقلقِ ساختگی: نقلِقولِ تکی، فاصله، $، بک‌اسلش و نقلِقولِ دوتایی */
 const PW_NEW = `SyNth'p"$$ w\\ord-${RUN}`;
@@ -67,7 +66,6 @@ const ALL_ROLES = [
   ROLE_SQL,
   ROLE_VULN,
   ROLE_FAIL,
-  ROLE_CALLER,
   ROLE_NEWLINE,
 ];
 
@@ -395,16 +393,22 @@ describe('TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زم�
     }
   });
 
-  it('H) مسیرِ شکست: خروجِ غیرصفر، بدونِ نقش، و بدونِ هیچ رمزی در تشخیصِ خطا', async () => {
-    // فراخوانِ غیرِابرکاربر ⇒ CREATE ROLE با 42501 شکست می‌خورد. اگر رمز در متنِ دستور
-    // باشد، `log_min_error_statement` و پیامِ خطایِ psql همان متن را بازتاب می‌دهند.
-    await admin.query(`create role "${ROLE_CALLER}" login nosuperuser`);
-    created.push(ROLE_CALLER);
-
+  it('H) مسیرِ شکست: خطایِ واقعیِ سمتِ سرور ⇒ خروجِ غیرصفر، بدونِ نقش، و بدونِ هیچ رمزی در تشخیصِ خطا', async () => {
+    // محرکِ **قطعی در هر محیطی**: با PGOPTIONS یک خطایِ واقعیِ SQL سمتِ سرور تولید
+    // می‌شود (25006 «cannot execute CREATE ROLE in a read-only transaction»؛
+    // `default_transaction_read_only` دارایِ context=user است، پس به هویتِ دوم یا
+    // قاعدهٔ خاصی در pg_hba نیاز ندارد — در CI که اتصال از پلِ docker می‌آید و
+    // scram لازم است هم کار می‌کند).
+    //
+    // اهمیتِ این مسیر: اگر رمز بخشی از متنِ دستور باشد، با
+    // `log_min_error_statement=verbose` همان متن در لاگِ سرور بازتاب می‌یابد. آن سمت
+    // (لاگِ سرور) در scripts/verify-init-credential-hygiene.sh با کنترلِ منفی سنجیده
+    // می‌شود؛ اینجا آنچه در هر CI قابلِ سنجش است بررسی می‌شود: خروجِ غیرصفر، نبودِ
+    // نقش (بدونِ موفقِ کاذب) و نبودِ هیچ شکلی از رمز در تشخیصِ خطایِ قابلِ مشاهده.
     let status = 0;
     let combined = '';
     try {
-      runScript(ROLE_FAIL, PW_SQL, { POSTGRES_USER: ROLE_CALLER, PGPASSWORD: '' });
+      runScript(ROLE_FAIL, PW_SQL, { PGOPTIONS: '-c default_transaction_read_only=on' });
     } catch (err) {
       const e = err as { status?: number; stderr?: string; stdout?: string; message?: string };
       status = e.status ?? -1;
@@ -412,7 +416,7 @@ describe('TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زم�
     }
     expect(status, `باید با خطا خارج شود؛ خروجی: ${combined.slice(0, 200)}`).not.toBe(0);
     expect(await roleCount(ROLE_FAIL)).toBe(0); // موفقِ کاذب نداریم
-    expect(combined).toMatch(/permission denied|must be superuser|42501/);
+    expect(combined).toMatch(/read-only transaction|25006/);
     expectNoPasswordSpelling(combined, PW_SQL, 'تشخیصِ خطا');
   });
 
