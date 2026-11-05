@@ -191,9 +191,16 @@ section() { # $1=file $2=BEGIN-tag $3=END-tag
 }
 # NAMES of environment variables whose VALUE equals the password, taken from both
 # the /proc/<pid>/environ and the `env` sections. Values are never printed.
+# NB: the password is passed through the ENVIRONMENT and read with ENVIRON[], never
+# with `awk -v`. POSIX awk processes escape sequences in -v assignments, so gawk
+# silently rewrites a backslash inside the password (warning
+# "escape sequence `\o' treated as plain `o'") and the comparison then never
+# matches: every leak claim would become a vacuous PASS. mawk happens to keep the
+# backslash, which is why this only showed up on the GitHub runner. ENVIRON[] is
+# byte-exact on both.
 env_leak_names() { # $1=password $2=file
   { section "$2" ENVPROC-BEGIN ENVPROC-END; section "$2" ENVCMD-BEGIN ENVCMD-END; } |
-    awk -F= -v pw="$1" 'NF >= 2 { n = $1; v = substr($0, length(n) + 2); if (v == pw) print n }' |
+    T18_LEAK_PW="$1" awk -F= 'NF >= 2 { n = $1; v = substr($0, length(n) + 2); if (v == ENVIRON["T18_LEAK_PW"]) print n }' |
     sort -u
 }
 env_var_count() { # $1=file $2=BEGIN $3=END → how many variables were really captured
@@ -234,6 +241,38 @@ NORMAL="t17h_normal_$RUN"
 echo "== $PSQLV  ·  disposable cluster on 127.0.0.1:$PORT  ·  log_statement=all"
 echo "== script under test: $SCRIPT"
 echo
+
+# ===========================================================================
+# 0) DETECTOR SELF-TEST — runs first, because every "no leak" claim below is only
+#    as good as the two scanners that produce it. A broken scanner does not look
+#    like an error; it looks like a PASS. So each scanner is pointed at a value we
+#    plant ourselves, on this host's awk/grep, and must find it.
+# ===========================================================================
+AWKV="$({ awk -W version 2>&1 || true; } | head -1)"
+[ -n "$AWKV" ] || AWKV="unknown awk"
+ST1="$WORK/detector-selftest-env.txt"
+{
+  echo 'ENVPROC-BEGIN'; echo 'PATH=/usr/bin'
+  printf 'PLANTED_CREDENTIAL=%s\n' "$HOSTILE"
+  echo 'ENVPROC-END'
+  echo 'ENVCMD-BEGIN'; echo 'PATH=/usr/bin'
+  printf 'PLANTED_CREDENTIAL=%s\n' "$HOSTILE"
+  echo 'ENVCMD-END'
+} >"$ST1"
+if [ "$(env_leak_names "$HOSTILE" "$ST1" | tr '\n' ' ')" = 'PLANTED_CREDENTIAL ' ]; then
+  ok "detector self-test: the environment value-scanner finds a planted credential with this host's awk ($AWKV)"
+else
+  bad "detector self-test FAILED: the environment value-scanner cannot find a planted credential ($AWKV) — every environment claim below would be vacuous"
+fi
+rm -f "$ST1"
+ST2="$WORK/detector-selftest-log.txt"
+printf 'x\nstatement: create role r login password %s\ny\n' "$HOSTILE" >"$ST2"
+if [ "$(leak_count "$HOSTILE" "$ST2" || echo 0)" -ge 1 ]; then
+  ok "detector self-test: the SQL-spelling scanner finds a planted plaintext statement"
+else
+  bad "detector self-test FAILED: the SQL-spelling scanner cannot find a planted plaintext statement — every log claim below would be vacuous"
+fi
+rm -f "$ST2"
 
 # ===========================================================================
 # 1) NEGATIVE CONTROL — the pre-TASK-17 mechanism MUST leak into the log
