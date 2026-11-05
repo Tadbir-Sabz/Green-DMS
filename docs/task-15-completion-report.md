@@ -6,7 +6,8 @@
 | مورد | مقدار |
 |---|---|
 | HEADِ شروع | `83f107d8df6fbd29804b1755a51b4ebf67ca3346` |
-| HEADِ پایان | کامیتِ این سند (رویِ کامیتِ رفع) — در §۱۲ |
+| HEADِ پایان | کامیتِ به‌روزرسانیِ این سند رویِ `f7bcbd2` |
+| **SHA راستی‌آزمایی‌شده با CI** | **`f7bcbd2`** |
 | حکمِ نقصِ مشکوک | **قطعی تأیید و بازتولید شد** (رویِ دو نسخهٔ PostgreSQL) |
 | حکمِ کلیِ نخستین بوت | پیش از رفع: **FAIL** · پس از رفع: **PASS** |
 
@@ -252,9 +253,21 @@ $ cd apps/api && ../../node_modules/.bin/vitest run --exclude '**/*.api.test.ts'
 
 ## ۱۱) نتایجِ CI
 
-CI رویِ کامیتِ رفع اجرا شد (جزئیاتِ jobها در §۱۲ و در خلاصهٔ نهایی). دو گیتِ میراثیِ
-`Integration (MinIO)` و `e2e` همچنان **BLOCKED** هستند و هیچ‌کدام به تغییراتِ این دور مربوط
-نیستند؛ تستِ تازه در jobِ Integration (Postgres) اجرا می‌شود.
+CI رویِ `f7bcbd2` اجرا شد:
+
+| Workflow / Job | نتیجه |
+|---|---|
+| مهاجرت‌های پایگاه‌داده (up→down→up، ۴۵ مهاجرت) | ✅ **success** |
+| CI › Static checks (typecheck, OpenAPI, contract drift) | ✅ **success** |
+| CI › Unit tests (no DB, no MinIO) | ✅ **success** — ۱۲ فایل / ۱۹۵ تست |
+| CI › Integration (Postgres) — API + tenant isolation | ✅ **success** — اکنون **۲۷ فایل** (`postgres-init-role.api.test.ts` تازه در همین job اجرا و پاس شد) |
+| CI › Integration (MinIO) — attachment round-trip | ❌ **BLOCKED** بدونِ تغییر |
+| e2e (Playwright) | ❌ **BLOCKED** در گیت ⇒ ۰ تستِ مرورگر |
+
+نکتهٔ مهم: چون CI فایل‌ها را با `ls test/*.api.test.ts` جمع می‌کند، تستِ تازه **به‌طورِ
+خودکار** در jobِ Postgres اجرا شد؛ success بودنِ آن job یعنی تست رویِ یک سرویسِ PostgreSQLِ
+واقعیِ CI (با ابرکاربر و `psql` رویِ PATH) پاس شده، نه اینکه skip شده باشد. دو گیتِ میراثیِ
+MinIO و e2e هیچ ارتباطی با تغییراتِ این دور ندارند و دست‌نخورده باقی ماندند.
 
 **تفکیکِ صریح:** شواهدِ §۳ تا §۹ همه **اجرایِ محلیِ واقعی** رویِ PostgreSQL 16.15/18.6 در
 همین sandbox است؛ §۱۱ نتیجهٔ **CI** است. هیچ S3 یا Playwright‌ای اجرا نشده و هیچ ادعایِ
@@ -278,6 +291,7 @@ CI رویِ کامیتِ رفع اجرا شد (جزئیاتِ jobها در §۱�
 | typecheck / تست‌هایِ DB-free / عدمِ تغییرِ تست‌هایِ موجود | **PASS** |
 | تطبیقِ شمارِ تست در مستندات | **PASS** (۹، از دو راهِ مستقل) |
 | اجرایِ واقعیِ نخستین بوتِ **کانتینرِ** postgres (docker) | **UNVERIFIED** — در sandbox هیچ docker/podman نیست؛ اسکریپت از راهِ همان سازوکارِ `bash + env + psql` رویِ کلاسترِ تازهٔ `initdb`-شده اجرا شد که همان چیزی است که entrypoint انجام می‌دهد، ولی خودِ image اجرا نشد |
+| CI رویِ `f7bcbd2` (مهاجرت‌ها، static، unit، Integration Postgres با تستِ تازه) | **PASS** |
 | round-tripِ S3 و Playwright (میراثِ TASK-12) | **BLOCKED** — بدونِ تغییر |
 | بوتِ کاملِ پشتهٔ compose با `APP_DATABASE_URL` | **UNVERIFIED** — نیازمندِ docker |
 
