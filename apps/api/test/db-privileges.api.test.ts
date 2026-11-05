@@ -670,13 +670,13 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
   });
 
   it('مسیرِ مالکیتِ هر سیاستِ فرزند، «کلیدِ خارجیِ واقعیِ» همان جدول است (نه حدس)', async () => {
-    const { rows } = await adminPool.query(`
+    const { rows } = await ownerPool.query(`
       with child_policies as (
-        select c.relname as child, p.qual
-          from pg_policy p
-          join pg_class c on c.oid = p.polrelid
-         where p.polname = 'p_' || c.relname || '_tenant'
-           and p.qual ~ 'from [a-z_]+ pp where'
+        select p.tablename as child, p.qual
+          from pg_policies p
+         where p.schemaname = 'public'
+           and p.policyname = 'p_' || p.tablename || '_tenant'
+           and p.qual ~* 'from [a-z_]+ pp where'
       ),
       declared_fk as (
         select con.conrelid::regclass::text as child,
@@ -685,10 +685,10 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
          where con.contype = 'f'
       )
       select cp.child,
-             (regexp_match(cp.qual, 'from ([a-z_]+) pp where'))[1] as policy_parent,
+             (regexp_match(cp.qual, 'from ([a-z_]+) pp where', 'i'))[1] as policy_parent,
              exists (select 1 from declared_fk f
                       where f.child = cp.child
-                        and f.parent = (regexp_match(cp.qual, 'from ([a-z_]+) pp where'))[1]) as fk_verified
+                        and f.parent = (regexp_match(cp.qual, 'from ([a-z_]+) pp where', 'i'))[1]) as fk_verified
         from child_policies cp
        order by cp.child`);
     expect(rows.length).toBeGreaterThanOrEqual(67);
@@ -697,7 +697,7 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
   });
 
   it('پوششِ واقعی از کاتالوگ: همهٔ جداولِ هدف RLS + FORCE + سیاست دارند', async () => {
-    const { rows } = await adminPool.query(`
+    const { rows } = await ownerPool.query(`
       select count(*)::int n
         from pg_class c
         join pg_namespace ns on ns.oid = c.relnamespace
@@ -722,7 +722,7 @@ describe('پارتیشن‌ها (0042) — دسترسیِ مستقیم نمی‌
        where par.relname in ('audit_log','inventory_txn','location_sample')`;
 
   it('هر پارتیشنِ موجودِ سه جدولِ پرحجم، RLS و سیاستِ خودش را دارد', async () => {
-    const { rows } = await adminPool.query(partitionsQuery);
+    const { rows } = await ownerPool.query(partitionsQuery);
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) {
       expect(r.relrowsecurity, `partition ${r.part} lacks RLS`).toBe(true);
@@ -732,9 +732,9 @@ describe('پارتیشن‌ها (0042) — دسترسیِ مستقیم نمی‌
   });
 
   it('پارتیشنِ «تازه» که fn_ensure_partitions می‌سازد هم سخت می‌شود', async () => {
-    const before = (await adminPool.query(partitionsQuery)).rows.length;
+    const before = (await ownerPool.query(partitionsQuery)).rows.length;
     await ownerPool.query(`select fn_ensure_partitions(6)`);
-    const { rows } = await adminPool.query(partitionsQuery);
+    const { rows } = await ownerPool.query(partitionsQuery);
     expect(rows.length).toBeGreaterThanOrEqual(before);
     for (const r of rows) {
       expect(r.relrowsecurity, `new partition ${r.part} lacks RLS`).toBe(true);
@@ -787,7 +787,7 @@ describe('پارتیشن‌ها (0042) — دسترسیِ مستقیم نمی‌
   });
 
   it('سه جدولِ پارتیشن‌شده هم RLS + FORCE + سیاست دارند', async () => {
-    const { rows } = await adminPool.query(`
+    const { rows } = await ownerPool.query(`
       select c.relname, c.relrowsecurity, c.relforcerowsecurity,
              exists (select 1 from pg_policy p where p.polrelid = c.oid) as has_policy
         from pg_class c
