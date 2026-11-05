@@ -82,6 +82,9 @@ create view v_auth_session as
     join person p on p.id = u.person_id;
 
 revoke all on v_auth_user, v_auth_session from public;
+-- 0041 برایِ رابطه‌هایِ تازه ALTER DEFAULT PRIVILEGES گذاشته است؛ بدونِ این revoke ممکن بود
+-- خودِ ویو به dms_app واگذار شود و «تنها مسیرِ دسترسی = تابع» نقض گردد.
+revoke all on v_auth_user, v_auth_session from dms_app, dms_readonly, dms_migrator;
 
 -- =====================================================================
 -- §3  توابعِ پنجرهٔ پیش‌اجاره
@@ -240,8 +243,8 @@ begin
      set failed_attempts = app_user.failed_attempts + 1,
          locked_until = case when app_user.failed_attempts + 1 >= p_threshold
                              then now() + (p_minutes * interval '1 minute')
-                             else locked_until end
-   where id = p_user_id
+                             else app_user.locked_until end
+   where app_user.id = p_user_id
    returning app_user.failed_attempts, app_user.locked_until;
 end $$;
 

@@ -36,14 +36,15 @@ begin
   return query
   with claim as (
     update moadian_submission set status = 'sending'
-     where id in (
+     where moadian_submission.id in (
        select id from moadian_submission
         where status in ('queued', 'retrying')
           and (next_retry_at is null or next_retry_at <= now())
         order by created_at
         limit p_limit
         for update skip locked)
-     returning id, invoice_id, attempt_count, payload)
+     returning moadian_submission.id, moadian_submission.invoice_id,
+              moadian_submission.attempt_count, moadian_submission.payload)
   select 'moadian'::text, c.id, b.company_id, i.branch_id, c.attempt_count, c.payload::text
     from claim c
     left join invoice i on i.id = c.invoice_id
@@ -52,14 +53,15 @@ begin
   return query
   with claim as (
     update psp_transaction set status = 'sending'
-     where id in (
+     where psp_transaction.id in (
        select id from psp_transaction
         where status in ('queued', 'retrying')
           and (next_retry_at is null or next_retry_at <= now())
         order by created_at
         limit p_limit
         for update skip locked)
-     returning id, branch_id, attempt_count, raw_payload)
+     returning psp_transaction.id, psp_transaction.branch_id,
+              psp_transaction.attempt_count, psp_transaction.raw_payload)
   select 'psp'::text, c.id, b.company_id, c.branch_id, c.attempt_count, c.raw_payload::text
     from claim c
     left join branch b on b.id = c.branch_id;
@@ -80,12 +82,12 @@ begin
   if p_kind = 'moadian' then
     update moadian_submission
        set status = 'dead', last_error = p_error, next_retry_at = null,
-           attempt_count = attempt_count + 1
+           attempt_count = moadian_submission.attempt_count + 1
      where id = p_job_id;
   elsif p_kind = 'psp' then
     update psp_transaction
        set status = 'dead', last_error = p_error, next_retry_at = null,
-           attempt_count = attempt_count + 1
+           attempt_count = psp_transaction.attempt_count + 1
      where id = p_job_id;
   else
     raise exception 'unknown integration job kind: %', p_kind using errcode = '22023';

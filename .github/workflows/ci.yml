@@ -325,7 +325,8 @@ jobs:
               # (می‌تواند آماده‌نبودنِ سرویس، پورتِ اشتباه، یا الزامِ HTTPS باشد).
               {
                 echo "--- docker inspect ${CAND} ---"
-                docker inspect s3probe --format 'state={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} ports={{json .NetworkSettings.Ports}} ip={{.NetworkSettings.IPAddress}}' 2>&1
+                docker inspect s3probe --format 'state={{json .State}}' 2>&1 | head -c 600; echo
+                docker inspect s3probe --format 'ports={{json .NetworkSettings.Ports}}' 2>&1
                 echo "--- published ports ---"; docker port s3probe 2>&1
                 echo "--- curl -sv http://localhost:${CPORT}${CHEALTH} ---"
                 curl -sv --max-time 10 "http://localhost:${CPORT}${CHEALTH}" 2>&1 | head -n 25

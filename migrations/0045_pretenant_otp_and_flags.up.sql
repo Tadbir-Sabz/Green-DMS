@@ -37,6 +37,7 @@ create view v_auth_otp as
   select id, code_hash, sent_at, expires_at, attempts, consumed_at, purpose
     from auth_otp;
 revoke all on v_auth_otp from public;
+revoke all on v_auth_otp from dms_app, dms_readonly, dms_migrator;
 
 -- ۱-۱ آخرین کدِ در انتظارِ همان username (حداکثر یک ردیف)
 create or replace function fn_otp_find_pending(p_username text)
@@ -58,10 +59,10 @@ returns table(last_sent_at timestamptz, count_since bigint)
 language sql stable security definer
 set search_path = public, pg_temp
 as $$
-  select max(sent_at),
-         count(*) filter (where p_since is null or sent_at > p_since)
+  select max(auth_otp.sent_at),
+         count(*) filter (where p_since is null or auth_otp.sent_at > p_since)
     from auth_otp
-   where username = p_username and purpose = p_purpose;
+   where auth_otp.username = p_username and auth_otp.purpose = p_purpose;
 $$;
 
 -- ۱-۳ صدورِ کدِ تازه + پاک‌سازیِ نگهداریِ کوتاه‌مدت (هر دو نوشتنِ پیش‌اجاره در یک پنجره)
@@ -75,7 +76,7 @@ begin
   insert into auth_otp (username, phone, purpose, code_hash, expires_at)
   values (p_username, p_phone, p_purpose, p_code_hash,
           now() + (p_ttl_seconds * interval '1 second'));
-  delete from auth_otp where sent_at < now() - interval '7 days';
+  delete from auth_otp where auth_otp.sent_at < now() - interval '7 days';
 end $$;
 
 -- ۱-۴ شمارشِ تلاشِ ناموفقِ تأیید
@@ -86,8 +87,8 @@ set search_path = public, pg_temp
 as $$
 declare v_attempts integer;
 begin
-  update auth_otp set attempts = attempts + 1 where id = p_id
-  returning attempts into v_attempts;
+  update auth_otp set attempts = auth_otp.attempts + 1 where auth_otp.id = p_id
+  returning auth_otp.attempts into v_attempts;
   return coalesce(v_attempts, 0);
 end $$;
 
@@ -99,7 +100,8 @@ set search_path = public, pg_temp
 as $$
 declare v_count integer;
 begin
-  update auth_otp set consumed_at = now() where id = p_id and consumed_at is null;
+  update auth_otp set consumed_at = now()
+   where auth_otp.id = p_id and auth_otp.consumed_at is null;
   get diagnostics v_count = row_count;
   return v_count > 0;
 end $$;
