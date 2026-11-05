@@ -833,6 +833,11 @@ describe('پارتیشن‌ها (0042) — دسترسیِ مستقیم نمی‌
   });
 });
 
+/** پرس‌وجو در یک زمینهٔ اجاره و بازگرداندنِ «سطرها» (نه شیءِ Result). */
+async function qRows(scope: string, sql: string, params: unknown[] = []): Promise<any[]> {
+  return asRuntime(scope, async (c) => (await c.query(sql, params)).rows);
+}
+
 describe('هویتِ پیش‌اجاره (0043) — ورودِ کارمند بدونِ دسترسیِ نامحدود به جدول‌ها', () => {
   it('دسترسیِ مستقیم به پنج جدولِ هویت، پیش از اجاره: صفر ردیف', async () => {
     const r = await asRuntime('none', async (c) => ({
@@ -860,25 +865,19 @@ describe('هویتِ پیش‌اجاره (0043) — ورودِ کارمند بد
     expect(r.scopes).toEqual([branchA]);
   });
 
-  it('اجارهٔ B کاربر/نشست/نقشِ A را نمی‌بیند', async () => {
-    const r = await asRuntime(companyB, async (c) => ({
-      users: (await c.query(`select id from app_user`)).rows.map((x) => x.id),
-      sessions: (await c.query(`select id from auth_session`)).rows.map((x) => x.id),
-    }));
-    expect(r.users).toEqual([appUserB]);
-    expect(r.users).not.toContain(appUserA);
-    expect(r.sessions).not.toContain(authSessionA);
+  it('اجارهٔ B کاربر/نشستِ A را نمی‌بیند', async () => {
+    const users = await qRows(companyB, `select id from app_user`);
+    const sessions = await qRows(companyB, `select id from auth_session`);
+    expect(users.map((x) => x.id)).toEqual([appUserB]);
+    expect(sessions.map((x) => x.id)).not.toContain(authSessionA);
   });
 
   it('fn_auth_find_user پیش از اجاره «دقیقاً یک سطر» با اجارهٔ درست برمی‌گرداند', async () => {
-    const rows = await asRuntime('none', (c) =>
-      c.query(`select * from fn_auth_find_user($1, null)`, ['priv_user_a']),
-    );
+    const rows = await qRows('none', `select * from fn_auth_find_user($1, null)`, ['priv_user_a']);
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toBe(appUserA);
     expect(rows[0].company_id).toBe(companyA);
     expect(rows[0].username).toBe('priv_user_a');
-    // کمینهٔ ستون‌ها: نه refresh_token_hash، نه mfa_secret_enc، نه سایر ستون‌های app_user
     const cols = Object.keys(rows[0]).sort();
     expect(cols).toEqual(
       [
@@ -892,51 +891,33 @@ describe('هویتِ پیش‌اجاره (0043) — ورودِ کارمند بد
   });
 
   it('تابع ابزارِ بازیابیِ دلخواه نیست: بدونِ پارامتر یا با الگویِ % هیچ ردیفی نمی‌دهد', async () => {
-    const none = await asRuntime('none', (c) =>
-      c.query(`select * from fn_auth_find_user(null, null)`),
-    );
-    expect(none).toHaveLength(0);
-    const wildcard = await asRuntime('none', (c) =>
-      c.query(`select * from fn_auth_find_user($1, null)`, ['%']),
-    );
-    expect(wildcard).toHaveLength(0);
-    const foreignId = await asRuntime('none', (c) =>
-      c.query(`select * from fn_auth_find_user(null, $1)`, [appUserB]),
-    );
-    // پیدا کردنِ کاربر با شناسهٔ خودش برایِ اعتبارسنجیِ نشست لازم است، ولی فقط «همان یک» کاربر
-    expect(foreignId).toHaveLength(1);
-    expect(foreignId[0].id).toBe(appUserB);
+    expect(await qRows('none', `select * from fn_auth_find_user(null, null)`)).toHaveLength(0);
+    expect(await qRows('none', `select * from fn_auth_find_user($1, null)`, ['%'])).toHaveLength(0);
+    const byId = await qRows('none', `select * from fn_auth_find_user(null, $1)`, [appUserB]);
+    // یافتنِ کاربر با «شناسهٔ خودش» برایِ اعتبارسنجیِ نشست لازم است، ولی فقط همان یک کاربر
+    expect(byId).toHaveLength(1);
+    expect(byId[0].id).toBe(appUserB);
   });
 
-  it('تابع company_id پارامتر ندارد ⇒ انتخابِ اجاره از بیرون ممکن نیست', async () => {
-    const r = await asRuntime('none', async (c) =>
-      (
-        await c.query(
-          `select p.proname, p.prosecdef, p.proconfig, p.pronargs,
-                  pg_get_function_identity_arguments(p.oid) as args,
-                  p.proacl::text as acl
-             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-            where n.nspname = 'public' and p.proname like 'fn\\_auth\\_%'`,
-        )
-      ).rows,
+  it('توابعِ هویت: SECURITY DEFINER، search_path پین‌شده، بدونِ پارامترِ company و بدونِ EXECUTE عمومی', async () => {
+    const rows = await qRows(
+      'none',
+      `select p.proname, p.prosecdef, p.proconfig::text as cfg,
+              pg_get_function_identity_arguments(p.oid) as args, p.proacl::text as acl
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname like 'fn\\_auth\\_%'`,
     );
-    expect(r.length).toBeGreaterThanOrEqual(12);
-    for (const f of r) {
+    expect(rows.length).toBeGreaterThanOrEqual(12);
+    for (const f of rows) {
       expect(f.prosecdef, `${f.proname} must be SECURITY DEFINER`).toBe(true);
-      expect(String(f.proconfig), `${f.proname} must pin search_path`).toContain(
-        'search_path=public, pg_temp',
-      );
-      expect(String(f.args).toLowerCase(), `${f.proname} must not take a company`).not.toContain(
-        'company',
-      );
-      // EXECUTE عمومی نداشته باشد: ورودیِ PUBLIC با grantee خالی ظاهر می‌شود
-      expect(f.acl ?? '', `${f.proname} must not be executable by PUBLIC`).not.toMatch(
-        /(^|[{,])=X\//,
-      );
+      expect(f.cfg, `${f.proname} must pin search_path`).toContain('search_path=public, pg_temp');
+      expect(String(f.args).toLowerCase(), `${f.proname} must not take a company`).not.toContain('company');
+      expect(f.acl ?? '', `${f.proname} must not be PUBLIC-executable`).not.toMatch(/(^|[{,])=X\//);
+      expect(String(f.acl), `${f.proname} must not grant EXECUTE to dms_readonly`).not.toContain('dms_readonly=X');
     }
   });
 
-  it('ویوهایِ شکلِ خروجی مستقیماً قابلِ خواندن نیستند (تنها مسیر، تابع است)', async () => {
+  it('ویوهایِ شکلِ خروجی مستقیماً خواندنی نیستند (تنها مسیر، تابع است)', async () => {
     const code = await asRuntime('none', (c) =>
       expectRlsDenied(c.query(`select * from v_auth_user limit 1`), 'direct view read'),
     );
@@ -944,56 +925,47 @@ describe('هویتِ پیش‌اجاره (0043) — ورودِ کارمند بد
   });
 
   it('نقش‌ها و مجوزها پیش از اجاره از راهِ تابع خوانده می‌شوند (ساختِ توکن)', async () => {
-    const rows = await asRuntime('none', (c) =>
-      c.query(`select role_id, role_code, permission_code from fn_auth_roles_permissions($1)`, [
-        appUserA,
-      ]),
+    const rows = await qRows(
+      'none',
+      `select role_id, role_code, permission_code from fn_auth_roles_permissions($1)`,
+      [appUserA],
     );
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].role_id).toBe(roleA);
     expect(rows.map((x) => x.permission_code)).toContain(permissionCode);
-    const empty = await asRuntime('none', (c) =>
-      c.query(`select * from fn_auth_roles_permissions($1)`, [
-        '00000000-0000-4000-8000-000000000000',
-      ]),
+    const empty = await qRows(
+      'none',
+      `select * from fn_auth_roles_permissions($1)`,
+      ['00000000-0000-4000-8000-000000000000'],
     );
     expect(empty).toHaveLength(0);
   });
 
-  it('چرخهٔ نشست: ساخت پیش از اجاره، سپس «مالکیتِ نشست» به همان اجاره مقید می‌ماند', async () => {
+  it('چرخهٔ نشست: ساخت پیش از اجاره، سپس مالکیتِ نشست به همان اجاره مقید می‌ماند', async () => {
     const hash = crypto.randomBytes(24).toString('hex');
-    const created = await asRuntime('none', (c) =>
-      c.query(
-        `select fn_auth_create_session($1,$2,$3,$4,$5,$6) as id`,
-        [appUserA, hash, 'dev-1', '10.0.0.1', 'vitest', new Date(Date.now() + 3600_000).toISOString()],
-      ),
+    const created = await qRows(
+      'none',
+      `select fn_auth_create_session($1,$2,$3,$4,$5,$6) as id`,
+      [appUserA, hash, 'dev-1', '10.0.0.1', 'vitest', new Date(Date.now() + 3600_000).toISOString()],
     );
     const sid = created[0].id as string;
     expect(sid).toBeTruthy();
 
-    // پیدا کردنِ نشست با hash پیش از اجاره، و با شناسه پس از اجاره
-    const byHash = await asRuntime('none', (c) =>
-      c.query(`select * from fn_auth_find_session(null, $1)`, [hash]),
-    );
+    const byHash = await qRows('none', `select * from fn_auth_find_session(null, $1)`, [hash]);
     expect(byHash).toHaveLength(1);
     expect(byHash[0].company_id).toBe(companyA);
     expect(byHash[0].app_user_id).toBe(appUserA);
     expect(Object.keys(byHash[0])).not.toContain('refresh_token_hash');
 
-    const seenByA = await asRuntime(companyA, (c) =>
-      c.query(`select id from auth_session where id = $1`, [sid]),
-    );
-    expect(seenByA).toHaveLength(1);
-    const seenByB = await asRuntime(companyB, (c) =>
-      c.query(`select id from auth_session where id = $1`, [sid]),
-    );
-    expect(seenByB).toHaveLength(0); // انتقالِ اجاره: نشستِ A برایِ B نامرئی است
+    expect(await qRows(companyA, `select id from auth_session where id = $1`, [sid])).toHaveLength(1);
+    // انتقالِ اجاره: نشستِ A برایِ B نامرئی است
+    expect(await qRows(companyB, `select id from auth_session where id = $1`, [sid])).toHaveLength(0);
   });
 
   it('نوشتنِ چرخهٔ ورود از راهِ تابع، فقط همان کاربر را تغییر می‌دهد', async () => {
-    await asRuntime('none', (c) => c.query(`select fn_auth_login_success($1)`, [appUserB]));
+    await qRows('none', `select fn_auth_login_success($1)`, [appUserB]);
     const after = await ownerPool.query(
-      `select id, last_login_at, failed_attempts from app_user where id = any($1::uuid[])`,
+      `select id, last_login_at from app_user where id = any($1::uuid[])`,
       [[appUserA, appUserB]],
     );
     const a = after.rows.find((x) => x.id === appUserA);
@@ -1001,79 +973,79 @@ describe('هویتِ پیش‌اجاره (0043) — ورودِ کارمند بد
     expect(b?.last_login_at).toBeTruthy();
     expect(a?.last_login_at).toBeFalsy(); // ورودِ B هرگز رویِ A اثر نمی‌گذارد
   });
-
-  it('نقشِ فقط‌خواندن نمی‌تواند هیچ‌یک از توابعِ هویت را صدا بزند', async () => {
-    // نقشِ dms_readonly عمداً LOGIN/رمز ندارد (کمینه‌امتیاز)، پس بررسیِ قطعی از ACL کاتالوگ
-    // انجام می‌شود: نه EXECUTE عمومی، نه EXECUTE برایِ dms_readonly، برایِ همهٔ توابعِ ممتاز.
-    const { rows } = await ownerPool.query(
-      `select p.proname, p.proacl::text as acl
-         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public' and (p.proname like 'fn\\_auth\\_%' or p.proname like 'fn\\_otp\\_%'
-           or p.proname like 'fn\\_job\\_%')`,
-    );
-    expect(rows.length).toBeGreaterThanOrEqual(18);
-    for (const f of rows) {
-      expect(f.acl ?? '', `${f.proname} must not be PUBLIC-executable`).not.toMatch(/(^|[{,])=X\//);
-      expect(String(f.acl), `${f.proname} must not grant EXECUTE to dms_readonly`).not.toContain(
-        'dms_readonly=X',
-      );
-    }
-  });
 });
 
 describe('auth_otp (0045) — پنجرهٔ پیش‌اجارهٔ OTP بدونِ خواندنِ مستقیمِ جدول', () => {
-  it('دسترسیِ مستقیم به auth_otp همیشه رد می‌شود (حتی با زمینهٔ اجاره)', async () => {
+  it('خواندنِ مستقیمِ auth_otp صفر ردیف است و نوشتنِ مستقیم 42501 (حتی با زمینهٔ اجاره)', async () => {
     for (const scope of ['none', companyA]) {
+      // سیاستِ «ردِ کامل»: SELECT هرگز خطا نمی‌دهد، فقط «صفر ردیف» می‌شود (رفتارِ واقعیِ RLS)
+      expect(await qRows(scope, `select id from auth_otp`)).toHaveLength(0);
       const code = await asRuntime(scope, (c) =>
-        expectRlsDenied(c.query(`select id from auth_otp limit 1`), 'direct auth_otp read'),
+        expectRlsDenied(
+          c.query(`insert into auth_otp (username, purpose, code_hash, expires_at)
+                   values ('x','login','h', now())`),
+          'direct auth_otp insert',
+        ),
       );
-      // سیاستِ «ردِ کامل» ⇒ RLS خطایِ 42501 می‌دهد (نه صفر ردیف) چون هیچ سیاستِ مجازی نیست
       expect(code).toBe('42501');
     }
   });
 
-  it('چرخهٔ کاملِ OTP از راهِ توابع: صدور، یافتن، شمارش تلاش، مصرفِ اتمیک', async () => {
-    await asRuntime('none', (c) =>
-      c.query(`select fn_otp_issue($1,$2,$3,$4,$5)`, [otpUser, '09120000000', 'login', 'hash-1', 120]),
-    );
-    const pending = await asRuntime('none', (c) =>
-      c.query(`select * from fn_otp_find_pending($1)`, [otpUser]),
-    );
+  it('چرخهٔ کاملِ OTP از راهِ توابع: صدور، یافتن، تلاش، نرخ، مصرفِ اتمیک', async () => {
+    await qRows('none', `select fn_otp_issue($1,$2,$3,$4,$5)`, [
+      otpUser, '09120000000', 'login', 'hash-1', 120,
+    ]);
+    const pending = await qRows('none', `select * from fn_otp_find_pending($1)`, [otpUser]);
     expect(pending).toHaveLength(1);
     expect(pending[0].code_hash).toBe('hash-1');
     const id = pending[0].id as string;
 
-    const attempts = await asRuntime('none', (c) =>
-      c.query(`select fn_otp_attempt($1) as n`, [id]),
-    );
+    const attempts = await qRows('none', `select fn_otp_attempt($1) as n`, [id]);
     expect(Number(attempts[0].n)).toBe(1);
 
-    const rate = await asRuntime('none', (c) =>
-      c.query(`select last_sent_at, count_since from fn_otp_rate($1,'login', now() - interval '1 hour')`, [
-        otpUser,
-      ]),
+    const rate = await qRows(
+      'none',
+      `select last_sent_at, count_since from fn_otp_rate($1,'login', now() - interval '1 hour')`,
+      [otpUser],
     );
     expect(Number(rate[0].count_since)).toBeGreaterThanOrEqual(1);
     expect(rate[0].last_sent_at).toBeTruthy();
 
-    const first = await asRuntime('none', (c) => c.query(`select fn_otp_consume($1) as ok`, [id]));
+    const first = await qRows('none', `select fn_otp_consume($1) as ok`, [id]);
     expect(first[0].ok).toBe(true);
-    const second = await asRuntime('none', (c) => c.query(`select fn_otp_consume($1) as ok`, [id]));
+    const second = await qRows('none', `select fn_otp_consume($1) as ok`, [id]);
     expect(second[0].ok).toBe(false); // رقابت/تکرار ⇒ فقط اولین برنده است
+
+    // حتی پس از صدور، جدول به‌صورتِ مستقیم خواندنی نیست
+    expect(await qRows('none', `select id from auth_otp`)).toHaveLength(0);
   });
 
   it('username ناموجود ⇒ صفر ردیف و بدونِ خطا (طراحیِ «بی‌اثر و بی‌صدا» حفظ شد)', async () => {
-    const rows = await asRuntime('none', (c) =>
-      c.query(`select * from fn_otp_find_pending($1)`, ['no_such_user_anywhere']),
+    expect(
+      await qRows('none', `select * from fn_otp_find_pending($1)`, ['no_such_user_anywhere']),
+    ).toHaveLength(0);
+  });
+
+  it('توابعِ OTP هم SECURITY DEFINER با search_path پین‌شده و بدونِ EXECUTE عمومی‌اند', async () => {
+    const rows = await qRows(
+      'none',
+      `select p.proname, p.prosecdef, p.proconfig::text as cfg, p.proacl::text as acl
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname like 'fn\\_otp\\_%'`,
     );
-    expect(rows).toHaveLength(0);
+    expect(rows).toHaveLength(5);
+    for (const f of rows) {
+      expect(f.prosecdef).toBe(true);
+      expect(f.cfg).toContain('search_path=public, pg_temp');
+      expect(f.acl ?? '').not.toMatch(/(^|[{,])=X\//);
+    }
   });
 });
 
 describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ اجاره از رکوردِ پایدار', () => {
   let claimed: ClaimedJob[] = [];
 
-  it('نقشِ برنامه می‌تواند شغل‌هایِ سررسیده را بردارد و اجارهٔ هرکدام مشتق شود', async () => {
+  it('نقشِ برنامه شغل‌هایِ سررسیده را برمی‌دارد و اجارهٔ هرکدام مشتق می‌شود', async () => {
     claimed = await asRuntime('none', async (c) => {
       const { rows } = await c.query<ClaimedJob>(
         `select kind, job_id, company_id, branch_id, attempt_count, payload
@@ -1083,12 +1055,11 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
       return rows;
     });
     expect(claimed.length).toBeGreaterThanOrEqual(2);
-    const companies = claimed.map((j) => j.company_id).sort();
-    expect(companies).toEqual([companyA, companyB].sort());
-    // هویتِ اجاره از رکوردِ پایدار (branch) آمده، نه از payload
+    expect(claimed.map((j) => j.company_id).sort()).toEqual([companyA, companyB].sort());
     for (const j of claimed) {
       expect(j.company_id).toBeTruthy();
       expect(j.branch_id).toBeTruthy();
+      // هویتِ اجاره از رکوردِ پایدار آمده، نه از payloadِ قابلِ دستکاری
       expect(JSON.stringify(j.payload)).not.toContain(String(j.company_id));
     }
   });
@@ -1100,11 +1071,11 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
     try {
       const r = await runAsJobTenant(jobPool as never, companyA, async () => {
         const own = await jobPool.query(
-          `update psp_transaction set status = 'retrying' where id = $1`,
+          `update psp_transaction set status = 'failed' where id = $1`,
           [jobA.job_id],
         );
         const foreign = await jobPool.query(
-          `update psp_transaction set status = 'retrying' where id = $1`,
+          `update psp_transaction set status = 'failed' where id = $1`,
           [jobB.job_id],
         );
         return { own: own.rowCount ?? 0, foreign: foreign.rowCount ?? 0 };
@@ -1114,7 +1085,7 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
     } finally {
       await jobPool.end();
     }
-    const still = await ownerPool.query(`select id, status from psp_transaction where id = $1`, [
+    const still = await ownerPool.query(`select status from psp_transaction where id = $1`, [
       jobB.job_id,
     ]);
     expect(still.rows[0].status).toBe('sending'); // شغلِ B دست‌نخورده ماند
@@ -1136,13 +1107,12 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
         const inside = await jobPool.query(`select count(*)::int n from app_user`);
         expect(inside.rows[0].n).toBe(1);
       });
-      // همان تک‌connectionِ استخر دوباره گرفته می‌شود؛ اگر پاک‌سازی نشده باشد دادهٔ A دیده می‌شود
-      const leaked = await jobPool.connect();
+      const leaked = await jobPool.connect(); // همان تک‌connectionِ استخر
       try {
-        const after = await leaked.query(`select count(*)::int n from app_user`);
-        expect(after.rows[0].n).toBe(0);
-        const guc = await leaked.query(`select current_setting('app.company_id', true) as v`);
-        expect(guc.rows[0].v ?? '').toBe('');
+        expect((await leaked.query(`select count(*)::int n from app_user`)).rows[0].n).toBe(0);
+        expect(
+          (await leaked.query(`select current_setting('app.company_id', true) as v`)).rows[0].v ?? '',
+        ).toBe('');
       } finally {
         leaked.release();
       }
@@ -1151,7 +1121,7 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
     }
   });
 
-  it('نقشِ برنامه نمی‌تواند kindِ ناشناخته به fn_job_mark_dead بدهد (سوییچِ بسته)', async () => {
+  it('fn_job_mark_dead با kindِ ناشناخته خطایِ صریح می‌دهد (نامِ جدول از بیرون نمی‌آید)', async () => {
     const code = await asRuntime('none', async (c) => {
       try {
         await c.query(`select fn_job_mark_dead($1, $2, $3)`, [

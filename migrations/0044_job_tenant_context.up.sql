@@ -45,7 +45,9 @@ begin
         for update skip locked)
      returning moadian_submission.id, moadian_submission.invoice_id,
               moadian_submission.attempt_count, moadian_submission.payload)
-  select 'moadian'::text, c.id, b.company_id, i.branch_id, c.attempt_count, c.payload::text
+  -- attempt_count در moadian_submission از نوع smallint است؛ بدونِ این cast خطایِ
+  -- «structure of query does not match function result type» می‌داد (42804).
+  select 'moadian'::text, c.id, b.company_id, i.branch_id, c.attempt_count::integer, c.payload::text
     from claim c
     left join invoice i on i.id = c.invoice_id
     left join branch  b on b.id = i.branch_id;
@@ -62,7 +64,7 @@ begin
         for update skip locked)
      returning psp_transaction.id, psp_transaction.branch_id,
               psp_transaction.attempt_count, psp_transaction.raw_payload)
-  select 'psp'::text, c.id, b.company_id, c.branch_id, c.attempt_count, c.raw_payload::text
+  select 'psp'::text, c.id, b.company_id, c.branch_id, c.attempt_count::integer, c.raw_payload::text
     from claim c
     left join branch b on b.id = c.branch_id;
 end $$;
