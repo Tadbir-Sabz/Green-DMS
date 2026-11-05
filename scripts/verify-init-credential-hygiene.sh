@@ -313,7 +313,9 @@ tail -c +$((MARK + 1)) "$LOG" >"$WORK/vuln.log"
 VULN_LEAK=$(leak_count "$HOSTILE" "$WORK/vuln.log")
 if [ "$VULN_RC" = '0' ] && [ "$VULN_LEAK" -gt 0 ]; then
   ok "negative control: the pre-TASK-17 mechanism DOES leak the plaintext into the server log ($VULN_LEAK line(s))"
-  note "$(grep -m1 -F "create role" "$WORK/vuln.log" | sed 's/.*statement: /statement: /' | cut -c1-110)…"
+  # QA-B3: only the STATEMENT SHAPE is echoed (role name + keywords); the leaked
+  # literal is a secret-bearing E'' string and must never reach this output.
+  note "leaked statement shape (value suppressed): $(grep -m1 -oE '(create|alter) role [^ ]+ login password' "$WORK/vuln.log")…"
 else
   bad "negative control broken (rc=$VULN_RC leaks=$VULN_LEAK) — the log detector cannot be trusted"
 fi
@@ -337,10 +339,10 @@ attrs=$(adm "select rolcanlogin||','||rolsuper||','||rolbypassrls||','||rolcreat
 # --- 2a) no plaintext in the server log, but the statement IS logged ---------
 LEAK1=$(leak_count "$HOSTILE" "$WORK/run1.log")
 [ "$LEAK1" = '0' ] && ok "server log (log_statement=all): no plaintext in any SQL-literal spelling" ||
-  { bad "server log leaks the plaintext ($LEAK1 line(s))"; grep -F "rd-$RUN" "$WORK/run1.log" | head -3; }
+  { bad "server log leaks the plaintext ($LEAK1 line(s))"; printf '      leaking line numbers only (content suppressed): %s\n' "$(grep -nF "rd-$RUN" "$WORK/run1.log" | cut -d: -f1 | head -3 | tr '\n' ' ')"; }
 if grep -qE "ALTER USER .* PASSWORD 'SCRAM-SHA-256" "$WORK/run1.log"; then
   ok "anti-vacuous: the password statement WAS logged and carries a SCRAM verifier, not the password"
-  note "$(grep -m1 -oE "ALTER USER .* PASSWORD 'SCRAM-SHA-256.4096:.{0,12}" "$WORK/run1.log")…'"
+  note "logged statement = ALTER USER <role> PASSWORD 'SCRAM-SHA-256\$…' (verifier value suppressed)"
 else
   bad "anti-vacuous check failed: no ALTER USER … PASSWORD 'SCRAM-SHA-256…' line in the log — was logging active?"
 fi
@@ -360,8 +362,14 @@ else
   bad "SCRAM login with the exact password failed: $login"
 fi
 wrong=$(try_login "$RUNROLE" "${HOSTILE}x") && wrc=0 || wrc=$?
-[ "$wrc" != '0' ] && printf '%s' "$wrong" | grep -q "password authentication failed" &&
-  ok "wrong password is rejected" || bad "wrong password was NOT rejected: $wrong"
+# QA-B4: rejection is asserted WITHOUT locale-dependent error text. psql cannot
+# report SQLSTATE 28P01 for a connection failure (measured in TASK-18), so the
+# locale-independent pair is: non-zero exit + the server-side error names the role
+# (the %s of "… for user %s" survives every lc_messages translation). The fully
+# structured SQLSTATE check (28P01 via libpq err.code) lives in the vitest suite.
+[ "$wrc" != '0' ] && printf '%s' "$wrong" | grep -qF "$RUNROLE" &&
+  ok "wrong password is rejected (non-zero exit; the error names the role — locale-independent)" ||
+  bad "wrong password was NOT rejected (rc=$wrc)"
 empty=$(try_login "$RUNROLE" "") && erc=0 || erc=$?
 [ "$erc" != '0' ] && ok "empty password is rejected (no fail-open)" || bad "empty password accepted!"
 
@@ -564,7 +572,7 @@ for v in APP_DB_PASSWORD GREEN_DMS_RUNTIME_PASSWORD RUNTIME_PASSWORD T17_UNRELAT
   case "$d" in *"declare -x"*) x=exported;; *) x=not-exported;; esac
   printf 'coll %s %s %s\n' "$v" "$e" "$x"
 done
-printf 'coll_child_visible %s\n' "$(env | grep -cE '^(APP_DB_PASSWORD|RUNTIME_PASSWORD|GREEN_DMS_RUNTIME_PASSWORD|T18_ALIAS_PW|T17_UNRELATED_SETTING)=' || true)"
+printf 'coll_child_visible %s\n' "$(env | grep -cE '^(APP_DB_PASSWORD|RUNTIME_PASSWORD|GREEN_DMS_RUNTIME_PASSWORD|T18_ALIAS_PW|T17_UNRELATED_SETTING|PGPASSWORD|PGPASSFILE)=' || true)"
 printf 'coll_other_keep_visible %s\n' "$(env | grep -c '^OTHER_KEEP=' || true)"
 CPEOF
 COLLROLE="t17h_coll_$RUN"
@@ -597,6 +605,128 @@ ck() { awk -v k="$1" '$1==k {print $2}' "$WORK/coll.txt"; }
 check_child_env "collision-run psql child environment" "$WRAP/capture.log"
 check_child_env "collision-run cat (process-substitution) child environment" "$WRAP/cat.log"
 adm "drop role if exists \"$COLLROLE\"" >/dev/null
+
+# ===========================================================================
+# 3f) PGPASSWORD/PGPASSFILE VALUE-COLLISION MATRIX (TASK-18R, QA-B1). libpq's own
+#     channels are NOT name-exempt: a non-colliding value is preserved (legitimate
+#     admin authentication keeps working exactly as before), a colliding value is
+#     the runtime secret under another name and must not reach any child. The
+#     unrelated same/different-value rows of the acceptance table are covered by
+#     3e (T17_UNRELATED_SETTING / OTHER_KEEP). A negative-control variant that
+#     reproduces TASK-18's unconditional `case PGPASSWORD|PGPASSFILE) continue`
+#     MUST leak, otherwise these checks would be vacuous.
+# ===========================================================================
+PGF_SEED=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')
+PGDIFF="qa-differs-$PGF_SEED"          # a NON-colliding synthetic value
+PGFILE="$WORK/pgpass-$PGF_SEED"        # a NON-colliding PGPASSFILE path
+: >"$PGFILE"; chmod 600 "$PGFILE"
+
+pgf_env() { # $1=role $2=PGPASSWORD-value-or-empty $3=PGPASSFILE-value-or-empty
+  reset_wraps
+  local -a envargs=("APP_DB_ROLE=$1" "APP_DB_PASSWORD=$HOSTILE" "POSTGRES_USER=t17admin" "POSTGRES_DB=postgres" "PGHOST=$SOCK" "PGPORT=$PORT")
+  [ -n "$2" ] && envargs+=("PGPASSWORD=$2")
+  [ -n "$3" ] && envargs+=("PGPASSFILE=$3")
+  env "${envargs[@]}" PATH="$WRAP:$PATH" bash "$SCRIPT" >"$WORK/pgf-$1.out" 2>&1
+}
+pgf_check() { # $1=label $2=want-pgpassword(present|absent) $3=want-pgpassfile(present|absent)
+  local label="$1" f="$WRAP/capture.log" pp pf
+  check_child_env "$label: child environment" "$f"
+  section "$f" ENVPROC-BEGIN ENVPROC-END | grep -q '^PGPASSWORD=' && pp=present || pp=absent
+  section "$f" ENVPROC-BEGIN ENVPROC-END | grep -q '^PGPASSFILE=' && pf=present || pf=absent
+  [ "$pp" = "$2" ] && ok "$label: PGPASSWORD is $2 in the child environment" \
+                   || bad "$label: PGPASSWORD is $pp (wanted $2)"
+  [ "$pf" = "$3" ] && ok "$label: PGPASSFILE is $3 in the child environment" \
+                   || bad "$label: PGPASSFILE is $pf (wanted $3)"
+}
+
+# 3f-1 PGPASSWORD differs from the runtime password → preserved (legitimate auth)
+pgf_env "t17h_pgf1_$RUN" "$PGDIFF" ''
+rc=$?
+[ "$rc" = 0 ] && ok "pgpass-1: non-colliding PGPASSWORD run provisions (exit 0)" || bad "pgpass-1: exit=$rc"
+pgf_check "pgpass-1 (PGPASSWORD differs)" present absent
+adm "drop role if exists \"t17h_pgf1_$RUN\"" >/dev/null
+
+# 3f-2 PGPASSWORD equals the runtime password → must NOT be inherited
+pgf_env "t17h_pgf2_$RUN" "$HOSTILE" ''
+rc=$?
+[ "$rc" = 0 ] && ok "pgpass-2: colliding PGPASSWORD run still provisions on the trust socket (exit 0)" || bad "pgpass-2: exit=$rc"
+pgf_check "pgpass-2 (PGPASSWORD collides)" absent absent
+adm "drop role if exists \"t17h_pgf2_$RUN\"" >/dev/null
+
+# 3f-3 PGPASSFILE holds a non-colliding path → preserved
+pgf_env "t17h_pgf3_$RUN" '' "$PGFILE"
+rc=$?
+[ "$rc" = 0 ] && ok "pgpass-3: non-colliding PGPASSFILE run provisions (exit 0)" || bad "pgpass-3: exit=$rc"
+pgf_check "pgpass-3 (PGPASSFILE path, non-colliding)" absent present
+adm "drop role if exists \"t17h_pgf3_$RUN\"" >/dev/null
+
+# 3f-4 PGPASSFILE value collides with the runtime password → must NOT be inherited
+pgf_env "t17h_pgf4_$RUN" '' "$HOSTILE"
+rc=$?
+[ "$rc" = 0 ] && ok "pgpass-4: colliding PGPASSFILE run still provisions (exit 0)" || bad "pgpass-4: exit=$rc"
+pgf_check "pgpass-4 (PGPASSFILE collides)" absent absent
+adm "drop role if exists \"t17h_pgf4_$RUN\"" >/dev/null
+
+# 3f-5 both present, each judged independently: one differs, one collides
+pgf_env "t17h_pgf5_$RUN" "$PGDIFF" "$HOSTILE"
+rc=$?
+[ "$rc" = 0 ] && ok "pgpass-5: mixed run provisions (exit 0)" || bad "pgpass-5: exit=$rc"
+pgf_check "pgpass-5 (PGPASSWORD differs + PGPASSFILE collides)" present absent
+adm "drop role if exists \"t17h_pgf5_$RUN\"" >/dev/null
+
+# 3f-6 both collide → neither may bypass sanitization
+pgf_env "t17h_pgf6_$RUN" "$HOSTILE" "$HOSTILE"
+rc=$?
+[ "$rc" = 0 ] && ok "pgpass-6: both-collide run provisions (exit 0)" || bad "pgpass-6: exit=$rc"
+pgf_check "pgpass-6 (both collide)" absent absent
+adm "drop role if exists \"t17h_pgf6_$RUN\"" >/dev/null
+
+# 3f-7 NEGATIVE CONTROL: the TASK-18 shape (unconditional name exemption) must
+#     leak the colliding PGPASSWORD to the psql child — otherwise 3f-2/3f-6 above
+#     would prove nothing.
+PRE_T18R="$WORK/pre-t18r-variant.sh"
+cat >"$PRE_T18R" <<'VEOF'
+#!/bin/bash
+# TASK-18 shape with the unconditional PGPASSWORD|PGPASSFILE exemption — NEGATIVE
+# CONTROL ONLY (QA-B1), never used to provision.
+set -euo pipefail
+RUNTIME_ROLE="${APP_DB_ROLE:-dms_app}"
+RUNTIME_PASSWORD="${APP_DB_PASSWORD:-dms_app_local}"
+unset APP_DB_PASSWORD
+unset GREEN_DMS_RUNTIME_PASSWORD
+export -n RUNTIME_PASSWORD
+for _t18_var in $(compgen -e); do
+  case "$_t18_var" in
+    PGPASSWORD | PGPASSFILE) continue ;;
+  esac
+  if [ "${!_t18_var-}" = "$RUNTIME_PASSWORD" ]; then
+    export -n "$_t18_var"
+  fi
+done
+unset _t18_var
+export GREEN_DMS_RUNTIME_ROLE="$RUNTIME_ROLE"
+printf '%s\n%s\n' "$RUNTIME_PASSWORD" "$RUNTIME_PASSWORD" |
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f <(cat <<'EOSQL'
+\set QUIET on
+\getenv role GREEN_DMS_RUNTIME_ROLE
+select format(case when exists (select 1 from pg_roles where rolname = :'role')
+                   then 'alter role %I login' else 'create role %I login' end, :'role') as ddl
+\gexec
+\password :"role"
+EOSQL
+)
+VEOF
+chmod +x "$PRE_T18R"
+reset_wraps
+APP_DB_ROLE="t17h_pgf7_$RUN" APP_DB_PASSWORD="$HOSTILE" PGPASSWORD="$HOSTILE" \
+  POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" \
+  PATH="$WRAP:$PATH" bash "$PRE_T18R" >"$WORK/pgf7.out" 2>&1 || true
+NCL="$(env_leak_names "$HOSTILE" "$WRAP/capture.log" | tr '\n' ' ')"
+case "$NCL" in
+  *PGPASSWORD*) ok "negative control: the TASK-18 name-exemption variant DOES leak the colliding PGPASSWORD to the psql child (via:$NCL)" ;;
+  *) bad "negative control broken: the TASK-18 exemption variant did not leak through PGPASSWORD — the matrix above would be vacuous" ;;
+esac
+adm "drop role if exists \"t17h_pgf7_$RUN\"" >/dev/null
 
 # ===========================================================================
 # 4) Pre-existing NOLOGIN role (what migration 0041 leaves behind) + idempotency

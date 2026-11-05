@@ -132,8 +132,20 @@ export -n RUNTIME_PASSWORD
 # indirect expansion, export -n), so no external helper is exec'd before the
 # environment is clean; the single command-substitution subshell runs a builtin
 # and, by then, already has neither APP_DB_PASSWORD nor GREEN_DMS_RUNTIME_PASSWORD.
-# PGPASSWORD/PGPASSFILE are exempt: libpq needs them and they hold the entrypoint's
-# own admin credential, which is a different secret and out of scope here.
+#
+# PGPASSWORD/PGPASSFILE are NOT exempt from this loop (TASK-18R, QA-B1). A
+# NON-colliding PGPASSWORD/PGPASSFILE is untouched — the value test below does not
+# match it — so legitimate libpq authentication (the entrypoint's
+# PGPASSWORD=$POSTGRES_PASSWORD, a CI client over TCP scram, an operator's
+# PGPASSFILE path) keeps working exactly as before. But when such a variable's
+# value EQUALS RUNTIME_PASSWORD it is the same secret under another name, and
+# TASK-18's name-based `continue` used to hand it to every child anyway. PGPASSWORD
+# carries a password value; PGPASSFILE carries a path string — both are compared by
+# value like every other name. If a connection genuinely needs that exact password
+# (TCP + scram with no trust rule), psql cannot connect once it is un-exported and
+# ON_ERROR_STOP aborts the script: failing closed beats provisioning with the
+# credential still exported. The supported first-boot path (official entrypoint,
+# unix socket, `local all all trust`) needs no password and is unaffected.
 #
 # `export -n`, not `unset`, is the narrowest safe correction here. Matching by
 # value is unavoidably ambiguous: an UNRELATED setting that merely happens to hold
@@ -145,14 +157,13 @@ export -n RUNTIME_PASSWORD
 # unrelated environment state is destroyed. The two names that ARE credentials
 # (APP_DB_PASSWORD, GREEN_DMS_RUNTIME_PASSWORD) are unset above, and
 # RUNTIME_PASSWORD must keep its value for the stdin delivery, so `export -n` is
-# also the only behaviour that is correct for every name this loop can meet. If a
-# colliding variable were readonly, `export -n` fails and `set -e` aborts the
-# script: failing closed is preferred over provisioning with the credential still
-# exported.
+# also the only behaviour that is correct for every name this loop can meet.
+# Measured on bash 5.2.15: `export -n` on a READONLY variable SUCCEEDS (readonly
+# protects the value, not the export attribute), so a readonly colliding variable
+# is un-exported like any other; `unset` of a readonly name FAILS and `set -e`
+# then aborts the script — that path is the fail-closed one (it can only occur when
+# this script is sourced, since a fresh exec cannot inherit readonly).
 for _t18_var in $(compgen -e); do
-  case "$_t18_var" in
-    PGPASSWORD | PGPASSFILE) continue ;;
-  esac
   if [ "${!_t18_var-}" = "$RUNTIME_PASSWORD" ]; then
     export -n "$_t18_var"
   fi

@@ -226,9 +226,13 @@ function sqlSpellings(password: string): string[] {
 
 /** هیچ شکلی از رمز در متن حاضر نباشد */
 function expectNoPasswordSpelling(text: string, password: string, where: string): void {
-  for (const spelling of sqlSpellings(password)) {
-    expect(text.includes(spelling), `${where} شاملِ شکلِ «${spelling}» از رمز است`).toBe(false);
-  }
+  // QA-B3: پیامِ شکست هرگز خودِ رمز یا املايی از آن را ندارد — فقط نامِ محل، شمارهٔ
+  // املا و قضاوت. آزمونِ N همین را به‌عنوانِ رگرسیون می‌سنجد.
+  sqlSpellings(password).forEach((spelling, idx) => {
+    expect(text.includes(spelling), `${where} شاملِ شکلِ #${idx} از رمز است (مقدار سرکوب شده)`).toBe(
+      false,
+    );
+  });
 }
 
 /**
@@ -274,6 +278,45 @@ const PRE_TASK18_SCRIPT = [
   'set -euo pipefail',
   'RUNTIME_ROLE="${APP_DB_ROLE:-dms_app}"',
   'RUNTIME_PASSWORD="${APP_DB_PASSWORD:-dms_app_local}"',
+  'export GREEN_DMS_RUNTIME_ROLE="$RUNTIME_ROLE"',
+  "printf '%s\\n%s\\n' \"$RUNTIME_PASSWORD\" \"$RUNTIME_PASSWORD\" |",
+  "  psql -v ON_ERROR_STOP=1 --username \"$POSTGRES_USER\" --dbname \"$POSTGRES_DB\" -f <(cat <<'EOSQL'",
+  '\\set QUIET on',
+  '\\getenv role GREEN_DMS_RUNTIME_ROLE',
+  "select format(case when exists (select 1 from pg_roles where rolname = :'role')",
+  "                   then 'alter role %I login' else 'create role %I login' end, :'role') as ddl",
+  '\\gexec',
+  '\\password :"role"',
+  'EOSQL',
+  ')',
+  '',
+].join('\n');
+
+/**
+ * نسخهٔ TASK-18 (دارایِ معافیتِ نامیِ `PGPASSWORD|PGPASSFILE`) — فقط به‌عنوانِ
+ * **کنترلِ منفیِ QA-B1**. scrub را انجام می‌دهد ولی PGPASSWORDِ هم‌مقدار با رمز را
+ * عمداً معاف می‌گذارد؛ اگر آشکارسازِ تست‌هایِ L واقعاً کار کند، این نسخه باید
+ * رمز را در محیطِ فرزندِ psql لو بدهد.
+ */
+const PRE_T18R_SCRIPT = [
+  '#!/bin/bash',
+  '# TASK-18 shape with the unconditional PGPASSWORD|PGPASSFILE exemption — NEGATIVE',
+  '# CONTROL ONLY (QA-B1), never used to provision.',
+  'set -euo pipefail',
+  'RUNTIME_ROLE="${APP_DB_ROLE:-dms_app}"',
+  'RUNTIME_PASSWORD="${APP_DB_PASSWORD:-dms_app_local}"',
+  'unset APP_DB_PASSWORD',
+  'unset GREEN_DMS_RUNTIME_PASSWORD',
+  'export -n RUNTIME_PASSWORD',
+  'for _t18_var in $(compgen -e); do',
+  '  case "$_t18_var" in',
+  '    PGPASSWORD | PGPASSFILE) continue ;;',
+  '  esac',
+  '  if [ "${!_t18_var-}" = "$RUNTIME_PASSWORD" ]; then',
+  '    export -n "$_t18_var"',
+  '  fi',
+  'done',
+  'unset _t18_var',
   'export GREEN_DMS_RUNTIME_ROLE="$RUNTIME_ROLE"',
   "printf '%s\\n%s\\n' \"$RUNTIME_PASSWORD\" \"$RUNTIME_PASSWORD\" |",
   "  psql -v ON_ERROR_STOP=1 --username \"$POSTGRES_USER\" --dbname \"$POSTGRES_DB\" -f <(cat <<'EOSQL'",
@@ -576,7 +619,7 @@ describe('TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زم�
       status = e.status ?? -1;
       combined = `${e.stdout ?? ''}${e.stderr ?? ''}${e.message ?? ''}`;
     }
-    expect(status, `باید با خطا خارج شود؛ خروجی: ${combined.slice(0, 200)}`).not.toBe(0);
+    expect(status, `باید با خطا خارج شود؛ خروجی سرکوب شد (${combined.length} نویسه)`).not.toBe(0);
     expect(await roleCount(ROLE_FAIL)).toBe(0); // موفقِ کاذب نداریم
     expect(combined).toMatch(/read-only transaction|25006/);
     expectNoPasswordSpelling(combined, PW_SQL, 'تشخیصِ خطا');
@@ -594,7 +637,7 @@ describe('TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زم�
       status = e.status ?? -1;
       message = `${e.stderr ?? ''}${e.message ?? ''}`;
     }
-    expect(status, `باید رد شود؛ خروجی: ${message.slice(0, 200)}`).not.toBe(0);
+    expect(status, `باید رد شود؛ خروجی سرکوب شد (${message.length} نویسه)`).not.toBe(0);
     expect(message).toMatch(/newline|carriage return/i);
     expect(await roleCount(ROLE_NEWLINE)).toBe(0);
     expectNoPasswordSpelling(message, `bad\npass-${RUN}`, 'خروجیِ ردِ رمزِ چندخطی');
@@ -752,7 +795,154 @@ describe('TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زم�
       status = e.status ?? -1;
       message = `${e.stderr ?? ''}${e.message ?? ''}`;
     }
-    expect(status, `اسکریپت باید با خطا خارج شود، نه صفر. خروجی: ${message.slice(0, 200)}`).not.toBe(0);
+    expect(status, `اسکریپت باید با خطا خارج شود، نه صفر. خروجی سرکوب شد (${message.length} نویسه)`).not.toBe(0);
     expect(await roleCount(role)).toBe(0); // هیچ نقشی ساخته نشد ⇒ گزارشِ موفقِ کاذب نداریم
+  });
+
+  it('L) ماتریسِ PGPASSWORD/PGPASSFILE (QA-B1): مقدارِ غیرهم‌مقدار حفظ می‌شود، مقدارِ هم‌مقدار هرگز به فرزند نمی‌رسد', async () => {
+    // TASK-18R: معافیتِ نامیِ PGPASSWORD|PGPASSFILE حذف شد؛ قضاوت فقط بر اساسِ مقدار.
+    //  - PGPASSWORD غیرهم‌مقدار ⇒ حفظ (احرازِ مشروعِ libpq دست‌نخورده) و هیچ متغیری هم‌مقدارِ رمزِ runtime نیست
+    //  - PGPASSWORD هم‌مقدار ⇒ از محیطِ هر فرزند حذف
+    //  - PGPASSFILE مسیرِ غیرهم‌مقدار ⇒ حفظ · PGPASSFILE هم‌مقدار ⇒ حذف
+    //  - هر دو حاضر/هم‌مقدار ⇒ هر کدام مستقل و هیچ‌کدام دور زده نمی‌شوند
+    // ردیف‌هایِ «متغیرِ بی‌ربطِ هم‌مقدار/غیرهم‌مقدار» در تستِ K و هارنسِ 3e پوشش دارند.
+    // رمزهایِ نقش ساختگی‌اند؛ برایِ احرازِ واقعی در مسیرِ «حفظ»، همان credentialِ مدیرِ از
+    // پیش‌موجودِ DATABASE_URL به‌کار می‌رود (هرگز چاپ نمی‌شود) — مسیرِ scramِ CI را هم می‌پوشاند.
+    const { dir, logs, children } = makeEnvWrappers('pgpass');
+    expect(children.length, 'psql و cat باید wrapper داشته باشند').toBeGreaterThanOrEqual(2);
+    const DIFFERS = adminUrl.password
+      ? decodeURIComponent(adminUrl.password)
+      : `qa-pgpass-diff-${RUN}`;
+    const PGFILE = path.join(dir, `pgpass-synth-${RUN}`);
+    fs.writeFileSync(PGFILE, '', { mode: 0o600 });
+    const PW_L = `q'a$$ g\\p"ss-${RUN}`;
+    const reset = () => {
+      for (const file of Object.values(logs)) fs.writeFileSync(file, '');
+    };
+    const assertClean = (label: string) => {
+      for (const [child, file] of children) {
+        const proc = envSection(file, 'ENVPROC-BEGIN', 'ENVPROC-END');
+        expect(proc.length, `${label}: محیطِ ${child} خوانده نشد`).toBeGreaterThan(5);
+        expect(namesWithValue(proc, PW_L), `${label}: ${child} نباید متغیرِ هم‌مقدارِ رمز داشته باشد`).toEqual([]);
+      }
+    };
+    const hasVar = (file: string, name: string) =>
+      envSection(file, 'ENVPROC-BEGIN', 'ENVPROC-END').some((l) => l.startsWith(`${name}=`));
+    const tryRun = (role: string, override: Record<string, string>) => {
+      try {
+        runScript(role, PW_L, { PATH: dir, ...override });
+      } catch {
+        /* در پیکربندِ احرازِ رمزی (CI) نسخه‌هایِ هم‌مقدار fail-closed رد می‌شوند؛ سنجهٔ این‌جا محیط است */
+      }
+      created.push(role);
+    };
+
+    try {
+      // L1 — PGPASSWORD differs ⇒ preserved، و مکانیزمِ init کامل کار می‌کند
+      reset();
+      runScript(`t18r_pg1_${RUN}`, PW_L, { PATH: dir, PGPASSWORD: DIFFERS });
+      created.push(`t18r_pg1_${RUN}`);
+      assertClean('L1');
+      expect(hasVar(logs.psql, 'PGPASSWORD'), 'L1: PGPASSWORDِ غیرهم‌مقدار باید حفظ شود').toBe(true);
+      expect((await roleRow(`t18r_pg1_${RUN}`))?.rolcanlogin).toBe(true);
+      expect(storedPasswordMatches(await storedPassword(`t18r_pg1_${RUN}`), PW_L, `t18r_pg1_${RUN}`)).toBe(true);
+
+      // L2 — PGPASSWORD collides ⇒ هیچ فرزندی آن را نمی‌بیند
+      reset();
+      tryRun(`t18r_pg2_${RUN}`, { PGPASSWORD: PW_L });
+      assertClean('L2');
+      expect(hasVar(logs.psql, 'PGPASSWORD'), 'L2: PGPASSWORDِ هم‌مقدار نباید به فرزند برسد').toBe(false);
+
+      // L3 — PGPASSFILE with a non-colliding path ⇒ preserved
+      reset();
+      runScript(`t18r_pg3_${RUN}`, PW_L, { PATH: dir, PGPASSFILE: PGFILE });
+      created.push(`t18r_pg3_${RUN}`);
+      assertClean('L3');
+      expect(hasVar(logs.psql, 'PGPASSFILE'), 'L3: مسیرِ غیرهم‌مقدارِ PGPASSFILE باید حفظ شود').toBe(true);
+
+      // L4 — PGPASSFILE value collides ⇒ dropped
+      reset();
+      tryRun(`t18r_pg4_${RUN}`, { PGPASSFILE: PW_L });
+      assertClean('L4');
+      expect(hasVar(logs.psql, 'PGPASSFILE'), 'L4: PGPASSFILEِ هم‌مقدار نباید به فرزند برسد').toBe(false);
+
+      // L5 — both present, judged independently
+      reset();
+      runScript(`t18r_pg5_${RUN}`, PW_L, { PATH: dir, PGPASSWORD: DIFFERS, PGPASSFILE: PW_L });
+      created.push(`t18r_pg5_${RUN}`);
+      assertClean('L5');
+      expect(hasVar(logs.psql, 'PGPASSWORD'), 'L5: جزءِ غیرهم‌مقدار باید حفظ شود').toBe(true);
+      expect(hasVar(logs.psql, 'PGPASSFILE'), 'L5: جزءِ هم‌مقدار باید حذف شود').toBe(false);
+
+      // L6 — both collide ⇒ neither may bypass sanitization
+      reset();
+      tryRun(`t18r_pg6_${RUN}`, { PGPASSWORD: PW_L, PGPASSFILE: PW_L });
+      assertClean('L6');
+      expect(hasVar(logs.psql, 'PGPASSWORD'), 'L6: PGPASSWORD نباید دور زده شود').toBe(false);
+      expect(hasVar(logs.psql, 'PGPASSFILE'), 'L6: PGPASSFILE نباید دور زده شود').toBe(false);
+
+      // L7 — کنترلِ منفی: نسخهٔ TASK-18 با معافیتِ نامی باید لو بدهد، وگرنه L2/L6 تهی‌اند
+      reset();
+      const pre = path.join(dir, 'pre-t18r.sh');
+      fs.writeFileSync(pre, PRE_T18R_SCRIPT, { mode: 0o755 });
+      try {
+        runScript(`t18r_pg7_${RUN}`, PW_L, { PATH: dir, PGPASSWORD: PW_L }, pre);
+      } catch {
+        /* fail-closed قابلِ قبول است */
+      }
+      created.push(`t18r_pg7_${RUN}`);
+      const leaky = namesWithValue(envSection(logs.psql, 'ENVPROC-BEGIN', 'ENVPROC-END'), PW_L);
+      expect(leaky, 'کنترلِ منفی: نسخهٔ TASK-18 (معافیتِ نامی) باید PGPASSWORDِ هم‌مقدار را لو بدهد').toContain(
+        'PGPASSWORD',
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('M) ردِ رمزِ نادرست با SQLSTATE ساختاریافتهٔ 28P01 از libpq (نه متنِ محلی‌پذیر) + احرازِ موفق با رمزِ دقیق', async () => {
+    // نیازمندِ احرازِ رمزی در کانالِ host است (CI: scram روی سرویسِ docker؛ محلی: قاعدهٔ
+    // scram-sha-256 برایِ 127.0.0.1 روی کلاسترِ یک‌بارمصرفِ آزمون). رمزها ساختگی‌اند.
+    const role = `t18r_auth28_${RUN}`;
+    const pw = `m'28$$ q\\r"t-${RUN}`;
+    runScript(role, pw);
+    created.push(role);
+    const conn = (password: string) =>
+      new pg.Client({
+        host: adminUrl.hostname || '127.0.0.1',
+        port: Number(adminUrl.port || '5432'),
+        user: role,
+        password,
+        database: ADMIN_DB,
+      });
+    const okc = conn(pw);
+    await okc.connect();
+    const { rows } = await okc.query('select rolsuper from pg_roles where rolname = current_user');
+    expect(rows[0]?.rolsuper, 'نقش نباید superuser باشد').toBe(false);
+    await okc.end();
+    const badc = conn(`${pw}-wrong`);
+    const err: unknown = await badc.connect().then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err, 'اتصال با رمزِ نادرست باید رد شود').toBeTruthy();
+    expect((err as { code?: string }).code, 'SQLSTATE ردِ احراز باید 28P01 باشد').toBe('28P01');
+  });
+
+  it('N) پیامِ شکستِ تشخیص‌دهنده‌ها هیچ املايی از رمز را چاپ نمی‌کند (QA-B3)', () => {
+    // آشکارساز عمداً با متنِ حاویِ رمز فعال می‌شود؛ پیامِ شکستِ آن نباید نه رمزِ خام را
+    // داشته باشد و نه هیچ‌کدام از چهار املايِ SQL را.
+    const text = `LOG: statement: create role x login password E'${PW_ENV.replace(/'/g, "''")}'`;
+    let msg = '';
+    try {
+      expectNoPasswordSpelling(text, PW_ENV, 'meta-probe');
+    } catch (e) {
+      msg = String((e as Error)?.message ?? e);
+    }
+    expect(msg.length, 'تشخیص‌دهنده واقعاً باید شکست می‌خورد').toBeGreaterThan(0);
+    expect(msg.includes(PW_ENV), 'پیام نباید رمزِ خام را داشته باشد').toBe(false);
+    for (const s of sqlSpellings(PW_ENV)) {
+      expect(msg.includes(s), 'پیام نباید هیچ املايی از رمز را داشته باشد').toBe(false);
+    }
   });
 });
