@@ -479,7 +479,9 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
     expect(info.prosecdef).toBe(true);
     expect(info.config?.some((c) => c.startsWith('search_path='))).toBe(true); // پین‌شده
     // EXECUTE به PUBLIC داده نشده (در غیرِ این صورت '=X/' در acl ظاهر می‌شد)
-    expect(info.acl ?? '').not.toMatch(/=X\//);
+    // مدخلِ PUBLIC در acl «گیرندهٔ تهی» دارد (=X/owner)؛ عبارتِ =X/ به‌تنهایی
+    // مدخلِ هر نقشِ دیگر (مثلِ postgres=X/postgres) را هم می‌گیرد و گمراه است.
+    expect(info.acl ?? '').not.toMatch(/(^|[{,])=X\//);
     expect(info.acl ?? '').toContain(`${RUNTIME_ROLE}=X`);
     // ستون‌هایِ خروجی محدودند: هیچ ستونِ اضافه‌ای (مثلِ last_login_at) نشت نمی‌کند
     expect(info.result).toContain('password_hash');
@@ -506,7 +508,7 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
     );
     expect(rows[0].prosecdef).toBe(true);
     expect(rows[0].config?.some((x) => x.startsWith('search_path='))).toBe(true);
-    expect(rows[0].acl ?? '').not.toMatch(/=X\//);
+    expect(rows[0].acl ?? '').not.toMatch(/(^|[{,])=X\//);
     expect(rows[0].acl ?? '').toContain(`${RUNTIME_ROLE}=X`);
   });
 
@@ -525,15 +527,32 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
 
 describe('ممیزیِ استقرار — نوشتن مجاز، خواندنِ تاریخچهٔ دیگران ممنوع', () => {
   it('نقشِ برنامه می‌تواند تلاش را ثبت کند (پیش از وجودِ اجاره)', async () => {
-    const id = await asRuntime('none', async (c) =>
-      (
-        await c.query(
-          `insert into onboarding_attempt (client_ip, company_code, admin_email, outcome, reason_code)
-           values ('9.9.9.9','PRIV_X','x@example.com','rejected_rate_limit','ip_hour_limit') returning id`,
-        )
-      ).rows[0].id,
+    // نکتهٔ ظریفِ RLS: «INSERT ... RETURNING» به سیاستِ SELECT هم نیاز دارد، چون
+    // RETURNING سطر را بازمی‌خواند. این جدول عمداً سیاستِ SELECT ندارد، پس RETURNING
+    // زیرِ نقشِ برنامه رد می‌شود — و این دقیقاً خواستهٔ ماست. کدِ تولیدی
+    // (OnboardingRepository.recordAttempt) هم RETURNING ندارد، پس مسیرِ واقعی سالم است.
+    await asRuntime('none', (c) =>
+      c.query(
+        `insert into onboarding_attempt (client_ip, company_code, admin_email, outcome, reason_code)
+         values ('9.9.9.9','PRIV_X','x@example.com','rejected_rate_limit','ip_hour_limit')`,
+      ),
     );
-    expect(id).toBeTruthy();
+    const seen = await ownerPool.query(
+      `select count(*)::int n from onboarding_attempt where company_code = 'PRIV_X'`,
+    );
+    expect(seen.rows[0].n).toBe(1);
+
+    // و RETURNING واقعاً زیرِ نقشِ برنامه رد می‌شود (سنجهٔ صریحِ همان قاعده)
+    const code = await asRuntime('none', (c) =>
+      expectRlsDenied(
+        c.query(
+          `insert into onboarding_attempt (client_ip, company_code, outcome)
+           values ('9.9.9.8','PRIV_Y','failed') returning id`,
+        ),
+        'audit insert with RETURNING',
+      ),
+    );
+    expect(code).toBe('42501');
   });
 
   it('اما نمی‌تواند هیچ رکوردِ ممیزی را بخواند (سیاستِ SELECT تعریف نشده)', async () => {
