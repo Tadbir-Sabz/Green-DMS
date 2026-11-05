@@ -113,7 +113,11 @@ as $$
     from v_auth_session v
    where (p_session_id is not null or p_refresh_hash is not null)
      and (p_session_id is null or v.id = p_session_id)
-     and (p_refresh_hash is null or v.refresh_token_hash = p_refresh_hash);
+     -- v_auth_session عمداً ستونِ refresh_token_hash را برنمی‌گرداند (خودِ hash هرگز به لایهٔ
+     -- برنامه نمی‌رود)؛ پس تطبیقِ hash رویِ خودِ جدول انجام می‌شود و فقط شناسهٔ نشست بیرون می‌آید.
+     and (p_refresh_hash is null
+          or v.id in (select se.id from auth_session se
+                       where se.refresh_token_hash = p_refresh_hash));
 $$;
 
 -- توجه: v_auth_session ستونِ refresh_token_hash را عمداً برنمی‌گرداند؛ خودِ hash هیچ‌گاه به
