@@ -320,7 +320,7 @@ jobs:
             OK=0
             for attempt in $(seq 1 12); do
               echo "----- S3 round-trip ${CAND} (attempt ${attempt}) -----" >>/tmp/s3-probe.log
-              if node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms 2>>/tmp/s3-probe.log | tee -a /tmp/s3-probe.log | grep -q '"ok":true'; then
+              if node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms </dev/null 2>>/tmp/s3-probe.log | tee -a /tmp/s3-probe.log | grep -q '"ok":true'; then
                 OK=1; echo "round-trip PASSED for ${CAND} on attempt ${attempt}"; break
               fi
               sleep 5
@@ -328,8 +328,10 @@ jobs:
             if [ "$OK" -eq 1 ]; then
               IMAGE="$CAND"; DIGEST="$CAND_DIGEST"; PORT="$CPORT"; AKEY="$CKEY"; SKEY="$CSEC"
               echo "SELECTED ${IMAGE} digest=${DIGEST:-unresolved} port=${PORT}"
+              echo "::notice title=s3-candidate-accepted::image=${CAND} digest=${CAND_DIGEST:-unresolved} port=${CPORT} s3_roundtrip=PASSED"
               break
             fi
+            echo "::warning title=s3-candidate-rejected::image=${CAND} pulled_and_started=yes s3_roundtrip=FAILED (see s3-probe-log); trying the next candidate"
             echo "round-trip FAILED for ${CAND}"
             docker logs s3probe >>/tmp/s3-probe.log 2>&1
             docker rm -f s3probe >/dev/null 2>&1
@@ -338,11 +340,14 @@ jobs:
           rm -f ./.s3-roundtrip.mjs
           echo "=== full probe evidence ==="
           cat /tmp/s3-probe.log
+          echo "=== per-candidate verdict matrix ==="
+          grep -nE '^=====|pull_rc=|run_rc=|health_http=|answered after|SELECTED|round-trip (PASSED|FAILED)|"ok":true|Error|denied|not found' /tmp/s3-probe.log | head -n 80
+          echo "::notice title=s3-verdict-matrix::$(grep -E 'pull_rc=|SELECTED|round-trip (PASSED|FAILED)|"ok":true' /tmp/s3-probe.log | head -n 30 | enc)"
 
           if [ -z "$IMAGE" ]; then
             echo "::error title=BLOCKED-s3-unavailable::No S3-compatible candidate image could be pulled AND pass a real S3 round-trip; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed, NOT skipped)"
             echo "::error title=s3-candidates-tried::adobe/s3mock:3.9.1, chrislusf/seaweedfs:3.76, localstack/localstack:3.9, quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z"
-            echo "::error title=s3-probe-log::$(head -c 4000 /tmp/s3-probe.log | enc)"
+            echo "::error title=s3-probe-log::$(head -c 12000 /tmp/s3-probe.log | enc)"
             echo "::error title=s3-docker-env::$( { docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'; docker info --format 'mirrors={{.RegistryConfig.Mirrors}}'; docker images | head -n 15; docker ps -a; } 2>&1 | enc)"
             exit 1
           fi

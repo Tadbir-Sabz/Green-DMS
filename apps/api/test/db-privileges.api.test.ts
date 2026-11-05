@@ -672,11 +672,13 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
   it('مسیرِ مالکیتِ هر سیاستِ فرزند، «کلیدِ خارجیِ واقعیِ» همان جدول است (نه حدس)', async () => {
     const { rows } = await ownerPool.query(`
       with child_policies as (
+        -- ruleutils متنِ سیاست را با نامِ «واجدِ شرایطِ» طرحواره رندر می‌کند
+        -- (FROM public.delivery pp WHERE ...)، پس الگو باید public. اختیاری را هم بپذیرد.
         select p.tablename as child, p.qual
           from pg_policies p
          where p.schemaname = 'public'
            and p.policyname = 'p_' || p.tablename || '_tenant'
-           and p.qual ~* 'from [a-z_]+ pp where'
+           and p.qual ~* 'from (?:public\\.)?([a-z_]+) pp'
       ),
       declared_fk as (
         select con.conrelid::regclass::text as child,
@@ -685,12 +687,19 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
          where con.contype = 'f'
       )
       select cp.child,
-             (regexp_match(cp.qual, 'from ([a-z_]+) pp where', 'i'))[1] as policy_parent,
+             (regexp_match(cp.qual, 'from (?:public\\.)?([a-z_]+) pp', 'i'))[1] as policy_parent,
              exists (select 1 from declared_fk f
                       where f.child = cp.child
-                        and f.parent = (regexp_match(cp.qual, 'from ([a-z_]+) pp where', 'i'))[1]) as fk_verified
+                        and f.parent = (regexp_match(cp.qual, 'from (?:public\\.)?([a-z_]+) pp', 'i'))[1]) as fk_verified
         from child_policies cp
        order by cp.child`);
+    if (rows.length === 0) {
+      const sample = await ownerPool.query(
+        `select tablename, left(qual, 160) as qual from pg_policies
+          where schemaname = 'public' and policyname like 'p_%_tenant' limit 3`,
+      );
+      throw new Error(`no child policy matched the pattern; sample=${JSON.stringify(sample.rows)}`);
+    }
     expect(rows.length).toBeGreaterThanOrEqual(67);
     const unverified = rows.filter((r: any) => !r.fk_verified).map((r: any) => r.child);
     expect(unverified).toEqual([]);
