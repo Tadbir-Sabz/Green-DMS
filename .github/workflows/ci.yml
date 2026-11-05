@@ -237,7 +237,6 @@ jobs:
         shell: bash
         run: |
           set +e
-          IMAGE="minio/minio"
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
 
           echo "=== runner / docker environment ==="
@@ -245,16 +244,49 @@ jobs:
           docker version 2>&1 | sed -n '1,20p'
           docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
 
-          echo "=== docker pull ${IMAGE} (stdout+stderr captured) ==="
-          docker pull "$IMAGE" >/tmp/minio-pull.log 2>&1
-          PULL_RC=$?
-          echo "pull_rc=${PULL_RC}"
+          # Evidence-driven image resolution. The reference assumed earlier
+          # (minio/minio on Docker Hub) is DENIED from the runner with:
+          #   "pull access denied for minio/minio, repository does not exist or
+          #    may require 'docker login'"   (pull_rc=1, run_rc=125)
+          # while postgis/postgis:16-3.4 and redis:7-alpine pull fine in the same
+          # job. So this is a repository-access problem, NOT a rate limit and NOT
+          # an invalid tag. Probe the candidate references in order, capture every
+          # attempt verbatim, and use the first one that actually pulls. The
+          # resolved RepoDigest is recorded so an immutable pin can be committed
+          # from verified evidence rather than guesswork.
+          IMAGE=""
+          DIGEST=""
+          : >/tmp/minio-pull.log
+          for CAND in quay.io/minio/minio:latest minio/minio:latest; do
+            echo "=== docker pull ${CAND} ==="
+            echo "----- candidate ${CAND} -----" >>/tmp/minio-pull.log
+            docker pull "$CAND" >>/tmp/minio-pull.log 2>&1
+            RC=$?
+            echo "pull_rc=${RC} for ${CAND}"
+            if [ "$RC" -eq 0 ]; then
+              IMAGE="$CAND"
+              DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$CAND" 2>/dev/null)
+              echo "selected=${IMAGE} resolved_digest=${DIGEST:-unresolved}"
+              break
+            fi
+          done
+          echo "=== full pull evidence ==="
           cat /tmp/minio-pull.log
 
-          echo "=== was the image present before container creation? ==="
+          echo "=== was an image present before container creation? ==="
           docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' | grep -i minio || echo "(no minio image present locally)"
-          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null)
-          echo "resolved_digest=${DIGEST:-unresolved}"
+          PULL_RC=$([ -n "$IMAGE" ] && echo 0 || echo 1)
+
+          if [ -z "$IMAGE" ]; then
+            echo "::error title=BLOCKED-minio-unavailable::No candidate MinIO image could be pulled; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed)"
+            echo "::error title=minio-candidates-tried::quay.io/minio/minio:latest, minio/minio:latest"
+            echo "::error title=minio-pull-log::$(head -c 3000 /tmp/minio-pull.log | enc)"
+            echo "::error title=minio-docker-env::$( { docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'; docker info --format 'mirrors={{.RegistryConfig.Mirrors}}'; docker images | head -n 15; } 2>&1 | enc)"
+            exit 1
+          fi
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "digest=${DIGEST:-unresolved}" >> "$GITHUB_OUTPUT"
+          echo "::notice title=minio-image-resolved::image=${IMAGE} digest=${DIGEST:-unresolved}"
 
           echo "=== docker run (stdout+stderr captured) ==="
           docker run -d --name minio -p 9000:9000 \

@@ -76,6 +76,35 @@ jobs:
             exit $CFG_RC
           fi
 
+      # همان کشفِ شاهد-محورِ ci.yml: docker-compose.yml مقدارِ ${MINIO_IMAGE:-minio/minio}
+      # را می‌خواند و مرجعِ Docker Hub از رانر «pull access denied» می‌گیرد، پس نامزدها
+      # آزموده می‌شوند و اولین مرجعِ قابلِ pull صادر می‌گردد (digest هم ثبت می‌شود).
+      - name: resolve MinIO image (evidence-driven)
+        id: minioimg
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          : >/tmp/minio-pull.log
+          IMAGE=""
+          for CAND in quay.io/minio/minio:latest minio/minio:latest; do
+            echo "=== docker pull ${CAND} ==="
+            echo "----- candidate ${CAND} -----" >>/tmp/minio-pull.log
+            docker pull "$CAND" >>/tmp/minio-pull.log 2>&1
+            RC=$?
+            echo "pull_rc=${RC} for ${CAND}"
+            if [ "$RC" -eq 0 ]; then IMAGE="$CAND"; break; fi
+          done
+          cat /tmp/minio-pull.log
+          if [ -z "$IMAGE" ]; then
+            echo "::error title=BLOCKED-e2e-minio-image::No candidate MinIO image could be pulled; the stack cannot boot and browser tests were NOT executed"
+            echo "::error title=e2e-minio-pull-log::$(head -c 3000 /tmp/minio-pull.log | enc)"
+            exit 1
+          fi
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null)
+          echo "MINIO_IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+          echo "::notice title=e2e-minio-image-resolved::image=${IMAGE} digest=${DIGEST:-unresolved}"
+
       # build جدا از up تا مشخص شود blocker «ساختِ ایمیج» است یا «pull/ایجادِ کانتینر».
       - name: build images (plain progress, captured)
         id: buildimg

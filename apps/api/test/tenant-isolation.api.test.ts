@@ -60,6 +60,7 @@ const PROBE_PASSWORD = 'Probe!pass1';
 
 let companyA = '';
 let companyB = '';
+let customerA = '';
 let portalUserId = '';
 const PORTAL_EMAIL = `iso_${crypto.randomBytes(4).toString('hex')}@example.com`;
 const PORTAL_PASSWORD = 'Portal!pass1';
@@ -108,12 +109,38 @@ beforeAll(async () => {
     );
   }
 
+  // زنجیرهٔ دادهٔ آزمون مطابقِ اسکیمای واقعی: branch → person → customer → portal_user.
+  // توجه: portal_user ستونِ first_name/last_name ندارد (display_name دارد) و
+  // customer_id آن NOT NULL است (مهاجرت 0037)؛ customer هم به person_id و branch_id
+  // NOT NULL نیاز دارد (مهاجرت 0007).
+  const branchA = (
+    await pool.query<{ id: string }>(
+      `insert into branch (company_id, code, name) values ($1, 'HQ', 'مرکز') returning id`,
+      [companyA],
+    )
+  ).rows[0].id;
+
+  const personA = (
+    await pool.query<{ id: string }>(
+      `insert into person (company_id, code, legal_type, first_name, last_name)
+       values ($1, 'ISO-P1', 'natural', 'کاربر', 'پورتال') returning id`,
+      [companyA],
+    )
+  ).rows[0].id;
+
+  customerA = (
+    await pool.query<{ id: string }>(
+      `insert into customer (person_id, branch_id, code) values ($1, $2, 'ISO-C1') returning id`,
+      [personA, branchA],
+    )
+  ).rows[0].id;
+
   // کاربرِ پورتال برای شرکتِ آ (برای تستِ هم‌زمانیِ refresh).
   portalUserId = (
     await pool.query<{ id: string }>(
-      `insert into portal_user (company_id, email, password_hash, first_name, last_name)
-       values ($1, $2, $3, 'کاربر', 'جداسازی') returning id`,
-      [companyA, PORTAL_EMAIL, await hashPassword(PORTAL_PASSWORD)],
+      `insert into portal_user (company_id, customer_id, email, password_hash, display_name)
+       values ($1, $2, $3, $4, 'کاربرِ جداسازی') returning id`,
+      [companyA, customerA, PORTAL_EMAIL, await hashPassword(PORTAL_PASSWORD)],
     )
   ).rows[0].id;
 
@@ -203,6 +230,25 @@ describe('RLS — اثربخشی زیرِ نقشِ واقعیِ اپلیکیشن
     expect(probePool, 'probePool باید در تستِ قبل ساخته شده باشد').toBeTruthy();
     await probePool!.query(`grant select on portal_user to "${PROBE_ROLE}"`);
 
+    // گامِ ۱ — با زمینهٔ درست: سیاستِ portal_user برای نقشِ RLS‌پذیر کار می‌کند و
+    // کاربرِ آزمون را دقیقاً با customerِ خودش برمی‌گرداند.
+    const withCtx = await probePool!.connect();
+    try {
+      await withCtx.query(`select set_config('app.company_id', $1, false)`, [companyA]);
+      const found = await withCtx.query<{ id: string; customer_id: string }>(
+        `select id, customer_id from portal_user where lower(email) = lower($1)`,
+        [PORTAL_EMAIL],
+      );
+      expect(found.rows).toHaveLength(1);
+      expect(found.rows[0].id).toBe(portalUserId);
+      expect(found.rows[0].customer_id).toBe(customerA);
+    } finally {
+      withCtx.release();
+    }
+
+    // گامِ ۲ — بدونِ زمینهٔ اجاره (اتصالِ تازه): ورودِ پورتال با ایمیل انجام می‌شود،
+    // یعنی «پیش از» آنکه اجاره‌ای معلوم باشد. زیرِ نقشِ RLS‌پذیر این مسیر یا خطا
+    // می‌دهد یا صفر ردیف — پس طراحیِ فعلی به bypassِ نقشِ اپ متکی است.
     const client = await probePool!.connect();
     let visible = -1;
     let threw = false;

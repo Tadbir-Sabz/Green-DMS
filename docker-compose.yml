@@ -31,7 +31,9 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio
+    # MINIO_IMAGE lets CI supply a verified, immutable reference (recorded by digest)
+    # while the default keeps local development behaving exactly as before.
+    image: ${MINIO_IMAGE:-minio/minio}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minio
