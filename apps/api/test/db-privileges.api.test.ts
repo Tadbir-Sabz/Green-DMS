@@ -1143,3 +1143,77 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
     expect(code).toBe('22023');
   });
 });
+
+describe('GDM-13-01 رویِ Postgres واقعی — نابودیِ اتصالِ آلوده و بازیابیِ استخر', () => {
+  it('پاک‌سازیِ ناموفق (تراکنشِ aborted) ⇒ اتصال از استخر حذف/نابود می‌شود و هرگز دوباره داده نمی‌شود', async () => {
+    const inner = new pg.Pool({ connectionString: appUrl.toString(), max: 1 });
+    const jobPool = new TenantAwarePool(inner);
+    const discarded: unknown[] = [];
+    try {
+      await runAsJobTenant(
+        jobPool as never,
+        companyA,
+        async () => {
+          // برچسبِ مخصوصِ همین نشست: اگر اتصالِ آلوده دوباره به کسی داده شود، این مقدار
+          // رویِ borrower بعدی دیده می‌شود (پس آزمون «استفادهٔ مجدد» را واقعاً می‌سنجد).
+          await jobPool.query(`select set_config('app.probe', 'job-A-marker', false)`);
+          // تراکنش را به وضعیتِ aborted ببر ⇒ clearTenant با 25P02 شکست می‌خورد
+          await jobPool.query('begin');
+          await jobPool.query('select 1/0').catch(() => undefined);
+        },
+        { onConnectionDiscarded: (info) => discarded.push(info) },
+      );
+
+      // ۱) اتصالِ آلوده به استخر برنگشت: استخرِ تک‌اتصالی اکنون خالی است
+      expect(inner.totalCount).toBe(0);
+      // ۲) خطایِ پاک‌سازی بلعیده نشد
+      expect(discarded).toHaveLength(1);
+      expect(discarded[0]).toMatchObject({ companyId: companyA, stage: 'clear', destroyed: true });
+
+      // ۳) borrower بعدی اتصالِ تازه می‌گیرد، نه اتصالِ دارایِ app.company_idِ مانده
+      const fresh = await inner.connect();
+      try {
+        const { rows } = await fresh.query(
+          `select coalesce(current_setting('app.probe', true), '') as probe,
+                  coalesce(current_setting('app.company_id', true), '') as company_id,
+                  (select count(*)::int from app_user) as visible_users`,
+        );
+        expect(rows[0].probe).toBe(''); // اتصالِ آلوده (با marker) استفادهٔ مجدد نشد
+        expect(rows[0].company_id).toBe('');
+        expect(Number(rows[0].visible_users)).toBe(0);
+      } finally {
+        fresh.release();
+      }
+      expect(inner.totalCount).toBe(1); // استخر با اتصالِ سالمِ تازه بازیابی شد
+    } finally {
+      await inner.end();
+    }
+  });
+
+  it('بازیابیِ استخر پس از نابودی: شغلِ بعدی همان اتصالِ دورانداخته‌شده را نمی‌گیرد و زمینهٔ درست دارد', async () => {
+    const inner = new pg.Pool({ connectionString: appUrl.toString(), max: 1 });
+    const jobPool = new TenantAwarePool(inner);
+    try {
+      await runAsJobTenant(jobPool as never, companyA, async () => {
+        await jobPool.query('begin');
+        await jobPool.query('select 1/0').catch(() => undefined);
+      });
+      expect(inner.totalCount).toBe(0);
+
+      // شغلِ بعدی رویِ همان استخر — با اتصالِ تازه و زمینهٔ درستِ اجارهٔ B
+      const seen = await runAsJobTenant(jobPool as never, companyB, async () => {
+        const { rows } = await jobPool.query(
+          `select current_setting('app.company_id', true) as company_id,
+                  (select count(*)::int from app_user) as visible_users`,
+        );
+        return rows[0];
+      });
+      expect(seen.company_id).toBe(companyB);
+      expect(Number(seen.visible_users)).toBe(1); // فقط کاربرِ همان اجاره
+      expect(inner.totalCount).toBe(1);
+    } finally {
+      await inner.end();
+    }
+  });
+});
+

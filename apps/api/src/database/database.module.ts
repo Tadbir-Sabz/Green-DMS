@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { Pool } from 'pg';
+import { resolveDatabaseIdentity } from './runtime-identity';
 import { TenantAwarePool } from './tenant-pool';
 
 /** توکن تزریق اتصال پایگاه‌داده در سراسر اپ */
@@ -18,16 +19,18 @@ export const PG_POOL = 'PG_POOL';
     {
       provide: PG_POOL,
       useFactory: (): Pool => {
+        // تفکیکِ هویتِ «مهاجرت» از هویتِ «زمانِ اجرا» (مهاجرت 0041، GDM-13-03 و
+        // docs/db-privilege-architecture.md):
+        //   * APP_DATABASE_URL → نقشِ dms_app: غیرِابرکاربر، غیرِBYPASSRLS و مالکِ
+        //     هیچ جدولی نیست ⇒ RLS دربارهٔ او واقعاً اعمال می‌شود.
+        //   * DATABASE_URL → نقشِ مدیریتی/مهاجرت (scripts/migrate.mjs فقط از همین
+        //     استفاده می‌کند).
+        // در production بازگشتِ بی‌صدا به DATABASE_URL **ممنوع** است: resolveDatabaseIdentity
+        // خطایِ فارسی می‌دهد و برنامه بالا نمی‌آید، چون اتصالِ مدیریتی یعنی RLS بی‌اثر.
+        // بیرون از production همان راحتیِ پیشین حفظ می‌شود، ولی با هشدارِ صریح.
+        const identity = resolveDatabaseIdentity(process.env);
         const inner = new Pool({
-          // تفکیکِ هویتِ «مهاجرت» از هویتِ «زمانِ اجرا» (مهاجرت 0041 و
-          // docs/db-privilege-architecture.md):
-          //   * APP_DATABASE_URL → نقشِ dms_app: غیرِابرکاربر، غیرِBYPASSRLS و مالکِ
-          //     هیچ جدولی نیست ⇒ RLS دربارهٔ او واقعاً اعمال می‌شود.
-          //   * DATABASE_URL → نقشِ مدیریتی/مهاجرت (scripts/migrate.mjs فقط از همین
-          //     استفاده می‌کند) و همچنین «پیش‌فرضِ سازگارِ عقب‌رو» وقتی APP_DATABASE_URL
-          //     ست نشده باشد؛ بنابراین فعال‌سازیِ جداسازی یک تصمیمِ استقرار است، نه
-          //     یک تغییرِ شکنندهٔ کد.
-          connectionString: process.env.APP_DATABASE_URL ?? process.env.DATABASE_URL,
+          connectionString: identity.runtimeUrl,
           max: 10,
           idleTimeoutMillis: 30_000,
         });

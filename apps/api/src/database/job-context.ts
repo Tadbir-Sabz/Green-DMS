@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { applyTenant, clearTenant, tenantStorage } from './tenant-context';
+import { applyTenant, releaseTenantClient, tenantStorage } from './tenant-context';
 
 /**
  * زمینهٔ اجاره برایِ کارِ «بیرونِ درخواستِ HTTP» — کارگرِ پس‌زمینه، صف و jobهایِ زمان‌بندی‌شده.
@@ -24,18 +24,48 @@ import { applyTenant, clearTenant, tenantStorage } from './tenant-context';
  */
 export const JOB_USER_ID = '';
 
+export interface JobTenantOptions {
+  /**
+   * گزارشِ شکستِ پاک‌سازی/نابودیِ اتصال. خطایِ پاک‌سازی هرگز بلعیده نمی‌شود؛ اگر
+   * فراخوان گزارش‌دهنده ندهد، جزئیات در `outcome`ِ داخلی می‌ماند و اتصال نابود شده است.
+   */
+  onConnectionDiscarded?: (info: {
+    companyId: string;
+    stage: 'apply' | 'clear';
+    error: unknown;
+    destroyed: boolean;
+  }) => void;
+}
+
 export async function runAsJobTenant<T>(
   pool: Pool,
   companyId: string,
   fn: () => Promise<T>,
+  options: JobTenantOptions = {},
 ): Promise<T> {
   const client = await pool.connect();
+  const release = client.release.bind(client);
   const tenant = { companyId, userId: JOB_USER_ID };
+  let applyError: Error | undefined;
   try {
-    await applyTenant(client, tenant);
+    try {
+      await applyTenant(client, tenant);
+    } catch (err) {
+      applyError = err instanceof Error ? err : new Error(String(err));
+      throw applyError;
+    }
     return await tenantStorage.run({ client, tenant }, fn);
   } finally {
-    await clearTenant(client).catch(() => undefined);
-    client.release();
+    // اگر applyTenant شکست خورده باشد، وضعیتِ اتصال اثبات‌نشده است ⇒ `reason` داده
+    // می‌شود تا اتصال حتی در صورتِ موفقیتِ پاک‌سازی نابود شود (نه بازگشت به استخر).
+    const outcome = await releaseTenantClient(client, release, applyError);
+    if (outcome.destroyed) {
+      options.onConnectionDiscarded?.({
+        companyId,
+        stage: applyError ? 'apply' : 'clear',
+        error: outcome.error,
+        destroyed: true,
+      });
+    }
   }
 }

@@ -12,7 +12,10 @@ import { NestFactory } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { validationPipeOptions } from './common/validation';
+import type { Pool } from 'pg';
 import { prepareDatabase } from './database/auto-migrate';
+import { PG_POOL } from './database/database.module';
+import { verifyRuntimeDatabaseIdentity } from './database/runtime-identity';
 
 async function bootstrap() {
   // مهاجرت‌های اعمال‌نشده پیش از listen اعمال می‌شوند (AUTO_MIGRATE=false فقط هشدار می‌دهد)
@@ -22,6 +25,12 @@ async function bootstrap() {
   // rawBody برای اعتبارسنجی HMAC وب‌هوک درگاه روی بدنهٔ خام (بدون وابستگی
   // به ترتیب کلیدهای JSON پس از parse)
   const app = await NestFactory.create(AppModule, { rawBody: true });
+
+  // GDM-13-03: هویتِ «مؤثرِ» پایگاه‌دادهٔ زمانِ اجرا پیش از listen راستی‌آزمایی می‌شود.
+  // در production اگر APP_DATABASE_URL نباشد، یا نقشِ زمانِ اجرا ابرکاربر/BYPASSRLS/مالکِ
+  // جدولِ محافظت‌شده باشد، یا RLS اصلاً فعال نباشد ⇒ پرتاب ⇒ bootstrap با exit(1) متوقف
+  // می‌شود (fail-closed). بیرون از production فقط هشدارِ فارسی داده می‌شود.
+  await verifyRuntimeDatabaseIdentity(app.get<Pool>(PG_POOL));
 
   // اعتبارسنجی DTOها — پیام ساخت‌یافته فارسی طبق قرارداد Error (openapi)
   app.useGlobalPipes(new ValidationPipe(validationPipeOptions));
