@@ -251,12 +251,20 @@ describe('RLS — اثربخشی زیرِ نقشِ واقعیِ اپلیکیشن
     // گامِ ۲ — بدونِ زمینهٔ اجاره (اتصالِ تازه): ورودِ پورتال با ایمیل انجام می‌شود،
     // یعنی «پیش از» آنکه اجاره‌ای معلوم باشد. زیرِ نقشِ RLS‌پذیر این مسیر یا خطا
     // می‌دهد یا صفر ردیف — پس طراحیِ فعلی به bypassِ نقشِ اپ متکی است.
-    const client = await probePool!.connect();
+    // مهم: از یک pg.Client «غیرِاستخری» استفاده می‌شود. set_config(..., false) در سطحِ
+    // session است، بنابراین اتصالِ آزادشده به استخر همان GUC را با خود نگه می‌دارد و
+    // گامِ ۲ به‌اشتباه زمینهٔ اجارهٔ گامِ ۱ را می‌دید. (دقیقاً به همین دلیل اپ برای هر
+    // درخواست اتصالِ اختصاصی می‌گیرد و در پایان آن را reset می‌کند.)
+    const freshUrl = new URL(testUrl);
+    freshUrl.username = PROBE_ROLE;
+    freshUrl.password = PROBE_PASSWORD;
+    const fresh = new pg.Client({ connectionString: freshUrl.toString() });
     let visible = -1;
     let threw = false;
+    await fresh.connect();
     try {
-      // اتصالِ تازه و بدونِ set_config → هیچ app.company_id ست نشده است.
-      const res = await client.query<{ id: string }>(
+      // بدونِ هیچ set_config → هیچ app.company_id ست نشده است.
+      const res = await fresh.query<{ id: string }>(
         `select id from portal_user where lower(email) = lower($1)`,
         [PORTAL_EMAIL],
       );
@@ -264,7 +272,7 @@ describe('RLS — اثربخشی زیرِ نقشِ واقعیِ اپلیکیشن
     } catch {
       threw = true;
     } finally {
-      client.release();
+      await fresh.end();
     }
     expect(threw || visible === 0).toBe(true);
   });
