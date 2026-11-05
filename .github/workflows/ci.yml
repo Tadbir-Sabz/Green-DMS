@@ -16,6 +16,8 @@ concurrency:
 #   unit                → تست‌های واحدِ بدونِ DB/MinIO؛ بدونِ هیچ سرویسِ docker
 #   integration-db      → تست‌های DB‌دار (به‌جز ضمیمه)؛ فقط Postgres/Redis
 #   integration-storage → round-trip ضمیمه؛ Postgres/Redis + MinIO (پیش‌نیازِ صریح)
+#   init-hygiene        → اسکریپتِ init نقشِ زمانِ اجرا روی کلاسترِ یک‌بارمصرفِ خودش با
+#                         log_statement=all؛ بدونِ Node، بدونِ docker، بدونِ MinIO
 # هیچ job ایستا/واحدی به MinIO وابسته نیست، پس شکستِ زیرساختِ آبجکت‌استوریج هرگز
 # باعثِ شکستِ کاذبِ typecheck/build/unit نمی‌شود (cascade «vitest: not found»).
 env:
@@ -398,3 +400,53 @@ jobs:
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
           echo "::error title=attachment-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×' /tmp/att.log | head -n 40 | enc)"
           echo "::error title=attachment-tail::$(tail -n 50 /tmp/att.log | enc)"
+
+  # ---------------------------------------------------------------------------
+  # TASK-17 — بهداشتِ اعتبارنامه در اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا.
+  #
+  # «نبودِ رمز در لاگِ راه‌اندازیِ معمولی» کافی نیست: رمز باید در **متنِ هیچ دستورِ
+  # SQL**، در لاگِ سرور با log_statement=all و در تشخیصِ خطاها هم حاضر نباشد. این فقط
+  # روی سروری قابلِ اثبات است که لاگش را خودمان کنترل کنیم، پس این job به‌جایِ سرویسِ
+  # کانتینر، یک کلاسترِ **یک‌بارمصرف** در TMPDIR می‌سازد (پورتِ تصادفیِ آزاد، فقط
+  # 127.0.0.1، سوکتِ خصوصی، حذف در trap) و scripts/verify-init-credential-hygiene.sh
+  # را اجرا می‌کند. آن اسکریپت هر بررسی را با یک **کنترلِ منفی** جفت می‌کند: نسخهٔ
+  # پیش از TASK-17 (format('%L') + \gexec) باید واقعاً نشتی داشته باشد، وگرنه PASS
+  # بی‌معناست.
+  #
+  # بدونِ Node و بدونِ docker ⇒ هیچ وابستگیِ مشترکی با دروازهٔ MinIO/e2e ندارد.
+  # ---------------------------------------------------------------------------
+  init-hygiene:
+    name: Init credential hygiene — disposable PostgreSQL with statement logging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # سرور + کلاینت لازم است (نه فقط کلاینت): برایِ کنترلِ log_statement.
+      # بستهٔ پیش‌فرضِ توزیع نصب می‌شود تا با تغییرِ ubuntu-latest نشکند؛ هارنس خودش
+      # جدیدترین /usr/lib/postgresql/*/bin را پیدا می‌کند.
+      - name: Install PostgreSQL server + client
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql postgresql-client
+          ls -d /usr/lib/postgresql/*/bin || true
+
+      - name: Verify no plaintext credential in argv, SQL text, logs or diagnostics
+        id: hygiene
+        shell: bash
+        run: |
+          set -o pipefail
+          rc=0
+          PG_BIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)"
+          echo "using PG_BIN=${PG_BIN}"
+          PG_BIN="${PG_BIN}" bash scripts/verify-init-credential-hygiene.sh 2>&1 | tee /tmp/init-hygiene.log || rc=$?
+          exit $rc
+
+      - name: Init hygiene failure diagnostic
+        if: "!cancelled() && steps.hygiene.outcome == 'failure'"
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          echo "::error title=init-hygiene-failures::$(grep -nE '^FAIL|RESULT:' /tmp/init-hygiene.log | head -n 30 | enc)"
+          echo "::error title=init-hygiene-tail::$(tail -n 30 /tmp/init-hygiene.log | enc)"
