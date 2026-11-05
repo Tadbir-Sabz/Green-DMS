@@ -81,7 +81,7 @@ describe('runAsJobTenant — برقراری و پاک‌سازیِ زمینهٔ 
     expect(client.release).toHaveBeenCalledTimes(1);
   });
 
-  it('خطایِ پاک‌سازی مانعِ آزادسازی نمی‌شود (connection در pool گیر نمی‌کند)', async () => {
+  it('خطایِ پاک‌سازی ⇒ اتصال نابود می‌شود، نه بازگشتِ بی‌صدا به استخر (GDM-13-01)', async () => {
     const client = {
       query: vi
         .fn()
@@ -91,7 +91,10 @@ describe('runAsJobTenant — برقراری و پاک‌سازیِ زمینهٔ 
     };
     const { pool } = fakePool(client as never);
     await runAsJobTenant(pool as never, 'co-1', async () => undefined);
+    // آزادسازی دقیقاً یک بار (pg رویِ فراخوانیِ دوم خطا می‌دهد) و **با آرگومانِ خطا** ⇒
+    // pg-pool کلاینت را `_remove` و `end()` می‌کند، پس اتصالِ آلوده به استخر برنمی‌گردد.
     expect(client.release).toHaveBeenCalledTimes(1);
+    expect(client.release.mock.calls[0][0]).toBeInstanceOf(Error);
   });
 
   it('دو شغلِ پشتِ هم هر کدام connectionِ خودشان را می‌گیرند (اشتراکِ زمینه ممکن نیست)', async () => {
