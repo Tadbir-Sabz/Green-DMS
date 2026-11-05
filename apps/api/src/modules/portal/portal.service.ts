@@ -170,8 +170,15 @@ export class PortalService {
       throw unauthorized('invalid_refresh_token', 'نشست پورتال معتبر نیست؛ دوباره وارد شوید.');
     }
 
-    // چرخش: باطل‌کردن نشستِ کهنه و صدور نشستِ تازه
-    await this.repo.revokeSession(row.id);
+    // چرخش: باطل‌کردن نشستِ کهنه و صدور نشستِ تازه.
+    // محافظتِ هم‌زمانی (replay): بررسیِ revoked_at بالای یک عملیاتِ check-then-act است؛
+    // اگر دو درخواست با یک توکن هم‌زمان برسند، هر دو revoked_at=null می‌بینند. بنابراین
+    // نتیجهٔ خودِ UPDATE اتمی ملاک است: rowCount=۰ یعنی توکن در این فاصله توسط درخواستِ
+    // دیگری مصرف شده → بدون صدور نشستِ دوم، همان خطای استفادهٔ مجدد برمی‌گردد.
+    const revoked = await this.repo.revokeSession(row.id);
+    if (revoked === 0) {
+      throw unauthorized('refresh_reused', 'این توکن پیش‌تر استفاده شده است؛ دوباره وارد شوید.');
+    }
     return this.issueSession(
       {
         id: user.id,

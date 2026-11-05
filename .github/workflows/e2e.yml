@@ -1,8 +1,12 @@
 # workflow تستِ سرتاسری (Playwright) در محیطِ ایزوله
-# یک پشتهٔ کامل با docker compose بالا می‌آید (postgres/postgis + redis + minio +
-# api + وب)، مهاجرت‌ها هنگامِ بوتِ api خودکار اعمال می‌شوند (AUTO_MIGRATE=true)،
-# سپس Playwright یک جریانِ تجاریِ واقعی را می‌سنجد: خودخدمت‌دهیِ استقرار → ورودِ
-# مدیر → پیمایش تا داشبورد BI. مرورگرها فقط اینجا (در CI) نصب و اجرا می‌شوند.
+# پشتهٔ کامل با docker compose بالا می‌آید (postgres/postgis + redis + minio + api + وب)،
+# مهاجرت‌ها هنگامِ بوتِ api خودکار اعمال می‌شوند (AUTO_MIGRATE=true)، سپس Playwright
+# جریان‌های تجاریِ واقعی را می‌سنجد. مرورگرها فقط اینجا نصب/اجرا می‌شوند.
+#
+# نکتهٔ کلیدی: boot به «config → build (--progress=plain) → up → health» تفکیک شده و
+# خروجیِ واقعیِ هر مرحله (stdout+stderr) در صورتِ شکست به annotation تبدیل می‌شود، چون
+# لاگ‌های blob از بیرون خواندنی نیستند. اگر پشته سالم نشود، تستِ مرورگر اجرا نمی‌شود و
+# وضعیت به‌صورتِ صریح BLOCKED (زیرساخت) گزارش می‌شود — نه FAILِ گمراه‌کنندهٔ تست.
 name: e2e
 
 on:
@@ -11,11 +15,17 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     name: Playwright E2E (پشتهٔ ایزولهٔ docker)
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      NODE_VERSION: '22'
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -23,51 +33,141 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      # نصبِ وابستگی‌ها و مرورگرِ Playwright پیش از بالا آوردنِ پشته تا زمان
-      # ساختِ ایمیج‌ها و نصبِ مرورگر هم‌پوشانی داشته باشد.
       - name: install deps
         run: npm ci
 
       - name: install Playwright chromium
         run: npx playwright install --with-deps chromium
 
-      - name: boot the full stack (build images)
+      - name: docker environment evidence
+        shell: bash
         run: |
-          docker compose up -d --build
-          docker compose ps
+          set +e
+          uname -a
+          docker version 2>&1 | sed -n '1,20p'
+          docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
+          echo "--- compose version ---"
+          docker compose version 2>&1
+
+      # مرجعِ دقیقِ تصویرها (بدونِ مقدارِ متغیرهای محیطی) — برای تشخیصِ pull در برابرِ build.
+      - name: compose image references
+        shell: bash
+        run: |
+          set +e
+          docker compose -f docker-compose.yml config --images 2>&1 | tee /tmp/compose-images.log
+
+      # `docker compose config` مقادیرِ env را چاپ می‌کند؛ پیش از هر چیز redact می‌شود.
+      - name: compose config (secrets redacted)
+        id: cfg
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          redact() { sed -E 's/(PASSWORD|SECRET|_KEY|TOKEN|ACCESS|CREDENTIAL)([":= ]+)[^"'"'"'[:space:]]+/\1\2***REDACTED***/Ig'; }
+          docker compose -f docker-compose.yml config 2>&1 | redact > /tmp/compose-config.log
+          CFG_RC=$?
+          echo "config_rc=${CFG_RC}"
+          tail -n 40 /tmp/compose-config.log
+          if [ "$CFG_RC" -ne 0 ]; then
+            echo "::error title=e2e-compose-config-error::$(tail -n 40 /tmp/compose-config.log | enc)"
+            exit $CFG_RC
+          fi
+
+      # build جدا از up تا مشخص شود blocker «ساختِ ایمیج» است یا «pull/ایجادِ کانتینر».
+      - name: build images (plain progress, captured)
+        id: buildimg
+        shell: bash
+        run: |
+          set +e
+          docker compose -f docker-compose.yml build --progress=plain >/tmp/compose-build.log 2>&1
+          BUILD_RC=$?
+          echo "build_rc=${BUILD_RC}"
+          tail -n 60 /tmp/compose-build.log
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          if [ "$BUILD_RC" -ne 0 ]; then
+            echo "::error title=BLOCKED-e2e-image-build::docker compose build failed (rc=${BUILD_RC}); browser tests NOT executed"
+            echo "::error title=e2e-build-errors::$(grep -inE 'error|failed|denied|not found|no such|manifest|unauthorized|toomanyrequests|pull access|EAI_AGAIN|timeout' /tmp/compose-build.log | tail -n 40 | enc)"
+            echo "::error title=e2e-build-tail::$(tail -n 60 /tmp/compose-build.log | enc)"
+            exit $BUILD_RC
+          fi
+
+      - name: start the stack (no build)
+        id: up
+        shell: bash
+        run: |
+          set +e
+          docker compose -f docker-compose.yml up -d --no-build >/tmp/compose-up.log 2>&1
+          UP_RC=$?
+          echo "up_rc=${UP_RC}"
+          cat /tmp/compose-up.log
+          docker compose -f docker-compose.yml ps -a 2>&1 | tee /tmp/compose-ps.log
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          if [ "$UP_RC" -ne 0 ]; then
+            echo "::error title=BLOCKED-e2e-stack-up::docker compose up failed (rc=${UP_RC}); browser tests NOT executed"
+            echo "::error title=e2e-up-log::$(tail -n 50 /tmp/compose-up.log | enc)"
+            echo "::error title=e2e-compose-ps::$(cat /tmp/compose-ps.log | enc)"
+            exit $UP_RC
+          fi
 
       - name: wait for API health (migrations auto-run on boot)
+        id: apihealth
+        shell: bash
         run: |
+          set +e
+          OK=0
           for i in $(seq 1 80); do
-            if curl -sf http://localhost:4000/api/health >/dev/null; then
-              echo "api healthy after ${i} tries"; break
-            fi
+            if curl -sf http://localhost:4000/api/health >/dev/null; then OK=1; echo "api healthy after ${i} probe(s)"; break; fi
             sleep 3
           done
-          curl -sf http://localhost:4000/api/health >/dev/null
+          if [ "$OK" -ne 1 ]; then
+            enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+            echo "::error title=BLOCKED-e2e-api-unhealthy::API did not become healthy; browser tests NOT executed"
+            echo "::error title=e2e-api-log::$(docker compose -f docker-compose.yml logs --no-color --tail 60 api 2>&1 | enc)"
+            echo "::error title=e2e-compose-ps::$(docker compose -f docker-compose.yml ps -a 2>&1 | enc)"
+            exit 1
+          fi
+          echo "healthy=true" >> "$GITHUB_OUTPUT"
 
       - name: wait for web
+        id: webhealth
+        shell: bash
         run: |
+          set +e
+          OK=0
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:3000/login >/dev/null; then
-              echo "web up after ${i} tries"; break
-            fi
+            if curl -sf http://localhost:3000/login >/dev/null; then OK=1; echo "web healthy after ${i} probe(s)"; break; fi
             sleep 3
           done
-          curl -sf http://localhost:3000/login >/dev/null
+          if [ "$OK" -ne 1 ]; then
+            enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+            echo "::error title=BLOCKED-e2e-web-unhealthy::Web did not become healthy; browser tests NOT executed"
+            echo "::error title=e2e-web-log::$(docker compose -f docker-compose.yml logs --no-color --tail 60 web 2>&1 | enc)"
+            exit 1
+          fi
+          echo "healthy=true" >> "$GITHUB_OUTPUT"
 
+      # پیش‌نیازِ صریح: فقط وقتی اجرا می‌شود که هر دو سرویس سالم باشند.
       - name: run Playwright E2E
+        if: steps.apihealth.outputs.healthy == 'true' && steps.webhealth.outputs.healthy == 'true'
         id: e2etest
         shell: bash
         run: |
           set -o pipefail
-          npm run test:e2e 2>&1 | tee /tmp/e2e.log
-        env:
-          E2E_BASE_URL: http://localhost:3000
-          CI: true
+          rc=0
+          npm run test:e2e 2>&1 | tee /tmp/e2e.log || rc=$?
+          exit $rc
+
+      - name: Playwright failure diagnostic
+        if: "!cancelled() && steps.e2etest.outcome == 'failure'"
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          echo "::error title=e2e-test-failures::$(grep -nE 'Error|error:|failed|Timeout|expect|✘|✓|[0-9]+ (passed|failed)' /tmp/e2e.log | tail -n 40 | enc)"
+          echo "::error title=e2e-test-tail::$(tail -n 50 /tmp/e2e.log | enc)"
+          echo "::error title=e2e-api-log-on-test-failure::$(docker compose -f docker-compose.yml logs --no-color --tail 40 api 2>&1 | enc)"
 
       - name: upload Playwright report
         if: always()
@@ -78,22 +178,6 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: compose diagnostics (on failure, as annotations)
-        if: failure()
-        shell: bash
-        run: |
-          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
-          ps_msg=$(docker compose ps -a 2>&1 | tail -n 25 | enc)
-          echo "::error title=e2e-compose-ps::${ps_msg:-<empty>}"
-          api_msg=$(docker compose logs --no-color --tail 45 api 2>&1 | enc)
-          echo "::error title=e2e-api-log::${api_msg:-<empty>}"
-          web_msg=$(docker compose logs --no-color --tail 25 web 2>&1 | enc)
-          echo "::error title=e2e-web-log::${web_msg:-<empty>}"
-          if [ -f /tmp/e2e.log ]; then
-            t=$(tail -n 40 /tmp/e2e.log | enc); echo "::error title=e2e-test-log::${t:-<empty>}"
-          fi
-          docker compose logs --tail=200 || true
-
       - name: tear down
         if: always()
-        run: docker compose down -v
+        run: docker compose -f docker-compose.yml down -v

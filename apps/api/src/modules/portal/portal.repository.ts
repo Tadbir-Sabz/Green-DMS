@@ -167,11 +167,18 @@ export class PortalRepository {
     return rows[0] ?? null;
   }
 
-  async revokeSession(sid: string): Promise<void> {
-    await this.pool.query(
+  /**
+   * باطل‌سازی اتمیِ نشست: شرط «revoked_at is null» در خودِ UPDATE باعث می‌شود از
+   * میان چند درخواستِ هم‌زمانِ refresh با یک توکن، دقیقاً یکی rowCount=1 بگیرد و
+   * بقیه ۰ — همان سیگنالی که سرویس برای تشخیصِ استفادهٔ مجدد لازم دارد.
+   * @returns تعداد سطرِ واقعاً باطل‌شده (۰ یا ۱)
+   */
+  async revokeSession(sid: string): Promise<number> {
+    const result = await this.pool.query(
       `update portal_session set revoked_at = now() where id = $1 and revoked_at is null`,
       [sid],
     );
+    return result.rowCount ?? 0;
   }
 
   async recordLoginSuccess(id: string): Promise<void> {
