@@ -7,7 +7,8 @@
 |---|---|
 | HEADِ شروع | `4da893d456317978fd760f3bc1f052ff1f8aeb6d` (پایانِ TASK-16) |
 | HEADِ پایان | کامیتِ این تغییرات + کامیتِ ثبتِ نتایجِ CI |
-| **SHA راستی‌آزمایی‌شده با CI** | در بخشِ ۹ |
+| SHAهایِ این TASK | کد + تست + هارنس + CI + مستندات: `6d7daee` · رفعِ تستِ H: `92897fe` · ثبتِ نتایجِ CI: همین کامیتِ مستندات |
+| **SHA راستی‌آزمایی‌شده با CI** | **`92897fe`** (مهاجرت‌ها ✅ · Static ✅ · Unit ✅ · init-hygiene ✅ · Integration/Postgres ✅) — بخشِ ۹-۳ |
 | نسخهٔ PostgreSQLِ آزمایش‌شده | **16.15** (هم‌خانواده با `postgis/postgis:16-3.4` در compose) |
 | منبعِ مرجعِ رفتارِ psql | `postgres/postgres` شاخهٔ **`REL_16_STABLE`** |
 | حکمِ هدفِ ۱ (رمز در argv نباشد) | **PASS** (حفظِ دستاوردِ TASK-16 + سخت‌گیریِ بیشتر) |
@@ -478,9 +479,53 @@ Test Files  1 failed | 26 passed (27)
 تضعیفِ هیچ ادعایی) و نتیجهٔ اجرایِ دوم روی کامیتِ رفع در بخشِ ۹-۳ ثبت می‌شود.
 هیچ تستی skip یا حذف نشد و هیچ assertion ای شل نشد.
 
-### ۹-۳) اجرایِ دوم (کامیتِ رفع)
+### ۹-۳) اجرایِ دوم روی کامیتِ رفعِ `92897fe`
 
-(پس از push ثبت می‌شود.)
+شناسهٔ runها: **CI `42065877028`** · **migrations `42065877351`** · **e2e `42065877378`**.
+
+| job | نتیجه |
+|---|---|
+| مهاجرت‌های پایگاه‌داده (چرخهٔ up → down → up) | ✅ success |
+| Static checks (typecheck, OpenAPI, drift, build) | ✅ success |
+| Unit tests (no DB, no MinIO) | ✅ success |
+| **Init credential hygiene** (jobِ تازه، هارنسِ ۴۱ بررسی با لاگِ سرور) | ✅ **success** |
+| **Integration (Postgres)** | ✅ **success** — رگرسیونِ تستِ H رفع شد |
+| Integration (MinIO) | ❌ failure — دروازهٔ BLOCKEDِ از پیش موجود |
+| e2e | ❌ failure — دروازهٔ BLOCKEDِ از پیش موجود |
+
+دو شکستِ باقی‌مانده همان دروازهٔ آبجکت‌استوریج است که از TASK-15/16 بدونِ تغییر باقی
+مانده و **به این تغییرات ربطی ندارد**؛ annotationِ jobِ e2e عیناً همان متنِ پیشین است:
+
+> No MinIO image could be pulled (quay.io/minio/minio → 401, minio/minio → pull
+> access denied) … the compose stack was NOT started and ZERO Playwright browser
+> tests were executed.
+
+پس هیچ دروازه‌ای ضعیف، skip یا حذف نشده و رگرسیونی در آن دو ایجاد نشده است.
+
+**شمارِ تست‌ها.** از annotationِ اجرایِ نخست، jobِ Integration (Postgres) **۲۷ فایل و
+۶۳۴ تست** دارد (`Test Files 1 failed | 26 passed (27)` · `Tests 1 failed | 633 passed
+(634)`)؛ در اجرایِ دوم همان job **success** است. لاگِ blob در این sandbox قابلِ دریافت
+نیست (`gh run view --job <id> --log` ⇒ صفر خطِ مطابق)، پس شمارِ دقیقِ پاس‌شده‌ها در
+اجرایِ دوم **مستقیماً از CI خوانده نشد** و این مورد صریحاً UNVERIFIED می‌ماند؛ نتیجهٔ
+job (success) خودش نشان می‌دهد هیچ تستی شکست نخورده است. شمارش‌هایِ محلیِ این نوبت:
+**۸/۸** در `postgres-init-role.api.test.ts` (رویِ PostgreSQL 16.15 واقعی)، **۴۱/۴۱** در
+هارنس، **۱۲ فایل/۱۹۵ تست** در مجموعهٔ بدونِ DB.
+
+### ۹-۴) خلاصهٔ حکم‌ها
+
+| هدفِ صورتِمسئله | حکم |
+|---|---|
+| رمز در argvِ psql نباشد | **PASS** (تستِ F · هارنس · بوت‌هایِ رسمی) |
+| رمز در متنِ SQL نباشد | **PASS** (تستِ G با `ECHO all` · لاگِ سرورِ هارنس · بوتِ A) |
+| رمز در لاگِ PostgreSQL با statement logging نباشد | **PASS** (هارنس + jobِ `init-hygiene` در CI + بوت‌هایِ A/B) |
+| رمز در لاگ/تشخیصِ خطایِ شکست نباشد | **PASS** (تستِ H · هارنس با `log_min_error_statement=debug5` و کنترلِ منفی · بوت‌هایِ C/D با `ENTRYPOINT_EXIT=1`) |
+| رمزِ دقیق با SCRAM واقعی کار کند | **PASS** (هارنس · بوتِ A) |
+| رمزِ اشتباه/خالی رد شود | **PASS** (هارنس · بوتِ A) |
+| نقش/امتیازها و RLS دست‌نخورده | **PASS** (تست‌هایِ A/B و G · هارنس · بوتِ A) |
+| کنترل‌هایِ منفیِ مؤثر | **PASS** (درون‌ساخت در تستِ G + درونِ هارنس + جای‌گذاریِ نسخهٔ قدیمی ⇒ F/G/I می‌شکنند) |
+| رمزهایِ خصمانه | **PASS** (تستِ D · هارنس · بوتِ A) |
+| CI رویِ کامیتِ دقیقِ کد | **PASS** رویِ `92897fe` (و jobِ تازه در هر دو اجرا سبز) |
+| چرخهٔ واقعیِ کانتینر/Compose | **BLOCKED** (بدونِ runtime و بدونِ دسترسی به registry) |
 
 ---
 
