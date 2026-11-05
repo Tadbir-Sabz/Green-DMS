@@ -32,7 +32,7 @@
 **تست‌ها**
 * `apps/api/test/tenant-connection-lifecycle.test.ts` — **تازه** (۱۱ تست)
 * `apps/api/test/queue-failure-persistence.test.ts` — **تازه** (۸ تست)
-* `apps/api/test/runtime-identity.test.ts` — **تازه** (۱۰ تست)
+* `apps/api/test/runtime-identity.test.ts` — **تازه** (۹ تست)
 * `apps/api/test/db-privileges.api.test.ts` — **+۴ تستِ Postgresِ واقعی** (نابودیِ اتصالِ آلوده، بازیابیِ استخر، ردِ هویتِ مدیریتی، پاس‌شدنِ `dms_app`)
 * `apps/api/test/job-tenant-context.test.ts` — اصلاحِ تستی که انتظارِ قدیمیِ «بلعیدنِ خطایِ پاک‌سازی» را encode کرده بود (اکنون `release(err)` را می‌سنجد)
 
@@ -185,6 +185,14 @@ production پرتاب نمی‌کند ولی مشکلات را گزارش می�
 `tenant-connection-lifecycle` **۱۱**، `queue-failure-persistence` **۸**، `runtime-identity` **۹**
 (مجموعاً ۲۸ تستِ تازهٔ DB-free) و `db-privileges.api.test.ts` از ۶۱ به **۶۵** بلوکِ `it` رسید
 (۴ شاهدِ Postgresِ واقعی).
+
+> **یادداشتِ تطبیقِ TASK-15:** شمارِ تستِ `runtime-identity.test.ts` در نسخهٔ نخستِ این گزارش
+> در یک جا «۱۰» و در جایِ دیگر «۹» نوشته شده بود. در TASK-15 از دو راهِ مستقل راستی‌آزمایی شد:
+> شمارِ بلوک‌هایِ `it(` در منبع = **۹**، و خروجیِ اجرایِ تازهٔ vitest =
+> `✓ test/runtime-identity.test.ts (9 tests)`. عددِ درست **۹** است و در هر دو جا یکسان شد.
+> نتایجِ تاریخیِ TASK-14 (۱۲ فایل / ۱۹۵ تستِ DB-free) دست‌نخورده باقی ماند؛ TASK-15
+> **۴ تستِ وابسته به پایگاه‌داده** در فایلِ جداگانهٔ
+> `apps/api/test/postgres-init-role.api.test.ts` افزود که جزوِ شمارِ DB-free نیستند.
 
 ```bash
 $ npx tsc -p apps/api/tsconfig.json --noEmit

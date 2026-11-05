@@ -11,6 +11,19 @@
 # The password comes from APP_DB_PASSWORD (default is a throwaway local value).
 # No real credential belongs in source control — override it in production via
 # `docker compose --env-file .env.production`.
+#
+# WHY `\gexec` INSTEAD OF A `DO $$ ... $$` BLOCK (TASK-15):
+# psql never interpolates variables inside quoted SQL literals, and a
+# dollar-quoted PL/pgSQL body IS such a literal. `:'role'` inside `$$ ... $$`
+# reaches the server verbatim and first boot dies with:
+#     ERROR:  syntax error at or near ":"
+#     LINE 3:   v_role text := :'role';
+# (psql exit code 3 ⇒ the postgres container aborts initialisation).
+# Substitution must therefore happen OUTSIDE any dollar-quoted body: a plain
+# SELECT builds the DDL with format('%I'/'%L') — safe identifier and password
+# literal quoting — and \gexec executes it. The password is never echoed: psql
+# does not echo script input by default and \gexec does not print the generated
+# command, so nothing sensitive reaches the container log.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -22,17 +35,17 @@ psql -v ON_ERROR_STOP=1 \
      --dbname "$POSTGRES_DB" \
      -v role="$RUNTIME_ROLE" \
      -v pass="$RUNTIME_PASSWORD" <<'EOSQL'
-do $$
-declare
-  v_role text := :'role';
-  v_pass text := :'pass';
-begin
-  if not exists (select 1 from pg_roles where rolname = v_role) then
-    execute format('create role %I login password %L', v_role, v_pass);
-  else
-    execute format('alter role %I login password %L', v_role, v_pass);
-  end if;
-  raise notice 'runtime role % is ready for LOGIN (local stack only)', v_role;
-end
-$$;
+\set QUIET on
+-- جای‌گذاریِ متغیرها این‌جا (بیرون از هر بدنهٔ dollar-quoted) انجام می‌شود؛
+-- format با %I شناسه و با %L literalِ رمز را به‌شکلِ امن نقل‌قول می‌کند.
+select format(
+         case when exists (select 1 from pg_roles where rolname = :'role')
+              then 'alter role %I login password %L'
+              else 'create role %I login password %L'
+         end,
+         :'role',
+         :'pass'
+       ) as ddl
+\gexec
+\echo 'runtime role is ready for LOGIN (local stack only)'
 EOSQL
