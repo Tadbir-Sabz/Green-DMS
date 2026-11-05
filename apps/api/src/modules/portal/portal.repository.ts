@@ -59,13 +59,26 @@ export class PortalRepository {
 
   // ---------------- احرازِ هویت ----------------
 
+  /**
+   * جست‌وجویِ ورود با ایمیل — از راهِ تابعِ محدودِ `fn_portal_find_login`
+   * (مهاجرت 0041) نه انتخابِ مستقیم از `portal_user`.
+   *
+   * چرا: ورودِ پرتال «پیش از» ست‌شدنِ زمینهٔ اجاره رخ می‌دهد. وقتی اتصالِ برنامه
+   * نقشِ غیرابرکاربرِ `dms_app` باشد، RLS رویِ `portal_user` (سیاستِ
+   * p_portal_user_tenant) هیچ ردیفی را پیش از اجاره نشان نمی‌دهد و عملاً هیچ کاربری
+   * نمی‌تواند وارد شود. راه‌حلِ نادرست، دادنِ دسترسیِ نامحدود به جدول یا خاموش‌کردنِ
+   * RLS بود؛ راه‌حلِ درست همین تابعِ `SECURITY DEFINER` با `search_path` ثابت،
+   * `EXECUTE` فقط برایِ نقشِ برنامه، و کمینه‌دادهٔ خروجی است:
+   *   * هیچ پارامترِ company_id نمی‌گیرد ⇒ فراخوان نمی‌تواند اجارهٔ دلخواه برگزیند،
+   *   * فقط «یک» سطرِ متناظر با ایمیل برمی‌گرداند (ایندکسِ یکتا روی lower(email)
+   *     ⇒ هویتِ مبهم ذاتاً ممکن نیست)،
+   *   * پس از یافتن، زمینهٔ اجاره از همان سطر گرفته می‌شود و بقیهٔ نشست زیرِ RLS است.
+   */
   async findByEmail(email: string): Promise<PortalUserRow | null> {
     const { rows } = await this.pool.query<PortalUserRow>(
       `select id, company_id, customer_id, email, password_hash, display_name,
               is_active, failed_attempts, locked_until
-         from portal_user
-        where lower(email) = lower($1)
-        limit 1`,
+         from fn_portal_find_login($1)`,
       [email],
     );
     return rows[0] ?? null;

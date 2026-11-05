@@ -19,7 +19,15 @@ export const PG_POOL = 'PG_POOL';
       provide: PG_POOL,
       useFactory: (): Pool => {
         const inner = new Pool({
-          connectionString: process.env.DATABASE_URL,
+          // تفکیکِ هویتِ «مهاجرت» از هویتِ «زمانِ اجرا» (مهاجرت 0041 و
+          // docs/db-privilege-architecture.md):
+          //   * APP_DATABASE_URL → نقشِ dms_app: غیرِابرکاربر، غیرِBYPASSRLS و مالکِ
+          //     هیچ جدولی نیست ⇒ RLS دربارهٔ او واقعاً اعمال می‌شود.
+          //   * DATABASE_URL → نقشِ مدیریتی/مهاجرت (scripts/migrate.mjs فقط از همین
+          //     استفاده می‌کند) و همچنین «پیش‌فرضِ سازگارِ عقب‌رو» وقتی APP_DATABASE_URL
+          //     ست نشده باشد؛ بنابراین فعال‌سازیِ جداسازی یک تصمیمِ استقرار است، نه
+          //     یک تغییرِ شکنندهٔ کد.
+          connectionString: process.env.APP_DATABASE_URL ?? process.env.DATABASE_URL,
           max: 10,
           idleTimeoutMillis: 30_000,
         });
