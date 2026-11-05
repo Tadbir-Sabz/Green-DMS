@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -10,6 +11,7 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { ATTACHMENTS_REPOSITORY, STORAGE_SERVICE } from './tokens';
 import { checkFileContent, type ContentCheckResult } from './content-type';
+import { allowUnverifiedOwner, hasVerifiableOwner } from './owner-scope';
 import type { AttachmentRow, AttachmentsRepository } from './attachments.repository';
 import type { StorageService } from './storage.service';
 import type {
@@ -174,6 +176,10 @@ export class AttachmentsService {
     // نوعِ راستی‌آزمایی‌شده (نه ادعایِ کلاینت) ذخیره و در آبجکت‌استوریج ثبت می‌شود.
     const contentType = content.detected ?? file.mimetype;
 
+    // --- اثباتِ مالکیتِ موجودیتِ والد (پیش از نوشتنِ شیء در استوریج) ---
+    // اگر این بررسی بعد از put بود، یک حملهٔ ناموفق هم زبالهٔ اورفان در bucket می‌گذاشت.
+    await this.assertOwnerInCompany(meta.owner_type, meta.owner_id, ctx.companyId);
+
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
     const fileName = sanitizeFileName(file.originalname);
     const key = `${ctx.companyId}/${meta.owner_type}/${meta.owner_id}/${sha256}-${randomUUID()}-${fileName}`;
@@ -203,6 +209,58 @@ export class AttachmentsService {
     return toView(row, url);
   }
 
+  /**
+   * اثباتِ مالکیتِ موجودیتِ والد پیش از هر دسترسی به ضمیمه (آپلود/فهرست/URL دانلود).
+   *
+   * سه حالت، هر سه fail-closed:
+   *   1. owner_type مسیرِ راستی‌آزمایی‌شده ندارد (مثلِ `other`) ⇒ 403 owner_scope_unverifiable
+   *      مگر اپراتور صریحاً ATTACHMENT_ALLOW_UNVERIFIED_OWNER=true داده باشد.
+   *   2. موجودیتِ مالک پیدا نشد یا زیرِ RLS نامرئی است (یعنی به اجارهٔ دیگری تعلق دارد)
+   *      ⇒ 404 owner_not_found؛ عمداً 404 و نه 403 تا تفاوتِ «وجود ندارد» و «مالِ تو نیست»
+   *      از بیرون قابلِ تشخیص نباشد و حدسِ owner_id چیزی لو ندهد.
+   *   3. موجودیت پیدا شد ولی company_id آن با شرکتِ نشست یکی نیست ⇒ 403 owner_scope_denied
+   *      (لایهٔ دومِ دفاع برایِ زمانی که RLS به هر دلیلی فعال نباشد، مثلاً اتصالِ ابرکاربر).
+   *
+   * کدهایِ ۴۰۳ و ۴۰۴ پیش‌تر در قراردادِ openapi برایِ هر سه مسیرِ ضمیمه مستند شده‌اند،
+   * بنابراین قرارداد و کلاینت‌هایِ تولیدی تغییری نمی‌کنند.
+   */
+  private async assertOwnerInCompany(
+    ownerType: string,
+    ownerId: string,
+    companyId: string,
+  ): Promise<void> {
+    if (!hasVerifiableOwner(ownerType)) {
+      if (!allowUnverifiedOwner()) {
+        this.logger.warn(
+          `rejected attachment access: owner_type="${ownerType}" has no verifiable ownership path`,
+        );
+        throw new ForbiddenException({
+          code: 'owner_scope_unverifiable',
+          message_fa:
+            'نوعِ مالکِ ضمیمه مسیرِ مالکیتِ راستی‌آزمایی‌شده ندارد و پذیرفته نشد.',
+          owner_type: ownerType,
+        });
+      }
+      return;
+    }
+    const ownerCompany = await this.repo.resolveOwnerCompany(ownerType, ownerId);
+    if (ownerCompany == null) {
+      throw new NotFoundException({
+        code: 'owner_not_found',
+        message_fa: 'موجودیتِ مالکِ ضمیمه یافت نشد.',
+      });
+    }
+    if (ownerCompany !== companyId) {
+      this.logger.warn(
+        `rejected attachment access: owner ${ownerType}/${ownerId} belongs to another company`,
+      );
+      throw new ForbiddenException({
+        code: 'owner_scope_denied',
+        message_fa: 'ضمیمه به موجودیتِ متعلق به این شرکت گره نخورده است.',
+      });
+    }
+  }
+
   async downloadUrl(id: string, ctx: UploadContext): Promise<AttachmentUrlView> {
     if (!UUID_V4.test(id)) {
       // 404 (نه 400) تا وجود/عدم وجود ضمیمه با id نامعتبر لو نرود
@@ -212,6 +270,10 @@ export class AttachmentsService {
     if (!row) {
       throw new NotFoundException({ code: 'attachment_not_found', message_fa: 'ضمیمه یافت نشد.' });
     }
+    // بازبینیِ زنجیرهٔ مالکیت حتی وقتی company_idِ خودِ سطر می‌خواند: سطرِ metadata ممکن است
+    // پیش از این کنترل نوشته شده باشد (دادهٔ تاریخی) یا owner_id آن بعداً جابه‌جا شده باشد.
+    // این یعنی دسترسیِ «غیرمستقیم» با شناسهٔ حدس‌زدهٔ ضمیمه هم بسته است.
+    await this.assertOwnerInCompany(row.owner_type, row.owner_id, ctx.companyId);
     const url = await this.storage.presignedGet(row.storage_key, DOWNLOAD_URL_TTL);
     return { url, expires_in: DOWNLOAD_URL_TTL };
   }
@@ -225,6 +287,9 @@ export class AttachmentsService {
     ownerId: string,
     ctx: UploadContext,
   ): Promise<AttachmentView[]> {
+    // پیش از فهرست‌کردن، خودِ موجودیتِ مالک اثبات می‌شود تا owner_idِ اجارهٔ دیگر
+    // نه ضمیمه‌ای برگرداند و نه وجودش را (با پاسخِ متفاوت) لو بدهد.
+    await this.assertOwnerInCompany(ownerType, ownerId, ctx.companyId);
     const rows = await this.repo.listByOwner(ctx.companyId, ownerType, ownerId);
     return Promise.all(
       rows.map(async (row) =>

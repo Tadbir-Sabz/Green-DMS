@@ -135,7 +135,7 @@ jobs:
         if: steps.minioimg.outputs.resolved != 'true'
         shell: bash
         run: |
-          echo "::error title=BLOCKED-e2e-minio-image::No candidate MinIO image could be pulled (quay.io/minio/minio:latest -> 401 UNAUTHORIZED, minio/minio:latest -> pull access denied); the compose stack cannot boot, so browser tests were NOT executed"
+          echo "::error title=BLOCKED-e2e-minio-image::No MinIO image could be pulled (quay.io/minio/minio -> 401, minio/minio -> pull access denied). docker-compose.yml only knows how to run the MinIO server command, so a non-MinIO S3 substitute cannot boot this stack; the compose stack was NOT started and ZERO Playwright browser tests were executed. See the ci.yml job `Integration (MinIO)` step `Resolve a working S3-compatible object store` for which S3-compatible images DO pull and pass a real round-trip, plus their resolved digest, before choosing what to pin here."
           exit 1
 
       - name: start the stack (no build)

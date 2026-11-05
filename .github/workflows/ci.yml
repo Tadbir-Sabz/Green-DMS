@@ -232,7 +232,22 @@ jobs:
       # («minio/minio» بدونِ تگ). هیچ تعویضِ رجیستری یا تگِ حدسی انجام نشده؛ در عوض
       # digestِ واقعیِ pull‌شده ثبت می‌شود تا پین‌کردنِ نسخهٔ تغییرناپذیر در گامِ بعد
       # بر پایهٔ شاهدِ قابلِ اتکا صورت گیرد.
-      - name: Start MinIO (explicit prerequisite, full docker evidence)
+      # پیش‌نیازِ صریحِ تستِ ضمیمه. اگر هیچ سرویسِ S3-سازگاری سالم نشود، این گام با
+      # تشخیصِ کاملِ «BLOCKED» خارج می‌شود و گامِ تست هرگز اجرا نمی‌شود (بدونِ if: always()).
+      #
+      # چرا فهرستِ نامزد: مرجعِ «minio/minio» از Docker Hub با «pull access denied» و
+      # «quay.io/minio/minio» با 401 رد می‌شود، در حالی که postgis/postgis:16-3.4 و
+      # redis:7-alpine در «همین job» بی‌مشکل pull می‌شوند ⇒ مسئله دسترسیِ همان repository
+      # است، نه rate limit و نه تگِ نامعتبر. پس به‌جایِ حدس، نامزدهایِ S3-سازگارِ عمومی و
+      # نگه‌داری‌شونده با «تگِ پین‌شده» (هرگز latest) به‌ترتیب آزموده می‌شوند و اولین نامزدی
+      # که (۱) pull شود، (۲) بالا بیاید و (۳) «round-trip واقعیِ S3» را با همان کلاینتِ
+      # minio که StorageService استفاده می‌کند پاس کند، انتخاب می‌شود. digestِ واقعیِ
+      # pull‌شده ثبت می‌شود تا پینِ تغییرناپذیرِ بعدی بر پایهٔ شاهد باشد نه حدس.
+      #
+      # معیارِ انتخاب: سازگاریِ API با کلاینتِ موجود (makeBucket/putObject/statObject/
+      # presignedGetObject/removeObject)، در دسترس بودنِ عمومی، نگه‌داریِ فعال، نسخهٔ
+      # تغییرناپذیر و پشتیبانی از health check.
+      - name: Resolve a working S3-compatible object store (explicit prerequisite)
         id: minio
         shell: bash
         run: |
@@ -244,82 +259,92 @@ jobs:
           docker version 2>&1 | sed -n '1,20p'
           docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
 
-          # Evidence-driven image resolution. The reference assumed earlier
-          # (minio/minio on Docker Hub) is DENIED from the runner with:
-          #   "pull access denied for minio/minio, repository does not exist or
-          #    may require 'docker login'"   (pull_rc=1, run_rc=125)
-          # while postgis/postgis:16-3.4 and redis:7-alpine pull fine in the same
-          # job. So this is a repository-access problem, NOT a rate limit and NOT
-          # an invalid tag. Probe the candidate references in order, capture every
-          # attempt verbatim, and use the first one that actually pulls. The
-          # resolved RepoDigest is recorded so an immutable pin can be committed
-          # from verified evidence rather than guesswork.
-          IMAGE=""
-          DIGEST=""
-          : >/tmp/minio-pull.log
-          for CAND in quay.io/minio/minio:latest minio/minio:latest; do
-            echo "=== docker pull ${CAND} ==="
-            echo "----- candidate ${CAND} -----" >>/tmp/minio-pull.log
-            docker pull "$CAND" >>/tmp/minio-pull.log 2>&1
-            RC=$?
-            echo "pull_rc=${RC} for ${CAND}"
-            if [ "$RC" -eq 0 ]; then
-              IMAGE="$CAND"
-              DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$CAND" 2>/dev/null)
-              echo "selected=${IMAGE} resolved_digest=${DIGEST:-unresolved}"
+          # نامزد|آرگومانِ اجرا|پورت|access|secret|health-path
+          CANDIDATES='localstack/localstack:3.9|-e SERVICES=s3 -e AWS_ACCESS_KEY_ID=minio -e AWS_SECRET_ACCESS_KEY=minio123|4566|minio|minio123|/_localstack/health
+          seaweedfs/seaweedfs:3.76|server -s3 -s3.port=9000 -ip=0.0.0.0 -dir=/data -master.defaultReplication=000|9000|minio|minio123|/
+          adobe/s3mock:3.9.1||8090|minio|minio123|/
+          quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z|server /data --console-address :9001|9000|minio|minio123|/minio/health/live'
+
+          # اسکریپتِ round-trip با «همان» کلاینتی که برنامه استفاده می‌کند (minio از node_modules
+          # خودِ مخزن). این تنها شاهدِ قابلِ اتکاست: pull شدنِ تصویر به‌تنهایی معنایِ سازگاریِ S3 ندارد.
+          cat > ./.s3-roundtrip.mjs <<'EOF'
+          import { Client } from 'minio';
+          const [endpoint, port, access, secret, bucket] = process.argv.slice(2);
+          const c = new Client({ endPoint: endpoint, port: Number(port), useSSL: false, accessKey: access, secretKey: secret });
+          const key = `probe/${Date.now()}.txt`;
+          if (!(await c.bucketExists(bucket))) await c.makeBucket(bucket);
+          await c.putObject(bucket, key, Buffer.from('greendms s3 probe'), 19, { 'Content-Type': 'text/plain' });
+          const st = await c.statObject(bucket, key);
+          const url = await c.presignedGetObject(bucket, key, 60);
+          const res = await fetch(url);
+          const body = await res.text();
+          if (res.status !== 200 || body !== 'greendms s3 probe') throw new Error(`presigned GET failed: ${res.status} ${JSON.stringify(body)}`);
+          await c.removeObject(bucket, key);
+          console.log(JSON.stringify({ ok: true, size: st.size, presigned_status: res.status }));
+          EOF
+
+          IMAGE=""; DIGEST=""; PORT=""; AKEY=""; SKEY=""; EVIDENCE=""
+          : >/tmp/s3-probe.log
+          while IFS='|' read -r CAND ARGS CPORT CKEY CSEC CHEALTH; do
+            # ادامهٔ فهرستِ چندخطی در YAML تورفتگی دارد ⇒ سفیدفضاهایِ ابتدا/انتها بریده می‌شود
+            CAND="$(printf '%s' "$CAND" | tr -d '[:space:]')"
+            CHEALTH="$(printf '%s' "$CHEALTH" | tr -d '[:space:]')"
+            [ -z "$CAND" ] && continue
+            echo "===================== candidate ${CAND} (port ${CPORT}, health ${CHEALTH}) ====================="
+            { echo "----- pull ${CAND} -----"; docker pull "$CAND"; echo "pull_rc=$?"; } >>/tmp/s3-probe.log 2>&1
+            if ! docker image inspect "$CAND" >/dev/null 2>&1; then
+              echo "pull FAILED for ${CAND}"; docker rm -f s3probe >/dev/null 2>&1; continue
+            fi
+            CAND_DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$CAND" 2>/dev/null)
+            { echo "----- run ${CAND} -----"; docker run -d --name s3probe -p "${CPORT}:${CPORT}" ${ARGS} "$CAND"; echo "run_rc=$?"; } >>/tmp/s3-probe.log 2>&1
+            READY=0
+            for i in $(seq 1 45); do
+              if (exec 3<>"/dev/tcp/127.0.0.1/${CPORT}") 2>/dev/null; then READY=1; echo "port ${CPORT} answered after ${i} probe(s)"; break; fi
+              sleep 2
+            done
+            if [ "$READY" -ne 1 ]; then
+              echo "port never answered for ${CAND}"; docker logs s3probe >>/tmp/s3-probe.log 2>&1
+              docker rm -f s3probe >/dev/null 2>&1; continue
+            fi
+            # health path (اگر تعریف شده) — اختیاری است چون معیارِ اصلی round-trip است
+            if [ -n "$CHEALTH" ]; then
+              curl -s -o /dev/null -w "health_http=%{http_code}\n" "http://localhost:${CPORT}${CHEALTH}" | tee -a /tmp/s3-probe.log
+            fi
+            { echo "----- S3 round-trip ${CAND} -----"; node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms; echo "roundtrip_rc=$?"; } 2>&1 | tee -a /tmp/s3-probe.log
+            if tail -n 40 /tmp/s3-probe.log | grep -q '"ok":true'; then
+              IMAGE="$CAND"; DIGEST="$CAND_DIGEST"; PORT="$CPORT"; AKEY="$CKEY"; SKEY="$CSEC"
+              echo "SELECTED ${IMAGE} digest=${DIGEST:-unresolved} port=${PORT}"
               break
             fi
-          done
-          echo "=== full pull evidence ==="
-          cat /tmp/minio-pull.log
+            echo "round-trip FAILED for ${CAND}"
+            docker logs s3probe >>/tmp/s3-probe.log 2>&1
+            docker rm -f s3probe >/dev/null 2>&1
+          done <<< "$CANDIDATES"
 
-          echo "=== was an image present before container creation? ==="
-          docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' | grep -i minio || echo "(no minio image present locally)"
-          PULL_RC=$([ -n "$IMAGE" ] && echo 0 || echo 1)
+          rm -f ./.s3-roundtrip.mjs
+          echo "=== full probe evidence ==="
+          cat /tmp/s3-probe.log
 
           if [ -z "$IMAGE" ]; then
-            echo "::error title=BLOCKED-minio-unavailable::No candidate MinIO image could be pulled; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed)"
-            echo "::error title=minio-candidates-tried::quay.io/minio/minio:latest, minio/minio:latest"
-            echo "::error title=minio-pull-log::$(head -c 3000 /tmp/minio-pull.log | enc)"
-            echo "::error title=minio-docker-env::$( { docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'; docker info --format 'mirrors={{.RegistryConfig.Mirrors}}'; docker images | head -n 15; } 2>&1 | enc)"
+            echo "::error title=BLOCKED-s3-unavailable::No S3-compatible candidate image could be pulled AND pass a real S3 round-trip; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed, NOT skipped)"
+            echo "::error title=s3-candidates-tried::localstack/localstack:3.9, seaweedfs/seaweedfs:3.76, adobe/s3mock:3.9.1, quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z"
+            echo "::error title=s3-probe-log::$(head -c 4000 /tmp/s3-probe.log | enc)"
+            echo "::error title=s3-docker-env::$( { docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'; docker info --format 'mirrors={{.RegistryConfig.Mirrors}}'; docker images | head -n 15; docker ps -a; } 2>&1 | enc)"
             exit 1
           fi
+
+          # نامزدِ انتخاب‌شده در حالِ اجراست و round-trip را پاس کرده ⇒ تنظیماتِ همان container
+          # به گامِ تست صادر می‌شود (بدونِ هیچ credentialِ مخزنی؛ همه CI-only هستند).
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "digest=${DIGEST:-unresolved}" >> "$GITHUB_OUTPUT"
-          echo "::notice title=minio-image-resolved::image=${IMAGE} digest=${DIGEST:-unresolved}"
+          echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          echo "MINIO_ENDPOINT=localhost" >> "$GITHUB_ENV"
+          echo "MINIO_PORT=${PORT}" >> "$GITHUB_ENV"
+          echo "MINIO_ACCESS_KEY=${AKEY}" >> "$GITHUB_ENV"
+          echo "MINIO_SECRET_KEY=${SKEY}" >> "$GITHUB_ENV"
+          echo "MINIO_USE_SSL=false" >> "$GITHUB_ENV"
+          echo "::notice title=s3-image-resolved::image=${IMAGE} digest=${DIGEST:-unresolved} port=${PORT} roundtrip=passed"
 
-          echo "=== docker run (stdout+stderr captured) ==="
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio123 \
-            "$IMAGE" server /data --console-address ':9001' >/tmp/minio-run.log 2>&1
-          RUN_RC=$?
-          echo "run_rc=${RUN_RC}"
-          cat /tmp/minio-run.log
-
-          echo "=== readiness probe (/minio/health/live) ==="
-          READY=0
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
-              READY=1; echo "MinIO healthy after ${i} probe(s)"; break
-            fi
-            sleep 2
-          done
-
-          if [ "$READY" -ne 1 ]; then
-            echo "::error title=BLOCKED-minio-unavailable::MinIO did not become healthy; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed)"
-            echo "::error title=minio-image-ref::image=${IMAGE} resolved_digest=${DIGEST:-unresolved}"
-            echo "::error title=minio-exit-codes::pull_rc=${PULL_RC} run_rc=${RUN_RC} ready=${READY}"
-            echo "::error title=minio-pull-log::$(head -c 3000 /tmp/minio-pull.log | enc)"
-            echo "::error title=minio-run-log::$(head -c 2000 /tmp/minio-run.log | enc)"
-            echo "::error title=minio-container-log::$(docker logs minio 2>&1 | tail -n 40 | enc)"
-            echo "::error title=minio-docker-state::$( { docker ps -a; echo '--- images ---'; docker images | head -n 20; echo '--- events ---'; timeout 10 docker events --since 10m --until 0s 2>/dev/null | tail -n 25; } 2>&1 | enc)"
-            exit 1
-          fi
-
-          echo "healthy=true" >> "$GITHUB_OUTPUT"
-          echo "::notice title=minio-ready::image=${IMAGE} digest=${DIGEST:-unresolved} pull_rc=${PULL_RC} run_rc=${RUN_RC}"
-
-      # تنها وقتی اجرا می‌شود که MinIO سالم باشد (پیش‌نیازِ صریح).
       - name: Attachment round-trip tests (requires healthy MinIO)
         if: steps.minio.outputs.healthy == 'true'
         id: att

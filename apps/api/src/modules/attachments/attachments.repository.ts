@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import { ownerTenantSql } from './owner-scope';
 
 /** یک ضمیمه — شکل schemas.Attachment (ستون company_id در مهاجرت 0035 افزوده شد) */
 export interface AttachmentRow extends QueryResultRow {
@@ -70,6 +71,26 @@ export class AttachmentsRepository {
       [id, companyId],
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * اثباتِ مالکیتِ اجاره‌ایِ «موجودیتِ مالکِ ضمیمه» از راهِ زنجیرهٔ والد در خودِ DB.
+   *
+   * company_idِ واقعیِ موجودیتِ مالک را برمی‌گرداند، یا null اگر:
+   *   - موجودیت وجود ندارد، یا
+   *   - به اجارهٔ دیگری تعلق دارد (RLS روی جداولِ والد آن را نامرئی می‌کند)، یا
+   *   - owner_type مسیرِ راستی‌آزمایی‌شده ندارد (مثلِ `other`).
+   * چون خودِ کوئری زیرِ RLS اجرا می‌شود، نبودِ سطر با «مالکِ شرکتِ دیگر» یکسان برخورد می‌شود
+   * و وجودِ موجودیتِ اجارهٔ دیگر لو نمی‌رود (ضدِّ enumerate).
+   */
+  async resolveOwnerCompany(
+    ownerType: string,
+    ownerId: string,
+  ): Promise<string | null> {
+    const sql = ownerTenantSql(ownerType);
+    if (!sql) return null;
+    const { rows } = await this.pool.query<{ company_id: string | null }>(sql, [ownerId]);
+    return rows[0]?.company_id ?? null;
   }
 
   /** فهرست ضمیمه‌های یک موجودیت (owner) در دامنهٔ شرکت — برای نمایش در فرم‌ها. */

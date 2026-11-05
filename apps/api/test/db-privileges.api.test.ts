@@ -107,6 +107,11 @@ async function expectRlsDenied(promise: Promise<unknown>, label: string): Promis
   throw new Error(`expected RLS denial for ${label}, but it succeeded`);
 }
 
+let personA = '';
+let personB = '';
+let phoneA = '';
+let phoneB = '';
+
 beforeAll(async () => {
   adminPool = new pg.Pool({ connectionString: adminUrl.toString(), max: 1 });
   await adminPool.query(
@@ -133,8 +138,8 @@ beforeAll(async () => {
   companyB = (await ownerPool.query(`insert into company (code, legal_name) values ('PRIV_B','شرکت ب') returning id`)).rows[0].id;
   branchA = (await ownerPool.query(`insert into branch (company_id, code, name) values ($1,'HQ','مرکز آ') returning id`, [companyA])).rows[0].id;
   branchB = (await ownerPool.query(`insert into branch (company_id, code, name) values ($1,'HQ','مرکز ب') returning id`, [companyB])).rows[0].id;
-  const personA = (await ownerPool.query(`insert into person (company_id, code, legal_type, first_name, last_name) values ($1,'PA','natural','کاربر','آ') returning id`, [companyA])).rows[0].id;
-  const personB = (await ownerPool.query(`insert into person (company_id, code, legal_type, first_name, last_name) values ($1,'PB','natural','کاربر','ب') returning id`, [companyB])).rows[0].id;
+  personA = (await ownerPool.query(`insert into person (company_id, code, legal_type, first_name, last_name) values ($1,'PA','natural','کاربر','آ') returning id`, [companyA])).rows[0].id;
+  personB = (await ownerPool.query(`insert into person (company_id, code, legal_type, first_name, last_name) values ($1,'PB','natural','کاربر','ب') returning id`, [companyB])).rows[0].id;
   customerA = (await ownerPool.query(`insert into customer (person_id, branch_id, code) values ($1,$2,'CA') returning id`, [personA, branchA])).rows[0].id;
   customerB = (await ownerPool.query(`insert into customer (person_id, branch_id, code) values ($1,$2,'CB') returning id`, [personB, branchB])).rows[0].id;
   invoiceA = (await ownerPool.query(`insert into billing_invoice (company_id, invoice_no, period_start, period_end, amount) values ($1,'PA-1','2026-01-01','2026-01-31',1000) returning id`, [companyA])).rows[0].id;
@@ -156,6 +161,17 @@ beforeAll(async () => {
   // ممیزیِ استقرار: دو ردیف از دو اجارهٔ متفاوت + یک ردیفِ پیش‌از‌اجاره
   await ownerPool.query(`insert into onboarding_attempt (client_ip, company_code, outcome, company_id) values ('1.1.1.1','PRIV_A','created',$1)`, [companyA]);
   await ownerPool.query(`insert into onboarding_attempt (client_ip, company_code, outcome, company_id) values ('2.2.2.2','PRIV_B','created',$1)`, [companyB]);
+
+  // --- fixture برایِ سیاست‌هایِ «زنجیرهٔ والد» (مهاجرت 0042) ---
+  // person_phone هیچ ستونِ اجاره‌ای ندارد: مالکیتش فقط از راهِ person_id → person.company_id
+  // قابلِ اثبات است. دو ردیفِ هم‌نوع برایِ دو اجاره ⇒ آزمونِ خواندن/نوشتنِ بین‌اجاره‌ای.
+  phoneA = (await ownerPool.query(`insert into person_phone (person_id, kind, phone) values ($1,'mobile','09120000001') returning id`, [personA])).rows[0].id;
+  phoneB = (await ownerPool.query(`insert into person_phone (person_id, kind, phone) values ($1,'mobile','09120000002') returning id`, [personB])).rows[0].id;
+
+  // جدولِ پارتیشن‌شدهٔ audit_log: یک ردیفِ هر اجاره + یک ردیفِ سراسری (company_id تهی).
+  await ownerPool.query(`insert into audit_log (company_id, action, entity_type, entity_id, at) values ($1,'create','invoice',$2, now())`, [companyA, invoiceA]);
+  await ownerPool.query(`insert into audit_log (company_id, action, entity_type, entity_id, at) values ($1,'create','invoice',$2, now())`, [companyB, invoiceB]);
+  await ownerPool.query(`insert into audit_log (company_id, action, entity_type, at) values (null,'login','auth', now())`);
 
   // --- فعال‌سازیِ نقشِ زمانِ اجرا: LOGIN + رمزِ تصادفیِ یکبارمصرف ---
   await adminPool.query(
@@ -588,5 +604,199 @@ describe('ممیزیِ استقرار — نوشتن مجاز، خواندنِ �
     );
     expect(rows).toEqual([]); // ولی هیچ ردیفی دیده نمی‌شود
     expect(priv.sel).toBe(true); // امتیاز هست؛ آنچه جلوی نشت را می‌گیرد RLS است
+  });
+});
+
+describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ فرزند بدونِ ستونِ اجاره', () => {
+  it('اجارهٔ A سطرِ فرزندِ اجارهٔ B را نمی‌بیند (person_phone → person)', async () => {
+    const seen = await asRuntime(companyA, async (c) =>
+      (await c.query(`select id from person_phone`)).rows.map((x) => x.id),
+    );
+    expect(seen).toEqual([phoneA]);
+    expect(seen).not.toContain(phoneB);
+  });
+
+  it('درجِ سطرِ فرزند زیرِ والدِ اجارهٔ دیگر ⇒ رد با 42501', async () => {
+    const code = await asRuntime(companyA, (c) =>
+      expectRlsDenied(
+        c.query(
+          `insert into person_phone (person_id, kind, phone) values ($1,'mobile','09129999999')`,
+          [personB],
+        ),
+        'cross-tenant child insert',
+      ),
+    );
+    expect(code).toBe('42501');
+  });
+
+  it('به‌روزرسانی و حذفِ سطرِ فرزندِ اجارهٔ دیگر ⇒ صفر ردیف، بدونِ اثر', async () => {
+    const r = await asRuntime(companyA, async (c) => ({
+      updated: (await c.query(`update person_phone set kind = 'fax' where id = $1`, [phoneB]))
+        .rowCount,
+      deleted: (await c.query(`delete from person_phone where id = $1`, [phoneB])).rowCount,
+    }));
+    expect(r.updated).toBe(0);
+    expect(r.deleted).toBe(0);
+    const stillThere = await ownerPool.query(`select kind from person_phone where id = $1`, [
+      phoneB,
+    ]);
+    expect(stillThere.rows[0].kind).toBe('mobile');
+  });
+
+  it('درجِ سطرِ فرزند برایِ والدِ همان اجاره مجاز است (کمینه‌امتیاز، نه انسداد)', async () => {
+    const id = await asRuntime(companyA, async (c) =>
+      (
+        await c.query(
+          `insert into person_phone (person_id, kind, phone) values ($1,'landline','02112345678') returning id`,
+          [personA],
+        )
+      ).rows[0].id,
+    );
+    expect(id).toBeTruthy();
+  });
+
+  it('زمینهٔ اجاره نباشد، جدولِ فرزند هم صفر ردیف است (fail-closedِ گذرا از والد)', async () => {
+    const n = await asRuntime('none', async (c) =>
+      (await c.query(`select count(*)::int n from person_phone`)).rows[0].n,
+    );
+    expect(n).toBe(0);
+  });
+
+  it('زمینهٔ نامعتبر (غیر UUID) هم برایِ جداولِ فرزند fail-closed است', async () => {
+    const n = await asRuntime('bogus-not-a-uuid', async (c) =>
+      (await c.query(`select count(*)::int n from person_phone`)).rows[0].n,
+    );
+    expect(n).toBe(0);
+  });
+
+  it('مسیرِ مالکیتِ هر سیاستِ فرزند، «کلیدِ خارجیِ واقعیِ» همان جدول است (نه حدس)', async () => {
+    const { rows } = await adminPool.query(`
+      with child_policies as (
+        select c.relname as child, p.qual
+          from pg_policy p
+          join pg_class c on c.oid = p.polrelid
+         where p.polname = 'p_' || c.relname || '_tenant'
+           and p.qual ~ 'from [a-z_]+ pp where'
+      ),
+      declared_fk as (
+        select con.conrelid::regclass::text as child,
+               con.confrelid::regclass::text as parent
+          from pg_constraint con
+         where con.contype = 'f'
+      )
+      select cp.child,
+             (regexp_match(cp.qual, 'from ([a-z_]+) pp where'))[1] as policy_parent,
+             exists (select 1 from declared_fk f
+                      where f.child = cp.child
+                        and f.parent = (regexp_match(cp.qual, 'from ([a-z_]+) pp where'))[1]) as fk_verified
+        from child_policies cp
+       order by cp.child`);
+    expect(rows.length).toBeGreaterThanOrEqual(67);
+    const unverified = rows.filter((r: any) => !r.fk_verified).map((r: any) => r.child);
+    expect(unverified).toEqual([]);
+  });
+
+  it('پوششِ واقعی از کاتالوگ: همهٔ جداولِ هدف RLS + FORCE + سیاست دارند', async () => {
+    const { rows } = await adminPool.query(`
+      select count(*)::int n
+        from pg_class c
+        join pg_namespace ns on ns.oid = c.relnamespace
+       where ns.nspname = 'public' and c.relkind = 'r'
+         and c.relrowsecurity and c.relforcerowsecurity
+         and exists (select 1 from pg_policy p where p.polrelid = c.oid)`);
+    // 0041: ۷۱ جدول · 0042: ۶۸ فرزند + ۳ پارتیشن‌شده ⇒ دستِ‌کم ۱۳۹ والد
+    expect(rows[0].n).toBeGreaterThanOrEqual(139);
+  });
+});
+
+describe('پارتیشن‌ها (0042) — دسترسیِ مستقیم نمی‌تواند جداسازی را دور بزند', () => {
+  const partName = () =>
+    `audit_log_${new Date().toISOString().slice(0, 7).replace('-', '_')}`;
+
+  const partitionsQuery = `
+      select c.relname as part, c.relrowsecurity, c.relforcerowsecurity,
+             exists (select 1 from pg_policy p where p.polrelid = c.oid) as has_policy
+        from pg_inherits i
+        join pg_class c on c.oid = i.inhrelid
+        join pg_class par on par.oid = i.inhparent
+       where par.relname in ('audit_log','inventory_txn','location_sample')`;
+
+  it('هر پارتیشنِ موجودِ سه جدولِ پرحجم، RLS و سیاستِ خودش را دارد', async () => {
+    const { rows } = await adminPool.query(partitionsQuery);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) {
+      expect(r.relrowsecurity, `partition ${r.part} lacks RLS`).toBe(true);
+      expect(r.relforcerowsecurity, `partition ${r.part} lacks FORCE`).toBe(true);
+      expect(r.has_policy, `partition ${r.part} lacks a policy`).toBe(true);
+    }
+  });
+
+  it('پارتیشنِ «تازه» که fn_ensure_partitions می‌سازد هم سخت می‌شود', async () => {
+    const before = (await adminPool.query(partitionsQuery)).rows.length;
+    await ownerPool.query(`select fn_ensure_partitions(6)`);
+    const { rows } = await adminPool.query(partitionsQuery);
+    expect(rows.length).toBeGreaterThanOrEqual(before);
+    for (const r of rows) {
+      expect(r.relrowsecurity, `new partition ${r.part} lacks RLS`).toBe(true);
+      expect(r.relforcerowsecurity, `new partition ${r.part} lacks FORCE`).toBe(true);
+      expect(r.has_policy, `new partition ${r.part} lacks a policy`).toBe(true);
+    }
+  });
+
+  it('خواندنِ مستقیمِ پارتیشنِ جاری: فقط سطرِ همان اجاره + سطرِ سراسری (NULL)', async () => {
+    const r = await asRuntime(companyA, async (c) =>
+      (await c.query(`select company_id from ${partName()}`)).rows.map((x) => x.company_id),
+    );
+    expect(r).toContain(companyA);
+    expect(r).toContain(null);
+    expect(r).not.toContain(companyB);
+  });
+
+  it('اجارهٔ B متقابلاً سطرِ A را در همان پارتیشن نمی‌بیند', async () => {
+    const r = await asRuntime(companyB, async (c) =>
+      (await c.query(`select company_id from ${partName()}`)).rows.map((x) => x.company_id),
+    );
+    expect(r).toContain(companyB);
+    expect(r).not.toContain(companyA);
+  });
+
+  it('بدونِ زمینهٔ اجاره، فقط سطرهایِ سراسریِ ممیزی دیده می‌شوند', async () => {
+    const r = await asRuntime('none', async (c) =>
+      (await c.query(`select company_id from ${partName()}`)).rows.map((x) => x.company_id),
+    );
+    expect(r.length).toBeGreaterThan(0);
+    expect(r.every((x) => x === null)).toBe(true);
+  });
+
+  it('درجِ ممیزی با company_id اجارهٔ دیگر ⇒ 42501؛ درجِ سراسری (NULL) مجاز است', async () => {
+    const code = await asRuntime(companyA, (c) =>
+      expectRlsDenied(
+        c.query(
+          `insert into audit_log (company_id, action, entity_type, at)
+           values ($1,'create','invoice', now())`,
+          [companyB],
+        ),
+        'cross-tenant audit insert',
+      ),
+    );
+    expect(code).toBe('42501');
+    await asRuntime('none', (c) =>
+      c.query(`insert into audit_log (company_id, action, entity_type, at)
+               values (null,'login','auth', now())`),
+    );
+  });
+
+  it('سه جدولِ پارتیشن‌شده هم RLS + FORCE + سیاست دارند', async () => {
+    const { rows } = await adminPool.query(`
+      select c.relname, c.relrowsecurity, c.relforcerowsecurity,
+             exists (select 1 from pg_policy p where p.polrelid = c.oid) as has_policy
+        from pg_class c
+       where c.relname in ('audit_log','inventory_txn','location_sample')`);
+    expect(rows).toHaveLength(3);
+    for (const r of rows) {
+      expect(r.relrowsecurity).toBe(true);
+      expect(r.relforcerowsecurity).toBe(true);
+      expect(r.has_policy).toBe(true);
+    }
   });
 });

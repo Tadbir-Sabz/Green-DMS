@@ -162,8 +162,18 @@ function makeStorage(): MockStorage {
     remove: vi.fn().mockResolvedValue(undefined),
   };
 }
-function makeRepo(insert = vi.fn()) {
-  return { insert, findByIdInCompany: vi.fn() };
+function makeRepo(
+  insert = vi.fn(),
+  // پیش‌فرض: مالکِ ضمیمه به همان شرکتِ نشست تعلق دارد (تست‌هایِ موجود دربارهٔ مالکیت نیستند).
+  // سناریوهایِ مالکیت در attachment-owner-scope.test.ts با مقدارِ دیگرِ همین پارامتر سنجیده می‌شوند.
+  resolveOwnerCompany = vi.fn().mockResolvedValue(COMPANY),
+) {
+  return {
+    insert,
+    findByIdInCompany: vi.fn(),
+    listByOwner: vi.fn().mockResolvedValue([]),
+    resolveOwnerCompany,
+  };
 }
 const COMPANY = '11111111-1111-4111-8111-111111111111';
 const OWNER = '22222222-2222-4222-8222-222222222222';
@@ -300,7 +310,14 @@ describe('AttachmentsService.downloadUrl', () => {
   it('یافت شد → presignedGet با storage_key و {url, expires_in}', async () => {
     const storage = makeStorage();
     const repo = makeRepo();
-    repo.findByIdInCompany.mockResolvedValue({ id: OWNER, storage_key: 'co/pod/x/f.jpg' });
+    // سطرِ ضمیمه باید owner_type/owner_id داشته باشد: از 0042 به بعد سرویس پیش از صدورِ
+    // URL امضاشده، زنجیرهٔ مالکیتِ همان owner را دوباره اثبات می‌کند (دسترسیِ غیرمستقیم).
+    repo.findByIdInCompany.mockResolvedValue({
+      id: OWNER,
+      storage_key: 'co/pod/x/f.jpg',
+      owner_type: 'pod',
+      owner_id: OWNER,
+    });
     const svc = new AttachmentsService(storage as never, repo as never);
     const res = await svc.downloadUrl(OWNER, ctx);
     expect(repo.findByIdInCompany).toHaveBeenCalledWith(OWNER, COMPANY);
