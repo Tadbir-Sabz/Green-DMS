@@ -1,7 +1,7 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ROUTING_REPOSITORY } from './tokens';
 import type { RoutingRepository } from './routing.repository';
-import { solveRoute } from './tsp';
+import { MAX_ROUTE_STOPS, RouteOptimizationError, solveRoute } from './tsp';
 import type { OptimizeRouteDto, RoutingOptimization } from './optimize.dto';
 
 /**
@@ -12,6 +12,8 @@ import type { OptimizeRouteDto, RoutingOptimization } from './optimize.dto';
  */
 @Injectable()
 export class RoutingService {
+  private readonly logger = new Logger(RoutingService.name);
+
   constructor(@Inject(ROUTING_REPOSITORY) private readonly repo: RoutingRepository) {}
 
   async optimize(dto: OptimizeRouteDto, companyId: string): Promise<RoutingOptimization> {
@@ -39,12 +41,40 @@ export class RoutingService {
       };
     }
 
-    const result = solveRoute(stops, {
-      startLat: dto.start_lat,
-      startLng: dto.start_lng,
-      avgSpeedKmh: dto.avg_speed_kmh,
-      serviceMinPerStop: dto.service_min_per_stop,
-    });
+    let result;
+    try {
+      result = solveRoute(stops, {
+        startLat: dto.start_lat,
+        startLng: dto.start_lng,
+        avgSpeedKmh: dto.avg_speed_kmh,
+        serviceMinPerStop: dto.service_min_per_stop,
+      });
+    } catch (err) {
+      // سقفِ توقف‌ها (و هر خطایِ دامنه‌ایِ دیگر) به یک ۴۰۰ با کدِ پایدار و پیامِ
+      // قابلِ فهم نگاشت می‌شود — نه یک ۵۰۰ مبهم یا هنگِ رویدادِ Node.
+      if (err instanceof RouteOptimizationError) {
+        throw new BadRequestException({
+          code: err.code,
+          message_fa:
+            err.code === 'too_many_stops'
+              ? `تعدادِ توقف‌ها (${err.details?.stop_count ?? stops.length}) از سقفِ مجاز (${MAX_ROUTE_STOPS}) بیشتر است؛ مسیر را به بخش‌های کوچک‌تر تقسیم کنید.`
+              : 'ورودیِ بهینه‌سازیِ مسیر معتبر نیست.',
+          ...(err.details ?? {}),
+        });
+      }
+      throw err;
+    }
+
+    if (result.skipped_stops > 0) {
+      this.logger.warn(
+        `routing: skipped ${result.skipped_stops} stop(s) with missing/invalid coordinates (company=${companyId})`,
+      );
+    }
+    if (result.baseline_used) {
+      this.logger.warn(
+        `routing: optimizer tour was worse than input order; baseline order returned (company=${companyId})`,
+      );
+    }
 
     return {
       route_id: dto.route_id ?? null,

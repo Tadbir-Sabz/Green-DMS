@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { ATTACHMENTS_REPOSITORY, STORAGE_SERVICE } from './tokens';
+import { checkFileContent, type ContentCheckResult } from './content-type';
 import type { AttachmentRow, AttachmentsRepository } from './attachments.repository';
 import type { StorageService } from './storage.service';
 import type {
@@ -89,6 +90,55 @@ export class AttachmentsService {
     @Inject(ATTACHMENTS_REPOSITORY) private readonly repo: AttachmentsRepository,
   ) {}
 
+  /**
+   * تبدیلِ نتیجهٔ ناموفقِ اعتبارسنجیِ محتوا به خطایِ HTTP با کدِ پایدار و پیامِ فارسی.
+   *
+   * فقط از وضعیت‌هایِ ۴۰۰ و ۴۱۵ استفاده می‌کند که پیش‌تر در قراردادِ openapi برای
+   * POST /attachments مستند شده‌اند؛ بنابراین قرارداد و کلاینت‌هایِ تولیدی تغییری نمی‌کنند.
+   */
+  private rejectContent(
+    content: ContentCheckResult,
+    file: UploadedFile,
+  ): BadRequestException | UnsupportedMediaTypeException {
+    const declared = file.mimetype;
+    const detail = {
+      declared_content_type: declared,
+      detected_content_type: content.detected,
+    };
+    if (content.suspicious) {
+      this.logger.warn(
+        `rejected upload: suspicious payload (${content.suspicious}) declared="${declared}" name="${sanitizeFileName(file.originalname)}"`,
+      );
+    }
+    switch (content.reason) {
+      case 'unverifiable_content_type':
+        return new UnsupportedMediaTypeException({
+          code: 'unverifiable_content_type',
+          message_fa: `نوعِ «${declared}» با امضایِ بایتی راستی‌آزمایی نمی‌شود و پذیرفته نشد.`,
+          ...detail,
+        });
+      case 'content_type_mismatch':
+        return new UnsupportedMediaTypeException({
+          code: 'content_type_mismatch',
+          message_fa: `محتوایِ واقعیِ فایل با نوعِ اعلام‌شده («${declared}») نمی‌خواند.`,
+          ...detail,
+        });
+      case 'malformed_content':
+        return new BadRequestException({
+          code: 'malformed_content',
+          message_fa: 'ساختارِ فایل ناقص یا مخدوش است و قابلِ پذیرش نیست.',
+          ...detail,
+        });
+      case 'extension_mismatch':
+      default:
+        return new BadRequestException({
+          code: 'extension_mismatch',
+          message_fa: `پسوندِ نامِ فایل با محتوایِ واقعی (${content.detected ?? 'نامعلوم'}) سازگار نیست (پسوندهایِ مجاز: ${(content.expectedExtensions ?? []).join('، ')}).`,
+          ...detail,
+        });
+    }
+  }
+
   async upload(
     file: UploadedFile | undefined,
     meta: UploadAttachmentDto,
@@ -114,11 +164,21 @@ export class AttachmentsService {
       });
     }
 
+    // --- اعتبارسنجیِ «محتوایِ واقعی» بر پایهٔ امضایِ بایتی ---
+    // mimetype از سویِ کلاینت تأمین می‌شود (مرورگر از پسوند حدس می‌زند) و قابلِ اعتماد نیست؛
+    // بنابراین محتوا مستقل از آن سنجیده و ناسازگاری fail-closed رد می‌شود.
+    const content = checkFileContent(file.buffer, file.mimetype, file.originalname);
+    if (!content.ok) {
+      throw this.rejectContent(content, file);
+    }
+    // نوعِ راستی‌آزمایی‌شده (نه ادعایِ کلاینت) ذخیره و در آبجکت‌استوریج ثبت می‌شود.
+    const contentType = content.detected ?? file.mimetype;
+
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
     const fileName = sanitizeFileName(file.originalname);
     const key = `${ctx.companyId}/${meta.owner_type}/${meta.owner_id}/${sha256}-${randomUUID()}-${fileName}`;
 
-    await this.storage.put(key, file.buffer, file.mimetype);
+    await this.storage.put(key, file.buffer, contentType);
 
     let row: AttachmentRow;
     try {
@@ -127,7 +187,7 @@ export class AttachmentsService {
         owner_type: meta.owner_type,
         owner_id: meta.owner_id,
         file_name: fileName,
-        content_type: file.mimetype,
+        content_type: contentType,
         size_bytes: size,
         storage_key: key,
         sha256,

@@ -1,4 +1,5 @@
-import { IsArray, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { MAX_ROUTE_STOPS } from './tsp';
 
 /**
  * بدنهٔ POST /routing/optimize — حداقل یکی از route_id یا customer_ids لازم است
@@ -7,6 +8,9 @@ import { IsArray, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator
 export class OptimizeRouteDto {
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_ROUTE_STOPS, {
+    message: `تعدادِ توقف‌ها نمی‌تواند بیشتر از ${MAX_ROUTE_STOPS} باشد.`,
+  })
   @IsUUID('4', { each: true })
   customer_ids?: string[];
 

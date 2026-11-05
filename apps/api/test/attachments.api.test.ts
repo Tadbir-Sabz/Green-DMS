@@ -71,9 +71,27 @@ let otherCompanyId = '';
 
 // یک PNG کوچک (بایت‌های معین) برای round-trip؛ محتوا لازم نیست PNG معتبر باشد،
 // فقط نوعِ mime (از پسوند .png) و یکسان‌ماندنِ بایت‌ها پس از بازیابی سنجیده می‌شود.
-const PNG_BYTES = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-]);
+/**
+ * یک PNG «ساختارمعتبرِ» حداقلی: امضای ۸ بایتی + چانکِ کاملِ IHDR.
+ *
+ * پیش‌تر این fixture فقط ۱۶ بایت بود (امضا + چند بایتِ دلخواه). از آنجا که سرویس اکنون
+ * محتوایِ واقعی را با magic bytes و حداقلِ ساختار راستی‌آزمایی می‌کند، آن بایت‌ها به‌درستی
+ * «مخدوش» تشخیص داده می‌شدند و round-trip واقعیِ آپلود شکست می‌خورد.
+ */
+const PNG_BYTES = (() => {
+  const b = Buffer.alloc(33);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0);
+  b.writeUInt32BE(13, 8); // طولِ دادهٔ IHDR
+  b.write('IHDR', 12, 'latin1');
+  b.writeUInt32BE(1, 16); // width
+  b.writeUInt32BE(1, 20); // height
+  b[24] = 8; // bit depth
+  b[25] = 2; // color type: RGB
+  b[26] = 0; // compression
+  b[27] = 0; // filter
+  b[28] = 0; // interlace
+  return b;
+})();
 
 const exercisedErrors = new Set<string>();
 

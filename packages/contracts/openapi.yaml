@@ -3578,6 +3578,20 @@ paths:
     post:
       tags: [routing]
       summary: بهینه‌سازی مسیر ویزیت (TSP) — ترتیبِ بهینهٔ توقف‌ها با کمینه مسافت
+      description: >-
+        ترتیبِ توقف‌ها با الگوریتمِ نزدیک‌ترین همسایه + بهبودِ 2-opt محاسبه می‌شود.
+
+
+        **محدودیتِ دقت:** فاصله‌ها با فرمولِ «هاورساین» یعنی فاصلهٔ خطِ مستقیمِ
+        ژئودزیکیِ رویِ کرهٔ زمین محاسبه می‌شوند، **نه** مسافتِ واقعیِ شبکهٔ جاده‌ای.
+        بنابراین total_distance_km و eta_min «برآورد» هستند و می‌توانند از مسافتِ
+        واقعیِ رانندگی کمتر باشند (عبور از معبر، محدودیتِ ترافیک و ارتفاع لحاظ نمی‌شود).
+
+
+        توقف‌هایی که مختصاتِ نامعتبر یا ناموجود دارند از بهینه‌سازی کنار گذاشته می‌شوند
+        (بدونِ شکستِ درخواست) و در stop_count شمارش نمی‌شوند. اگر خروجیِ بهینه‌ساز از
+        ترتیبِ ورودی بدتر باشد، همان ترتیبِ ورودی (خطِ پایه) با savings_percent برابرِ صفر
+        برگردانده می‌شود.
       requestBody:
         required: true
         content:
@@ -3592,7 +3606,10 @@ paths:
                 customer_ids:
                   type: array
                   items: { type: string, format: uuid }
-                  description: فهرستِ صریحِ توقف‌ها (اگر route_id داده نشود)
+                  maxItems: 200
+                  description: >-
+                    فهرستِ صریحِ توقف‌ها (اگر route_id داده نشود). سقفِ سرور ۲۰۰ توقف است
+                    (MAX_ROUTE_STOPS)؛ بیش از آن با وضعیتِ ۴۰۰ و کدِ too_many_stops رد می‌شود.
                 start_lat: { type: number, format: double, minimum: -90, maximum: 90, description: عرضِ جغرافیاییِ دپو/نقطهٔ شروع }
                 start_lng: { type: number, format: double, minimum: -180, maximum: 180, description: طولِ جغرافیاییِ دپو/نقطهٔ شروع }
                 avg_speed_kmh: { type: number, format: double, minimum: 1, maximum: 150, description: سرعت متوسط (پیش‌فرض ۳۰) }

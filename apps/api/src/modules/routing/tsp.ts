@@ -36,6 +36,64 @@ export interface TourResult {
   total_distance_km: number;
   total_duration_min: number;
   savings_percent: number; // بهبود نسبت به ترتیبِ ورودی
+  /** توقف‌هایی که مختصاتِ نامعتبر/ناموجود داشتند و از بهینه‌سازی کنار گذاشته شدند */
+  skipped_stops: number;
+  /** اگر خروجیِ بهینه‌ساز از ترتیبِ ورودی بدتر بود، ترتیبِ پایه برگردانده شده است */
+  baseline_used: boolean;
+}
+
+/**
+ * سقفِ «صریحِ» تعدادِ توقف‌ها — با env قابلِ تنظیم (پیش‌فرض ۲۰۰).
+ *
+ * چرا لازم است: حلِ TSP اینجا ماتریسِ فاصلهٔ n×n می‌سازد و سپس 2-opt را تا
+ * ۲۰۰ بار روی O(n²) اجرا می‌کند؛ یعنی هزینهٔ آن با n به‌شدت رشد می‌کند. بدونِ سقف،
+ * یک درخواستِ معمولی با فهرستِ بزرگِ customer_ids می‌تواند رویدادِ Node را برای
+ * چند ثانیه/دقیقه ببندد (سطحِ حملهٔ DoS). سقف هم در DTO (@ArrayMaxSize → ۴۰۰) و
+ * هم اینجا (لایهٔ دوم، برای مسیرِ route_id که از DB می‌آید) اعمال می‌شود.
+ */
+export const MAX_ROUTE_STOPS = (() => {
+  const raw = Number(process.env.MAX_ROUTE_STOPS);
+  if (!Number.isFinite(raw) || raw < 2) return 200;
+  return Math.floor(raw);
+})();
+
+export type RouteErrorCode = 'too_many_stops';
+
+/** خطایِ دامنه‌ایِ بهینه‌سازی — در لایهٔ سرویس به ۴۰۰ با کدِ پایدار نگاشت می‌شود. */
+export class RouteOptimizationError extends Error {
+  constructor(
+    readonly code: RouteErrorCode,
+    message: string,
+    readonly details?: Record<string, number>,
+  ) {
+    super(message);
+    this.name = 'RouteOptimizationError';
+  }
+}
+
+/**
+ * تصمیمِ «خطِ پایه»: اگر تورِ بهینه‌شده از ترتیبِ ورودی بدتر باشد، همان ترتیبِ ورودی
+ * برگردانده می‌شود. این تضمین می‌کند بهینه‌ساز هرگز نتیجهٔ بدتری از وضعیتِ موجود ندهد.
+ * تلورانسِ ۱e-۹ از مقایسهٔ شناورِ بی‌معنی (و نوسانِ بی‌اثر) جلوگیری می‌کند.
+ *
+ * به‌صورتِ تابعِ خالص و صادرشده پیاده شده تا مستقیم و قطعی آزمون شود — چون در عمل
+ * 2-opt تقریباً همیشه بهتر از ترتیبِ ورودی است و این شاخه به‌ندرت با دادهٔ تصادفی
+ * فعال می‌شود (پوششِ تصادفیِ آن اتکاپذیر نیست).
+ */
+export function shouldUseBaseline(optimizedKm: number, naiveKm: number): boolean {
+  return naiveKm > 0 && optimizedKm > naiveKm + 1e-9;
+}
+
+/** مختصاتِ معتبر: عددِ متناهی و در بازهٔ جغرافیاییِ ممکن. */
+function isValidCoordinate(lat: unknown, lng: unknown): boolean {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180
+  );
 }
 
 const R_KM = 6371.0088; // شعاع متوسط زمین (کیلومتر)
@@ -161,9 +219,34 @@ export function solveRoute(
   const avgSpeedKmh = options.avgSpeedKmh && options.avgSpeedKmh > 0 ? options.avgSpeedKmh : 30;
   const serviceMin = options.serviceMinPerStop ?? 5;
 
-  const clean = stops.filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+  // لایهٔ دومِ سقفِ توقف‌ها (لایهٔ اول @ArrayMaxSize در DTO است). این لایه مسیرِ
+  // route_id را هم پوشش می‌دهد که توقف‌هایش از DB خوانده می‌شوند نه از ورودیِ کاربر.
+  if (stops.length > MAX_ROUTE_STOPS) {
+    throw new RouteOptimizationError(
+      'too_many_stops',
+      `stop count ${stops.length} exceeds MAX_ROUTE_STOPS (${MAX_ROUTE_STOPS})`,
+      { stop_count: stops.length, max_stops: MAX_ROUTE_STOPS },
+    );
+  }
+
+  // مختصاتِ نامعتبر «کنار گذاشته» می‌شوند نه اینکه خطا بدهند: مشتریِ بدونِ ژئوکد
+  // نباید کلِ بهینه‌سازی را از کار بیندازد. اما تعدادشان گزارش می‌شود (skipped_stops).
+  const clean: RouteStop[] = [];
+  let skipped = 0;
+  for (const s of stops) {
+    if (isValidCoordinate(s.lat, s.lng)) clean.push(s);
+    else skipped += 1;
+  }
+
   if (clean.length === 0) {
-    return { stops: [], total_distance_km: 0, total_duration_min: 0, savings_percent: 0 };
+    return {
+      stops: [],
+      total_distance_km: 0,
+      total_duration_min: 0,
+      savings_percent: 0,
+      skipped_stops: skipped,
+      baseline_used: false,
+    };
   }
   if (clean.length === 1) {
     const only = clean[0];
@@ -174,6 +257,8 @@ export function solveRoute(
       total_distance_km: 0,
       total_duration_min: round(serviceMin, 2),
       savings_percent: 0,
+      skipped_stops: skipped,
+      baseline_used: false,
     };
   }
 
@@ -191,27 +276,33 @@ export function solveRoute(
   const nodeToStop = (nodeIdx: number): RouteStop | null =>
     hasDepot ? (nodeIdx === 0 ? null : clean[nodeIdx - 1]) : clean[nodeIdx];
 
-  const orderedStops: RouteStop[] = [];
-  for (const nodeIdx of optimized) {
-    const s = nodeToStop(nodeIdx);
-    if (s) orderedStops.push(s);
-  }
-
   // مسافتِ بهینه (مسیرِ باز از گرهٔ ۰)
   const optimizedKm = tourLength(optimized, dist);
 
-  // مسافتِ ترتیبِ ورودی (مبنای درصدِ بهبود): دپو(اختیاری) → clean به همان ترتیب
+  // مسافتِ ترتیبِ ورودی — هم مبنای درصدِ بهبود است و هم «خطِ پایه» (baseline)
   const naiveNodes: number[] = hasDepot
     ? [0, ...clean.map((_, i) => i + 1)]
     : clean.map((_, i) => i);
   const naiveKm = tourLength(naiveNodes, dist);
 
-  // orderedStops[i] متناظر با optimized[hasDepot ? i+1 : i] است (دپو در index ۰ ثابت ماند)
+  // اگر بهینه‌ساز خروجیِ بدتری از ترتیبِ ورودی تولید کرد (در ورودی‌هایِ تباهیده یا
+  // بسیار همگرا ممکن است)، ترتیبِ پایه برگردانده می‌شود تا هرگز مسیرِ بدتری تحویل ندهیم.
+  const baselineUsed = shouldUseBaseline(optimizedKm, naiveKm);
+  const finalOrder: readonly number[] = baselineUsed ? naiveNodes : optimized;
+  const finalKm = baselineUsed ? naiveKm : optimizedKm;
+
+  const orderedStops: RouteStop[] = [];
+  for (const nodeIdx of finalOrder) {
+    const s = nodeToStop(nodeIdx);
+    if (s) orderedStops.push(s);
+  }
+
+  // orderedStops[i] متناظر با finalOrder[hasDepot ? i+1 : i] است (دپو در index ۰ ثابت ماند)
   const seq: SequencedStop[] = [];
   let cumulative = 0;
-  let prevNode = optimized[0];
+  let prevNode = finalOrder[0];
   for (let i = 0; i < orderedStops.length; i++) {
-    const actualNode = optimized[hasDepot ? i + 1 : i];
+    const actualNode = finalOrder[hasDepot ? i + 1 : i];
     const leg = dist[prevNode][actualNode];
     cumulative += leg;
     const etaMin = (cumulative / avgSpeedKmh) * 60 + serviceMin * i;
@@ -225,14 +316,17 @@ export function solveRoute(
     prevNode = actualNode;
   }
 
-  const travelMin = (optimizedKm / avgSpeedKmh) * 60;
+  const travelMin = (finalKm / avgSpeedKmh) * 60;
   const totalDurationMin = travelMin + serviceMin * orderedStops.length;
-  const savings = naiveKm > 0 ? Math.max(0, ((naiveKm - optimizedKm) / naiveKm) * 100) : 0;
+  const savings =
+    !baselineUsed && naiveKm > 0 ? Math.max(0, ((naiveKm - optimizedKm) / naiveKm) * 100) : 0;
 
   return {
     stops: seq,
-    total_distance_km: round(optimizedKm, 3),
+    total_distance_km: round(finalKm, 3),
     total_duration_min: round(totalDurationMin, 1),
     savings_percent: round(savings, 1),
+    skipped_stops: skipped,
+    baseline_used: baselineUsed,
   };
 }

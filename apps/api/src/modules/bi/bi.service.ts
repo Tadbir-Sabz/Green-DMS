@@ -1,5 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { BI_REPOSITORY } from './tokens';
+import {
+  INTERNAL_SCALE,
+  divideFixed,
+  formatFixed,
+  ratioPct,
+  sumFixed,
+  toFixed,
+  type Fixed,
+} from './decimal';
 import type { BiRepository } from './bi.repository';
 import { forecastDaily } from './forecast';
 
@@ -8,8 +17,14 @@ export interface AbcInput {
   id: string;
   code: string;
   name: string;
-  revenue: number;
-  qty?: number;
+  /**
+   * درآمد — رشتهٔ numericِ پستگرس «یا» عدد. رشته ارجح است: تبدیلِ مبالغِ بزرگِ ریالی
+   * به Number (IEEE-754) از ۲^۵۳ به بعد رقم از دست می‌دهد، پس محاسباتِ داخلی با
+   * BigIntِ مقیاس‌ثابت و دقیق انجام می‌شود. عدد فقط برای سازگاریِ فراخوان‌هایِ
+   * قدیمی/تست‌هایِ واحد پذیرفته می‌شود.
+   */
+  revenue: string | number;
+  qty?: string | number;
 }
 
 /** یک قلمِ طبقه‌بندی‌شده در خروجی ABC */
@@ -71,27 +86,45 @@ export function classifyAbc(
   rows: readonly AbcInput[],
   aPct = 80,
   bPct = 95,
-): { items: AbcEntry[]; totalRevenue: number } {
-  const totalRevenue = rows.reduce((s, r) => s + (r.revenue > 0 ? r.revenue : 0), 0);
-  let cumulative = 0;
-  const items: AbcEntry[] = rows.map((r) => {
-    const share = totalRevenue > 0 ? (r.revenue / totalRevenue) * 100 : 0;
-    const before = cumulative;
-    cumulative += share;
-    const cls: 'A' | 'B' | 'C' = before < aPct ? 'A' : before < bPct ? 'B' : 'C';
+): { items: AbcEntry[]; totalRevenue: number; totalRevenueText: string } {
+  // مقدارِ «نمایشی» هر قلم بدونِ سانسور (منفی‌ها هم همان‌گونه گزارش می‌شوند) و
+  // مقدارِ «مشارکت در کل» که مثلِ پیشین فقط مثبت‌ها را جمع می‌زند.
+  const shown: Fixed[] = rows.map((r) => toFixed(r.revenue) ?? 0n);
+  const contributing: Fixed[] = shown.map((v) => (v > 0n ? v : 0n));
+  const total = sumFixed(contributing);
+
+  // totalRevenueText خروجیِ «دقیقِ» مالی است؛ totalRevenue (عدد) فقط برای سازگاریِ
+  // فراخوان‌هایِ قدیمی نگه داشته شده و در پاسخِ API استفاده نمی‌شود.
+  const totalRevenueText = formatFixed(total, 2);
+  const totalRevenue = Number(total) / 10 ** INTERNAL_SCALE;
+
+  let accumulated: Fixed = 0n; // جمعِ تجمعیِ دقیقِ درآمد تا قلمِ جاری
+  const items: AbcEntry[] = rows.map((r, i) => {
+    const before = accumulated;
+    accumulated += contributing[i];
+
+    // سهم‌ها با تقسیمِ دقیقِ BigInt محاسبه می‌شوند؛ برای «طبقه‌بندی» از دقتِ ۶ رقم
+    // استفاده می‌شود تا مرزهایِ آستانه دقیقاً مثلِ رفتارِ پیشین (مقایسه با مقدارِ
+    // کاملِ شناور) رفتار کنند و گردکردنِ نمایشی باعثِ جابه‌جاییِ کلاس نشود.
+    const beforeExact = ratioPct(before, total, 6);
+    const cls: 'A' | 'B' | 'C' = beforeExact < aPct ? 'A' : beforeExact < bPct ? 'B' : 'C';
+
     const entry: AbcEntry = {
       id: r.id,
       code: r.code,
       name: r.name,
-      revenue: round(r.revenue, 2).toFixed(2),
-      share_pct: round(share, 2),
-      cumulative_pct: round(cumulative, 2),
+      revenue: formatFixed(shown[i], 2),
+      share_pct: ratioPct(shown[i], total, 2),
+      cumulative_pct: ratioPct(accumulated, total, 2),
       class: cls,
     };
-    if (r.qty !== undefined) entry.qty = round(r.qty, 2).toFixed(2);
+    if (r.qty !== undefined) {
+      const q = toFixed(r.qty);
+      entry.qty = q !== null ? formatFixed(q, 2) : round(Number(r.qty), 2).toFixed(2);
+    }
     return entry;
   });
-  return { items, totalRevenue };
+  return { items, totalRevenue, totalRevenueText };
 }
 
 @Injectable()
@@ -100,8 +133,9 @@ export class BiService {
 
   async kpi(companyId: string, days = 30): Promise<BiKpi> {
     const raw = await this.repo.kpi(companyId, days);
-    const gross = Number(raw.gross);
-    const collected = Number(raw.collected);
+    // مبالغ هرگز به Number تبدیل نمی‌شوند؛ نرخِ وصول با تقسیمِ دقیقِ BigInt حساب می‌شود.
+    const gross = toFixed(raw.gross) ?? 0n;
+    const collected = toFixed(raw.collected) ?? 0n;
     return {
       period_days: days,
       sales: raw.sales,
@@ -111,7 +145,7 @@ export class BiService {
       ar_overdue: raw.ar_overdue,
       open_invoice_count: raw.open_invoices,
       active_customer_count: raw.active_customers,
-      collection_rate: gross > 0 ? round(collected / gross, 4) : null,
+      collection_rate: gross > 0n ? divideFixed(collected, gross, 4) : null,
     };
   }
 
@@ -121,10 +155,10 @@ export class BiService {
       id: r.id,
       code: r.code,
       name: r.name,
-      revenue: Number(r.revenue),
+      revenue: r.revenue, // رشتهٔ numericِ پستگرس — بدونِ تبدیل به Number
     }));
-    const { items, totalRevenue } = classifyAbc(input);
-    return { items, thresholds: { a: 80, b: 95 }, total_revenue: round(totalRevenue, 2).toFixed(2) };
+    const { items, totalRevenueText } = classifyAbc(input);
+    return { items, thresholds: { a: 80, b: 95 }, total_revenue: totalRevenueText };
   }
 
   async abcProducts(companyId: string): Promise<AbcResult> {
@@ -133,11 +167,11 @@ export class BiService {
       id: r.id,
       code: r.code,
       name: r.name,
-      revenue: Number(r.revenue),
-      qty: Number(r.qty),
+      revenue: r.revenue, // رشتهٔ numericِ پستگرس — بدونِ تبدیل به Number
+      qty: r.qty,
     }));
-    const { items, totalRevenue } = classifyAbc(input);
-    return { items, thresholds: { a: 80, b: 95 }, total_revenue: round(totalRevenue, 2).toFixed(2) };
+    const { items, totalRevenueText } = classifyAbc(input);
+    return { items, thresholds: { a: 80, b: 95 }, total_revenue: totalRevenueText };
   }
 
   /**
