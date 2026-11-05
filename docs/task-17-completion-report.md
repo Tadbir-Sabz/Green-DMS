@@ -531,13 +531,22 @@ diagnostics:success`** · `Init hygiene failure diagnostic:skipped` (درست �
 بخوانم. مرجعِ سبزِ قطعیِ این job دو اجرایِ پیشین است که هر دو `conclusion=success`
 دادند: `6d7daee` و **`92897fe`**.
 
-جمع‌بندیِ سه اجرا (فقط jobهایِ CI):
+جمع‌بندیِ اجراها (فقط jobهایِ CI):
 
 | SHA | Static | Unit | init-hygiene | Integration (Postgres) | Integration (MinIO) |
 |---|---|---|---|---|---|
 | `6d7daee` (کد) | ✅ | ✅ | ✅ | ❌ رگرسیونِ تستِ H | ❌ BLOCKED |
 | **`92897fe` (رفع)** | ✅ | ✅ | ✅ | ✅ | ❌ BLOCKED |
-| `a1b0c5c` (مستندات) | ✅ | ✅ | ⚠️ stepها ✅ | ✅ | ❌ BLOCKED |
+| `a1b0c5c` (مستندات) | ✅ | ✅ | ⚠️ stepها ✅، conclusion=null | ✅ | ❌ BLOCKED |
+| `11fa290` (مستندات) | ✅ | ✅ | ✅ **conclusion=success** | ✅ | ❌ BLOCKED |
+
+**آن ناهنجاریِ گزارش‌دهی برطرف شد:** در اجرایِ `11fa290` ‏(run `42069022760`) فیلدِ
+job-level برابرِ `conclusion=success` است و stepِ
+`Verify no plaintext credential in argv, SQL text, logs or diagnostics` نیز `success`.
+پس هارنس در هر چهار اجرا سبز بوده و تنها یک run به‌خاطرِ تأخیرِ API بی‌نتیجه دیده
+می‌شد. وضعیتِ PR در پایان: `OPEN · MERGEABLE · UNSTABLE` که `UNSTABLE` فقط از دو
+دروازهٔ BLOCKEDِ آبجکت‌استوریج (MinIO و e2e) می‌آید، نه از هیچ jobِ مربوط به این
+TASK.
 
 ### ۹-۵) خلاصهٔ حکم‌ها
 
