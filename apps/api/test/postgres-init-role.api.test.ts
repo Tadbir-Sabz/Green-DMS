@@ -51,6 +51,10 @@ const ROLE_SQL = `t17_sql_role_${RUN}`;
 const ROLE_VULN = `t17_vuln_role_${RUN}`;
 const ROLE_FAIL = `t17_fail_role_${RUN}`;
 const ROLE_NEWLINE = `t17_newline_role_${RUN}`;
+const ROLE_ENV = `t18_env_role_${RUN}`;
+const ROLE_ENVVULN = `t18_envvuln_role_${RUN}`;
+const ROLE_ALIAS = `t18_alias_role_${RUN}`;
+const ROLE_COLL = `t18_coll_role_${RUN}`;
 /** رمزِ بدقلقِ ساختگی: نقلِقولِ تکی، فاصله، $، بک‌اسلش و نقلِقولِ دوتایی */
 const PW_NEW = `SyNth'p"$$ w\\ord-${RUN}`;
 const PW_EXISTING = `plain-${RUN}`;
@@ -58,6 +62,10 @@ const PW_EXISTING = `plain-${RUN}`;
 const PW_ARGV = `a'rg$$ v\\w"x-${RUN}`;
 /** رمزِ بدقلقِ ساختگی برایِ آزمونِ نشتِ متنِ SQL */
 const PW_SQL = `s'ql$$ t\\u"v-${RUN}`;
+/** رمزِ بدقلقِ ساختگی برایِ آزمونِ محیطِ ارثیِ فرآیندهایِ فرزند */
+const PW_ENV = `e'nv$$ q\\r"s-${RUN}`;
+/** نام‌هایی که باید در محیطِ هیچ فرزندی حاضر نباشند */
+const SECRET_VAR_NAMES = ['APP_DB_PASSWORD', 'RUNTIME_PASSWORD', 'GREEN_DMS_RUNTIME_PASSWORD'];
 
 const ALL_ROLES = [
   ROLE_NEW,
@@ -67,10 +75,115 @@ const ALL_ROLES = [
   ROLE_VULN,
   ROLE_FAIL,
   ROLE_NEWLINE,
+  ROLE_ENV,
+  ROLE_ENVVULN,
+  ROLE_ALIAS,
+  ROLE_COLL,
 ];
 
 const adminUrl = new URL(process.env.DATABASE_URL ?? '');
 const ADMIN_DB = adminUrl.pathname.replace(/^\//, '') || 'postgres';
+
+/**
+ * ابزارهایِ مشاهدهٔ محیطِ فرآیند (TASK-18). در سطحِ ماژول تعریف شده‌اند تا تست‌هایِ J و K
+ * از یک تعریفِ واحد استفاده کنند و ادعاهایشان قابلِ مقایسه بماند.
+ */
+
+/** مسیرِ مطلقِ یک executable از PATH (رشتهٔ خالی اگر نبود). */
+function realBin(name: string): string {
+  try {
+    return execFileSync('bash', ['-c', `command -v ${name}`], { encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * یک wrapperِ اجرایی می‌سازد که محیطِ **واقعیِ** خودش را از دو راهِ مستقل ثبت می‌کند
+ * (`/proc/<pid>/environ` و `env`) و سپس باینریِ واقعی را با همان آرگومان‌ها و همان stdin
+ * اجرا می‌کند. چون مسیرِ باینریِ واقعی مطلق است، wrapper بازگشتی به خودش ندارد.
+ */
+function writeEnvWrapper(dir: string, name: string, real: string, log: string): void {
+  fs.writeFileSync(
+    path.join(dir, name),
+    [
+      '#!/bin/bash',
+      '{',
+      `  printf 'PID %s\\n' "$$"`,
+      `  echo 'ENVPROC-BEGIN'; tr '\\0' '\\n' < "/proc/$$/environ"; echo 'ENVPROC-END'`,
+      `  echo 'ENVCMD-BEGIN'; env; echo 'ENVCMD-END'`,
+      `} >> '${log}'`,
+      `exec '${real}' "$@"`,
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  );
+}
+
+/** یک بخشِ برچسب‌دارِ BEGIN/END را از فایلِ ثبتِ wrapper بیرون می‌کشد. */
+function envSection(file: string, begin: string, end: string): string[] {
+  const out: string[] = [];
+  let on = false;
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (line === begin) {
+      on = true;
+      continue;
+    }
+    if (line === end) {
+      on = false;
+      continue;
+    }
+    if (on) out.push(line);
+  }
+  return out;
+}
+
+/** نامِ متغیرهایی که مقدارشان دقیقاً برابرِ `value` است. مقدار هرگز چاپ نمی‌شود. */
+function namesWithValue(lines: string[], value: string): string[] {
+  return [
+    ...new Set(
+      lines
+        .filter((l) => l.includes('='))
+        .map((l) => ({ name: l.slice(0, l.indexOf('=')), value: l.slice(l.indexOf('=') + 1) }))
+        .filter((kv) => kv.value === value)
+        .map((kv) => kv.name),
+    ),
+  ];
+}
+
+/**
+ * پوشهٔ wrapper می‌سازد و psql/cat/setsid را می‌پوشاند؛ `children` فقط فرزندانی را
+ * برمی‌گرداند که واقعاً wrapper دارند، تا برایِ فرزندِ مشاهده‌نشده ادعایِ بی‌اساس نشود.
+ */
+function makeEnvWrappers(tag: string): {
+  dir: string;
+  logs: Record<string, string>;
+  children: Array<[string, string]>;
+} {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `t18-${tag}-wrap-`));
+  const logs: Record<string, string> = {
+    psql: path.join(dir, 'psql.log'),
+    cat: path.join(dir, 'cat.log'),
+    setsid: path.join(dir, 'setsid.log'),
+  };
+  const children: Array<[string, string]> = [];
+  const realPsql = PSQL.includes('/') ? PSQL : realBin('psql');
+  if (realPsql) {
+    writeEnvWrapper(dir, 'psql', realPsql, logs.psql);
+    children.push(['psql', logs.psql]);
+  }
+  const realCat = realBin('cat');
+  if (realCat) {
+    writeEnvWrapper(dir, 'cat', realCat, logs.cat);
+    children.push(['cat (جانشینیِ فرآیند)', logs.cat]);
+  }
+  const realSetsid = realBin('setsid');
+  if (realSetsid) {
+    writeEnvWrapper(dir, 'setsid', realSetsid, logs.setsid);
+    children.push(['setsid', logs.setsid]);
+  }
+  return { dir, logs, children };
+}
 
 /** اجرایِ واقعیِ اسکریپت؛ در صورتِ شکست همان خطایِ execFileSync پرتاب می‌شود */
 function runScript(
@@ -146,6 +259,55 @@ const VULNERABLE_SCRIPT = [
   '       ) as ddl',
   '\\gexec',
   'EOSQL',
+  '',
+].join('\n');
+
+/**
+ * نسخهٔ پیش از TASK-18 — فقط به‌عنوانِ **کنترلِ منفیِ محیطی**. رمز را به درستی از
+ * راهِ stdin و `\password` می‌رساند (یعنی نشتیِ SQL/لاگ ندارد)، ولی
+ * `APP_DB_PASSWORD`ِ به‌ارث‌رسیده از compose را از محیط حذف نمی‌کند، پس همهٔ
+ * فرآیندهایِ فرزند آن را در `/proc/<pid>/environ` خود دارند.
+ */
+const PRE_TASK18_SCRIPT = [
+  '#!/bin/bash',
+  '# pre-TASK-18 shape — NEGATIVE CONTROL ONLY, never used to provision.',
+  'set -euo pipefail',
+  'RUNTIME_ROLE="${APP_DB_ROLE:-dms_app}"',
+  'RUNTIME_PASSWORD="${APP_DB_PASSWORD:-dms_app_local}"',
+  'export GREEN_DMS_RUNTIME_ROLE="$RUNTIME_ROLE"',
+  "printf '%s\\n%s\\n' \"$RUNTIME_PASSWORD\" \"$RUNTIME_PASSWORD\" |",
+  "  psql -v ON_ERROR_STOP=1 --username \"$POSTGRES_USER\" --dbname \"$POSTGRES_DB\" -f <(cat <<'EOSQL'",
+  '\\set QUIET on',
+  '\\getenv role GREEN_DMS_RUNTIME_ROLE',
+  "select format(case when exists (select 1 from pg_roles where rolname = :'role')",
+  "                   then 'alter role %I login' else 'create role %I login' end, :'role') as ddl",
+  '\\gexec',
+  '\\password :"role"',
+  'EOSQL',
+  ')',
+  '',
+].join('\n');
+
+/**
+ * کاوشگرِ «اثرِ درون‌فرآیندیِ scrub». اثرِ پاک‌سازی رویِ خودِ فرآیند فقط از **درونِ**
+ * همان فرآیند قابلِ مشاهده است، زیرا `/proc/<pid>/environ` در لحظهٔ exec ثابت می‌شود و
+ * تغییراتِ بعدیِ همان فرآیند را نشان نمی‌دهد. پس اسکریپتِ واقعیِ مخزن `source` می‌شود و
+ * سپس برایِ هر متغیر گزارش می‌شود که (الف) هنوز وجود دارد یا نه و (ب) آیا صفتِ export
+ * دارد یا نه. فقط نام و صفت چاپ می‌شود، هرگز مقدار.
+ */
+const COLL_PROBE = [
+  '#!/bin/bash',
+  'source "$T18_SCRIPT" >"$T18_OUT" 2>"$T18_ERR"; RC=$?',
+  'set +e +u',
+  "printf 'coll_exit %s\\n' \"$RC\"",
+  'for v in APP_DB_PASSWORD GREEN_DMS_RUNTIME_PASSWORD RUNTIME_PASSWORD T18_UNRELATED_SETTING OTHER_KEEP; do',
+  '  e=${!v+set}; e=${e:-unset}',
+  '  d=$(declare -p "$v" 2>/dev/null || true)',
+  '  case "$d" in *"declare -x"*) x=exported;; *) x=not-exported;; esac',
+  "  printf 'coll %s %s %s\\n' \"$v\" \"$e\" \"$x\"",
+  'done',
+  "printf 'coll_child_visible %s\\n' \"$(env | grep -cE '^(APP_DB_PASSWORD|RUNTIME_PASSWORD|GREEN_DMS_RUNTIME_PASSWORD|T18_ALIAS_PW|T18_UNRELATED_SETTING)=' || true)\"",
+  "printf 'coll_other_keep_visible %s\\n' \"$(env | grep -c '^OTHER_KEEP=' || true)\"",
   '',
 ].join('\n');
 
@@ -436,6 +598,147 @@ describe('TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زم�
     expect(message).toMatch(/newline|carriage return/i);
     expect(await roleCount(ROLE_NEWLINE)).toBe(0);
     expectNoPasswordSpelling(message, `bad\npass-${RUN}`, 'خروجیِ ردِ رمزِ چندخطی');
+  });
+
+  it('J) محیطِ ارثیِ همهٔ فرآیندهایِ فرزند: هیچ متغیری با مقدارِ رمز وجود ندارد', async () => {
+    // TASK-18: پیش از این فقط GREEN_DMS_RUNTIME_PASSWORD سنجیده می‌شد، در حالی که
+    // APP_DB_PASSWORDِ به‌ارث‌رسیده از docker compose هنوز در محیطِ psql (و setsid و
+    // catِ جانشینیِ فرآیند) حاضر بود و از /proc/<pid>/environ خوانده می‌شد.
+    // اینجا محیطِ **واقعیِ** هر فرزند از دو راهِ مستقل خوانده می‌شود —
+    // /proc/<pid>/environِ خودِ فرزند و دستورِ env — و سپس مقدارِ **همهٔ** متغیرها با
+    // رمز مقایسه می‌شود، نه فقط چند نامِ انتخابی. در صورتِ شکست، تنها «نامِ» متغیرها
+    // چاپ می‌شود، هرگز مقدارشان.
+    const { dir, logs, children } = makeEnvWrappers('env');
+    expect(children.length, 'دستِ کم psql و cat باید wrapper داشته باشند').toBeGreaterThanOrEqual(2);
+
+    try {
+      const out = runScript(ROLE_ENV, PW_ENV, { PATH: dir });
+      created.push(ROLE_ENV);
+      expect(out).toContain('runtime role is ready for LOGIN');
+
+      for (const [child, file] of children) {
+        const proc = envSection(file, 'ENVPROC-BEGIN', 'ENVPROC-END');
+        const cmd = envSection(file, 'ENVCMD-BEGIN', 'ENVCMD-END');
+        // ضدِ تهی‌بودن: محیطِ واقعی خوانده شده باشد، وگرنه ادعاهایِ پایین بی‌معناست
+        expect(proc.length, `محیطِ فرزندِ ${child} از /proc/<pid>/environ خوانده نشد`).toBeGreaterThan(5);
+        expect(cmd.length, `محیطِ فرزندِ ${child} از env خوانده نشد`).toBeGreaterThan(5);
+        // ⭐ خاصیتِ امنیتی: هیچ متغیری، با هر نامی، مقدارِ رمز را ندارد
+        expect(namesWithValue(proc, PW_ENV), `${child}: /proc/<pid>/environ`).toEqual([]);
+        expect(namesWithValue(cmd, PW_ENV), `${child}: env`).toEqual([]);
+        for (const name of SECRET_VAR_NAMES) {
+          expect(
+            proc.some((l) => l.startsWith(`${name}=`)),
+            `${child} هنوز ${name} را به ارث می‌برد`,
+          ).toBe(false);
+        }
+      }
+
+      // و مکانیزم هنوز درست کار می‌کند: LOGIN + verifierِ دقیقاً همان رمز
+      expect((await roleRow(ROLE_ENV))?.rolcanlogin).toBe(true);
+      expect(storedPasswordMatches(await storedPassword(ROLE_ENV), PW_ENV, ROLE_ENV)).toBe(true);
+
+      // ⭐ کنترلِ منفی: همان آشکارساز باید نسخهٔ پیش از TASK-18 را بگیرد، وگرنه
+      // ادعاهایِ بالا تهی‌اند.
+      const pre = path.join(dir, 'pre-task18.sh');
+      fs.writeFileSync(pre, PRE_TASK18_SCRIPT, { mode: 0o755 });
+      for (const file of Object.values(logs)) fs.writeFileSync(file, '');
+      runScript(ROLE_ENVVULN, PW_ENV, { PATH: dir }, pre);
+      created.push(ROLE_ENVVULN);
+      const leaky = namesWithValue(envSection(logs.psql, 'ENVPROC-BEGIN', 'ENVPROC-END'), PW_ENV);
+      expect(
+        leaky,
+        'کنترلِ منفی: نسخهٔ پیش از TASK-18 باید رمز را در محیطِ فرزندِ psql لو می‌داد',
+      ).toContain('APP_DB_PASSWORD');
+      const leakyCat = namesWithValue(envSection(logs.cat, 'ENVPROC-BEGIN', 'ENVPROC-END'), PW_ENV);
+      expect(leakyCat, 'کنترلِ منفی: helperِ جانشینیِ فرآیند هم باید لو می‌داد').toContain('APP_DB_PASSWORD');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('K) نام‌هایِ مستعارِ خصمانه و برخوردِ تصادفیِ مقدار: ایزولاسیون حفظ می‌شود و حالتِ بی‌ربط نابود نمی‌شود', async () => {
+    // دو خاصیتِ مکملِ TASK-18:
+    //  ۱) تغییرِ نام راه‌حل نیست: اگر فراخوان همان رمز را زیرِ نام‌هایِ دیگر export
+    //     کرده باشد، هیچ فرزندی نباید آن را ببیند — نه با مقدار، نه با نام.
+    //  ۲) تطبیق بر اساسِ مقدار ذاتاً مبهم است: یک متغیرِ **بی‌ربط** که اتفاقی همان
+    //     رشته را دارد نباید نابود شود. پیاده‌سازی تنها صفتِ export را برمی‌دارد؛ این
+    //     دقیقاً همان خاصیتِ امنیتی را می‌دهد (فرزند فقط مجموعهٔ export‌شده را به ارث
+    //     می‌برد) بدونِ اینکه حالتِ بی‌ربطِ درونِ فرآیند از بین برود.
+    const { dir, logs, children } = makeEnvWrappers('coll');
+    const probe = path.join(dir, 'collprobe.sh');
+    fs.writeFileSync(probe, COLL_PROBE, { mode: 0o755 });
+
+    try {
+      // --- ۱) نام‌هایِ مستعارِ خصمانه، دقیقاً به همان شکلی که یک فراخوانِ بدخواه
+      //        یا یک env-file قدیمی می‌سازد.
+      runScript(ROLE_ALIAS, PW_ENV, {
+        PATH: dir,
+        RUNTIME_PASSWORD: PW_ENV,
+        GREEN_DMS_RUNTIME_PASSWORD: PW_ENV,
+        T18_ALIAS_PW: PW_ENV,
+      });
+      created.push(ROLE_ALIAS);
+      for (const [child, file] of children) {
+        const proc = envSection(file, 'ENVPROC-BEGIN', 'ENVPROC-END');
+        expect(proc.length, `محیطِ فرزندِ ${child} خوانده نشد`).toBeGreaterThan(5);
+        expect(namesWithValue(proc, PW_ENV), `${child}: هیچ نامِ مستعاری نباید به فرزند برسد`).toEqual([]);
+        for (const name of [...SECRET_VAR_NAMES, 'T18_ALIAS_PW']) {
+          expect(
+            proc.some((l) => l.startsWith(`${name}=`)),
+            `${child} هنوز ${name} را به ارث می‌برد`,
+          ).toBe(false);
+        }
+      }
+      expect((await roleRow(ROLE_ALIAS))?.rolcanlogin).toBe(true);
+
+      // --- ۲) برخوردِ تصادفیِ مقدار؛ اثرِ درون‌فرآیندی با source کردنِ اسکریپتِ
+      //        واقعی مشاهده می‌شود (نه از راهِ /proc، که در لحظهٔ exec ثابت است).
+      for (const file of Object.values(logs)) fs.writeFileSync(file, '');
+      const out = execFileSync('bash', [probe], {
+        env: {
+          ...process.env,
+          PGHOST: adminUrl.hostname || '127.0.0.1',
+          PGPORT: adminUrl.port || '5432',
+          POSTGRES_USER: adminUrl.username || 'postgres',
+          POSTGRES_DB: ADMIN_DB,
+          ...(adminUrl.password ? { PGPASSWORD: decodeURIComponent(adminUrl.password) } : {}),
+          APP_DB_ROLE: ROLE_COLL,
+          APP_DB_PASSWORD: PW_ENV,
+          T18_UNRELATED_SETTING: PW_ENV,
+          OTHER_KEEP: 'keepme',
+          T18_SCRIPT: SCRIPT,
+          T18_OUT: path.join(dir, 'probe.out'),
+          T18_ERR: path.join(dir, 'probe.err'),
+          PATH: `${path.dirname(PSQL)}:${process.env.PATH ?? ''}`,
+        },
+        encoding: 'utf8',
+      });
+      created.push(ROLE_COLL);
+      const lines = out.split('\n');
+      const field = (prefix: string, index: number): string => {
+        const line = lines.find((l) => l.startsWith(prefix));
+        return line ? (line.split(' ')[index] ?? '') : '';
+      };
+      expect(field('coll_exit ', 1), 'اجرایِ برخورد باید موفق بماند').toBe('0');
+      expect(field('coll APP_DB_PASSWORD ', 2)).toBe('unset');
+      expect(field('coll GREEN_DMS_RUNTIME_PASSWORD ', 2)).toBe('unset');
+      expect([field('coll RUNTIME_PASSWORD ', 2), field('coll RUNTIME_PASSWORD ', 3)], [
+        'RUNTIME_PASSWORD باید مقدارش را برایِ رساندن از stdin نگه دارد ولی export نباشد',
+      ]).toEqual(['set', 'not-exported']);
+      expect(
+        [field('coll T18_UNRELATED_SETTING ', 2), field('coll T18_UNRELATED_SETTING ', 3)],
+        'متغیرِ بی‌ربطِ هم‌مقدار باید مقدارش را نگه دارد و فقط export نباشد',
+      ).toEqual(['set', 'not-exported']);
+      expect(
+        [field('coll OTHER_KEEP ', 2), field('coll OTHER_KEEP ', 3)],
+        'متغیرِ بی‌ربطی که هم‌مقدار نیست باید کاملاً دست‌نخورده بماند',
+      ).toEqual(['set', 'exported']);
+      expect(field('coll_child_visible ', 1), 'هیچ متغیرِ رمزدار به فرزند نرسد').toBe('0');
+      expect(field('coll_other_keep_visible ', 1), 'ضدِ تهی‌بودن: یک متغیرِ معمولی به فرزند می‌رسد').toBe('1');
+      expect(storedPasswordMatches(await storedPassword(ROLE_COLL), PW_ENV, ROLE_COLL)).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('E) پیکربندیِ نامعتبر ⇒ خروجِ غیرصفر و «موفقِ کاذب» نداریم', async () => {

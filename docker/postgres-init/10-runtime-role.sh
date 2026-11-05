@@ -59,6 +59,23 @@
 #   * psql reads its script from a process substitution, which keeps stdin free
 #     for the two prompts.
 #
+# WHY THE INHERITED ENVIRONMENT IS SCRUBBED FIRST (TASK-18):
+# Compose exports APP_DB_PASSWORD into this script's environment, so without an
+# explicit `unset` it is inherited by every child (setsid, the cat of the process
+# substitution, psql) and sits in each child's /proc/<pid>/environ for that
+# process's whole lifetime — readable by the process owner and by root, and long
+# after the script has exited. TASK-17 only proved that no *additional* alias was
+# exported; the inherited one was still there. The scrub therefore happens right
+# after capture and validation and BEFORE any child is spawned: the known names
+# are unset, RUNTIME_PASSWORD loses its export attribute via `export -n` (keeping
+# its value), and any other inherited variable whose VALUE equals the password is
+# dropped too, so a rename cannot smuggle it back in. Residual, stated plainly:
+# this process's own /proc/<pid>/environ — and that of the entrypoint and the
+# container, which Docker populated — cannot be rewritten after exec; removing the
+# credential from those would require not passing a secret through the environment
+# at all (e.g. a mounted Docker secret file), which is out of scope for this
+# local-stack init script.
+#
 # Fail-closed: ON_ERROR_STOP=1 aborts initialisation on any error; an empty
 # password or one containing CR/LF is rejected before anything runs; and after
 # `\password` a guard verifies a non-empty verifier was really stored, because an
@@ -84,6 +101,63 @@ case "$RUNTIME_PASSWORD" in
     exit 1
     ;;
 esac
+
+# --- strip the inherited credential BEFORE any child process exists -----------
+# (TASK-18) docker-compose.yml hands APP_DB_PASSWORD to the postgres service, the
+# official entrypoint runs this file with that environment, and bash imports an
+# inherited variable as ALREADY EXPORTED. Copying it into a local variable does
+# not remove the original, so every child we spawn inherited the plaintext in its
+# own environment — measured on the pre-TASK-18 script, the `setsid`, `cat`
+# (process substitution) and `psql` children all carried APP_DB_PASSWORD=<value>
+# in /proc/<pid>/environ, for their whole lifetime.
+#
+# `unset` cannot clean THIS process's own /proc/<pid>/environ (that region is
+# fixed at exec time, so the value Docker handed us stays visible to the owner of
+# this process and to root) — but it does remove the variable from the
+# environment every later child is exec'd with, which is what protects the
+# children. Verified: after the unset, a child's own /proc/<pid>/environ contains
+# no APP_DB_PASSWORD entry at all.
+unset APP_DB_PASSWORD
+# TASK-16 delivered the password under this alias. Drop it defensively so an
+# operator's older env-file cannot reintroduce the secret through that name.
+unset GREEN_DMS_RUNTIME_PASSWORD
+# RUNTIME_PASSWORD keeps its VALUE but must never carry the export attribute —
+# including when the caller exported a variable of that name before running us:
+# assigning to an already-exported variable preserves the attribute, so `export -n`
+# (remove the attribute, keep the value) is required rather than a mere assignment.
+export -n RUNTIME_PASSWORD
+# Defence in depth: also stop any OTHER inherited variable whose VALUE equals the
+# password from reaching a child, whatever its name — renaming is not a fix, so
+# aliases are matched by value, not by name. Only bash builtins are used (compgen,
+# indirect expansion, export -n), so no external helper is exec'd before the
+# environment is clean; the single command-substitution subshell runs a builtin
+# and, by then, already has neither APP_DB_PASSWORD nor GREEN_DMS_RUNTIME_PASSWORD.
+# PGPASSWORD/PGPASSFILE are exempt: libpq needs them and they hold the entrypoint's
+# own admin credential, which is a different secret and out of scope here.
+#
+# `export -n`, not `unset`, is the narrowest safe correction here. Matching by
+# value is unavoidably ambiguous: an UNRELATED setting that merely happens to hold
+# the same string cannot be told apart from a credential alias. Removing the export
+# attribute satisfies the security property exactly — a child is exec'd with the
+# exported set only, so a non-exported variable is invisible to psql/setsid/cat and
+# to anything they spawn, and it is equally invisible to the server the entrypoint
+# exec's afterwards — while leaving the value intact for this process, so no
+# unrelated environment state is destroyed. The two names that ARE credentials
+# (APP_DB_PASSWORD, GREEN_DMS_RUNTIME_PASSWORD) are unset above, and
+# RUNTIME_PASSWORD must keep its value for the stdin delivery, so `export -n` is
+# also the only behaviour that is correct for every name this loop can meet. If a
+# colliding variable were readonly, `export -n` fails and `set -e` aborts the
+# script: failing closed is preferred over provisioning with the credential still
+# exported.
+for _t18_var in $(compgen -e); do
+  case "$_t18_var" in
+    PGPASSWORD | PGPASSFILE) continue ;;
+  esac
+  if [ "${!_t18_var-}" = "$RUNTIME_PASSWORD" ]; then
+    export -n "$_t18_var"
+  fi
+done
+unset _t18_var
 
 # Only the ROLE NAME is exported (not a secret) so that psql can read it with
 # \getenv instead of receiving it in argv. The password is deliberately NOT

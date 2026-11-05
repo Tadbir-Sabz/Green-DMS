@@ -105,26 +105,65 @@ try_login() { # $1=role $2=password → prints psql output, returns its status
     -c "select current_user || ' super=' || (select rolsuper from pg_roles where rolname = current_user)::text" 2>&1
 }
 
-# --- argv/stdin capturing wrapper -------------------------------------------
-# Records the REAL process arguments, whether the password is present in the
-# child environment, and a copy of stdin (the channel under test), then execs the
-# real psql with that stdin replayed. It never writes the password VALUE into the
-# report; the copy only lives in the disposable $WORK directory, which the EXIT
-# trap deletes. This wrapper is test instrumentation — the script under test
-# creates no file of its own.
+# --- child-process instrumentation ------------------------------------------
+# Wraps EVERY external child the init script spawns — psql, setsid (when used) and
+# the `cat` of the process substitution — and records for each one its real argv
+# (psql), a copy of its stdin (psql; the channel under test) and its REAL
+# inherited environment twice: from /proc/<pid>/environ and from `env`, i.e. two
+# independent reads of the same process. Checking only one chosen variable NAME is
+# not enough, so the harness scans the VALUE of every variable.
+#
+# The wrappers exec the real binaries by absolute path, so wrapping `cat` cannot
+# recurse. Captured values live only inside the disposable $WORK directory that the
+# EXIT trap deletes, and the report prints NAMES and counts, never values.
+# NB: /proc/self/environ reads as 0 bytes through a shell redirect on some
+# sandboxes, so the wrappers use the explicit /proc/$$/environ form.
+REAL_CAT="$(command -v cat)"
+REAL_SETSID="$(command -v setsid 2>/dev/null || true)"
+
 cat >"$WRAP/psql" <<EOF
 #!/bin/bash
 tmp="\$(mktemp '$WRAP/stdin.XXXXXX')"
-cat > "\$tmp"
+'$REAL_CAT' > "\$tmp"
 {
   printf 'INVOCATION\n'
   for a in "\$@"; do printf 'ARG %s\n' "\$a"; done
-  if [ -n "\${GREEN_DMS_RUNTIME_PASSWORD:-}" ]; then echo 'ENV-PASS:yes'; else echo 'ENV-PASS:no'; fi
-  echo 'STDIN-BEGIN'; cat "\$tmp"; echo 'STDIN-END'
+  printf 'PROC-PID %s\n' "\$\$"
+  echo 'ENVPROC-BEGIN'; tr '\\0' '\\n' < "/proc/\$\$/environ"; echo 'ENVPROC-END'
+  echo 'ENVCMD-BEGIN'; env; echo 'ENVCMD-END'
+  echo 'STDIN-BEGIN'; '$REAL_CAT' "\$tmp"; echo 'STDIN-END'
 } >> '$WRAP/capture.log'
+if [ -n "\${T18_WATCH_SLEEP:-}" ]; then sleep "\$T18_WATCH_SLEEP"; fi
 exec '$BINDIR/psql' "\$@" < "\$tmp"
 EOF
 chmod +x "$WRAP/psql"
+
+cat >"$WRAP/cat" <<EOF
+#!/bin/bash
+{
+  printf 'CAT-PID %s\n' "\$\$"
+  echo 'ENVPROC-BEGIN'; tr '\\0' '\\n' < "/proc/\$\$/environ"; echo 'ENVPROC-END'
+  echo 'ENVCMD-BEGIN'; env; echo 'ENVCMD-END'
+} >> '$WRAP/cat.log'
+if [ -n "\${T18_WATCH_SLEEP:-}" ]; then sleep "\$T18_WATCH_SLEEP"; fi
+exec '$REAL_CAT' "\$@"
+EOF
+chmod +x "$WRAP/cat"
+
+if [ -n "$REAL_SETSID" ]; then
+  cat >"$WRAP/setsid" <<EOF
+#!/bin/bash
+{
+  printf 'SETSID-PID %s\n' "\$\$"
+  echo 'ENVPROC-BEGIN'; tr '\\0' '\\n' < "/proc/\$\$/environ"; echo 'ENVPROC-END'
+  echo 'ENVCMD-BEGIN'; env; echo 'ENVCMD-END'
+} >> '$WRAP/setsid.log'
+if [ -n "\${T18_WATCH_SLEEP:-}" ]; then sleep "\$T18_WATCH_SLEEP"; fi
+exec '$REAL_SETSID' "\$@"
+EOF
+  chmod +x "$WRAP/setsid"
+fi
+reset_wraps() { : >"$WRAP/capture.log"; : >"$WRAP/cat.log"; : >"$WRAP/setsid.log"; }
 
 # --- password forms ----------------------------------------------------------
 # PostgreSQL logs a string literal in E'' form when it contains a backslash, so a
@@ -144,6 +183,44 @@ leak_count() { # $1=password $2=file → number of matching lines
     n=$((n + $(grep -cF -- "$f" "$2" 2>/dev/null || true)))
   done < <(pw_forms "$1")
   printf '%s\n' "$n"
+}
+
+# Extract one labelled section (BEGIN/END) from a capture file.
+section() { # $1=file $2=BEGIN-tag $3=END-tag
+  sed -n "/^$2\$/,/^$3\$/p" "$1" 2>/dev/null | sed -e '1d' -e '$d'
+}
+# NAMES of environment variables whose VALUE equals the password, taken from both
+# the /proc/<pid>/environ and the `env` sections. Values are never printed.
+env_leak_names() { # $1=password $2=file
+  { section "$2" ENVPROC-BEGIN ENVPROC-END; section "$2" ENVCMD-BEGIN ENVCMD-END; } |
+    awk -F= -v pw="$1" 'NF >= 2 { n = $1; v = substr($0, length(n) + 2); if (v == pw) print n }' |
+    sort -u
+}
+env_var_count() { # $1=file $2=BEGIN $3=END → how many variables were really captured
+  section "$1" "$2" "$3" | grep -c '=' 2>/dev/null || true
+}
+# Report one child's environment. $1=label $2=file
+check_child_env() {
+  local label="$1" f="$2" n leaked
+  if [ ! -s "$f" ]; then
+    note "$label: not spawned in this run — UNVERIFIED for that child (no claim made)"
+    return 0
+  fi
+  n=$(env_var_count "$f" ENVPROC-BEGIN ENVPROC-END)
+  leaked="$(env_leak_names "$HOSTILE" "$f" | tr '\n' ' ')"
+  if [ "$n" -lt 5 ]; then
+    bad "$label: its real environment could not be read ($n variables) — check would be vacuous"
+  elif [ -n "$leaked" ]; then
+    bad "$label: environment carries the password value via: $leaked"
+  else
+    ok "$label: no variable of $n carries the password value (/proc/<pid>/environ and env agree)"
+  fi
+  local v
+  for v in APP_DB_PASSWORD RUNTIME_PASSWORD GREEN_DMS_RUNTIME_PASSWORD; do
+    if section "$f" ENVPROC-BEGIN ENVPROC-END | grep -q "^$v="; then
+      bad "$label: still inherits $v"
+    fi
+  done
 }
 
 RUN="$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')"
@@ -253,7 +330,7 @@ empty=$(try_login "$RUNROLE" "") && erc=0 || erc=$?
 # 3) argv / stdin / environment of the real psql process
 # ===========================================================================
 MARK=$(wc -c <"$LOG")
-: >"$WRAP/capture.log"
+reset_wraps
 APP_DB_ROLE="$ARGVROLE" APP_DB_PASSWORD="$HOSTILE" \
   POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" \
   PATH="$WRAP:$PATH" bash "$SCRIPT" >"$WORK/argv.out" 2>"$WORK/argv.err" && arc=0 || arc=$?
@@ -270,8 +347,13 @@ ALEAK=$(leak_count "$HOSTILE" "$WORK/argv-only.txt")
 [ "$ALEAK" = '0' ] && ok "psql argv: no plaintext in any spelling" || bad "psql argv leaks the plaintext ($ALEAK)"
 grep -qE '^(pass|role)=' "$WORK/argv-only.txt" && bad "psql argv still carries pass=/role= variables" ||
   ok "psql argv carries no pass=/role= variables"
-grep -q '^ENV-PASS:no$' "$CAP" && ok "password is NOT in the psql child environment" ||
-  bad "password IS exported into the psql environment"
+# --- TASK-18: the WHOLE inherited environment of EVERY child, not one name ----
+# A check limited to GREEN_DMS_RUNTIME_PASSWORD misses APP_DB_PASSWORD, which
+# compose exports and bash imports already-exported; the pre-TASK-18 script leaked
+# the plaintext to psql, setsid and cat through that name.
+check_child_env "psql child environment" "$CAP"
+check_child_env "setsid child environment" "$WRAP/setsid.log"
+check_child_env "cat (process-substitution) child environment" "$WRAP/cat.log"
 # stdin must carry the password exactly twice — that is the delivery channel
 STDIN_N=$(sed -n '/^STDIN-BEGIN$/,/^STDIN-END$/p' "$CAP" | grep -cxF "$HOSTILE" || true)
 [ "$STDIN_N" = '2' ] && ok "delivery channel: the password reaches psql via stdin, exactly twice (two prompts)" ||
@@ -281,7 +363,7 @@ SLEAK=$(leak_count "$HOSTILE" "$WORK/argv.log")
 adm "drop role if exists \"$ARGVROLE\"" >/dev/null
 
 # negative control for the argv check: the vulnerable variant must be caught too
-: >"$WRAP/capture.log"
+reset_wraps
 APP_DB_ROLE="t17h_vuln2_$RUN" APP_DB_PASSWORD="$HOSTILE" \
   POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" \
   PATH="$WRAP:$PATH" bash "$VULN" >/dev/null 2>&1 || true
@@ -291,13 +373,191 @@ if [ -s "$WRAP/capture.log" ]; then
   [ "$VARGS" != '0' ] &&
     ok "negative control: the TASK-16 mechanism leaks the password into psql's ENV/stdin-visible argv channel ($VARGS)" ||
     note "note: the TASK-16 mechanism already kept argv clean (that was TASK-16's fix); its leak is the SQL text, proven in check 1"
-  grep -q '^ENV-PASS:yes$' "$WRAP/capture.log" &&
-    ok "negative control: the TASK-16 mechanism DOES export the password to the child environment" ||
-    bad "negative control: expected ENV-PASS:yes from the TASK-16 mechanism"
+  _vl="$(env_leak_names "$HOSTILE" "$WRAP/capture.log" | tr '\n' ' ')"
+  [ -n "$_vl" ] &&
+    ok "negative control: the TASK-16 mechanism DOES expose the password to the psql child environment (via:$_vl)" ||
+    bad "negative control: expected the TASK-16 variant to leak through the child environment"
 else
   bad "negative control: wrapper captured nothing for the vulnerable variant"
 fi
 adm "drop role if exists \"t17h_vuln2_$RUN\"" >/dev/null
+
+# ===========================================================================
+# 3b) EXTERNAL read of /proc/<pid>/environ — observed by THIS harness rather than
+#     reported by the child itself. The wrapper sleeps so there is a window. If the
+#     observation cannot be made the aspect is reported UNVERIFIED, never PASS.
+# ===========================================================================
+reset_wraps
+T18_WATCH_SLEEP=0.8 \
+  APP_DB_ROLE="$ARGVROLE" APP_DB_PASSWORD="$HOSTILE" \
+  POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" \
+  PATH="$WRAP:$PATH" bash "$SCRIPT" >"$WORK/watch.out" 2>&1 &
+WATCH_PID=$!
+: >"$WORK/extproc.txt"
+for _i in $(seq 1 60); do
+  _pid=$(awk '/^PROC-PID /{print $2; exit}' "$WRAP/capture.log" 2>/dev/null)
+  if [ -n "${_pid:-}" ] && [ -r "/proc/$_pid/environ" ] && [ ! -s "$WORK/extproc.txt" ]; then
+    tr '\0' '\n' <"/proc/$_pid/environ" >"$WORK/extproc.txt" 2>/dev/null || true
+  fi
+  [ -s "$WORK/extproc.txt" ] && break
+  sleep 0.1
+done
+wait "$WATCH_PID" 2>/dev/null || true
+if [ -s "$WORK/extproc.txt" ]; then
+  xn=$(grep -c '=' "$WORK/extproc.txt" || true)
+  xl=""
+  while IFS= read -r _line; do
+    _n="${_line%%=*}"; _v="${_line#*=}"
+    [ "$_v" = "$HOSTILE" ] && xl="$xl $_n"
+  done <"$WORK/extproc.txt"
+  if [ "$xn" -lt 5 ]; then
+    bad "external /proc/<pid>/environ of the psql child: only $xn variables readable"
+  elif [ -n "$xl" ]; then
+    bad "external /proc/<pid>/environ of the psql child leaks the password via:$xl"
+  else
+    ok "external read of /proc/<pid>/environ of the psql child: $xn variables, none carries the password"
+  fi
+  if grep -q '^APP_DB_PASSWORD=' "$WORK/extproc.txt"; then
+    bad "external /proc read: APP_DB_PASSWORD is still inherited by psql"
+  else
+    ok "external /proc read: APP_DB_PASSWORD absent from the psql child environment"
+  fi
+else
+  note "UNVERIFIED: /proc/<pid>/environ of the psql child could not be read from outside within the timing window"
+fi
+adm "drop role if exists \"$ARGVROLE\"" >/dev/null
+
+# ===========================================================================
+# 3c) NEGATIVE CONTROL for the environment checks: a variant with the pre-TASK-18
+#     shape (captures APP_DB_PASSWORD but never removes it) MUST expose the
+#     plaintext to the children, otherwise the checks above prove nothing.
+# ===========================================================================
+ENVVULN="$WORK/pre-task18-variant.sh"
+cat >"$ENVVULN" <<'VEOF'
+#!/bin/bash
+# pre-TASK-18 shape — NEGATIVE CONTROL ONLY, never used to provision.
+set -euo pipefail
+RUNTIME_ROLE="${APP_DB_ROLE:-dms_app}"
+RUNTIME_PASSWORD="${APP_DB_PASSWORD:-dms_app_local}"
+export GREEN_DMS_RUNTIME_ROLE="$RUNTIME_ROLE"
+printf '%s\n%s\n' "$RUNTIME_PASSWORD" "$RUNTIME_PASSWORD" |
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f <(cat <<'EOSQL'
+\set QUIET on
+\getenv role GREEN_DMS_RUNTIME_ROLE
+select format(case when exists (select 1 from pg_roles where rolname = :'role')
+                   then 'alter role %I login' else 'create role %I login' end, :'role') as ddl
+\gexec
+\password :"role"
+EOSQL
+)
+VEOF
+chmod +x "$ENVVULN"
+reset_wraps
+APP_DB_ROLE="t17h_envvuln_$RUN" APP_DB_PASSWORD="$HOSTILE" \
+  POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" \
+  PATH="$WRAP:$PATH" bash "$ENVVULN" >"$WORK/envvuln.out" 2>&1 || true
+VL="$(env_leak_names "$HOSTILE" "$WRAP/capture.log" | tr '\n' ' ')"
+CL2="$(env_leak_names "$HOSTILE" "$WRAP/cat.log" | tr '\n' ' ')"
+if [ -n "$VL" ]; then
+  ok "negative control: the pre-TASK-18 variant DOES expose the password to the psql child environment (via:$VL)"
+else
+  bad "negative control broken: the pre-TASK-18 variant did not leak through the environment — the checks above would be vacuous"
+fi
+[ -n "$CL2" ] &&
+  ok "negative control: the process-substitution helper inherited it too (via:$CL2)" ||
+  note "negative control: the cat helper was not observed for the pre-TASK-18 variant"
+if section "$WRAP/capture.log" ENVPROC-BEGIN ENVPROC-END | grep -q '^APP_DB_PASSWORD='; then
+  ok "negative control: the leaking name is exactly APP_DB_PASSWORD (the one TASK-18 removes)"
+else
+  bad "negative control: APP_DB_PASSWORD not seen in the pre-TASK-18 psql child environment"
+fi
+adm "drop role if exists \"t17h_envvuln_$RUN\"" >/dev/null
+
+# ===========================================================================
+# 3d) HOSTILE ALIASES — the caller pre-exports the very same password under other
+#     names, including the TASK-16 alias and RUNTIME_PASSWORD itself. Renaming is
+#     not a fix, so the scrub has to catch them by VALUE while still provisioning.
+# ===========================================================================
+reset_wraps
+ALIASROLE="t17h_alias_$RUN"
+APP_DB_ROLE="$ALIASROLE" APP_DB_PASSWORD="$HOSTILE" \
+  RUNTIME_PASSWORD="$HOSTILE" GREEN_DMS_RUNTIME_PASSWORD="$HOSTILE" T18_ALIAS_PW="$HOSTILE" \
+  POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" \
+  PATH="$WRAP:$PATH" bash "$SCRIPT" >"$WORK/alias.out" 2>"$WORK/alias.err"
+ARC=$?
+[ "$ARC" = 0 ] && ok "hostile aliases pre-exported by the caller: the script still provisions (exit 0)" \
+               || bad "hostile-alias run failed (exit=$ARC)"
+check_child_env "alias-run psql child environment" "$WRAP/capture.log"
+check_child_env "alias-run setsid child environment" "$WRAP/setsid.log"
+check_child_env "alias-run cat (process-substitution) child environment" "$WRAP/cat.log"
+AL=""
+for f in "$WRAP/capture.log" "$WRAP/setsid.log" "$WRAP/cat.log"; do
+  [ -s "$f" ] || continue
+  an=$(env_leak_names "$HOSTILE" "$f" | tr '\n' ' ')
+  [ -n "$an" ] && AL="$AL $(basename "$f"):value-via[$an]"
+  for v in T18_ALIAS_PW RUNTIME_PASSWORD GREEN_DMS_RUNTIME_PASSWORD; do
+    section "$f" ENVPROC-BEGIN ENVPROC-END | grep -q "^$v=" && AL="$AL $(basename "$f"):name[$v]"
+  done
+done
+[ -z "$AL" ] && ok "no alias name and no value-matching variable reached any child in the alias run" \
+             || bad "alias leakage:$AL"
+adm "drop role if exists \"$ALIASROLE\"" >/dev/null
+
+# ===========================================================================
+# 3e) VALUE-COLLISION SAFETY — matching by value is inherently ambiguous: an
+#     UNRELATED setting that merely happens to hold the same string cannot be told
+#     apart from a credential alias. The scrub therefore removes only the EXPORT
+#     ATTRIBUTE of such a variable (no child can inherit it) and keeps its value for
+#     this process, rather than destroying unrelated environment state. This can
+#     only be observed from INSIDE a process that ran the scrub — /proc/<pid>/environ
+#     is fixed at exec and still shows what the parent passed in — so the real repo
+#     script is *sourced* by a probe that then reports each variable's existence and
+#     export attribute. Only names and attributes are printed, never values.
+# ===========================================================================
+cat >"$WORK/collprobe.sh" <<'CPEOF'
+#!/bin/bash
+source "$T18_SCRIPT" >"$T18_OUT" 2>"$T18_ERR"; RC=$?
+set +e +u
+printf 'coll_exit %s\n' "$RC"
+for v in APP_DB_PASSWORD GREEN_DMS_RUNTIME_PASSWORD RUNTIME_PASSWORD T17_UNRELATED_SETTING OTHER_KEEP; do
+  e=${!v+set}; e=${e:-unset}
+  d=$(declare -p "$v" 2>/dev/null || true)
+  case "$d" in *"declare -x"*) x=exported;; *) x=not-exported;; esac
+  printf 'coll %s %s %s\n' "$v" "$e" "$x"
+done
+printf 'coll_child_visible %s\n' "$(env | grep -cE '^(APP_DB_PASSWORD|RUNTIME_PASSWORD|GREEN_DMS_RUNTIME_PASSWORD|T18_ALIAS_PW|T17_UNRELATED_SETTING)=' || true)"
+printf 'coll_other_keep_visible %s\n' "$(env | grep -c '^OTHER_KEEP=' || true)"
+CPEOF
+COLLROLE="t17h_coll_$RUN"
+reset_wraps
+APP_DB_ROLE="$COLLROLE" APP_DB_PASSWORD="$HOSTILE" T17_UNRELATED_SETTING="$HOSTILE" OTHER_KEEP=keepme \
+  POSTGRES_USER=t17admin POSTGRES_DB=postgres PGHOST="$SOCK" PGPORT="$PORT" PATH="$WRAP:$PATH" \
+  T18_SCRIPT="$SCRIPT" T18_OUT="$WORK/coll.out" T18_ERR="$WORK/coll.err" \
+  bash "$WORK/collprobe.sh" >"$WORK/coll.txt" 2>&1
+cv() { awk -v k="$1" '$1=="coll" && $2==k {print $3}' "$WORK/coll.txt"; }
+cx() { awk -v k="$1" '$1=="coll" && $2==k {print $4}' "$WORK/coll.txt"; }
+ck() { awk -v k="$1" '$1==k {print $2}' "$WORK/coll.txt"; }
+[ "$(ck coll_exit)" = 0 ] && ok "collision run: the script still provisions successfully (exit 0)" \
+                          || bad "collision run: exit=[$(ck coll_exit)] $(head -c 160 "$WORK/coll.txt" | tr '\n' ' ')"
+{ [ "$(cv APP_DB_PASSWORD)" = unset ] && [ "$(cv GREEN_DMS_RUNTIME_PASSWORD)" = unset ]; } \
+  && ok "collision run: the two credential NAMES are removed from the environment outright" \
+  || bad "collision run: APP_DB_PASSWORD=$(cv APP_DB_PASSWORD) GREEN_DMS_RUNTIME_PASSWORD=$(cv GREEN_DMS_RUNTIME_PASSWORD)"
+{ [ "$(cv RUNTIME_PASSWORD)" = set ] && [ "$(cx RUNTIME_PASSWORD)" = not-exported ]; } \
+  && ok "collision run: RUNTIME_PASSWORD keeps its value for the stdin delivery and is not exported" \
+  || bad "collision run: RUNTIME_PASSWORD state=$(cv RUNTIME_PASSWORD) attr=$(cx RUNTIME_PASSWORD)"
+{ [ "$(cv T17_UNRELATED_SETTING)" = set ] && [ "$(cx T17_UNRELATED_SETTING)" = not-exported ]; } \
+  && ok "collision run: an UNRELATED variable that collides by value keeps its value and loses only the export attribute (narrowest safe correction — no unrelated state destroyed)" \
+  || bad "collision run: unrelated colliding variable state=$(cv T17_UNRELATED_SETTING) attr=$(cx T17_UNRELATED_SETTING)"
+{ [ "$(cv OTHER_KEEP)" = set ] && [ "$(cx OTHER_KEEP)" = exported ]; } \
+  && ok "collision run: an unrelated variable that does NOT collide is completely untouched (still exported)" \
+  || bad "collision run: OTHER_KEEP state=$(cv OTHER_KEEP) attr=$(cx OTHER_KEEP)"
+[ "$(ck coll_child_visible)" = 0 ] && ok "collision run: a fresh child of that process sees none of the credential-carrying variables" \
+                                   || bad "collision run: a child still sees $(ck coll_child_visible) credential-carrying variable(s)"
+[ "$(ck coll_other_keep_visible)" = 1 ] && ok "collision run: anti-vacuous — a normal exported variable IS visible to the child, so the observation is meaningful" \
+                                        || bad "collision run: anti-vacuous check failed (OTHER_KEEP not visible to the child)"
+check_child_env "collision-run psql child environment" "$WRAP/capture.log"
+check_child_env "collision-run cat (process-substitution) child environment" "$WRAP/cat.log"
+adm "drop role if exists \"$COLLROLE\"" >/dev/null
 
 # ===========================================================================
 # 4) Pre-existing NOLOGIN role (what migration 0041 leaves behind) + idempotency
