@@ -511,7 +511,35 @@ job (success) خودش نشان می‌دهد هیچ تستی شکست نخور�
 **۸/۸** در `postgres-init-role.api.test.ts` (رویِ PostgreSQL 16.15 واقعی)، **۴۱/۴۱** در
 هارنس، **۱۲ فایل/۱۹۵ تست** در مجموعهٔ بدونِ DB.
 
-### ۹-۴) خلاصهٔ حکم‌ها
+### ۹-۴) اجرایِ سوم روی کامیتِ مستندات (`a1b0c5c`) — و یک ناهنجاریِ گزارش‌دهیِ GitHub
+
+| job | نتیجه |
+|---|---|
+| Static checks | ✅ success |
+| Unit tests | ✅ success |
+| Integration (Postgres) | ✅ success |
+| Integration (MinIO) | ❌ failure (دروازهٔ BLOCKEDِ از پیش موجود) |
+| Init credential hygiene | ⚠️ **همهٔ stepها success**، ولی فیلدِ job-level `conclusion` در API همچنان `null` و `status` برابرِ `in_progress` بود |
+
+جزئیاتِ stepهایِ همان job (که مرجعِ معتبر است):
+`Set up job:success` · `actions/checkout:success` · `Install PostgreSQL server +
+client:success` · **`Verify no plaintext credential in argv, SQL text, logs or
+diagnostics:success`** · `Init hygiene failure diagnostic:skipped` (درست — فقط هنگامِ
+شکست) · `Post actions/checkout:success` · `Complete job:success`. خودِ run هم
+`completed` است. بنابراین این یک **lag در گزارش‌دهیِ GitHub** است، نه شکستِ هارنس؛ با
+این حال صریحاً ثبت می‌شود چون job-level conclusion را نتوانستم در همان لحظه `success`
+بخوانم. مرجعِ سبزِ قطعیِ این job دو اجرایِ پیشین است که هر دو `conclusion=success`
+دادند: `6d7daee` و **`92897fe`**.
+
+جمع‌بندیِ سه اجرا (فقط jobهایِ CI):
+
+| SHA | Static | Unit | init-hygiene | Integration (Postgres) | Integration (MinIO) |
+|---|---|---|---|---|---|
+| `6d7daee` (کد) | ✅ | ✅ | ✅ | ❌ رگرسیونِ تستِ H | ❌ BLOCKED |
+| **`92897fe` (رفع)** | ✅ | ✅ | ✅ | ✅ | ❌ BLOCKED |
+| `a1b0c5c` (مستندات) | ✅ | ✅ | ⚠️ stepها ✅ | ✅ | ❌ BLOCKED |
+
+### ۹-۵) خلاصهٔ حکم‌ها
 
 | هدفِ صورتِمسئله | حکم |
 |---|---|
