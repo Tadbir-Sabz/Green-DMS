@@ -6,8 +6,8 @@
 | مورد | مقدار |
 |---|---|
 | HEADِ شروع | `c84bbfcdfaaee52f7820c8a0d145bba9f8d06e01` |
-| HEADِ پایان | کامیتِ این تغییرات رویِ `c84bbfc` (SHA در انتهایِ سند به‌روز می‌شود) |
-| **SHA راستی‌آزمایی‌شده با CI** | در بخشِ ۹ |
+| HEADِ پایان | `af13195b68dd8aa85c50f10c34eb295e8b16e9f8` + کامیتِ به‌روزرسانیِ این سند |
+| **SHA راستی‌آزمایی‌شده با CI** | **`af13195`** (نتایج در بخشِ ۹) |
 | نسخهٔ PostgreSQLِ آزمایش‌شده | **16.15** (هم‌خانواده با `postgis/postgis:16-3.4` در compose) |
 | حکمِ هدفِ ۱ (حذفِ رمز از argv) | **PASS** — با بازرسیِ آرگومانِ واقعیِ فرآیند |
 | حکمِ هدفِ ۲ (چرخهٔ init رسمی) | **PASS برای چرخهٔ `docker-entrypoint.sh` رسمی** · **BLOCKED برای کانتینر/Compose واقعی** |
@@ -347,17 +347,48 @@ fallbackِ مستندِ `dms_app`.
 
 ## ۹) وضعیتِ CI و حکمِ نهایی
 
+### ۹-۱) حکمِ اهداف
+
 | گام | حکم |
 |---|---|
 | هدفِ ۱: رمز در argv نباشد | **PASS** — با ضبطِ argv واقعیِ فرآیند در هارنسِ پوسته، تستِ vitest و **مسیرِ init رسمیِ entrypoint** + کنترلِ منفی |
 | هدفِ ۲ (الف): چرخهٔ init رسمیِ ایمیج | **PASS** — بوتِ نخست موفق، نقش با امتیازهایِ درست، رمزِ درست (لاگینِ واقعیِ SCRAM)، بدونِ نشتی در لاگ، بوتِ دوم init را تکرار نمی‌کند |
 | هدفِ ۲ (ب): کانتینر/Compose واقعی | **BLOCKED** — نبودِ runtime کانتینر و دسترسیِ شبکه به registry (مدرک در بخشِ ۶) |
-| دروازهٔ استاتیک (typecheck/openapi/drift/build) | **PASS** محلی |
-| تست‌هایِ DB-free | **PASS** (۱۲/۱۹۵) |
-| تست‌هایِ یکپارچگیِ Postgres در CI | نتیجه در جدولِ پایینِ این بخش |
+| دروازهٔ استاتیک (typecheck/openapi/drift/build) | **PASS** محلی و **PASS** در CI |
+| تست‌هایِ DB-free | **PASS** (۱۲ فایل / ۱۹۵ تست محلی؛ در CI هم ✅) |
+| تست‌هایِ یکپارچگیِ Postgres (شاملِ تستِ تازهٔ F) | **PASS** در CI |
 
-**SHA راستی‌آزمایی‌شده با CI:** پس از push در انتهایِ این سند و در گزارشِ نهاییِ
-مکالمه ثبت می‌شود.
+### ۹-۲) نتایجِ واقعیِ CI رویِ SHA **`af13195`**
+
+| Workflow / Job | نتیجه |
+|---|---|
+| `مهاجرت‌های پایگاه‌داده` — چرخهٔ up → down → up رویِ دیتابیسِ خالی | ✅ **success** |
+| `CI` — Static checks (typecheck, OpenAPI, contract drift) | ✅ **success** |
+| `CI` — Unit tests (no DB, no MinIO) | ✅ **success** |
+| `CI` — **Integration (Postgres) — API + tenant isolation** | ✅ **success** |
+| `CI` — Integration (MinIO) — attachment round-trip | ❌ **failure** (BLOCKEDِ از پیش موجود) |
+| `e2e` — Playwright E2E (پشتهٔ ایزولهٔ docker) | ❌ **failure** (BLOCKEDِ از پیش موجود) |
+
+- job یکپارچگیِ Postgres همهٔ `test/*.api.test.ts` را **به‌جزِ** `attachments.api.test.ts`
+  اجرا می‌کند: **۲۸ فایل موجود ⇒ ۲۷ فایلِ منتخب**، و
+  `postgres-init-role.api.test.ts` (شاملِ تستِ تازهٔ **F**) میانِ آن‌هاست ⇒ تستِ تازه در
+  CI اجرا شد و job موفق بود. (شمارِ فایل‌ها محلی از فهرستِ فایل‌ها استخراج شده، چون
+  لاگِ blob این job در sandbox قابلِ دریافت نیست.)
+- دو annotation رویِ job موفقِ Postgres فقط هشدارِ «Node.js 20 is deprecated» و
+  notice مربوط به `ubuntu-latest` است؛ هیچ خطایی ثبت نشده.
+- علتِ شکستِ دو job دیگر **بی‌ربط به این TASK** و همان دروازهٔ شناخته‌شدهٔ
+  S3/MinIO است. متنِ annotation:
+  `BLOCKED-e2e-minio-image: No MinIO image could be pulled (quay.io/minio/minio → 401, minio/minio → pull access denied) … the compose stack was NOT started and ZERO Playwright browser tests were executed`.
+  در job MinIO نیز probe جانشین‌هایِ S3 (`adobe/s3mock:3.9.1`، `chrislusf/seaweedfs:3.76`)
+  همان رفتارِ پیشین را دارد.
+- این الگو **دقیقاً هم‌پایهٔ SHA پیشینِ راستی‌آزمایی‌شده (`f7bcbd2` در TASK-15)** است ⇒
+  **هیچ رگرسیونی** معرفی نشده و هیچ gate ای برایِ عبور skip یا ضعیف نشده است.
+- طبقِ صورت‌مسئله، **ادعایِ PASS برایِ Docker/Compose یا E2E نمی‌شود**: compose هرگز بالا
+  نیامد و هیچ تستِ مرورگری اجرا نشد.
+
+**SHA راستی‌آزمایی‌شده با CI: `af13195b68dd8aa85c50f10c34eb295e8b16e9f8`**
+(run id هایِ `42049679239` برایِ CI، `42049679220` برایِ مهاجرت‌ها و
+`42049679273` برایِ e2e). PR #5 همچنان `OPEN`/`MERGEABLE` است و **ادغام نشد**.
 
 ---
 
