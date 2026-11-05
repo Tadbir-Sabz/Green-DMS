@@ -9,6 +9,7 @@ import { config } from 'dotenv';
 import pg from 'pg';
 import { IntegrationsQueue, type ClaimedJob } from '../src/modules/integrations/queue/integrations.queue';
 import { runAsJobTenant } from '../src/database/job-context';
+import { verifyRuntimeDatabaseIdentity } from '../src/database/runtime-identity';
 import { TenantAwarePool } from '../src/database/tenant-pool';
 
 /**
@@ -1217,3 +1218,53 @@ describe('GDM-13-01 رویِ Postgres واقعی — نابودیِ اتصالِ
   });
 });
 
+describe('GDM-13-03 رویِ Postgres واقعی — هویتِ زمانِ اجرا در production', () => {
+  it('⭐ نقشِ مدیریتی/ابرکاربر به‌عنوانِ هویتِ زمانِ اجرا در production رد می‌شود (fail-closed)', async () => {
+    // دقیقاً همان سوءپیکربندیِ یافته: APP_DATABASE_URL ست نشده/به نقشِ مهاجرت اشاره می‌کند
+    const adminPool = new pg.Pool({ connectionString: String(testUrl), max: 1 });
+    try {
+      await expect(
+        verifyRuntimeDatabaseIdentity(adminPool as never, {
+          NODE_ENV: 'production',
+          APP_DATABASE_URL: String(testUrl), // نقشِ مدیریتی به‌جایِ نقشِ زمانِ اجرا
+          DATABASE_URL: String(appUrl), // نقش‌ها متفاوت‌اند تا قاعدهٔ «ابرکاربر» سنجیده شود
+        }),
+      ).rejects.toThrowError(/ابرکاربر/);
+
+      // همان هویت بیرون از production ⇒ پرتاب نمی‌کند، ولی مشکل را گزارش می‌دهد
+      const report = await verifyRuntimeDatabaseIdentity(adminPool as never, {
+        NODE_ENV: 'test',
+        APP_DATABASE_URL: String(testUrl),
+        DATABASE_URL: String(appUrl),
+      });
+      expect(report.isSuperuser).toBe(true);
+      expect(report.problems.length).toBeGreaterThan(0);
+      expect(report.visibleTenantRowsWithoutContext).toBeGreaterThan(0); // RLS واقعاً بی‌اثر است
+    } finally {
+      await adminPool.end();
+    }
+  });
+
+  it('نقشِ زمانِ اجرایِ مقصود (dms_app) همهٔ بررسی‌ها را پاس می‌کند و RLS دربارهٔ او فعال است', async () => {
+    const runtimePool = new pg.Pool({ connectionString: String(appUrl), max: 1 });
+    try {
+      const report = await verifyRuntimeDatabaseIdentity(runtimePool as never, {
+        NODE_ENV: 'production',
+        APP_DATABASE_URL: String(appUrl),
+        DATABASE_URL: String(testUrl),
+      });
+      expect(report.problems).toEqual([]);
+      expect(report.runtimeUser).toBe('dms_app');
+      expect(report.isSuperuser).toBe(false);
+      expect(report.bypassRls).toBe(false);
+      expect(report.ownedTables).toBe(0); // مالکِ هیچ جدولِ محافظت‌شده‌ای نیست
+      expect(report.rlsForcedTables).toBeGreaterThan(100); // 0041/0042/0043 اعمال شده‌اند
+      expect(report.tenantGucAtStartup).toBe('');
+      // شاهدِ عملیِ RLS: بدونِ زمینهٔ اجاره، جدولِ اجاره‌محور صفر ردیف می‌دهد
+      expect(report.visibleTenantRowsWithoutContext).toBe(0);
+      expect(report.unverifiable).toBe(false);
+    } finally {
+      await runtimePool.end();
+    }
+  });
+});
