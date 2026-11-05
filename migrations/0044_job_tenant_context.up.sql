@@ -40,7 +40,7 @@ begin
        select id from moadian_submission
         where status in ('queued', 'retrying')
           and (next_retry_at is null or next_retry_at <= now())
-        order by created_at
+        order by next_retry_at nulls first, id
         limit p_limit
         for update skip locked)
      returning moadian_submission.id, moadian_submission.invoice_id,
@@ -59,7 +59,7 @@ begin
        select id from psp_transaction
         where status in ('queued', 'retrying')
           and (next_retry_at is null or next_retry_at <= now())
-        order by created_at
+        order by next_retry_at nulls first, id
         limit p_limit
         for update skip locked)
      returning psp_transaction.id, psp_transaction.branch_id,

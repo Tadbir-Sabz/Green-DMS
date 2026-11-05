@@ -9,6 +9,7 @@ import { config } from 'dotenv';
 import pg from 'pg';
 import { IntegrationsQueue, type ClaimedJob } from '../src/modules/integrations/queue/integrations.queue';
 import { runAsJobTenant } from '../src/database/job-context';
+import { TenantAwarePool } from '../src/database/tenant-pool';
 
 /**
  * اثباتِ «جداسازیِ واقعیِ اجاره‌ها در پایگاه‌داده» زیرِ نقشِ زمانِ اجرایِ برنامه.
@@ -1067,7 +1068,9 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
   it('داخلِ زمینهٔ اجارهٔ A: شغلِ A به‌روزرسانی می‌شود و شغلِ B صفر ردیف می‌خورد', async () => {
     const jobA = claimed.find((j) => j.company_id === companyA) as ClaimedJob;
     const jobB = claimed.find((j) => j.company_id === companyB) as ClaimedJob;
-    const jobPool = new pg.Pool({ connectionString: appUrl.toString(), max: 2 });
+    const jobPool = new TenantAwarePool(
+      new pg.Pool({ connectionString: appUrl.toString(), max: 2 }),
+    );
     try {
       const r = await runAsJobTenant(jobPool as never, companyA, async () => {
         const own = await jobPool.query(
@@ -1101,7 +1104,10 @@ describe('کارگرِ صفِ یکپارچه‌سازی (0044) — زمینهٔ 
   });
 
   it('پس از پایانِ job، connectionِ بازگشتی به استخر زمینهٔ اجاره را نشت نمی‌دهد', async () => {
-    const jobPool = new pg.Pool({ connectionString: appUrl.toString(), max: 1 });
+    // max:1 عمداً: اگر پاک‌سازی یا مسیریابیِ query اشتباه باشد، همین‌جا خودش را نشان می‌دهد.
+    const jobPool = new TenantAwarePool(
+      new pg.Pool({ connectionString: appUrl.toString(), max: 1 }),
+    );
     try {
       await runAsJobTenant(jobPool as never, companyA, async () => {
         const inside = await jobPool.query(`select count(*)::int n from app_user`);
