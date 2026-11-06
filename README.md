@@ -24,7 +24,9 @@ android/
   apps/         salesman, distributor, telesales (Kotlin/Compose — WIP)
   client/       generated Kotlin API client
 migrations/     45 numbered up/down SQL pairs (PostgreSQL + PostGIS, 90 SQL
-                files) — latest: 0045_pretenant_otp_and_flags
+                files) — latest: 0045_pretenant_otp_and_flags; a fresh migrated
+                database has 169 public tables (live count emitted by the
+                release-image CI job)
 scripts/        migrate, seed, OpenAPI lint, client generation, contract drift
 docs/           design report, deployment guides, assets
 ```
