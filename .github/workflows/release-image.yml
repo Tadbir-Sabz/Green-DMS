@@ -99,9 +99,20 @@ jobs:
         run: |
           set +e
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
-          IMG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml images -q api | head -1)
-          WIMG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml images -q web | head -1)
+          # `docker compose images` فقط بعد از ساختِ container فهرست می‌دهد؛ tagِ
+          # پیش‌فرضِ build برابر <project>-<service> است (compose v2) — هر دو را می‌سنجیم.
+          IMG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml images -q api 2>/dev/null | head -1)
+          [ -n "$IMG" ] || IMG=$(docker images -q "${project}-api" | head -1)
+          [ -n "$IMG" ] || IMG=$(docker images -q "${project}_api" | head -1)
+          WIMG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml images -q web 2>/dev/null | head -1)
+          [ -n "$WIMG" ] || WIMG=$(docker images -q "${project}-web" | head -1)
+          [ -n "$WIMG" ] || WIMG=$(docker images -q "${project}_web" | head -1)
           echo "api image: ${IMG}"; echo "web image: ${WIMG}"
+          if [ -z "$IMG" ] || [ -z "$WIMG" ]; then
+            echo "::error title=release-image-lookup::could not resolve built image ids for api/web (project=${project})"
+            docker images | head -n 20
+            exit 1
+          fi
           EXPECTED="${{ steps.migcount.outputs.expected }}"
           docker run --rm --entrypoint /bin/sh "$IMG" -c '
             fail=0
