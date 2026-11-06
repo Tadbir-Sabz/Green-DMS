@@ -34,14 +34,14 @@
 | C-01 | محصول: SKU، نام، گروه، برند، واحدِ پایه، وضعیتِ چرخه (active/blocked/discontinued)، حذفِ نرم | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۵ (`product`)؛ `product.controller` (CRUD)؛ `products.api.test.ts` | نامِ دوزبانه/alias نیست (G-06) | API |
 | C-02 | واحدها و تبدیل (uom با decimal_places، factor_to_base 19,4) | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۵ (`uom`, `product_packaging.factor_to_base`) | گردِ تبدیل/قواعدِ گردکردنِ تجاری نیازمندِ تثبیت در P1 | API+DB |
 | C-03 | سلسله‌مراتبِ گروهِ کالا + روشِ بهای تمام‌شده | `IMPLEMENTED & VERIFIED` | `product_category.parent_id` + `cost_method` (moving_avg/fifo/standard) | — | DB+API |
-| C-04 | بسته‌بندی چندسطحی + بارکدِ مستقل + پیش‌فرضِ خرید/فروش | `IMPLEMENTED & VERIFIED` | `product_packaging` + `uq_product_barcode` + `uq_product_sales_pack`؛ `packaging.controller` (۵ مسیر) | چند بارکد برای یک سطح نیست (یک بارکد در هر ردیف) | API+DB |
+| C-04 | بسته‌بندی چندسطحی + بارکدِ مستقل + پیش‌فرضِ خرید/فروش | `IMPLEMENTED & VERIFIED` | `product_packaging` + `uq_product_barcode` + `uq_product_sales_pack`؛ `packaging.controller` (۵ مسیر) | چند بارکد در یک سطح با قیدهای موجود ناممکن است — **رفع در طراحیِ هدف با جدولِ `product_barcode` (H-1؛ TASK-21Q/S)** | API+DB |
 | C-05 | مالیات: tax_code با نرخ + شناسهٔ مؤدیان | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۵ (`tax_code.moadian_goods_service_id`) | — | DB |
 | C-06 | بچ/انقضا (batch، is_batch_tracked/is_expiry_tracked، shelf_life) | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۵ (`batch` + `ck_batch_dates`)؛ استفاده در `inventory_txn` | اجرای FEFO/FIFO در انتخابِ کالا `IMPLEMENTED WITH GAPS` | DB+API |
 | C-07 | جست‌وجوی سریع (trigram) + صفحه‌بندی | `IMPLEMENTED & VERIFIED` | `ix_product_name_trgm`/`ix_product_code_trgm`؛ صفحهٔ `products` با جست‌وجوی واقعی | UI در مرورگر `UNVERIFIED` | API+UI(استاتیک) |
 | C-08 | تصاویر/اسنادِ محصول | `IMPLEMENTED WITH GAPS` | `attachment.owner_type='product'` جزوِ owner-typeهای معتبر (`owner-scope.ts:34-64`) | UX اختصاصیِ تصویر در صفحهٔ محصول نیست | API |
 | C-09 | attribute/variant/ویژگی‌های قابل‌پیکربندی | `MISSING` | جدول/endpoint ندارد | نیازِ P1 (§۸ نقشهٔ راه) | — |
 | C-10 | نام‌های جایگزین/alias و تشخیصِ تکرار (فارسی/لاتین) | `MISSING` | ستونِ جایگزین در `product` نیست | نیازِ P1 (G-06) | — |
-| C-11 | جایگزین/مکمل/بسته (substitutes/complements/bundles) | `MISSING` | جدول ندارد (نوعِ promotion='bundle' متفاوت است) | نیازِ P1/P2 | — |
+| C-11 | جایگزین/مکمل/بسته (substitutes/complements/bundles) | `MISSING` | جدول ندارد (نوعِ promotion='bundle' متفاوت است) | **D5 مصوب:** کاتالوگِ bundle در P1؛ سفارش/فروش/موجودی تا P5 ممنوع (طراحی: `PRODUCT_MASTER_TARGET_DESIGN.md` §B-P5) | — |
 | C-12 | import انبوه/ویرایشِ گروهیِ محصول | `MISSING` | — | نیازِ P1 یا تعویقِ صریح (G-13) | — |
 
 ## D. مشتری، بازار و داده‌های تجاری
