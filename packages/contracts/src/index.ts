@@ -40,6 +40,35 @@ export interface HealthResponse {
   timestamp: string;
 }
 
+/**
+ * TASK-19 — liveness: فقط «زنده بودنِ فرآیند»؛ هیچ وابستگی‌ای را چک نمی‌کند و
+ * قطعیِ موقتِ PostgreSQL باعثِ fail شدنِ liveness نمی‌شود (پروبِ orchestration).
+ */
+export interface LivenessResponse {
+  status: 'live';
+  service: string;
+  version: string;
+  /** زمان پاسخ به وقت UTC */
+  timestamp: string;
+}
+
+/**
+ * TASK-19 — readiness: وابستگی‌هایِ لازم برایِ سرویس‌دهی (پایگاه‌داده) را راستی‌آزمایی
+ * می‌کند؛ 200 یعنی آماده، 503 با status='unready' یعنی آماده نیست. وضعیتِ Redis فقط
+ * گزارش می‌شود (بدونِ Redis هم سرویس با کاهشِ کارایی بالا می‌آید — redis.module.ts).
+ */
+export interface ReadinessResponse {
+  status: 'ready' | 'unready';
+  service: string;
+  version: string;
+  /** وضعیت اتصال پایگاه‌داده — معیارِ اصلیِ آمادگی */
+  database: 'up' | 'down';
+  /** وضعیت Redis — اطلاعاتی (کش/صف)، شرطِ آمادگی نیست */
+  redis: 'up' | 'down';
+  /** زمان پاسخ به وقت UTC */
+  timestamp: string;
+}
+
 /** صفحه‌بندی استاندارد فهرست‌ها — cursor-based (openapi.yaml › schemas.Page) */
 export interface PageQuery {
   cursor?: string;
