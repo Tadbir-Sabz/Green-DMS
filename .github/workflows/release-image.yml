@@ -123,7 +123,7 @@ jobs:
             N=$(ls /app/migrations/*.up.sql 2>/dev/null | wc -l | tr -d " ")
             echo "ASSET migrations_up_count=${N}"
             [ -f /app/packages/contracts/dist/index.js ]; ck $? packages/contracts/dist
-            node -e "require(\"@dms/contracts\")" >/dev/null 2>&1; ck $? "require(@dms/contracts)"
+            node -e "import(\"@dms/contracts\").then(() => process.exit(0), () => process.exit(1))" >/dev/null 2>&1; ck $? "import(@dms/contracts)"
             node -e "require(\"pg\")" >/dev/null 2>&1; ck $? "require(pg)"
             node --check /app/scripts/migrate.mjs >/dev/null 2>&1; ck $? "migrate.mjs syntax"
             exit $fail
@@ -132,7 +132,8 @@ jobs:
           MIG_N=$(grep -oE 'migrations_up_count=[0-9]+' /tmp/relimg-assets.log | head -1 | cut -d= -f2)
           echo "api_assets_rc=${RC} migrations_in_image=${MIG_N} expected=${EXPECTED}"
           if [ "$RC" -ne 0 ] || [ "${MIG_N}" != "${EXPECTED}" ]; then
-            echo "::error title=release-image-assets-missing::api image lacks required runtime assets (rc=${RC}) or migrations count mismatch: image=${MIG_N} repo=${EXPECTED} — see step log (ASSET FAIL lines)"
+            FAILS=$(grep 'ASSET FAIL' /tmp/relimg-assets.log | tr '\n' ';' | head -c 500)
+            echo "::error title=release-image-assets-missing::api image lacks required runtime assets (rc=${RC}, fails=[${FAILS}]) or migrations count mismatch: image=${MIG_N} repo=${EXPECTED}"
             exit 1
           fi
           docker run --rm --entrypoint /bin/sh "$WIMG" -c 'ls /app/apps/web/.next/BUILD_ID /app/apps/web/next.config.mjs /app/apps/web/package.json >/dev/null && node -e "require.resolve(\"next/package.json\")" && echo "WEB ASSETS OK"' | tee /tmp/relimg-web-assets.log

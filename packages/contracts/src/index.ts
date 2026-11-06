@@ -82,4 +82,4 @@ export interface Page<T> {
   has_more: boolean;
 }
 
-export * from './persian-date';
+export * from './persian-date.js';
