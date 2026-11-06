@@ -1,4 +1,4 @@
-﻿import 'reflect-metadata';
+import 'reflect-metadata';
 import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
 
@@ -11,13 +11,20 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
+import { corsOptionsFor } from './common/origin-policy';
 import { validationPipeOptions } from './common/validation';
+import { assertProductionConfig } from './config/production-config';
 import type { Pool } from 'pg';
 import { prepareDatabase } from './database/auto-migrate';
 import { PG_POOL } from './database/database.module';
 import { verifyRuntimeDatabaseIdentity } from './database/runtime-identity';
 
 async function bootstrap() {
+  // TASK-19 — پیکربندیِ production پیش از هر کاری راستی‌آزمایی می‌شود (fail-closed):
+  // رمزهای جای‌نگه‌دار/پیش‌فرض، SMS_PROVIDER=log بدونِ اذعانِ صریح، درگاهِ ناقص و …
+  // برنامه با پیامِ فارسیِ بدونِ نشتِ رمز متوقف می‌شود. بیرونِ از production هیچ اثری ندارد.
+  assertProductionConfig();
+
   // مهاجرت‌های اعمال‌نشده پیش از listen اعمال می‌شوند (AUTO_MIGRATE=false فقط هشدار می‌دهد)
   // تا هرگز به شکل خطای 500 روی درخواست‌ها دیده نشوند
   await prepareDatabase();
@@ -37,7 +44,9 @@ async function bootstrap() {
 
   // نسخه‌بندی در مسیر طبق ضمیمه F: کسب‌وکار زیر /api/v1 و سلامت بدون نسخه
   app.setGlobalPrefix('api/v1', { exclude: ['api/health'] });
-  app.enableCors({ origin: true, credentials: true });
+  // TASK-19 — به‌جایِ بازتابِ همهٔ خاستگاه‌ها (origin: true) با credentials، فهرستِ
+  // صریحِ ALLOWED_ORIGINS اعمال می‌شود (در production نبود/نامعتبربودنِ فهرست ⇒ fail-closed).
+  app.enableCors(corsOptionsFor());
 
   // رهگیری زنده (ماژول ۶) روی socket.io با همان نسخه‌بندی
   app.useWebSocketAdapter(new IoAdapter(app));

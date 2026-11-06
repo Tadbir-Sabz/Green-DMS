@@ -27,14 +27,17 @@ packages/
 android/
   apps/         salesman, distributor, telesales (Kotlin/Compose — WIP)
   client/       generated Kotlin API client
-migrations/     33 numbered up/down SQL pairs (PostgreSQL + PostGIS), 152 tables
+migrations/     45 numbered up/down SQL pairs (PostgreSQL + PostGIS, 90 SQL
+                files) — latest: 0045_pretenant_otp_and_flags; a fresh migrated
+                database has 169 public tables (live count emitted by the
+                release-image CI job)
 scripts/        migrate, seed, OpenAPI lint, client generation, contract drift
 docs/           design report, deployment guides, assets
 ```
 
 The API and the web client are both driven by `packages/contracts/openapi.yaml`.
 `scripts/contract-drift.mjs` fails CI if the server's real routes and the
-contract diverge (currently **103 paths / 160 operations / 67 schemas**, fully
+contract diverge (currently **142 paths / 207 operations / 101 schemas**, fully
 aligned).
 
 ## Stack
@@ -43,7 +46,7 @@ aligned).
 - **Web:** Next.js 16 (App Router), React 19, Tailwind 4, TanStack Query,
   recharts, self-hosted Vazirmatn font, Jalali date handling
 - **Contract:** OpenAPI 3 + `openapi-typescript` / `openapi-fetch`
-- **Node:** >= 20
+- **Node:** >= 22
 
 ## Quick start (local)
 
@@ -110,12 +113,30 @@ the OpenAPI document (`--allow-drift` to report without failing).
 
 ## Deployment
 
-- `docker-compose.yml` runs the full stack (postgres, redis, minio, api, web).
-  The web defaults to a **relative** API base and the Next server proxies
+- `docker-compose.yml` runs the full stack (postgres, redis, minio, api, web) for
+  local/self-hosted use; **all published ports bind to `127.0.0.1` only** —
+  PostgreSQL/Redis/MinIO are never exposed beyond the host, and the only public
+  entry point should be a TLS reverse proxy on :443 in front of the web server.
+- **Production** must add the override file:
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d`.
+  The override turns on fail-closed production config validation (placeholder or
+  dev-default secrets, `SMS_PROVIDER=log`, incomplete gateways ⇒ the API refuses
+  to boot with a Persian diagnostic) and sets production restart policies.
+- The web defaults to a **relative** API base and the Next server proxies
   `/api/*` to the `api` container (`API_PROXY_TARGET=http://api:4000`), so it
   works for local and remote deploys without CORS or a browser-side host
   assumption. `NEXT_PUBLIC_API_URL` (a build-arg, inlined into the web bundle)
-  overrides this to call a separate API origin directly.
+  overrides this to call a separate API origin directly. ⚠️ Both values are
+  **build-time** (Next bakes the rewrite target into `.next/routes-manifest.json`;
+  the web image takes `API_PROXY_TARGET` as a build-arg) — rebuild the web image
+  after changing either.
+- Health endpoints (kept out of the OpenAPI contract as infra probes):
+  `GET /api/health` (summary: `ok|degraded` + database), `GET /api/v1/health/live`
+  (liveness — never fails on a transient DB outage), `GET /api/v1/health/ready`
+  (readiness — 503 while the database cannot serve requests).
+- In the runtime API image, migrations are run with
+  `docker compose exec api node scripts/migrate.mjs up` (`scripts/migrate.mjs`
+  and `migrations/` ship inside the image).
 - `.env.production.example` documents every variable the code actually reads
   (API, web, SMS, Moadian, PSP, storage). Copy and fill it for production.
 - See `docs/deploy/PRODUCTION_DEPLOYMENT.md` and `docs/deploy/CHECKLIST.md`.

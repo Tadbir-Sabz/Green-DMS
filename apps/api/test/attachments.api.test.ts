@@ -68,6 +68,7 @@ let otherToken = '';
 let viewerToken = '';
 let companyId = '';
 let otherCompanyId = '';
+let podOwnerId = '';
 
 // یک PNG کوچک (بایت‌های معین) برای round-trip؛ محتوا لازم نیست PNG معتبر باشد،
 // فقط نوعِ mime (از پسوند .png) و یکسان‌ماندنِ بایت‌ها پس از بازیابی سنجیده می‌شود.
@@ -278,6 +279,46 @@ beforeAll(async () => {
   addFormats(ajv);
   ajv.addSchema(spec, 'openapi');
 
+  // TASK-19 — مالکِ واقعیِ POD: از TASK-14 سرویسِ ضمیمه پیش از هر دسترسی، «وجودِ
+  // موجودیتِ مالک» را از زنجیرهٔ pod→delivery→branch اثبات می‌کند (404 owner_not_found
+  // برایِ UUID ساختگی — رفتارِ امنیتیِ درست). پس fixture باید زنجیرهٔ واقعی بسازد،
+  // نه اینکه تست با ownerِ تصادفی از کنارِ قراردادِ امنیتی رد شود.
+  const seedPodOwner = async (coId: string): Promise<string> => {
+    const branch = await pool.query<{ id: string }>(
+      `insert into branch (company_id, code, name) values ($1, 'ATT-BR1', 'شعبهٔ تست ضمیمه') returning id`,
+      [coId],
+    );
+    const customerPerson = await pool.query<{ id: string }>(
+      `insert into person (company_id, code, legal_type, first_name, last_name)
+       values ($1, 'ATT-CUS', 'natural', 'مشتری', 'تست ضمیمه') returning id`,
+      [coId],
+    );
+    const customer = await pool.query<{ id: string }>(
+      `insert into customer (person_id, branch_id, code) values ($1, $2, 'ATT-CUS') returning id`,
+      [customerPerson.rows[0].id, branch.rows[0].id],
+    );
+    const warehouse = await pool.query<{ id: string }>(
+      `insert into warehouse (branch_id, code, name) values ($1, 'ATT-WH1', 'انبار تست ضمیمه') returning id`,
+      [branch.rows[0].id],
+    );
+    const waybill = await pool.query<{ id: string }>(
+      `insert into waybill (branch_id, doc_number, fiscal_year, customer_id, warehouse_id)
+       values ($1, 'ATT-WB-1', 1404, $2, $3) returning id`,
+      [branch.rows[0].id, customer.rows[0].id, warehouse.rows[0].id],
+    );
+    const delivery = await pool.query<{ id: string }>(
+      `insert into delivery (branch_id, doc_number, waybill_id, customer_id, planned_date)
+       values ($1, 'ATT-DL-1', $2, $3, current_date) returning id`,
+      [branch.rows[0].id, waybill.rows[0].id, customer.rows[0].id],
+    );
+    const pod = await pool.query<{ id: string }>(
+      `insert into pod (delivery_id, received_by_name) values ($1, 'تحویل‌گیرندهٔ تست') returning id`,
+      [delivery.rows[0].id],
+    );
+    return pod.rows[0].id;
+  };
+  podOwnerId = await seedPodOwner(companyId);
+
   adminToken = await login(ADMIN_USER, ADMIN_PASSWORD);
   otherToken = await login(OTHER_USER, OTHER_PASSWORD);
   viewerToken = await login(VIEWER_USER, VIEWER_PASSWORD);
@@ -325,7 +366,7 @@ describe('ATT — round-trip آپلود و دانلود', () => {
   let attachmentId = '';
 
   it('۲۰۱ آپلود PNG → Attachment، ذخیرهٔ واقعی در MinIO و ثبت در DB', async () => {
-    const ownerId = crypto.randomUUID();
+    const ownerId = podOwnerId; // مالکِ واقعیِ seedشده (زنجیرهٔ pod→delivery→branch)
     const r = await upload(adminToken, {
       bytes: PNG_BYTES, filename: 'pod/shot.png', owner_type: 'pod', owner_id: ownerId,
     });
@@ -337,7 +378,12 @@ describe('ATT — round-trip آپلود و دانلود', () => {
     expect(r.body.owner_id).toBe(ownerId);
     expect(r.body.content_type).toBe('image/png');
     expect(r.body.size_bytes).toBe(PNG_BYTES.length);
-    expect(r.body.file_name).toBe('pod_shot.png'); // «/» → «_»
+    // لایهٔ HTTP: busboy/multer خودش basename را می‌گیرد (originalname='shot.png' به
+    // سرویس می‌رسد)؛ پس قاعدهٔ «/»→«_»ِ sanitizeFileName در این لایه دیده نمی‌شود و
+    // با تستِ واحدِ attachments.test.ts (pod_shot.jpg) پین شده است. خاصیتِ امنیتیِ
+    // این سطح که باید برقرار بماند: هیچ جداکنندهٔ مسیری در نامِ ذخیره‌شده نیست.
+    expect(r.body.file_name).toBe('shot.png');
+    expect(r.body.file_name).not.toMatch(/[/\\]/);
     expect(r.body.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(typeof r.body.url).toBe('string');
 

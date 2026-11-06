@@ -262,12 +262,14 @@ jobs:
           docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
 
           # نامزد|آرگومانِ اجرا|پورت|access|secret|health-path
-          # ترتیب بر پایهٔ شاهدِ اجرایِ قبلیِ همین گام: adobe/s3mock:3.9.1 واقعاً pull شد و
-          # بالا آمد (pull_rc=0) و فقط به‌خاطرِ «رقابتِ زمانِ آماده‌سازی» (health_http=000،
-          # socket hang up) در round-trip رد شد ⇒ اول آن، با تلاشِ مجدد. نامِ درستِ تصویرِ
-          # SeaweedFS در Docker Hub «chrislusf/seaweedfs» است (seaweedfs/seaweedfs وجود ندارد و
-          # «pull access denied» می‌داد). localstack:3.9 در اجرایِ قبلی «not found» شد.
-          CANDIDATES='adobe/s3mock:3.9.1||8090|minio|minio123|/
+          # adobe/s3mock:3.9.1: طبق README همان تگِ پین‌شده (api.github.com، ref=3.9.1):
+          # «Ports: 9090 (HTTP), 9191 (HTTPS)» و فقط path-style. پورتِ 8090 کانکتورِ TLS
+          # است و probeِ HTTP با آن همان socket hang up می‌دهد که پیش‌تر «رقابتِ
+          # آماده‌سازی» پنداشته می‌شد (TASK-19: ریشه با شاهدِ مستند قطعی شد).
+          # نامِ درستِ تصویرِ SeaweedFS در Docker Hub «chrislusf/seaweedfs» است
+          # (seaweedfs/seaweedfs وجود ندارد و «pull access denied» می‌داد).
+          # localstack:3.9 در اجرایِ قبلی «not found» شد.
+          CANDIDATES='adobe/s3mock:3.9.1||9090|minio|minio123|/
           chrislusf/seaweedfs:3.76|server -s3 -s3.port=9000 -ip=0.0.0.0 -dir=/tmp/weed -master.defaultReplication=000|9000|minio|minio123|/
           localstack/localstack:3.9|-e SERVICES=s3 -e AWS_ACCESS_KEY_ID=minio -e AWS_SECRET_ACCESS_KEY=minio123|4566|minio|minio123|/_localstack/health
           quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z|server /data --console-address :9001|9000|minio|minio123|/minio/health/live'
@@ -375,6 +377,10 @@ jobs:
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "digest=${DIGEST:-unresolved}" >> "$GITHUB_OUTPUT"
           echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          # TASK-19: گامِ «Attachment round-trip tests» به steps.minio.outputs.healthy
+          # شرط شده بود ولی این خروجی هرگز ست نمی‌شد ⇒ تستِ ضمیمه «همیشه» skip
+          # می‌شد (skip بی‌صدایِ دروازه). اکنون فقط در مسیرِ موفقِ resolve ست می‌شود.
+          echo "healthy=true" >> "$GITHUB_OUTPUT"
           echo "MINIO_ENDPOINT=localhost" >> "$GITHUB_ENV"
           echo "MINIO_PORT=${PORT}" >> "$GITHUB_ENV"
           echo "MINIO_ACCESS_KEY=${AKEY}" >> "$GITHUB_ENV"
@@ -393,13 +399,34 @@ jobs:
           ../../node_modules/.bin/vitest run test/attachments.api.test.ts 2>&1 | tee /tmp/att.log || rc=$?
           exit $rc
 
+      - name: Upload attachment test log (readable evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: attachment-test-log
+          path: /tmp/att.log
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Attachment failure diagnostic
         if: "!cancelled() && steps.att.outcome == 'failure'"
         shell: bash
         run: |
-          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
-          echo "::error title=attachment-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×' /tmp/att.log | head -n 40 | enc)"
-          echo "::error title=attachment-tail::$(tail -n 50 /tmp/att.log | enc)"
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' | sed -e 's/$/%0A/' | tr -d '\n'; }
+          strip() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g'; }
+          # ANSI را اول پاک می‌کنیم؛ annotationها را ریزchunk می‌فرستیم چون پیام‌های
+          # بزرگِ workflow-command بی‌صدا حذف می‌شوند (بدونِ هیچ تشخیصی).
+          echo "::notice title=attachment-diag-marker::attachment test failed; emitting compact diagnostics"
+          strip </tmp/att.log > /tmp/att-clean.log
+          grep -nE 'FAIL|AssertionError|Error|✗|×|failed' /tmp/att-clean.log | head -n 12 > /tmp/att-matches.txt
+          i=0
+          while [ $i -lt 6 ] && IFS= read -r line; do
+            echo "::error title=attachment-fail-$i::$(printf '%s' "$line" | head -c 400 | enc)"
+            i=$((i + 1))
+          done < /tmp/att-matches.txt
+          tail -n 25 /tmp/att-clean.log | head -c 1200 > /tmp/att-tail.txt
+          echo "::error title=attachment-tail::$(enc < /tmp/att-tail.txt)"
+          true
 
   # ---------------------------------------------------------------------------
   # TASK-17 — بهداشتِ اعتبارنامه در اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا.

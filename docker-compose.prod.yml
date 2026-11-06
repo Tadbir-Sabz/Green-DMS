@@ -1,0 +1,36 @@
+# GreenDMS — production override (TASK-19 — Phase 2D/2B).
+#
+# استفاده (الزامی در production):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     --env-file .env.production up -d
+#
+# این فایل فقط لایهٔ تولید است؛ پشتهٔ محلی (docker-compose.yml به‌تنهایی) دست‌نخورده
+# می‌ماند. کارهای این لایه:
+#   1) fail-closed بودنِ اعتبارسنجیِ پیکربندیِ production (رمزهای جای‌نگه‌دار/پیش‌فرضِ
+#      توسعه، SMS_PROVIDER=log بدونِ اذعان و … ⇒ API با پیامِ فارسی بالا نمی‌آید).
+#      اینجا فقط «پیش‌فرضِ» false است؛ env صریح هنوز می‌تواند باز کند (CI فقط).
+#   2) restart policy تولید.
+#   3) یادآوریِ مرزِ شبکه: پورت‌های docker-compose.yml همگی 127.0.0.1 هستند؛
+#      تنها ورودیِ عمومی باید reverse-proxy روی 443 باشد (TLS).
+#
+# نکته: Compose پورت‌ها را «ادغام» می‌کند (append)، پس محدودسازیِ binding در همان
+# فایلِ پایه انجام شده تا override نتواند ناخواسته آن را باز کند.
+
+services:
+  api:
+    environment:
+      DMS_ACCEPT_INSECURE_LOCAL_SETUP: ${DMS_ACCEPT_INSECURE_LOCAL_SETUP:-false}
+      SMS_ALLOW_LOG_PROVIDER: ${SMS_ALLOW_LOG_PROVIDER:-false}
+    restart: unless-stopped
+
+  web:
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  minio:
+    restart: unless-stopped

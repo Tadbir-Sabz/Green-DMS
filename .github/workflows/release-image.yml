@@ -1,0 +1,402 @@
+# TASK-19 — دروازهٔ release: راستی‌آزماییِ «ایمیجِ نهاییِ» API/Web با چرخهٔ واقعیِ
+# کانتینر، مستقل از مشکلِ رجیستریِ MinIO (jobهای Integration (MinIO) و Playwright
+# جدا مانده‌اند).
+#
+# چه چیزی را اثبات می‌کند (Phase 3/6):
+#   1) build ایمیج‌های واقعیِ api و web؛
+#   2) بازرسیِ دارایی‌هایِ لازمِ داخلِ ایمیجِ api (dist، scripts/migrate.mjs، migrations/
+#      کامل، resolve شدنِ @dms/contracts و pg) — build موفق به‌تنهایی کافی نیست؛
+#   3) بوتِ پشتهٔ تازه با PostgreSQL/PostGIS + Redis (init واقعیِ docker/postgres-init)؛
+#   4) اعمالِ همهٔ مهاجرت‌ها (AUTO_MIGRATE) و تطابقِ شمار با مخزن؛
+#   5) اجرا با APP_DATABASE_URL (نقشِ محدودِ dms_app) و راستی‌آزماییِ هویتِ زمانِ اجرا؛
+#   6) /api/health و /api/v1/health/{live,ready}؛
+#   7) /login وب و پروکسیِ هم‌مبدأٔ /api/* از پورتِ وب؛
+#   8) نبودِ هیچ رمز/رشتهٔ اتصالِ حساس در لاگ‌ها (مقایسهٔ دقیقِ مقداری)؛
+#   9) تستِ منفی: پیکربندیِ ناقصِ production ⇒ API باید fail-closed بالا نیاید؛
+#  10) round-trip ضمیمه با سرویسِ S3-سازگارِ تأییدشده (یا گزارشِ صریحِ BLOCKED).
+#
+# پاک‌سازی: فقط پروژه‌های همین جریان (پروژهٔ یکتای compose) — هرگز پروژهٔ پیش‌فرض.
+
+name: release-image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-image-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  release-image:
+    name: Release image boot smoke (isolated compose project)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node (for the S3 round-trip client only)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # همان کلاینتِ minio که StorageService برنامه استفاده می‌کند — معیارِ سازگاریِ
+      # واقعیِ S3 (pull شدنِ تصویر به‌تنهایی معنایِ سازگاری ندارد).
+      - name: install deps (minio client for storage round-trip)
+        run: npm ci
+
+      - name: docker environment evidence
+        shell: bash
+        run: |
+          set +e
+          uname -a
+          docker version 2>&1 | sed -n '1,20p'
+          docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
+          docker compose version 2>&1
+
+      - name: compute expected migration count (from the checkout)
+        id: migcount
+        shell: bash
+        run: |
+          EXPECTED=$(ls migrations/*.up.sql | wc -l | tr -d ' ')
+          echo "expected=${EXPECTED}" >> "$GITHUB_OUTPUT"
+          echo "migrations/up count in repo: ${EXPECTED}"
+          ls migrations/*.up.sql | sort | tail -3
+
+      - name: build api + web images (real Dockerfiles)
+        id: buildimg
+        shell: bash
+        run: |
+          set +e
+          P="relimg-${GITHUB_RUN_ID}"
+          echo "project=${P}" >> "$GITHUB_ENV"
+          docker compose -p "$P" -f docker-compose.yml -f docker-compose.prod.yml build --progress=plain api web >/tmp/relimg-build.log 2>&1
+          RC=$?
+          echo "build_rc=${RC}"
+          tail -n 40 /tmp/relimg-build.log
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          if [ "$RC" -ne 0 ]; then
+            echo "::error title=release-image-build-failed::docker compose build rc=${RC}"
+            echo "::error title=release-image-build-errors::$(grep -inE 'error|failed|denied|not found|no such|unauthorized|EAI_AGAIN|timeout' /tmp/relimg-build.log | tail -n 40 | enc)"
+            echo "::error title=release-image-build-tail::$(tail -n 60 /tmp/relimg-build.log | enc)"
+            exit $RC
+          fi
+
+      # «build موفق» کافی نیست — محتوایِ ایمیجِ نهایی باید همهٔ دارایی‌هایِ زمانِ اجرا
+      # را داشته باشد (TASK-19 Phase 1: scripts/migrate.mjs + migrations/ قبلاً جا
+      # مانده بودند و API در کانتینر هرگز بالا نمی‌آمد).
+      - name: inspect required runtime assets inside the final API image
+        id: assets
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          # `docker compose images` فقط بعد از ساختِ container فهرست می‌دهد؛ tagِ
+          # پیش‌فرضِ build برابر <project>-<service> است (compose v2) — هر دو را می‌سنجیم.
+          IMG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml images -q api 2>/dev/null | head -1)
+          [ -n "$IMG" ] || IMG=$(docker images -q "${project}-api" | head -1)
+          [ -n "$IMG" ] || IMG=$(docker images -q "${project}_api" | head -1)
+          WIMG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml images -q web 2>/dev/null | head -1)
+          [ -n "$WIMG" ] || WIMG=$(docker images -q "${project}-web" | head -1)
+          [ -n "$WIMG" ] || WIMG=$(docker images -q "${project}_web" | head -1)
+          echo "api image: ${IMG}"; echo "web image: ${WIMG}"
+          if [ -z "$IMG" ] || [ -z "$WIMG" ]; then
+            echo "::error title=release-image-lookup::could not resolve built image ids for api/web (project=${project})"
+            docker images | head -n 20
+            exit 1
+          fi
+          EXPECTED="${{ steps.migcount.outputs.expected }}"
+          docker run --rm --entrypoint /bin/sh "$IMG" -c '
+            fail=0
+            ck() { if [ "$1" = 0 ]; then echo "ASSET OK   $2"; else echo "ASSET FAIL $2"; fail=1; fi; }
+            [ -f /app/apps/api/dist/main.js ]; ck $? apps/api/dist/main.js
+            [ -f /app/scripts/migrate.mjs ]; ck $? scripts/migrate.mjs
+            [ -f /app/package.json ]; ck $? package.json
+            N=$(ls /app/migrations/*.up.sql 2>/dev/null | wc -l | tr -d " ")
+            echo "ASSET migrations_up_count=${N}"
+            [ -f /app/packages/contracts/dist/index.js ]; ck $? packages/contracts/dist
+            node -e "import(\"@dms/contracts\").then(() => process.exit(0), () => process.exit(1))" >/dev/null 2>&1; ck $? "import(@dms/contracts)"
+            node -e "require(\"pg\")" >/dev/null 2>&1; ck $? "require(pg)"
+            node --check /app/scripts/migrate.mjs >/dev/null 2>&1; ck $? "migrate.mjs syntax"
+            exit $fail
+          ' | tee /tmp/relimg-assets.log
+          RC=${PIPESTATUS[0]}
+          MIG_N=$(grep -oE 'migrations_up_count=[0-9]+' /tmp/relimg-assets.log | head -1 | cut -d= -f2)
+          echo "api_assets_rc=${RC} migrations_in_image=${MIG_N} expected=${EXPECTED}"
+          if [ "$RC" -ne 0 ] || [ "${MIG_N}" != "${EXPECTED}" ]; then
+            FAILS=$(grep 'ASSET FAIL' /tmp/relimg-assets.log | tr '\n' ';' | head -c 500)
+            echo "::error title=release-image-assets-missing::api image lacks required runtime assets (rc=${RC}, fails=[${FAILS}]) or migrations count mismatch: image=${MIG_N} repo=${EXPECTED}"
+            exit 1
+          fi
+          docker run --rm --entrypoint /bin/sh "$WIMG" -c 'ls /app/apps/web/.next/BUILD_ID /app/apps/web/next.config.mjs /app/apps/web/package.json >/dev/null && node -e "require.resolve(\"next/package.json\")" && echo "WEB ASSETS OK"' | tee /tmp/relimg-web-assets.log
+          grep -q "WEB ASSETS OK" /tmp/relimg-web-assets.log || { echo "::error title=release-image-web-assets-missing::web image lacks .next/next.config.mjs/node_modules::next"; exit 1; }
+          echo "::notice title=release-image-assets::api assets OK; migrations in image=${MIG_N} (repo=${EXPECTED}); web assets OK"
+
+      - name: generate ephemeral stack secrets (masked, never printed)
+        shell: bash
+        run: |
+          set -e
+          jwt=$(openssl rand -hex 32)
+          pgpw=$(openssl rand -hex 24)
+          apppw=$(openssl rand -hex 24)
+          echo "::add-mask::${jwt}"
+          echo "::add-mask::${pgpw}"
+          echo "::add-mask::${apppw}"
+          echo "JWT_SECRET=${jwt}" >> "$GITHUB_ENV"
+          echo "POSTGRES_PASSWORD=${pgpw}" >> "$GITHUB_ENV"
+          echo "APP_DB_PASSWORD=${apppw}" >> "$GITHUB_ENV"
+          # بوتِ smoke پیامکِ واقعی ندارد؛ اذعانِ صریح فقط برایِ همین CI (OTP در لاگ).
+          echo "SMS_ALLOW_LOG_PROVIDER=true" >> "$GITHUB_ENV"
+          echo "stack secrets generated (values masked; never printed)"
+
+      # پروژهٔ یکتا + volumeهای تازه؛ سرویس minio عمداً بالا نمی‌آید (مستقل از
+      # مشکلِ رجیستریِ MinIO) — round-trip آبجکت‌استوریج جدا و صریح گزارش می‌شود.
+      - name: start the fresh stack (postgres+redis+api+web, no minio)
+        id: up
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build postgres redis api web >/tmp/relimg-up.log 2>&1
+          RC=$?
+          echo "up_rc=${RC}"
+          cat /tmp/relimg-up.log
+          docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml ps -a 2>&1 | tee /tmp/relimg-ps.log
+          if [ "$RC" -ne 0 ]; then
+            echo "::error title=release-image-stack-up-failed::compose up rc=${RC}"
+            echo "::error title=release-image-up-log::$(tail -n 50 /tmp/relimg-up.log | enc)"
+            exit $RC
+          fi
+
+      - name: wait for health (api summary, live, ready, web /login, same-origin proxy)
+        id: health
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          RESULTS=""
+          wait_url() { # name url [expect-substring]
+            START=$(date +%s)
+            for i in $(seq 1 120); do
+              BODY=$(curl -s --max-time 5 "$2" 2>/dev/null); RC=$?
+              if [ $RC -eq 0 ] && { [ -z "$3" ] || echo "$BODY" | grep -q "$3"; }; then
+                EL=$(( $(date +%s) - START ))
+                echo "HEALTH OK  $1 after ${i} probe(s) / ${EL}s: ${BODY}"
+                RESULTS="${RESULTS}${1}=OK(${EL}s) "
+                return 0
+              fi
+              sleep 5
+            done
+            EL=$(( $(date +%s) - START ))
+            echo "HEALTH FAIL $1 url=$2 elapsed=${EL}s last_body=${BODY}"
+            RESULTS="${RESULTS}${1}=FAIL(${EL}s) "
+            return 1
+          }
+          FAILED=0
+          # بوتِ نخست روی volume خالی شاملِ اعمالِ همهٔ ۴۵ مهاجرت است ⇒ پنجرهٔ بزرگ.
+          wait_url "api-health(legacy)" "http://127.0.0.1:4000/api/health" '"status":"ok"' || FAILED=1
+          wait_url "api-live" "http://127.0.0.1:4000/api/v1/health/live" '"status":"live"' || FAILED=1
+          wait_url "api-ready" "http://127.0.0.1:4000/api/v1/health/ready" '"status":"ready"' || FAILED=1
+          wait_url "web-login" "http://127.0.0.1:3000/login" "" || FAILED=1
+          # پروکسیِ هم‌مبدأ: درخواستِ /api/* از پورتِ وب باید به API برسد (بدونِ CORS).
+          wait_url "proxy-api-health-via-web" "http://127.0.0.1:3000/api/health" '"service":"dms-api"' || FAILED=1
+          echo "::notice title=release-image-health-timeline::${RESULTS}"
+          if [ "$FAILED" -ne 0 ]; then
+            PS=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml ps -a 2>&1)
+            echo "::error title=release-image-health-failed::checks: ${RESULTS}"
+            echo "::error title=release-image-ps::$(echo "$PS" | enc)"
+            echo "::error title=release-image-api-log::$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 60 api 2>&1 | enc)"
+            echo "::error title=release-image-web-log::$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 40 web 2>&1 | enc)"
+            exit 1
+          fi
+          echo "::notice title=release-image-health::api-health=ok api-live=ok api-ready=ok web-login=ok same-origin-proxy=ok"
+
+      - name: verify migrations applied + runtime database identity (real evidence)
+        id: identity
+        shell: bash
+        run: |
+          set +e
+          PC() { docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres psql -U "${POSTGRES_USER:-dms}" -d "${POSTGRES_DB:-greendms}" -At -c "$1"; }
+          EXPECTED="${{ steps.migcount.outputs.expected }}"
+          APPLIED=$(PC 'select count(*) from schema_migrations')
+          echo "migrations applied=${APPLIED} expected=${EXPECTED}"
+          PC "select rolname, rolsuper, rolbypassrls, rolcanlogin from pg_roles where rolname in ('dms','dms_app')" | tee /tmp/relimg-roles.txt
+          # اتصال‌های TCP واقعیِ برنامه (نشستِ psql ما local/socket است و client_addr ندارد)
+          PC "select usename, count(*) from pg_stat_activity where client_addr is not null and usename in ('dms','dms_app') group by usename" | tee /tmp/relimg-conn.txt
+          APPCONN=$(grep -c '^dms_app|' /tmp/relimg-conn.txt || true)
+          ADMCONN=$(grep -c '^dms|' /tmp/relimg-conn.txt || true)
+          echo "tcp connections: dms_app=${APPCONN} dms(admin)=${ADMCONN}"
+          APILOG=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color api 2>&1)
+          WARN_N=$(printf '%s' "$APILOG" | grep -c 'هویتِ زمانِ اجرا امن نیست' || true)
+          BOOTFAIL_N=$(printf '%s' "$APILOG" | grep -c 'راه‌اندازی API متوقف شد' || true)
+          echo "identity-warning-count=${WARN_N} bootstrap-failure-count=${BOOTFAIL_N}"
+          RLSFORCED=$(PC "select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relrowsecurity and c.relforcerowsecurity")
+          echo "forced-RLS tables=${RLSFORCED}"
+          TABLES=$(PC "select count(*) from pg_tables where schemaname='public'")
+          echo "public tables=${TABLES}"
+          FAIL=0
+          [ "$APPLIED" = "$EXPECTED" ] || { echo "::error title=release-image-migrations::applied=${APPLIED} expected=${EXPECTED}"; FAIL=1; }
+          grep -q '^dms_app|f|f|t$' /tmp/relimg-roles.txt || { echo "::error title=release-image-role::dms_app must exist with rolsuper=f rolbypassrls=f rolcanlogin=t"; FAIL=1; }
+          [ "$APPCONN" -ge 1 ] || { echo "::error title=release-image-identity::no TCP connection as dms_app — API is NOT using the runtime identity"; FAIL=1; }
+          [ "$ADMCONN" -eq 0 ] || { echo "::error title=release-image-identity::${ADMCONN} TCP connection(s) as privileged dms remain after migrations — runtime must not use the migration identity"; FAIL=1; }
+          [ "$WARN_N" -eq 0 ] || { echo "::error title=release-image-identity::runtime identity verification reported problems (see api log)"; FAIL=1; }
+          [ "$RLSFORCED" -ge 1 ] || { echo "::error title=release-image-rls::no forced-RLS table found"; FAIL=1; }
+          echo "::notice title=release-image-identity::migrations=${APPLIED}/${EXPECTED} dms_app_tcp=${APPCONN} dms_tcp=${ADMCONN} forced_rls=${RLSFORCED} public_tables=${TABLES} role=dms_app(super=f,bypassrls=f)"
+          exit $FAIL
+
+      - name: logs must contain no credentials or connection secrets (exact-value scan)
+        id: logscan
+        shell: bash
+        run: |
+          set +e
+          LOGS=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color api web postgres 2>&1)
+          TOTAL=0
+          for NAME in JWT_SECRET POSTGRES_PASSWORD APP_DB_PASSWORD; do
+            VAL="${!NAME}"
+            [ -n "$VAL" ] || continue
+            C=$(printf '%s' "$LOGS" | grep -cF "$VAL" || true)
+            echo "secret-scan ${NAME}: matches=${C}"
+            TOTAL=$((TOTAL + C))
+          done
+          if [ "$TOTAL" -ne 0 ]; then
+            echo "::error title=release-image-secret-leak::${TOTAL} exact secret value occurrence(s) found in service logs (values NOT printed)"
+            exit 1
+          fi
+          echo "::notice title=release-image-log-hygiene::0 secret value occurrences in api/web/postgres logs"
+
+      # تستِ منفیِ هدفِ ۸: «با پیکربندیِ ناقص/ناامنِ production باید fail-closed بالا نیاید».
+      # بعد از teardown پشتهٔ اصلی اجرا می‌شود تا پورت‌ها آزاد باشند.
+      - name: teardown main stack (task resources only)
+        if: always()
+        shell: bash
+        run: |
+          docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans 2>&1 | tail -n 10
+
+      - name: negative test — incomplete production config must refuse to boot (fail-closed)
+        id: negative
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          NEG="relimgneg-${GITHUB_RUN_ID}"
+          # مقادیرِ env عمداً خالی می‌شوند ⇒ compose به پیش‌فرض‌های محلیِ جای‌نگه‌دار
+          # برمی‌گردد و docker-compose.prod.yml اذعان‌ها را false می‌کند.
+          env -u JWT_SECRET -u POSTGRES_PASSWORD -u APP_DB_PASSWORD -u SMS_ALLOW_LOG_PROVIDER \
+            DMS_ACCEPT_INSECURE_LOCAL_SETUP= SMS_ALLOW_LOG_PROVIDER= JWT_SECRET= POSTGRES_PASSWORD= APP_DB_PASSWORD= \
+            docker compose -p "$NEG" -f docker-compose.yml -f docker-compose.prod.yml up -d --build postgres redis api >/tmp/relimgneg-up.log 2>&1
+          echo "neg up rc=$?"
+          REFUSED=0
+          for i in $(seq 1 40); do
+            if docker compose -p "$NEG" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color api 2>/dev/null | grep -q 'پیکربندیِ production ناامن'; then
+              REFUSED=1; echo "fail-closed refusal observed after ${i} probe(s)"; break
+            fi
+            # سالم نباید بشود
+            if curl -sf --max-time 3 http://127.0.0.1:4000/api/health >/dev/null 2>&1; then
+              echo "::error title=release-image-negative::API became HEALTHY with incomplete production config — fail-closed is broken"
+              docker compose -p "$NEG" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color api 2>&1 | tail -n 30
+              docker compose -p "$NEG" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans >/dev/null 2>&1
+              exit 1
+            fi
+            sleep 3
+          done
+          NEGLOG=$(docker compose -p "$NEG" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color api 2>&1)
+          docker compose -p "$NEG" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans >/dev/null 2>&1
+          if [ "$REFUSED" -ne 1 ]; then
+            echo "::error title=release-image-negative::no fail-closed refusal message seen in api logs"
+            echo "::error title=release-image-neg-log::$(echo "$NEGLOG" | tail -n 40 | enc)"
+            exit 1
+          fi
+          # پیامِ خطا نباید هیچ رمزی را لو بدهد (اینجا مقادیرِ پیش‌فرض‌اند؛ باز هم اسکن)
+          echo "$NEGLOG" | grep -F "CHANGE_ME_IN_PRODUCTION" | grep -viE 'JWT_SECRET|secret|رمز' >/dev/null && { echo "::error title=release-image-negative::placeholder value echoed in diagnostics"; exit 1; }
+          echo "::notice title=release-image-negative::incomplete production config correctly REFUSED to boot (fail-closed, Persian diagnostics)"
+
+      # Round-trip ضمیمه: سرویسِ S3-سازگارِ تأییدشده (adobe/s3mock:3.9.1 — نامزدِ اولِ
+      # jobِ Integration (MinIO) که pull و round-trip واقعی را پاس کرده). اگر در دسترس
+      # نبود، وضعیت صریحاً BLOCKED گزارش و دروازه نگه داشته می‌شود (skip بی‌صدا ممنوع).
+      - name: attachment storage round-trip (verified S3-compatible service or BLOCKED)
+        id: storage
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' | sed -e 's/$/%0A/' | tr -d '\n'; }
+          cat > ./.relimg-s3-roundtrip.mjs <<'EOF'
+          import { Client } from 'minio';
+          const [endpoint, port, access, secret, bucket] = process.argv.slice(2);
+          const c = new Client({ endPoint: endpoint, port: Number(port), useSSL: false, accessKey: access, secretKey: secret, region: 'us-east-1' });
+          const key = `probe/${Date.now()}.txt`;
+          if (!(await c.bucketExists(bucket))) await c.makeBucket(bucket);
+          await c.putObject(bucket, key, Buffer.from('greendms s3 probe'), 19, { 'Content-Type': 'text/plain' });
+          const st = await c.statObject(bucket, key);
+          const url = await c.presignedGetObject(bucket, key, 60);
+          const res = await fetch(url);
+          const body = await res.text();
+          if (res.status !== 200 || body !== 'greendms s3 probe') throw new Error(`presigned GET failed: ${res.status}`);
+          await c.removeObject(bucket, key);
+          console.log(JSON.stringify({ ok: true, size: st.size, presigned_status: res.status }));
+          EOF
+          CAND='adobe/s3mock:3.9.1'
+          echo "=== docker pull ${CAND} ==="
+          docker pull "$CAND" >/tmp/relimg-s3.log 2>&1; PULL_RC=$?
+          echo "pull_rc=${PULL_RC}"
+          if [ "$PULL_RC" -ne 0 ]; then
+            tail -n 20 /tmp/relimg-s3.log
+            echo "::error title=BLOCKED-release-image-storage::S3-compatible test service unavailable: docker pull ${CAND} failed rc=${PULL_RC} (see log tail). Attachment object-storage round-trip is BLOCKED by infrastructure — NOT skipped, NOT reported as pass. Compose minio service itself cannot boot here (minio/minio pull access denied, quay.io/minio/minio 401)."
+            exit 1
+          fi
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$CAND" 2>/dev/null)
+          # adobe/s3mock:3.9.1 — طبق README همان تگِ پین‌شده (api.github.com تأیید شد):
+          # «Ports: 9090 (HTTP), 9191 (HTTPS)» و فقط path-style. پورتِ 8090 کانکتورِ
+          # TLS است و صحبتِ HTTP با آن دقیقاً همان socket hang up/_http_client می‌دهد
+          # که پیش‌تر «رقابتِ آماده‌سازی» پنداشته می‌شد. پس: 9090 + HTTP (useSSL:false).
+          docker rm -f relimg-s3probe >/dev/null 2>&1
+          docker run -d --name relimg-s3probe -p 127.0.0.1:9090:9090 "$CAND" >/dev/null 2>&1; RUN_RC=$?
+          echo "run_rc=${RUN_RC} digest=${DIGEST:-unresolved}"
+          # اول باز شدنِ پورت (s3mock با Spring Boot کند بالا می‌آید)، بعد round-trip
+          # با تلاشِ مجدد.
+          PORTUP=0
+          for i in $(seq 1 60); do
+            (exec 3<>"/dev/tcp/127.0.0.1/9090") 2>/dev/null && { PORTUP=1; echo "s3 port answered after ${i} probe(s)"; break; }
+            sleep 2
+          done
+          OK=0
+          LASTERR=""
+          if [ "$PORTUP" = 1 ]; then
+            for attempt in $(seq 1 20); do
+              OUT=$(node ./.relimg-s3-roundtrip.mjs 127.0.0.1 9090 minio minio123 greendms 2>&1)
+              RC=$?
+              echo "round-trip attempt ${attempt}: rc=${RC} ${OUT}" >>/tmp/relimg-s3.log
+              if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '"ok":true'; then OK=1; echo "round-trip PASSED on attempt ${attempt}"; break; fi
+              LASTERR="${OUT}"
+              sleep 5
+            done
+          else
+            LASTERR="tcp port 8090 never answered"
+          fi
+          docker logs relimg-s3probe >>/tmp/relimg-s3.log 2>&1
+          docker rm -f relimg-s3probe >/dev/null 2>&1
+          if [ "$OK" -ne 1 ]; then
+            echo "::error title=BLOCKED-release-image-storage::${CAND} pulled (digest=${DIGEST:-unresolved}) but the real S3 round-trip with the app's minio client FAILED — last error: $(echo "$LASTERR" | head -c 400) (NOT claiming S3 compatibility from pull alone)"
+            echo "::error title=release-image-s3-log::$(tail -n 40 /tmp/relimg-s3.log | enc)"
+            exit 1
+          fi
+          echo "::notice title=release-image-storage::attachment round-trip PASSED with ${CAND} digest=${DIGEST:-unresolved} (makeBucket/put/stat/presigned-get/remove via app client)"
+
+      - name: cleanup (only this task's projects and probe container)
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans >/dev/null 2>&1
+          docker compose -p "relimgneg-${GITHUB_RUN_ID}" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans >/dev/null 2>&1
+          docker rm -f relimg-s3probe >/dev/null 2>&1
+          rm -f ./.relimg-s3-roundtrip.mjs
+          docker rmi -f "relimg-${GITHUB_RUN_ID}-api" "relimg-${GITHUB_RUN_ID}-web" >/dev/null 2>&1
+          echo "cleanup done (only relimg-* projects, task volumes, probe container and task images)"
