@@ -327,7 +327,7 @@ jobs:
         run: |
           set +e
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' | sed -e 's/$/%0A/' | tr -d '\n'; }
-          cat > /tmp/relimg-s3-roundtrip.mjs <<'EOF'
+          cat > ./.relimg-s3-roundtrip.mjs <<'EOF'
           import { Client } from 'minio';
           const [endpoint, port, access, secret, bucket] = process.argv.slice(2);
           const c = new Client({ endPoint: endpoint, port: Number(port), useSSL: false, accessKey: access, secretKey: secret, region: 'us-east-1' });
@@ -366,7 +366,7 @@ jobs:
           LASTERR=""
           if [ "$PORTUP" = 1 ]; then
             for attempt in $(seq 1 20); do
-              OUT=$(node /tmp/relimg-s3-roundtrip.mjs 127.0.0.1 8090 minio minio123 greendms 2>&1)
+              OUT=$(node ./.relimg-s3-roundtrip.mjs 127.0.0.1 8090 minio minio123 greendms 2>&1)
               RC=$?
               echo "round-trip attempt ${attempt}: rc=${RC} ${OUT}" >>/tmp/relimg-s3.log
               if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '"ok":true'; then OK=1; echo "round-trip PASSED on attempt ${attempt}"; break; fi
@@ -393,5 +393,6 @@ jobs:
           docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans >/dev/null 2>&1
           docker compose -p "relimgneg-${GITHUB_RUN_ID}" -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans >/dev/null 2>&1
           docker rm -f relimg-s3probe >/dev/null 2>&1
+          rm -f ./.relimg-s3-roundtrip.mjs
           docker rmi -f "relimg-${GITHUB_RUN_ID}-api" "relimg-${GITHUB_RUN_ID}-web" >/dev/null 2>&1
           echo "cleanup done (only relimg-* projects, task volumes, probe container and task images)"
