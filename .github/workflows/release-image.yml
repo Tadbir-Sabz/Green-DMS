@@ -182,27 +182,37 @@ jobs:
         run: |
           set +e
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          RESULTS=""
           wait_url() { # name url [expect-substring]
-            for i in $(seq 1 90); do
+            START=$(date +%s)
+            for i in $(seq 1 120); do
               BODY=$(curl -s --max-time 5 "$2" 2>/dev/null); RC=$?
               if [ $RC -eq 0 ] && { [ -z "$3" ] || echo "$BODY" | grep -q "$3"; }; then
-                echo "HEALTH OK  $1 after ${i} probe(s): ${BODY}"
+                EL=$(( $(date +%s) - START ))
+                echo "HEALTH OK  $1 after ${i} probe(s) / ${EL}s: ${BODY}"
+                RESULTS="${RESULTS}${1}=OK(${EL}s) "
                 return 0
               fi
-              sleep 3
+              sleep 5
             done
-            echo "HEALTH FAIL $1 url=$2 last_body=${BODY}"
+            EL=$(( $(date +%s) - START ))
+            echo "HEALTH FAIL $1 url=$2 elapsed=${EL}s last_body=${BODY}"
+            RESULTS="${RESULTS}${1}=FAIL(${EL}s) "
             return 1
           }
           FAILED=0
+          # بوتِ نخست روی volume خالی شاملِ اعمالِ همهٔ ۴۵ مهاجرت است ⇒ پنجرهٔ بزرگ.
           wait_url "api-health(legacy)" "http://127.0.0.1:4000/api/health" '"status":"ok"' || FAILED=1
           wait_url "api-live" "http://127.0.0.1:4000/api/v1/health/live" '"status":"live"' || FAILED=1
           wait_url "api-ready" "http://127.0.0.1:4000/api/v1/health/ready" '"status":"ready"' || FAILED=1
           wait_url "web-login" "http://127.0.0.1:3000/login" "" || FAILED=1
           # پروکسیِ هم‌مبدأ: درخواستِ /api/* از پورتِ وب باید به API برسد (بدونِ CORS).
           wait_url "proxy-api-health-via-web" "http://127.0.0.1:3000/api/health" '"service":"dms-api"' || FAILED=1
+          echo "::notice title=release-image-health-timeline::${RESULTS}"
           if [ "$FAILED" -ne 0 ]; then
-            echo "::error title=release-image-health-failed::one or more health endpoints failed (see HEALTH FAIL lines)"
+            PS=$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml ps -a 2>&1)
+            echo "::error title=release-image-health-failed::checks: ${RESULTS}"
+            echo "::error title=release-image-ps::$(echo "$PS" | enc)"
             echo "::error title=release-image-api-log::$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 60 api 2>&1 | enc)"
             echo "::error title=release-image-web-log::$(docker compose -p "$project" -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 40 web 2>&1 | enc)"
             exit 1

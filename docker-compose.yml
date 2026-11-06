@@ -110,12 +110,14 @@ services:
         condition: service_healthy
     # TASK-19 — readiness واقعی: /api/v1/health/ready فقط وقتی 200 می‌دهد که
     # پایگاه‌داده در دسترسِ سرویس‌دهی باشد (liveness در /api/v1/health/live).
+    # start_period/retries بزرگ‌اند چون بوتِ نخست روی volume خالی شاملِ اعمالِ
+    # همهٔ مهاجرت‌هاست (در CI چند دقیقه).
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/v1/health/ready >/dev/null 2>&1"]
       interval: 5s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 60
+      start_period: 120s
 
   web:
     build:
