@@ -27,10 +27,12 @@
     "db:seed-demo": "node scripts/seed-demo.mjs",
     "test:migrations": "node scripts/test-migrations.mjs",
     "test:api": "npm run test -w apps/api",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "openapi:check": "node scripts/openapi-check.mjs",
     "clients:generate": "node scripts/generate-clients.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@readme/openapi-parser": "^10.0.0",
     "typescript": "^5.9.2"
   },

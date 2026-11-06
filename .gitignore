@@ -53,3 +53,9 @@ tmp_*
 # ── قرنطینهٔ ساخته‌های کامپایل‌شده و پیوست‌های مکالمه (هرگز commit نشود) ──
 .quarantine/
 .cloud-attachments/
+
+# Playwright E2E artifacts
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/

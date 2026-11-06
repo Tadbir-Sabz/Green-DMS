@@ -6291,6 +6291,859 @@ export interface paths {
         };
         trace?: never;
     };
+    "/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرستِ ضمیمه‌های یک موجودیت (owner) در دامنهٔ شرکتِ نشست */
+        get: {
+            parameters: {
+                query: {
+                    owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "sales_order" | "product" | "stock_count" | "other";
+                    owner_id: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ضمیمه‌های موجودیت (هر مورد با URL امضاشدهٔ کوتاه‌عمر) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Attachment"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** بارگذاری ضمیمه / مدرک تحویل (POD) — multipart/form-data */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description بایت‌های فایل. انواع مجاز: image/jpeg، image/png، image/webp، application/pdf؛ سقف حجم پیش‌فرض ۸ مگابایت.
+                         */
+                        file: string;
+                        /**
+                         * @description نوعِ موجودیتِ مالکِ ضمیمه
+                         * @enum {string}
+                         */
+                        owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "sales_order" | "product" | "stock_count" | "other";
+                        /**
+                         * Format: uuid
+                         * @description شناسهٔ موجودیتِ مالک (مثلاً شناسهٔ delivery برای POD)
+                         */
+                        owner_id: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description فایل در آبجکت‌استوریج ذخیره و metadata ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Attachment"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description حجم فایل بیش از حدِ مجاز است */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description نوع فایل مجاز نیست */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachments/{id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** دریافت URL امضاشدهٔ کوتاه‌عمر برای دانلود ضمیمه */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description URL امضاشدهٔ دانلود (بدون bucket عمومی) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUrl"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bi/kpi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** شاخص‌های کلانِ فروش/وصولی/ماندهٔ AR (داشبورد BI) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description بازهٔ روزهای اخیر برای فروش/وصولی (پیش‌فرض ۳۰) */
+                    days?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description KPIهای شرکتِ نشست */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BiKpi"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bi/abc-customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** طبقه‌بندی ABC مشتریان بر پایهٔ درآمد (قانونِ پارتو) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ طبقه‌بندی‌شدهٔ مشتریان */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AbcResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bi/abc-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** طبقه‌بندی ABC کالاها بر پایهٔ درآمد (قانونِ پارتو) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ طبقه‌بندی‌شدهٔ کالاها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AbcResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bi/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** پیش‌بینیِ فروشِ روزانه (هموارسازیِ خطیِ هالت رویِ سابقهٔ فروش) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description طولِ سابقهٔ روزهایِ گذشته برای برازش (پیش‌فرض ۹۰، ۱..۳۶۵) */
+                    days?: number;
+                    /** @description تعدادِ روزهایِ آینده برای پیش‌بینی (پیش‌فرض ۷، ۱..۹۰) */
+                    horizon?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نقاطِ پیش‌بینیِ فروشِ خالصِ روزانه به‌همراه روند */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BiForecast"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرستِ صورتحساب‌های اشتراکِ اجاره (ledger، بدونِ پرداخت) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ صورتحساب‌ها (نزولیِ تاریخِ صدور) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingInvoice"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** جزئیاتِ یک صورتحسابِ اشتراک */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صورتحسابِ اشتراک */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingInvoice"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/onboarding/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * خودخدمت‌دهیِ ثبتِ اجارهٔ جدید (شرکت + شعبه + نقش‌ها + حسابِ مدیر)
+         * @description عمومی و بدونِ نشست. در تولید باید پشتِ نرخ‌گذاری/CAPTCHA/کدِ دعوت قرار گیرد (یادداشتِ امنیتی در گزارشِ تحویل). ساختِ اجاره اتمی است (یا همه یا هیچ).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        company_code: string;
+                        company_name: string;
+                        /** Format: email */
+                        admin_email: string;
+                        /**
+                         * Format: password
+                         * @description رمزِ مدیر. علاوه بر طولِ حداقلی، باید دستِ‌کم ۳ دسته از نویسه‌ها (حروفِ کوچک، حروفِ بزرگ، رقم، نماد) را داشته باشد و از فهرستِ رمزهایِ رایج نباشد؛ در غیرِ این صورت با ۴۰۰ و کدِ weak_password رد می‌شود.
+                         */
+                        admin_password: string;
+                        /** @description کدِ دعوت — فقط وقتی لازم است که سرور با ONBOARDING_MODE=invite پیکربندی شده باشد. در حالتِ پیش‌فرض (open) نادیده گرفته می‌شود. نامعتبر/نبودِ آن با ۴۰۳ رد می‌شود. */
+                        invite_code?: string;
+                        admin_first_name?: string;
+                        admin_last_name?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description اجاره و حسابِ مدیر ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RegisterTenantResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ورود به پورتال مشتری (ایمیل + رمز) — توکن با audience مجزا از کارکنان */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: email */
+                        email: string;
+                        /** Format: password */
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description نشستِ پورتال صادر شد (توکن دسترسی + refresh) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalSessionResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                423: components["responses"]["Locked"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** تازه‌سازیِ توکن پورتال (چرخش refresh) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        refresh_token: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description نشستِ تازه صادر شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalSessionResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** خروج از پورتال (باطل‌کردن نشستِ جاری) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نشست باطل شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            revoked: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** حسابِ پورتال و مشتریِ وابستهٔ جاری */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description شناسهٔ حسابِ پورتال + کد/نام مشتری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalMe"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فاکتورهای ثبت‌شدهٔ مشتریِ پورتال */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ فاکتورها (نزولیِ تاریخ) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalInvoice"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** سفارش‌های مشتریِ پورتال (غیرِ پیش‌نویس) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرستِ سفارش‌ها (نزولیِ تاریخ) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalOrder"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ماندهٔ حساب و وضعیتِ اعتبارِ مشتریِ پورتال */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ماندهٔ دریافتنی، معوق، سقف و اعتبارِ باقی‌مانده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalBalance"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ساختِ حسابِ پورتال برای یک مشتری (توسطِ کارکنان، master.customer.update) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customer_id: string;
+                        /** Format: email */
+                        email: string;
+                        /** Format: password */
+                        password: string;
+                        display_name?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description حسابِ پورتال ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalIdentity"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/routing/optimize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * بهینه‌سازی مسیر ویزیت (TSP) — ترتیبِ بهینهٔ توقف‌ها با کمینه مسافت
+         * @description ترتیبِ توقف‌ها با الگوریتمِ نزدیک‌ترین همسایه + بهبودِ 2-opt محاسبه می‌شود.
+         *
+         *     **محدودیتِ دقت:** فاصله‌ها با فرمولِ «هاورساین» یعنی فاصلهٔ خطِ مستقیمِ ژئودزیکیِ رویِ کرهٔ زمین محاسبه می‌شوند، **نه** مسافتِ واقعیِ شبکهٔ جاده‌ای. بنابراین total_distance_km و eta_min «برآورد» هستند و می‌توانند از مسافتِ واقعیِ رانندگی کمتر باشند (عبور از معبر، محدودیتِ ترافیک و ارتفاع لحاظ نمی‌شود).
+         *
+         *     توقف‌هایی که مختصاتِ نامعتبر یا ناموجود دارند از بهینه‌سازی کنار گذاشته می‌شوند (بدونِ شکستِ درخواست) و در stop_count شمارش نمی‌شوند. اگر خروجیِ بهینه‌ساز از ترتیبِ ورودی بدتر باشد، همان ترتیبِ ورودی (خطِ پایه) با savings_percent برابرِ صفر برگردانده می‌شود.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description بهینه‌سازیِ همهٔ مشتریانِ یک مسیرِ ویزیت
+                         */
+                        route_id?: string;
+                        /** @description فهرستِ صریحِ توقف‌ها (اگر route_id داده نشود). سقفِ سرور ۲۰۰ توقف است (MAX_ROUTE_STOPS)؛ بیش از آن با وضعیتِ ۴۰۰ و کدِ too_many_stops رد می‌شود. */
+                        customer_ids?: string[];
+                        /**
+                         * Format: double
+                         * @description عرضِ جغرافیاییِ دپو/نقطهٔ شروع
+                         */
+                        start_lat?: number;
+                        /**
+                         * Format: double
+                         * @description طولِ جغرافیاییِ دپو/نقطهٔ شروع
+                         */
+                        start_lng?: number;
+                        /**
+                         * Format: double
+                         * @description سرعت متوسط (پیش‌فرض ۳۰)
+                         */
+                        avg_speed_kmh?: number;
+                        /**
+                         * Format: double
+                         * @description زمان خدمت در هر توقف به دقیقه (پیش‌فرض ۵)
+                         */
+                        service_min_per_stop?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description مسیرِ بهینه‌شده با ترتیبِ توقف‌ها و برآورد مسافت/زمان */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RoutingOptimization"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations": {
         parameters: {
             query?: never;
@@ -8949,6 +9802,243 @@ export interface components {
             module?: string;
             required_permission?: string;
         };
+        /** @description شاخص‌های کلانِ داشبورد BI برای شرکتِ نشست */
+        BiKpi: {
+            /** @description بازهٔ روزهایِ فروش/وصولی */
+            period_days: number;
+            /** @description خالصِ فروشِ بازه (decimal، از mv_daily_sales.net_sales) */
+            sales: string;
+            /** @description وصولیِ بازه (decimal) */
+            collected: string;
+            /** @description ناخالصِ فروشِ بازه (decimal) */
+            gross: string;
+            /** @description کلِ ماندهٔ دریافتنیِ باز (decimal، از mv_ar_aging.total_due) */
+            ar_balance: string;
+            /** @description ماندهٔ سررسیدگذشته (decimal) */
+            ar_overdue: string;
+            /** @description تعداد فاکتورهای باز */
+            open_invoice_count: number;
+            /** @description تعداد مشتریان با ماندهٔ باز */
+            active_customer_count: number;
+            /**
+             * Format: float
+             * @description نسبتِ وصول به فروشِ بازه (۰..۱)؛ null اگر فروشی نبوده
+             */
+            collection_rate?: number | null;
+        };
+        /** @description یک قلمِ طبقه‌بندی‌شده در تحلیل ABC */
+        AbcEntry: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @description درآمد (decimal) */
+            revenue: string;
+            /** @description مقدارِ فروش (decimal) — فقط در ABC کالاها */
+            qty?: string;
+            /**
+             * Format: float
+             * @description سهم از کلِ درآمد (٪)
+             */
+            share_pct: number;
+            /**
+             * Format: float
+             * @description مجموعِ تجمعی تا این قلم (٪)
+             */
+            cumulative_pct: number;
+            /** @enum {string} */
+            class: "A" | "B" | "C";
+        };
+        AbcResult: {
+            items: components["schemas"]["AbcEntry"][];
+            thresholds: {
+                /** @description آستانهٔ درصدیِ کلاسِ A */
+                a: number;
+                /** @description آستانهٔ درصدیِ کلاسِ B */
+                b: number;
+            };
+            /** @description کلِ درآمد (decimal) */
+            total_revenue: string;
+        };
+        /** @description صورتحسابِ دوره‌ایِ اشتراک (ledger) — بدونِ پرداخت؛ وضعیت issued/void */
+        BillingInvoice: {
+            /** Format: uuid */
+            id: string;
+            invoice_no: string;
+            /** Format: date */
+            period_start: string;
+            /** Format: date */
+            period_end: string;
+            /** @description decimal string */
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            status: "issued" | "void";
+            notes: string | null;
+            /** Format: date-time */
+            issued_at: string;
+        };
+        /** @description نتیجهٔ خودخدمت‌دهیِ استقرار — شناسه‌های اجارهٔ تازه و حسابِ مدیر */
+        RegisterTenantResult: {
+            /** Format: uuid */
+            company_id: string;
+            /** Format: uuid */
+            branch_id: string;
+            /** Format: uuid */
+            app_user_id: string;
+            admin_username: string;
+        };
+        PortalIdentity: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            display_name: string | null;
+            /** Format: uuid */
+            company_id: string;
+            /** Format: uuid */
+            customer_id: string;
+        };
+        PortalSessionResponse: {
+            access_token: string;
+            refresh_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /** @description عمرِ توکن دسترسی به ثانیه */
+            expires_in: number;
+            portal_user: components["schemas"]["PortalIdentity"];
+        };
+        PortalMe: components["schemas"]["PortalIdentity"] & {
+            customer_code: string;
+            customer_name: string;
+        };
+        PortalInvoice: {
+            /** Format: uuid */
+            id: string;
+            doc_number: string;
+            fiscal_year: number;
+            /** Format: date */
+            invoice_date: string;
+            /** Format: date */
+            due_date: string | null;
+            /** @description decimal string */
+            grand_total: string;
+            /** @description decimal string */
+            paid_amount: string;
+            status: string;
+        };
+        PortalOrder: {
+            /** Format: uuid */
+            id: string;
+            doc_number: string;
+            fiscal_year: number;
+            /** Format: date */
+            order_date: string;
+            /** @description decimal string */
+            grand_total: string;
+            status: string;
+        };
+        PortalBalance: {
+            /** @description ماندهٔ دریافتنیِ کل (decimal string) */
+            outstanding: string;
+            /** @description معوق (decimal string) */
+            overdue: string;
+            credit_limit: string | null;
+            credit_available: string | null;
+        };
+        BiForecastPoint: {
+            /** Format: date */
+            date: string;
+            /** @description فروشِ خالصِ پیش‌بینی‌شده (decimal string) */
+            value: string;
+        };
+        /** @description پیش‌بینیِ فروشِ روزانه با هموارسازیِ خطیِ هالت */
+        BiForecast: {
+            /** @enum {string} */
+            method: "holt-linear";
+            history_days: number;
+            horizon_days: number;
+            points: components["schemas"]["BiForecastPoint"][];
+            /** @description مجموعِ فروشِ پیش‌بینی‌شده در افق */
+            total: string;
+            /** @description مؤلفهٔ روند (تغییرِ روزانهٔ سطح) */
+            trend_per_day: string;
+            /** @enum {string} */
+            direction: "up" | "down" | "flat";
+        };
+        /** @description یک توقفِ ترتیب‌داده‌شده در مسیرِ بهینه */
+        OptimizedStop: {
+            /** Format: uuid */
+            customer_id: string;
+            code: string;
+            name: string;
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lng: number;
+            /** @description ترتیبِ بازدید (۱-based) */
+            sequence: number;
+            /**
+             * Format: float
+             * @description فاصله از توقفِ قبلی
+             */
+            leg_distance_km: number;
+            /**
+             * Format: float
+             * @description مسافتِ تجمعی از شروع
+             */
+            cumulative_distance_km: number;
+            /**
+             * Format: float
+             * @description زمانِ تخمینیِ رسیدن از شروع (دقیقه)
+             */
+            eta_min: number;
+        };
+        RoutingOptimization: {
+            /** Format: uuid */
+            route_id: string | null;
+            stop_count: number;
+            stops: components["schemas"]["OptimizedStop"][];
+            /** Format: float */
+            total_distance_km: number;
+            /** Format: float */
+            total_duration_min: number;
+            /**
+             * Format: float
+             * @description درصدِ بهبود نسبت به ترتیبِ ورودی
+             */
+            savings_percent: number;
+        };
+        /** @description یک ضمیمهٔ بارگذاری‌شده (فایل در آبجکت‌استوریج؛ اینجا metadata + URL امضاشده) */
+        Attachment: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            owner_type: "pod" | "invoice" | "journal_entry" | "receipt" | "return_request" | "sales_order" | "product" | "stock_count" | "other";
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            /** @description اثرِ انگشت SHA-256 محتوای فایل */
+            sha256: string;
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ کوتاه‌عمر برای دانلود
+             */
+            url: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AttachmentUrl: {
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ دانلود
+             */
+            url: string;
+            /** @description عمرِ URL به ثانیه */
+            expires_in: number;
+        };
         /** @description تنظیم با دامنه — حوزه‌ها فقط محدوده خود را می‌بینند (ماژول ۱۱) */
         SettingEntry: {
             /**
@@ -9210,9 +10300,11 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description نرخ درخواست بیش از حد مجاز */
+        /** @description نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و retry_after_sec را دارد؛ Retry-After هم به‌صورتِ سرصفحهٔ استاندارد برمی‌گردد. */
         TooManyRequests: {
             headers: {
+                /** @description ثانیه‌هایِ باقی‌مانده تا پایانِ پنجرهٔ نرخ */
+                "Retry-After"?: number;
                 "RateLimit-Limit"?: number;
                 "RateLimit-Remaining"?: number;
                 "RateLimit-Reset"?: number;

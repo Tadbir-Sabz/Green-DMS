@@ -1,25 +1,24 @@
-﻿import { Controller, Get, Post } from '@nestjs/common';
-import type { ModuleInfo } from '../../common/module-info';
-
-@Controller('routing')
-export class RoutingController {
-  @Get()
-  info(): ModuleInfo {
-    return { module: 'routing', title: 'بهینه‌ساز مسیر هوشمند', resources: ['optimize', 'alternatives'], status: 'scaffold' };
-  }
-
-  @Post('optimize')
-  optimize() {
-    return {
-      route_id: null,
-      stops: [],
-      total_distance_km: 0,
-      total_duration_min: 0,
-      savings_percent: 0,
-    };
-  }
-}
-
 import { Module } from '@nestjs/common';
-@Module({ controllers: [RoutingController] })
+import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
+import { RoutingController } from './routing.controller';
+import { RoutingRepository } from './routing.repository';
+import { RoutingService } from './routing.service';
+import { ROUTING_REPOSITORY, ROUTING_SERVICE } from './tokens';
+
+/**
+ * ماژول بهینه‌سازی مسیر (TSP) — مختصاتِ مشتریان از PostGIS (customer.geo) و
+ * الگوریسمِ خالصِ solveRoute. IdentityRbacModule برای AuthGuard/PermissionsGuard
+ * و @CurrentUser وارد می‌شود.
+ */
+@Module({
+  imports: [IdentityRbacModule],
+  controllers: [RoutingController],
+  providers: [
+    RoutingRepository,
+    { provide: ROUTING_REPOSITORY, useExisting: RoutingRepository },
+    RoutingService,
+    { provide: ROUTING_SERVICE, useExisting: RoutingService },
+  ],
+  exports: [ROUTING_SERVICE],
+})
 export class RoutingModule {}

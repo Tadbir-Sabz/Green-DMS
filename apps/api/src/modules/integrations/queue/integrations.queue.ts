@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Pool } from 'pg';
 import { PG_POOL } from '../../../database/database.module';
+import { runAsJobTenant } from '../../../database/job-context';
 
 export type IntegrationJobType = 'moadian.invoice' | 'psp.charge';
 
@@ -16,9 +17,38 @@ export interface IntegrationJob {
   payload: Record<string, unknown>;
 }
 
+/**
+ * خلاصهٔ یک نوبتِ پردازش (GDM-13-02): `processed` یعنی «برداشته‌شده از صف»، نه «موفق».
+ * `failed` شغل‌هایی است که کارشان شکست خورد و `stateNotPersisted` شغل‌هایی است که
+ * **وضعیتِ نهایی‌شان در پایگاه‌داده ثبت نشد** ⇒ ممکن است در `sending` مانده باشند و
+ * حتماً باید عملیاتی بررسی شوند. هیچ‌کدام «موفقِ بی‌صدا» شمرده نمی‌شوند.
+ */
+export interface ProcessDueSummary {
+  processed: number;
+  failed: number;
+  stateNotPersisted: number;
+}
+
 export interface EnqueuedJob {
   id: string;
   status: string;
+}
+
+/**
+ * یک شغلِ برداشته‌شده توسطِ fn_job_claim_integration (مهاجرتِ 0044).
+ *
+ * company_id/branch_id از «رکوردِ پایدارِ قابلِ اعتماد» مشتق شده‌اند
+ * (moadian_submission.invoice_id → invoice.branch_id → branch.company_id و
+ *  psp_transaction.branch_id → branch.company_id)، **نه** از payloadِ شغل.
+ * company_id تهی یعنی اجاره قابلِ اشتقاق نیست ⇒ شغل باید fail-closed بمیرد.
+ */
+export interface ClaimedJob {
+  kind: 'moadian' | 'psp';
+  job_id: string;
+  company_id: string | null;
+  branch_id: string | null;
+  attempt_count: number;
+  payload: string | null;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -132,79 +162,160 @@ export class IntegrationsQueue implements OnModuleInit, OnModuleDestroy {
     return { moadian: moadian.rows, psp: psp.rows };
   }
 
-  /** یک نوبت پردازش همهٔ شغل‌های سررسیدشده — برای زمان‌بند و تست دستی */
-  async processDue(): Promise<{ processed: number }> {
-    const moadian = await this.processMoadianBatch();
-    const psp = await this.processPspBatch();
-    return { processed: moadian + psp };
-  }
-
-  private async processMoadianBatch(): Promise<number> {
-    const { rows: due } = await this.pool.query<{ id: string; payload: unknown; attempt_count: number }>(
-      `update moadian_submission set status = 'sending'
-        where id in (
-          select id from moadian_submission
-           where status in ('queued', 'retrying')
-             and (next_retry_at is null or next_retry_at <= now())
-           order by created_at
-           limit $1
-           for update skip locked)
-        returning id, payload, attempt_count`,
+  /**
+   * یک نوبتِ پردازشِ همهٔ شغل‌هایِ سررسیده — برایِ زمان‌بند و تستِ دستی.
+   *
+   * از 0044 این مسیر «اجاره‌محور» است:
+   *   ۱) برداشتنِ شغل با fn_job_claim_integration (SECURITY DEFINER، lock اتمیکِ
+   *      FOR UPDATE SKIP LOCKED) که همزمان اجارهٔ هر شغل را از رکوردِ پایدار مشتق می‌کند؛
+   *   ۲) کارِ هر شغل و نوشتنِ وضعیتش **داخلِ زمینهٔ همان اجاره** اجرا می‌شود
+   *      (runAsJobTenant) ⇒ همهٔ UPDATEها زیرِ RLS و در دامنهٔ درستِ اجاره‌اند و اگر دامنهٔ
+   *      اشتقاق‌شده غلط باشد، به‌جایِ «موفقِ بی‌صدا»، صفر ردیف می‌خورد و خطا می‌دهد؛
+   *   ۳) شغلی که اجاره‌اش قابلِ اشتقاق نیست با fn_job_mark_dead و دلیلِ صریح می‌میرد.
+   * payload فقط به سرویسِ بیرونی می‌رود و هرگز منبعِ هویتِ اجاره نیست.
+   */
+  async processDue(): Promise<ProcessDueSummary> {
+    const { rows } = await this.pool.query<ClaimedJob>(
+      `select kind, job_id, company_id, branch_id, attempt_count, payload
+         from fn_job_claim_integration($1)`,
       [BATCH_SIZE],
     );
+    let failed = 0;
+    let stateNotPersisted = 0;
+    for (const job of rows) {
+      const outcome = await this.runClaimed(job);
+      if (!outcome.ok) failed += 1;
+      if (!outcome.statePersisted) stateNotPersisted += 1;
+    }
+    return { processed: rows.length, failed, stateNotPersisted };
+  }
 
-    for (const row of due) {
+  /** اجرایِ یک شغلِ برداشته‌شده در زمینهٔ اجارهٔ مشتق‌شده از رکوردِ پایدار. */
+  private async runClaimed(job: ClaimedJob): Promise<{ ok: boolean; statePersisted: boolean }> {
+    const payload = this.parsePayload(job);
+
+    // fail-closed: بدونِ اجارهٔ قابلِ اشتقاق، هیچ کاری انجام و هیچ موفقیتی ثبت نمی‌شود.
+    if (!job.company_id) {
+      this.logger.error(
+        `شغلِ ${job.kind}/${job.job_id} اجارهٔ قابلِ اشتقاق از رکوردِ پایدار ندارد ⇒ مرده ثبت می‌شود (بدونِ اجرایِ بی‌صدا)`,
+      );
+      await this.pool.query(`select fn_job_mark_dead($1, $2, $3)`, [
+        job.kind,
+        job.job_id,
+        'tenant_unresolvable',
+      ]);
+      // fn_job_mark_dead نوعِ بازگشتی void دارد و SECURITY DEFINER است، پس از اینجا
+      // قابلِ راستی‌آزماییِ ردیفی نیست؛ ولی «موفق» هم شمرده نمی‌شود.
+      return { ok: false, statePersisted: true };
+    }
+
+    const table = job.kind === 'moadian' ? 'moadian_submission' : 'psp_transaction';
+    // کلیدِ یکتایی از «رکوردِ پایدار» ساخته می‌شود (نه از payload) تا در صورتِ تکرارِ
+    // تلاش، گیرنده بتواند عملیاتِ خارجیِ تکراری را تشخیص دهد. بدونِ همین کلید،
+    // بازگرداندنِ خودکارِ شغلِ گیرکرده به صف می‌توانست پرداخت/ارسالِ تکراری بسازد.
+    const idempotencyKey = `${job.kind}:${job.job_id}`;
+    const discardReporter = {
+      onConnectionDiscarded: (info: { stage: string; error: unknown }) => {
+        // نابودیِ اتصالِ شغل باید دیده شود؛ پاک‌سازیِ ناموفق یعنی اتصال آلوده دور انداخته شد.
+        this.logger.warn(
+          `اتصالِ شغل پس از پایانِ کار نابود شد (پاک‌سازیِ زمینهٔ اجاره ناموفق بود)`,
+          JSON.stringify(this.safeContext(job, { stage: info.stage })),
+        );
+      },
+    };
+
+    try {
+      await runAsJobTenant(
+        this.pool,
+        job.company_id,
+        async () => {
+          if (job.kind === 'moadian') {
+            await this.sendToMoadian(payload, idempotencyKey);
+          } else {
+            await this.chargeViaPsp(payload, idempotencyKey);
+          }
+          await this.settleSuccess(job);
+        },
+        discardReporter,
+      );
+      return { ok: true, statePersisted: true };
+    } catch (err) {
+      // ثبتِ شکست هم باید داخلِ همان زمینهٔ اجاره باشد وگرنه زیرِ RLS صفر ردیف می‌خورد.
       try {
-        await this.sendToMoadian(row.payload as Record<string, unknown>);
-        await this.pool.query(
-          `update moadian_submission
+        await runAsJobTenant(
+          this.pool,
+          job.company_id,
+          () => this.markFailure(table, job, err),
+          discardReporter,
+        );
+        return { ok: false, statePersisted: true };
+      } catch (innerErr) {
+        // GDM-13-02: وضعیتِ نهایی ثبت نشد ⇒ شغل ممکن است در `sending` بماند.
+        // هرگز «پردازش‌شده/موفق» گزارش نمی‌شود.
+        this.logger.error(
+          `ثبتِ وضعیتِ شکستِ شغل ممکن نشد ⇒ شغل در وضعیتِ 'sending' می‌ماند و نیازمندِ بررسیِ عملیاتی است`,
+          innerErr instanceof Error ? innerErr.stack : String(innerErr),
+        );
+        return { ok: false, statePersisted: false };
+      }
+    }
+  }
+
+  /**
+   * زمینهٔ تشخیصیِ **امن** برایِ لاگ: فقط نوعِ شغل، شناسهٔ شغل، شناسهٔ اجارهٔ
+   * مشتق‌شده از رکوردِ پایدار، شمارهٔ تلاش و وضعیتِ هدف. payload، بدنهٔ درخواستِ
+   * خارجی، توکن/کلیدِ API و هر دادهٔ مشتری هرگز لاگ نمی‌شوند.
+   */
+  private safeContext(job: ClaimedJob, extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      job_type: job.kind,
+      job_id: job.job_id,
+      tenant_id: job.company_id,
+      attempt_count: job.attempt_count,
+      ...extra,
+    };
+  }
+
+  private parsePayload(job: ClaimedJob): Record<string, unknown> {
+    if (!job.payload) return {};
+    try {
+      const parsed: unknown = JSON.parse(job.payload);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * ثبتِ موفقیت در زمینهٔ اجاره. اگر UPDATE صفر ردیف بخورد یعنی دامنهٔ اجارهٔ مشتق‌شده با
+   * ردیفِ واقعی نمی‌خواند ⇒ «موفق» برنگردان، خطا بده تا شغل retry/مرده شود (هرگز موفقِ بی‌صدا).
+   */
+  private async settleSuccess(job: ClaimedJob): Promise<void> {
+    const { rowCount } = await this.pool.query(
+      job.kind === 'moadian'
+        ? `update moadian_submission
               set status = 'sent', sent_at = now(), last_error = null, next_retry_at = null
+            where id = $1`
+        : `update psp_transaction
+              set status = 'success', last_error = null, next_retry_at = null
             where id = $1`,
-          [row.id],
-        );
-      } catch (err) {
-        await this.markFailure('moadian_submission', row.id, row.attempt_count, err);
-      }
-    }
-    return due.length;
-  }
-
-  private async processPspBatch(): Promise<number> {
-    const { rows: due } = await this.pool.query<{ id: string; raw_payload: unknown; attempt_count: number }>(
-      `update psp_transaction set status = 'sending'
-        where id in (
-          select id from psp_transaction
-           where status in ('queued', 'retrying')
-             and (next_retry_at is null or next_retry_at <= now())
-           order by created_at
-           limit $1
-           for update skip locked)
-        returning id, raw_payload, attempt_count`,
-      [BATCH_SIZE],
+      [job.job_id],
     );
-
-    for (const row of due) {
-      try {
-        await this.chargeViaPsp(row.raw_payload as Record<string, unknown>);
-        await this.pool.query(
-          `update psp_transaction set status = 'success', last_error = null, next_retry_at = null where id = $1`,
-          [row.id],
-        );
-      } catch (err) {
-        await this.markFailure('psp_transaction', row.id, row.attempt_count, err);
-      }
+    if ((rowCount ?? 0) !== 1) {
+      throw new Error(`tenant_scope_lost_${job.kind}`);
     }
-    return due.length;
   }
 
   /** ارسال واقعی به سامانه مؤدیان — بدون پیکربندی endpoint شکست می‌خورد و retry می‌شود */
-  private async sendToMoadian(payload: Record<string, unknown>): Promise<void> {
+  private async sendToMoadian(payload: Record<string, unknown>, idempotencyKey: string): Promise<void> {
     const endpoint = process.env.MOADIAN_ENDPOINT;
     if (!endpoint) throw new Error('moadian_not_configured');
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        // تلاشِ مجدد با کلیدِ یکسان ⇒ گیرنده می‌تواند ارسالِ تکراری را رد کند
+        'idempotency-key': idempotencyKey,
         ...(process.env.MOADIAN_API_KEY ? { authorization: `Bearer ${process.env.MOADIAN_API_KEY}` } : {}),
       },
       body: JSON.stringify(payload),
@@ -214,13 +325,15 @@ export class IntegrationsQueue implements OnModuleInit, OnModuleDestroy {
   }
 
   /** شارژ از طریق درگاه PSP — بدون endpoint شکست می‌خورد و retry می‌شود */
-  private async chargeViaPsp(payload: Record<string, unknown>): Promise<void> {
+  private async chargeViaPsp(payload: Record<string, unknown>, idempotencyKey: string): Promise<void> {
     const endpoint = process.env.PSP_ENDPOINT;
     if (!endpoint) throw new Error('psp_not_configured');
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        // تلاشِ مجددِ شارژ با کلیدِ یکسان ⇒ جلوِ پرداختِ تکراری گرفته می‌شود
+        'idempotency-key': idempotencyKey,
         ...(process.env.PSP_API_KEY ? { authorization: `Bearer ${process.env.PSP_API_KEY}` } : {}),
       },
       body: JSON.stringify(payload),
@@ -229,30 +342,60 @@ export class IntegrationsQueue implements OnModuleInit, OnModuleDestroy {
     if (!res.ok) throw new Error(`psp_http_${res.status}`);
   }
 
-  /** ثبت شکست با backoff نمایی یا dead شدن پس از سقف تلاش‌ها */
+  /**
+   * ثبت شکست با backoff نمایی یا dead شدن پس از سقف تلاش‌ها.
+   *
+   * GDM-13-02: پیش از این، نتیجهٔ UPDATE بررسی نمی‌شد. اگر UPDATE صفر ردیف می‌خورد
+   * (دامنهٔ اجارهٔ اشتباه، حذفِ ردیف، یا RLS)، شغل در وضعیتِ `sending` —که claim آن را
+   * ست کرده— **برایِ همیشه** می‌ماند، چون fn_job_claim_integration فقط `queued/retrying`
+   * را برمی‌دارد؛ و processDue هم «processed» برمی‌گرداند یعنی موفقِ بی‌صدا. حالا
+   * rowCount باید **دقیقاً ۱** باشد وگرنه خطایِ عملیاتیِ صریح با زمینهٔ امن لاگ و
+   * پرتاب می‌شود.
+   */
   private async markFailure(
     table: 'moadian_submission' | 'psp_transaction',
-    id: string,
-    previousAttempts: number,
+    job: ClaimedJob,
     err: unknown,
   ): Promise<void> {
-    const attempts = previousAttempts + 1;
+    const attempts = job.attempt_count + 1;
     const message = err instanceof Error ? err.message : String(err);
     const exhausted = attempts >= MAX_ATTEMPTS;
+    const targetStatus = exhausted ? 'dead' : 'retrying';
     const delaySeconds = RETRY_BASE_SECONDS * 2 ** (attempts - 1);
 
-    await this.pool.query(
+    const { rowCount } = await this.pool.query(
       `update ${table}
           set status = $2,
               attempt_count = $3,
               last_error = $4,
               next_retry_at = ${exhausted ? 'null' : `now() + ($5 * interval '1 second')`}
         where id = $1`,
-      exhausted ? [id, 'dead', attempts, message] : [id, 'retrying', attempts, message, delaySeconds],
+      exhausted
+        ? [job.job_id, targetStatus, attempts, message]
+        : [job.job_id, targetStatus, attempts, message, delaySeconds],
     );
 
+    if ((rowCount ?? 0) !== 1) {
+      this.logger.error(
+        `ثبتِ وضعیتِ شکستِ شغل رویِ «دقیقاً یک ردیف» اثر نگذاشت ⇒ وضعیتِ نهایی پایدار نشد و شغل «موفق» شمرده نمی‌شود`,
+        JSON.stringify(
+          this.safeContext(job, {
+            table,
+            rows_updated: rowCount ?? 0,
+            target_status: targetStatus,
+            attempts_after: attempts,
+            // فقط کدِ دلیلِ خودمان (مانند moadian_http_500) — نه payload و نه بدنهٔ پاسخ
+            reason_code: message.slice(0, 160),
+          }),
+        ),
+      );
+      throw new Error(`job_state_not_persisted_${table}`);
+    }
+
     if (exhausted) {
-      this.logger.warn(`شغل ${table}/${id} پس از ${attempts} تلاش متوقف شد: ${message}`);
+      this.logger.warn(
+        `شغل ${table}/${job.job_id} پس از ${attempts} تلاش متوقف شد: ${message}`,
+      );
     }
   }
 }

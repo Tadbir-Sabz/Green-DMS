@@ -19,16 +19,23 @@ import { GlModule } from './modules/gl/gl.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { BiModule } from './modules/bi/bi.module';
+import { RoutingModule } from './modules/routing/routing.module';
+import { PortalModule } from './modules/portal/portal.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
 
 /**
  * ریشه اپ API — چیدمان ماژول‌ها دقیقاً Core Modules سند §۳.۳:
  * Identity & RBAC / Master Data / Inventory / Rules Engine / Sales /
  * Tours & Visits / Tracking & Routing / Finance / Integrations / Reports
  *
- * BiModule، PortalModule و RoutingModule اینجا ثبت نشده‌اند: کنترلرهایشان داده
- * ساختگی (صفر و آرایه خالی) بدون AuthGuard برمی‌گردانند. تا پیاده‌سازی واقعی
- * (فاز مالی/رهگیری/پورتال) این ماژول‌ها سرو نمی‌شوند تا endpoint قلابی باز نشود.
+ * همهٔ ماژول‌ها اکنون پیاده‌سازی واقعی دارند و ثبت شده‌اند (دیگر اسکلتِ سرو‌شده
+ * نداریم): BiModule (KPI/ABC/پیش‌بینی روی materialized viewهای گزارش‌دهی)،
+ * RoutingModule (بهینه‌ساز مسیر TSP روی مختصاتِ PostGIS مشتریان) و PortalModule
+ * (پورتال B2B مشتریان با هویتِ جداگانهٔ portal_user و JWT با audience مجزا).
  */
 @Module({
   imports: [
@@ -52,7 +59,19 @@ import { SettingsModule } from './modules/settings/settings.module';
     PurchasingModule,
     IntegrationsModule,
     ReportsModule,
+    // داشبورد BI — KPI و طبقه‌بندی ABC روی materialized viewهای گزارش‌دهی
+    BiModule,
+    // بهینه‌ساز مسیر ویزیت (TSP) روی مختصاتِ PostGIS مشتریان
+    RoutingModule,
+    // پورتال B2B مشتریان — هویتِ جداگانه (portal_user) و JWT با audience مجزا
+    PortalModule,
+    // خودخدمت‌دهیِ استقرار — ساختِ اتمیِ اجارهٔ جدید (شرکت/شعبه/نقش‌ها/مدیر)
+    OnboardingModule,
+    // صورتحسابِ اشتراک (ledger، فقط خواندن) — بدونِ درگاهِ پرداخت/اشتراکِ پولی
+    BillingModule,
     SettingsModule,
+    // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
+    AttachmentsModule,
   ],
   providers: [
     // قرارداد Error با request_id برای همهٔ استثناها — باگ‌ها فقط در سمت سرور لاگ می‌شوند

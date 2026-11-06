@@ -45,15 +45,10 @@ const SCAFFOLD_ROUTES = new Set([
   '/tracking',
   '/finance',
   '/bi',
-  '/bi/kpi',
-  '/bi/abc-customers',
-  '/bi/abc-products',
   '/portal',
-  '/portal/invoices',
-  '/portal/balance',
-  '/portal/orders',
+  '/onboarding',
+  '/billing',
   '/routing',
-  '/routing/optimize',
 ]);
 
 const args = new Set(process.argv.slice(2));

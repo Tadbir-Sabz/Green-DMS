@@ -1,5 +1,5 @@
 import type { Pool, PoolClient, QueryConfig, QueryResult, QueryResultRow } from 'pg';
-import { applyTenant, clearTenant, tenantStorage } from './tenant-context';
+import { applyTenant, releaseTenantClient, tenantStorage } from './tenant-context';
 
 /**
  * لایهٔ نشست روی Pool اصلی — بدون تغییر هیچ repositoryای:
@@ -30,18 +30,43 @@ export class TenantAwarePool {
 
   async connect(): Promise<PoolClient> {
     const client = await this.inner.connect();
+    // release اصلیِ pg پیش از هر patch گرفتن می‌شود (دوباره‌فراخوانی در pg-pool خطا می‌دهد)
+    const originalRelease = client.release.bind(client);
     const store = tenantStorage.getStore();
-    if (store) {
+    if (!store) return client;
+
+    try {
       await applyTenant(client, store.tenant);
-      const originalRelease = client.release.bind(client);
-      // release باید اول GUCها را پاک کند؛ تا پایان پاک‌سازی به pool برنمی‌گردد
-      // (درخواست بعدی همان connection را بگیرد، نشستِ بی‌نظارت نمی‌بیند)
-      client.release = (err?: Error): void => {
-        void clearTenant(client)
-          .catch(() => undefined)
-          .finally(() => originalRelease(err));
-      };
+    } catch (err) {
+      // GDM-13-01: اتصالِ checkout‌شده هرگز نباید «بدونِ آزادسازی» رها شود. مقداردهیِ
+      // زمینه شکست خورده ⇒ وضعیتِ اتصال اثبات‌نشده است ⇒ نابودی، سپس انتشارِ همان خطا.
+      await releaseTenantClient(
+        client,
+        originalRelease,
+        err instanceof Error ? err : new Error(String(err)),
+      );
+      throw err;
     }
+
+    // release باید اول GUCها را پاک کند؛ تا پایان پاک‌سازی به pool برنمی‌گردد
+    // (درخواست بعدی همان connection را بگیرد، نشستِ بی‌نظارت نمی‌بیند).
+    // اگر پاک‌سازی شکست بخورد، connection نابود می‌شود و هرگز با نشستِ مانده
+    // به استخر برنمی‌گردد (خطایِ پاک‌سازی بلعیده نمی‌شود — در releaseTenantClient
+    // به outcome منتقل و اینجا در رویدادِ 'release'ِ pg دیده می‌شود).
+    client.release = (err?: Error): void => {
+      void releaseTenantClient(client, originalRelease, err).then((outcome) => {
+        if (outcome.destroyed && outcome.error && !err) {
+          this.inner.emit(
+            'error' as never,
+            new Error(
+              `پاک‌سازیِ زمینهٔ اجاره پیش از بازگشتِ اتصال ممکن نشد ⇒ اتصال نابود شد: ${String(
+                (outcome.error as Error)?.message ?? outcome.error,
+              )}`,
+            ),
+          );
+        }
+      });
+    };
     return client;
   }
 

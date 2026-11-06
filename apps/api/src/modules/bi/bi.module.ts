@@ -1,35 +1,24 @@
-﻿import { Controller, Get } from '@nestjs/common';
-import type { ModuleInfo } from '../../common/module-info';
-
-@Controller('bi')
-export class BiController {
-  @Get()
-  info(): ModuleInfo {
-    return { module: 'bi', title: 'داشبورد BI تعاملی', resources: ['kpi', 'abc-analysis', 'forecast'], status: 'scaffold' };
-  }
-
-  @Get('kpi')
-  kpi() {
-    return {
-      sales_30d: 0,
-      ar_balance: 0,
-      active_customers: 0,
-      active_routes: 0,
-      collection_rate: 0,
-    };
-  }
-
-  @Get('abc-customers')
-  abcCustomers() {
-    return { a: [], b: [], c: [] };
-  }
-
-  @Get('abc-products')
-  abcProducts() {
-    return { a: [], b: [], c: [] };
-  }
-}
-
 import { Module } from '@nestjs/common';
-@Module({ controllers: [BiController] })
+import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
+import { BiController } from './bi.controller';
+import { BiRepository } from './bi.repository';
+import { BiService } from './bi.service';
+import { BI_REPOSITORY, BI_SERVICE } from './tokens';
+
+/**
+ * ماژول BI — داشبورد تحلیلی روی materialized viewهای گزارش‌دهی (مهاجرت 0029):
+ * KPIهای فروش/وصولی/ماندهٔ AR و طبقه‌بندی ABC مشتریان و کالاها.
+ * IdentityRbacModule برای AuthGuard/PermissionsGuard و @CurrentUser وارد می‌شود.
+ */
+@Module({
+  imports: [IdentityRbacModule],
+  controllers: [BiController],
+  providers: [
+    BiRepository,
+    { provide: BI_REPOSITORY, useExisting: BiRepository },
+    BiService,
+    { provide: BI_SERVICE, useExisting: BiService },
+  ],
+  exports: [BI_SERVICE],
+})
 export class BiModule {}

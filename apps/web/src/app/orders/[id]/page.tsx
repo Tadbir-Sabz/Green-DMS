@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/DataTable";
+import { Attachments } from "@/components/Attachments";
 import { SalesGuard } from "@/components/auth/guards";
 import { useToast } from "@/components/ui/Toast";
 import { formatMoney } from "@/lib/format";
@@ -192,6 +193,9 @@ function OrderDetailInner() {
           emptyMessage="قلمی ثبت نشده است"
         />
       </div>
+
+      {/* اسناد/مدرک تحویل (POD) — مالکیت: sales_order با شناسهٔ همین سفارش */}
+      <Attachments ownerType="sales_order" ownerId={id} title="اسناد و مدرک تحویل (POD)" />
     </div>
   );
 }

@@ -1,0 +1,7 @@
+# Next.js static assets directory.
+#
+# This directory must exist in the repository: apps/web/Dockerfile copies
+# /app/apps/web/public from the builder stage, and an absent (untracked) directory
+# makes the image build fail with:
+#   COPY --from=builder /app/apps/web/public -> "not found"
+# Git cannot track empty directories, so this placeholder keeps it present.

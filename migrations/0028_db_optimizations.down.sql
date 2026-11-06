@@ -1,4 +1,4 @@
-﻿drop index if exists idx_stock_wh_prod;
+drop index if exists idx_stock_wh_prod;
 drop index if exists idx_cust_route_status;
 drop index if exists idx_inv_branch_date_status;
 drop index if exists idx_so_branch_date_status;

@@ -10,10 +10,18 @@ services:
       POSTGRES_USER: dms
       POSTGRES_PASSWORD: dms
       POSTGRES_DB: greendms
+      # LOCAL-ONLY default for the runtime role created by the init script below.
+      # Override it (`--env-file .env.production`) — never reuse it in production.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-dms_app_local}
     ports:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+      # Runs ONLY when the pg_data volume is empty (first `compose up`), so it can
+      # never touch an existing/production database. It creates the runtime role
+      # with LOGIN so the api service can connect as the non-privileged dms_app;
+      # migration 0041 then hardens (nosuperuser/nobypassrls/…) and grants it.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dms -d greendms"]
       interval: 5s
@@ -31,7 +39,9 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio
+    # MINIO_IMAGE lets CI supply a verified, immutable reference (recorded by digest)
+    # while the default keeps local development behaving exactly as before.
+    image: ${MINIO_IMAGE:-minio/minio}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minio
@@ -52,7 +62,11 @@ services:
       NODE_ENV: production
       API_PORT: 4000
       # Host names match the compose service names above.
+      # Migration/admin identity (AUTO_MIGRATE below uses this one).
       DATABASE_URL: postgres://dms:dms@postgres:5432/greendms
+      # Runtime identity — REQUIRED because NODE_ENV=production above: the API
+      # refuses to start without it (no silent fallback to the privileged role).
+      APP_DATABASE_URL: postgres://dms_app:${APP_DB_PASSWORD:-dms_app_local}@postgres:5432/greendms
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # Apply migrations on boot so a fresh stack is not missing tables
@@ -80,16 +94,21 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # NEXT_PUBLIC_* is inlined into the browser bundle at BUILD time, so it
-        # must be provided as a build-arg (not just a runtime env). This is the
-        # URL the *browser* uses to reach the API — the published host port.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        # Default is EMPTY so the browser uses same-origin /api/v1 and the Next
+        # server proxies it to the api container (API_PROXY_TARGET below). This
+        # works for local AND remote deploys — the browser never assumes the API
+        # is on its own localhost (which breaks behind a proxy/preview or a remote
+        # host) — and needs no CORS. NEXT_PUBLIC_* is inlined into the browser
+        # bundle at BUILD time; set it only to call an API on a separate origin.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
       WEB_PORT: 3000
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      # Server-side proxy target for same-origin /api/* requests (next.config rewrites).
+      API_PROXY_TARGET: ${API_PROXY_TARGET:-http://api:4000}
     depends_on:
       - api
 

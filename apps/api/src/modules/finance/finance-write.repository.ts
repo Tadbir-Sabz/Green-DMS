@@ -465,8 +465,15 @@ export class FinanceWriteRepository {
         ],
       );
 
-      // تخصیص‌ها + به‌روزرسانی paid_amount/وضعیت هر فاکتور
-      for (const a of allocations) {
+      // تخصیص‌ها + به‌روزرسانی paid_amount/وضعیت هر فاکتور.
+      // مرتب‌سازی بر پایهٔ invoice_id تا قفل‌های «for update» تریگر fn_check_allocation
+      // (مهاجرت 0034) در همهٔ تراکنش‌ها با ترتیبِ یکسان گرفته شوند و دو رسیدِ هم‌زمان روی
+      // مجموعهٔ مشترکی از فاکتورها به بن‌بست (deadlock) نرسند. عملیات هر فاکتور جابه‌جایی‌پذیر
+      // است، پس این صرفاً یک بازمرتب‌سازی بدون تغییرِ رفتار است.
+      const orderedAllocations = [...allocations].sort((x, y) =>
+        x.invoice_id < y.invoice_id ? -1 : x.invoice_id > y.invoice_id ? 1 : 0,
+      );
+      for (const a of orderedAllocations) {
         await client.query(
           `insert into receipt_allocation (receipt_id, invoice_id, amount)
            values ($1, $2, $3)`,

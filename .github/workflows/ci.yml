@@ -6,14 +6,112 @@ on:
   pull_request:
     branches: [main]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# از انباشته‌شدن اجراهای هم‌زمان روی یک ref جلوگیری می‌کند (runهای قدیمی‌تر لغو می‌شوند).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-    # The API tests self-bootstrap: each test file reads DATABASE_URL as a
-    # superuser "admin" URL, CREATEs a throwaway database, and applies every
-    # migration in a single transaction via the psql CLI (PSQL env). So CI must
-    # provide a PostGIS server, a Redis server, and a real psql binary.
+# مرزِ شفافِ jobها:
+#   static              → بررسی‌های ایستا؛ بدونِ هیچ سرویسِ docker
+#   unit                → تست‌های واحدِ بدونِ DB/MinIO؛ بدونِ هیچ سرویسِ docker
+#   integration-db      → تست‌های DB‌دار (به‌جز ضمیمه)؛ فقط Postgres/Redis
+#   integration-storage → round-trip ضمیمه؛ Postgres/Redis + MinIO (پیش‌نیازِ صریح)
+#   init-hygiene        → اسکریپتِ init نقشِ زمانِ اجرا روی کلاسترِ یک‌بارمصرفِ خودش با
+#                         log_statement=all؛ بدونِ Node، بدونِ docker، بدونِ MinIO
+# هیچ job ایستا/واحدی به MinIO وابسته نیست، پس شکستِ زیرساختِ آبجکت‌استوریج هرگز
+# باعثِ شکستِ کاذبِ typecheck/build/unit نمی‌شود (cascade «vitest: not found»).
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  static:
+    name: Static checks (typecheck, OpenAPI, contract drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # نصبِ وابستگی‌ها پیش از هر چیزِ دیگر؛ هیچ وابستگی‌ای به سرویسِ docker ندارد.
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Verify Vitest resolution per workspace
+        run: |
+          set -e
+          echo "api: $(npm exec -w apps/api -- vitest --version)"
+          echo "web: $(npm exec -w apps/web -- vitest --version)"
+
+      - name: Typecheck (packages + api + web)
+        run: npm run typecheck
+
+      - name: OpenAPI lint
+        run: npm run openapi:check
+
+      - name: Contract drift (server routes vs OpenAPI)
+        run: node scripts/contract-drift.mjs
+
+      - name: Build (packages + api + web)
+        run: npm run build
+
+  unit:
+    name: Unit tests (no DB, no MinIO)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # عمداً هیچ MINIO_* در سطحِ job ست نمی‌شود تا تستِ «fail-closed وقتی ست نشده»
+    # محیطِ صادقانه داشته باشد (به‌علاوهٔ beforeEach در خودِ تست).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+
+      - name: API unit tests (DB-free *.test.ts)
+        id: apiunit
+        shell: bash
+        run: |
+          set -o pipefail
+          rc=0
+          cd apps/api
+          files=$(ls test/*.test.ts | grep -v '\.api\.test\.ts$' | tr '\n' ' ')
+          echo "selected: $files"
+          ../../node_modules/.bin/vitest run $files 2>&1 | tee /tmp/api-unit.log || rc=$?
+          exit $rc
+
+      - name: API unit failure diagnostic
+        if: "!cancelled() && steps.apiunit.outcome == 'failure'"
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          echo "::error title=api-unit-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×' /tmp/api-unit.log | head -n 40 | enc)"
+          echo "::error title=api-unit-tail::$(tail -n 45 /tmp/api-unit.log | enc)"
+
+      - name: Web unit tests
+        id: webunit
+        shell: bash
+        run: |
+          set -o pipefail
+          rc=0
+          npm run test:web 2>&1 | tee /tmp/web-unit.log || rc=$?
+          exit $rc
+
+      - name: Web unit failure diagnostic
+        if: "!cancelled() && steps.webunit.outcome == 'failure'"
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          echo "::error title=web-unit-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×' /tmp/web-unit.log | head -n 40 | enc)"
+          echo "::error title=web-unit-tail::$(tail -n 45 /tmp/web-unit.log | enc)"
+
+  integration-db:
+    name: Integration (Postgres) — API + tenant isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -37,92 +135,318 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     env:
-      # Superuser URL — the tests derive a temp database name from it.
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       JWT_SECRET: ci_only_secret_not_for_production
       SMS_PROVIDER: log
-      # psql binary used by the API tests to apply migrations (installed below).
       PSQL: psql
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
-      - name: Install PostgreSQL client (psql for API test migrations)
+      - name: Install PostgreSQL client (psql for test migrations)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client
-
-      # `npm ci` runs the root `prepare` script, which builds the shared packages.
       - run: npm ci
 
-      - name: Typecheck (packages + api + web)
-        run: npm run typecheck
-
-      - name: OpenAPI lint
-        run: npm run openapi:check
-
-      - name: Contract drift (server routes vs OpenAPI)
-        run: node scripts/contract-drift.mjs
-
-      # API tests run first and Web tests / Build use `if: '!cancelled()'` so a
-      # failure in one suite can never hide the result of the others. The API
-      # tests are the ones that exercise real SQL against the PostGIS service,
-      # so their signal must always be reported.
-      - name: API tests
-        if: '!cancelled()'
-        id: apitest
+      # همهٔ *.api.test.ts به‌جز attachments.api.test.ts (که پیش‌نیازِ MinIO دارد).
+      - name: API integration tests (DB-backed, excludes storage round-trip)
+        id: apidb
         shell: bash
         run: |
           set -o pipefail
-          npm run test:api 2>&1 | tee /tmp/api.log
+          rc=0
+          cd apps/api
+          files=$(ls test/*.api.test.ts | grep -v '^test/attachments\.api\.test\.ts$' | tr '\n' ' ')
+          echo "selected $(echo "$files" | wc -w) files"
+          ../../node_modules/.bin/vitest run $files 2>&1 | tee /tmp/api-db.log || rc=$?
+          exit $rc
 
-      # همان الگوی diagnostic وب: چون لاگ‌های blob خواندنی نیستند و vitest هنگام
-      # شکست در سطح suite (top-level/beforeAll) هیچ annotation تستی صادر نمی‌کند،
-      # سر و دمِ لاگ API را به دو annotation تمیز تبدیل می‌کنیم تا از check-runs
-      # API خوانده شود.
-      - name: API failure diagnostic
-        if: "!cancelled() && steps.apitest.outcome == 'failure'"
+      - name: API integration failure diagnostic
+        if: "!cancelled() && steps.apidb.outcome == 'failure'"
         shell: bash
         run: |
-          [ -f /tmp/api.log ] || { echo "::error title=api-diag::/tmp/api.log missing"; exit 0; }
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
-          fail_msg=$(grep -nE "FAIL|Failed Suites|AssertionError|Error:|error:|expected|Nest can't|violates|✗|×" /tmp/api.log | head -n 40 | enc)
-          echo "::error title=api-log-failures::${fail_msg:-<none matched>}"
-          tail_msg=$(tail -n 50 /tmp/api.log | enc)
-          echo "::error title=api-log-tail::${tail_msg:-<empty>}"
+          echo "::error title=api-db-failures::$(grep -nE 'FAIL|AssertionError|Error:|violates|Nest can'"'"'t|✗|×' /tmp/api-db.log | head -n 40 | enc)"
+          echo "::error title=api-db-tail::$(tail -n 50 /tmp/api-db.log | enc)"
 
-      - name: Web tests
-        if: '!cancelled()'
-        id: webtest
+  integration-storage:
+    name: Integration (MinIO) — attachment round-trip
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: ci_only_secret_not_for_production
+      SMS_PROVIDER: log
+      PSQL: psql
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: greendms
+      MINIO_USE_SSL: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install PostgreSQL client (psql for test migrations)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+      - run: npm ci
+
+      # پیش‌نیازِ صریحِ تستِ ضمیمه. اگر MinIO سالم نشود، این گام با تشخیصِ کامل
+      # «BLOCKED» خارج می‌شود و گامِ تست هرگز اجرا نمی‌شود (بدونِ if: always()) —
+      # یعنی شکستِ زیرساخت به‌جای «۵۰۰ در تستِ آپلود»، به‌صورتِ صریح گزارش می‌شود.
+      #
+      # تصویرِ MinIO دقیقاً همان مرجعی است که docker-compose.yml استفاده می‌کند
+      # («minio/minio» بدونِ تگ). هیچ تعویضِ رجیستری یا تگِ حدسی انجام نشده؛ در عوض
+      # digestِ واقعیِ pull‌شده ثبت می‌شود تا پین‌کردنِ نسخهٔ تغییرناپذیر در گامِ بعد
+      # بر پایهٔ شاهدِ قابلِ اتکا صورت گیرد.
+      # پیش‌نیازِ صریحِ تستِ ضمیمه. اگر هیچ سرویسِ S3-سازگاری سالم نشود، این گام با
+      # تشخیصِ کاملِ «BLOCKED» خارج می‌شود و گامِ تست هرگز اجرا نمی‌شود (بدونِ if: always()).
+      #
+      # چرا فهرستِ نامزد: مرجعِ «minio/minio» از Docker Hub با «pull access denied» و
+      # «quay.io/minio/minio» با 401 رد می‌شود، در حالی که postgis/postgis:16-3.4 و
+      # redis:7-alpine در «همین job» بی‌مشکل pull می‌شوند ⇒ مسئله دسترسیِ همان repository
+      # است، نه rate limit و نه تگِ نامعتبر. پس به‌جایِ حدس، نامزدهایِ S3-سازگارِ عمومی و
+      # نگه‌داری‌شونده با «تگِ پین‌شده» (هرگز latest) به‌ترتیب آزموده می‌شوند و اولین نامزدی
+      # که (۱) pull شود، (۲) بالا بیاید و (۳) «round-trip واقعیِ S3» را با همان کلاینتِ
+      # minio که StorageService استفاده می‌کند پاس کند، انتخاب می‌شود. digestِ واقعیِ
+      # pull‌شده ثبت می‌شود تا پینِ تغییرناپذیرِ بعدی بر پایهٔ شاهد باشد نه حدس.
+      #
+      # معیارِ انتخاب: سازگاریِ API با کلاینتِ موجود (makeBucket/putObject/statObject/
+      # presignedGetObject/removeObject)، در دسترس بودنِ عمومی، نگه‌داریِ فعال، نسخهٔ
+      # تغییرناپذیر و پشتیبانی از health check.
+      - name: Resolve a working S3-compatible object store (explicit prerequisite)
+        id: minio
+        shell: bash
+        run: |
+          set +e
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+
+          echo "=== runner / docker environment ==="
+          uname -a
+          docker version 2>&1 | sed -n '1,20p'
+          docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
+
+          # نامزد|آرگومانِ اجرا|پورت|access|secret|health-path
+          # ترتیب بر پایهٔ شاهدِ اجرایِ قبلیِ همین گام: adobe/s3mock:3.9.1 واقعاً pull شد و
+          # بالا آمد (pull_rc=0) و فقط به‌خاطرِ «رقابتِ زمانِ آماده‌سازی» (health_http=000،
+          # socket hang up) در round-trip رد شد ⇒ اول آن، با تلاشِ مجدد. نامِ درستِ تصویرِ
+          # SeaweedFS در Docker Hub «chrislusf/seaweedfs» است (seaweedfs/seaweedfs وجود ندارد و
+          # «pull access denied» می‌داد). localstack:3.9 در اجرایِ قبلی «not found» شد.
+          CANDIDATES='adobe/s3mock:3.9.1||8090|minio|minio123|/
+          chrislusf/seaweedfs:3.76|server -s3 -s3.port=9000 -ip=0.0.0.0 -dir=/tmp/weed -master.defaultReplication=000|9000|minio|minio123|/
+          localstack/localstack:3.9|-e SERVICES=s3 -e AWS_ACCESS_KEY_ID=minio -e AWS_SECRET_ACCESS_KEY=minio123|4566|minio|minio123|/_localstack/health
+          quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z|server /data --console-address :9001|9000|minio|minio123|/minio/health/live'
+
+          # اسکریپتِ round-trip با «همان» کلاینتی که برنامه استفاده می‌کند (minio از node_modules
+          # خودِ مخزن). این تنها شاهدِ قابلِ اتکاست: pull شدنِ تصویر به‌تنهایی معنایِ سازگاریِ S3 ندارد.
+          cat > ./.s3-roundtrip.mjs <<'EOF'
+          import { Client } from 'minio';
+          const [endpoint, port, access, secret, bucket] = process.argv.slice(2);
+          const c = new Client({ endPoint: endpoint, port: Number(port), useSSL: false, accessKey: access, secretKey: secret, region: 'us-east-1' });
+          const key = `probe/${Date.now()}.txt`;
+          if (!(await c.bucketExists(bucket))) await c.makeBucket(bucket);
+          await c.putObject(bucket, key, Buffer.from('greendms s3 probe'), 19, { 'Content-Type': 'text/plain' });
+          const st = await c.statObject(bucket, key);
+          const url = await c.presignedGetObject(bucket, key, 60);
+          const res = await fetch(url);
+          const body = await res.text();
+          if (res.status !== 200 || body !== 'greendms s3 probe') throw new Error(`presigned GET failed: ${res.status} ${JSON.stringify(body)}`);
+          await c.removeObject(bucket, key);
+          console.log(JSON.stringify({ ok: true, size: st.size, presigned_status: res.status }));
+          EOF
+
+          IMAGE=""; DIGEST=""; PORT=""; AKEY=""; SKEY=""; EVIDENCE=""
+          : >/tmp/s3-probe.log
+          while IFS='|' read -r CAND ARGS CPORT CKEY CSEC CHEALTH; do
+            # ادامهٔ فهرستِ چندخطی در YAML تورفتگی دارد ⇒ سفیدفضاهایِ ابتدا/انتها بریده می‌شود
+            CAND="$(printf '%s' "$CAND" | tr -d '[:space:]')"
+            CHEALTH="$(printf '%s' "$CHEALTH" | tr -d '[:space:]')"
+            [ -z "$CAND" ] && continue
+            echo "===================== candidate ${CAND} (port ${CPORT}, health ${CHEALTH}) ====================="
+            { echo "----- pull ${CAND} -----"; docker pull "$CAND"; echo "pull_rc=$?"; } >>/tmp/s3-probe.log 2>&1
+            if ! docker image inspect "$CAND" >/dev/null 2>&1; then
+              echo "pull FAILED for ${CAND}"; docker rm -f s3probe >/dev/null 2>&1; continue
+            fi
+            CAND_DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$CAND" 2>/dev/null)
+            { echo "----- run ${CAND} -----"; docker run -d --name s3probe -p "${CPORT}:${CPORT}" ${ARGS} "$CAND"; echo "run_rc=$?"; } >>/tmp/s3-probe.log 2>&1
+            READY=0
+            for i in $(seq 1 45); do
+              if (exec 3<>"/dev/tcp/127.0.0.1/${CPORT}") 2>/dev/null; then READY=1; echo "port ${CPORT} answered after ${i} probe(s)"; break; fi
+              sleep 2
+            done
+            if [ "$READY" -ne 1 ]; then
+              echo "port never answered for ${CAND}"; docker logs s3probe >>/tmp/s3-probe.log 2>&1
+              docker rm -f s3probe >/dev/null 2>&1; continue
+            fi
+            # health path (اگر تعریف شده) — اختیاری است چون معیارِ اصلی round-trip است
+            if [ -n "$CHEALTH" ]; then
+              curl -s -o /dev/null -w "health_http=%{http_code}\n" "http://localhost:${CPORT}${CHEALTH}" | tee -a /tmp/s3-probe.log
+            fi
+            # تلاشِ مجدد: باز شدنِ پورتِ منتشرشده توسطِ docker-proxy پیش از آماده‌شدنِ خودِ
+            # سرویس، «socket hang up» می‌دهد (دقیقاً همان چیزی که s3mock در اجرایِ قبلی خورد).
+            OK=0
+            for attempt in $(seq 1 12); do
+              echo "----- S3 round-trip ${CAND} (attempt ${attempt}) -----" >>/tmp/s3-probe.log
+              # تشخیصِ کامل پیش از هر تلاش: وضعیتِ container، پورت‌هایِ نگاشت‌شده، پاسخِ خامِ HTTP
+              # با سربرگ‌ها، و لاگِ خودِ سرویس. «socket hang up» بدونِ اینها قابلِ ریشه‌یابی نیست
+              # (می‌تواند آماده‌نبودنِ سرویس، پورتِ اشتباه، یا الزامِ HTTPS باشد).
+              {
+                echo "--- docker inspect ${CAND} ---"
+                docker inspect s3probe --format 'state={{json .State}}' 2>&1 | head -c 600; echo
+                docker inspect s3probe --format 'ports={{json .NetworkSettings.Ports}}' 2>&1
+                echo "--- published ports ---"; docker port s3probe 2>&1
+                echo "--- curl -sv http://localhost:${CPORT}${CHEALTH} ---"
+                curl -sv --max-time 10 "http://localhost:${CPORT}${CHEALTH}" 2>&1 | head -n 25
+                echo "--- curl -s http://localhost:${CPORT}/ (root) ---"
+                curl -s --max-time 10 -o /dev/null -w 'root_http=%{http_code}\n' "http://localhost:${CPORT}/" 2>&1
+                echo "--- listening sockets in container ---"
+                docker exec s3probe sh -c 'netstat -tlnp 2>/dev/null || ss -tlnp 2>/dev/null || cat /proc/net/tcp' 2>&1 | head -n 15
+                echo "--- container logs (tail) ---"; docker logs --tail 60 s3probe 2>&1
+              } >>/tmp/s3-probe.log 2>&1
+              if node ./.s3-roundtrip.mjs localhost "$CPORT" "$CKEY" "$CSEC" greendms </dev/null 2>>/tmp/s3-probe.log | tee -a /tmp/s3-probe.log | grep -q '"ok":true'; then
+                OK=1; echo "round-trip PASSED for ${CAND} on attempt ${attempt}"; break
+              fi
+              sleep 5
+            done
+            if [ "$OK" -eq 1 ]; then
+              IMAGE="$CAND"; DIGEST="$CAND_DIGEST"; PORT="$CPORT"; AKEY="$CKEY"; SKEY="$CSEC"
+              echo "SELECTED ${IMAGE} digest=${DIGEST:-unresolved} port=${PORT}"
+              echo "::notice title=s3-candidate-accepted::image=${CAND} digest=${CAND_DIGEST:-unresolved} port=${CPORT} s3_roundtrip=PASSED"
+              break
+            fi
+            echo "::warning title=s3-candidate-rejected::image=${CAND} pulled_and_started=yes s3_roundtrip=FAILED (see s3-probe-log); trying the next candidate"
+            echo "round-trip FAILED for ${CAND}"
+            docker logs s3probe >>/tmp/s3-probe.log 2>&1
+            docker rm -f s3probe >/dev/null 2>&1
+          done <<< "$CANDIDATES"
+
+          rm -f ./.s3-roundtrip.mjs
+          echo "=== full probe evidence ==="
+          cat /tmp/s3-probe.log
+          echo "=== per-candidate verdict matrix ==="
+          grep -nE '^=====|pull_rc=|run_rc=|health_http=|answered after|SELECTED|round-trip (PASSED|FAILED)|"ok":true|Error|denied|not found' /tmp/s3-probe.log | head -n 80
+          echo "::notice title=s3-verdict-matrix::$(grep -E 'pull_rc=|SELECTED|round-trip (PASSED|FAILED)|"ok":true' /tmp/s3-probe.log | head -n 30 | enc)"
+
+          if [ -z "$IMAGE" ]; then
+            echo "::error title=BLOCKED-s3-unavailable::No S3-compatible candidate image could be pulled AND pass a real S3 round-trip; attachment object-storage integration is BLOCKED by infrastructure (dependent tests were NOT executed, NOT skipped)"
+            echo "::error title=s3-candidates-tried::adobe/s3mock:3.9.1, chrislusf/seaweedfs:3.76, localstack/localstack:3.9, quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z"
+            echo "::error title=s3-probe-log::$(head -c 12000 /tmp/s3-probe.log | enc)"
+            echo "::error title=s3-docker-env::$( { docker version --format 'client={{.Client.Version}} server={{.Server.Version}}'; docker info --format 'mirrors={{.RegistryConfig.Mirrors}}'; docker images | head -n 15; docker ps -a; } 2>&1 | enc)"
+            exit 1
+          fi
+
+          # نامزدِ انتخاب‌شده در حالِ اجراست و round-trip را پاس کرده ⇒ تنظیماتِ همان container
+          # به گامِ تست صادر می‌شود (بدونِ هیچ credentialِ مخزنی؛ همه CI-only هستند).
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "digest=${DIGEST:-unresolved}" >> "$GITHUB_OUTPUT"
+          echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          echo "MINIO_ENDPOINT=localhost" >> "$GITHUB_ENV"
+          echo "MINIO_PORT=${PORT}" >> "$GITHUB_ENV"
+          echo "MINIO_ACCESS_KEY=${AKEY}" >> "$GITHUB_ENV"
+          echo "MINIO_SECRET_KEY=${SKEY}" >> "$GITHUB_ENV"
+          echo "MINIO_USE_SSL=false" >> "$GITHUB_ENV"
+          echo "::notice title=s3-image-resolved::image=${IMAGE} digest=${DIGEST:-unresolved} port=${PORT} roundtrip=passed"
+
+      - name: Attachment round-trip tests (requires healthy MinIO)
+        if: steps.minio.outputs.healthy == 'true'
+        id: att
         shell: bash
         run: |
           set -o pipefail
-          npm run test:web 2>&1 | tee /tmp/web.log
+          rc=0
+          cd apps/api
+          ../../node_modules/.bin/vitest run test/attachments.api.test.ts 2>&1 | tee /tmp/att.log || rc=$?
+          exit $rc
 
-      # لاگ‌های blob برای ما قابل خواندن نیستند و vitest هنگام crash در
-      # import/collection هیچ annotation تستی صادر نمی‌کند. این stepِ جدا (با shell
-      # تازه پس از web) سر و دمِ لاگ را بعد از strip کردن ANSI/CR و escape کردن %
-      # به دو annotation تمیز تبدیل می‌کند تا از check-runs API خوانده شود.
-      - name: Web failure diagnostic
-        if: "!cancelled() && steps.webtest.outcome == 'failure'"
+      - name: Attachment failure diagnostic
+        if: "!cancelled() && steps.att.outcome == 'failure'"
         shell: bash
         run: |
-          [ -f /tmp/web.log ] || { echo "::error title=web-diag::/tmp/web.log missing"; exit 0; }
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
-          head_msg=$(head -n 30 /tmp/web.log | enc)
-          echo "::error title=web-log-head::${head_msg:-<empty>}"
-          tail_msg=$(tail -n 45 /tmp/web.log | enc)
-          echo "::error title=web-log-tail::${tail_msg:-<empty>}"
+          echo "::error title=attachment-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×' /tmp/att.log | head -n 40 | enc)"
+          echo "::error title=attachment-tail::$(tail -n 50 /tmp/att.log | enc)"
 
-      - name: Build (packages + api + web)
-        if: '!cancelled()'
-        run: npm run build
+  # ---------------------------------------------------------------------------
+  # TASK-17 — بهداشتِ اعتبارنامه در اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا.
+  #
+  # «نبودِ رمز در لاگِ راه‌اندازیِ معمولی» کافی نیست: رمز باید در **متنِ هیچ دستورِ
+  # SQL**، در لاگِ سرور با log_statement=all و در تشخیصِ خطاها هم حاضر نباشد. این فقط
+  # روی سروری قابلِ اثبات است که لاگش را خودمان کنترل کنیم، پس این job به‌جایِ سرویسِ
+  # کانتینر، یک کلاسترِ **یک‌بارمصرف** در TMPDIR می‌سازد (پورتِ تصادفیِ آزاد، فقط
+  # 127.0.0.1، سوکتِ خصوصی، حذف در trap) و scripts/verify-init-credential-hygiene.sh
+  # را اجرا می‌کند. آن اسکریپت هر بررسی را با یک **کنترلِ منفی** جفت می‌کند: نسخهٔ
+  # پیش از TASK-17 (format('%L') + \gexec) باید واقعاً نشتی داشته باشد، وگرنه PASS
+  # بی‌معناست.
+  #
+  # بدونِ Node و بدونِ docker ⇒ هیچ وابستگیِ مشترکی با دروازهٔ MinIO/e2e ندارد.
+  # ---------------------------------------------------------------------------
+  init-hygiene:
+    name: Init credential hygiene — disposable PostgreSQL with statement logging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # سرور + کلاینت لازم است (نه فقط کلاینت): برایِ کنترلِ log_statement.
+      # بستهٔ پیش‌فرضِ توزیع نصب می‌شود تا با تغییرِ ubuntu-latest نشکند؛ هارنس خودش
+      # جدیدترین /usr/lib/postgresql/*/bin را پیدا می‌کند.
+      - name: Install PostgreSQL server + client
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql postgresql-client
+          ls -d /usr/lib/postgresql/*/bin || true
+
+      - name: Verify no plaintext credential in argv, SQL text, logs or diagnostics
+        id: hygiene
+        shell: bash
+        run: |
+          set -o pipefail
+          rc=0
+          PG_BIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)"
+          echo "using PG_BIN=${PG_BIN}"
+          PG_BIN="${PG_BIN}" bash scripts/verify-init-credential-hygiene.sh 2>&1 | tee /tmp/init-hygiene.log || rc=$?
+          exit $rc
+
+      - name: Init hygiene failure diagnostic
+        if: "!cancelled() && steps.hygiene.outcome == 'failure'"
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          echo "::error title=init-hygiene-failures::$(grep -nE '^FAIL|RESULT:' /tmp/init-hygiene.log | head -n 30 | enc)"
+          echo "::error title=init-hygiene-tail::$(tail -n 30 /tmp/init-hygiene.log | enc)"

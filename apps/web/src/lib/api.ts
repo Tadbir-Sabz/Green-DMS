@@ -2,7 +2,14 @@
 
 import { createApiClient, type RefreshContext } from '@dms/api-client';
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000") + "/api/v1";
+// پیش‌فرض «مسیر نسبیِ هم‌مبدأ» است (نه http://localhost:4000). دلیل: وقتی وب پشت
+// پروکسی سرو می‌شود (محیط پیش‌نمایش یا تولیدِ ریموت)، مرورگرِ کاربر روی localhost
+// خودش هیچ API ندارد و درخواست به localhost:4000 هرگز به بک‌اندِ واقعی نمی‌رسد →
+// ورود شکست می‌خورد و کاربر به پنل نمی‌رسد. با مسیر نسبی، درخواست /api/* به همان
+// مبدأ وب می‌رود و next.config (rewrites) آن را سمتِ سرور به بک‌اند پروکسی می‌کند
+// (API_PROXY_TARGET، پیش‌فرض http://localhost:4000) — بدون نیاز به CORS.
+// برای صدا زدنِ مستقیمِ یک API روی دامنهٔ دیگر، NEXT_PUBLIC_API_URL را در زمان build ست کنید.
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "") + "/api/v1";
 
 export const TOKEN_KEY = 'dms.access_token';
 export const USERNAME_KEY = 'dms.username';
@@ -146,6 +153,53 @@ export const api = createApiClient({
   getToken,
   refresh,
 });
+
+/** شکلِ ضمیمهٔ بازگشتی از POST /attachments (هم‌راستا با schemas.Attachment) */
+export interface UploadedAttachment {
+  id: string;
+  owner_type: string;
+  owner_id: string;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  url: string;
+  created_at: string;
+}
+
+/**
+ * بارگذاری ضمیمه (multipart/form-data) با fetch خام. openapi-fetch برای بدنهٔ
+ * multipart تایپِ سخت‌گیرانه دارد، پس اینجا مستقیم FormData می‌فرستیم و از همان
+ * زیرساختِ توکن/تازه‌سازی نشست استفاده می‌کنیم: ۴۰۱ → یک‌بار refresh و تلاش مجدد.
+ */
+export async function uploadAttachment(
+  file: File,
+  ownerType: string,
+  ownerId: string,
+): Promise<UploadedAttachment> {
+  const send = (token: string | null) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('owner_type', ownerType);
+    fd.append('owner_id', ownerId);
+    return fetch(`${BASE_URL}/attachments`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+  };
+
+  let res = await send(getToken());
+  if (res.status === 401) {
+    const ok = await refresh({ tokenSent: getToken() });
+    if (ok) res = await send(getToken());
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => undefined);
+    throw new Error(errorMessage(err));
+  }
+  return (await res.json()) as UploadedAttachment;
+}
 
 /**
  * بارگذاری نشست جاری از GET /auth/me و ذخیره در localStorage['dms_user'].
