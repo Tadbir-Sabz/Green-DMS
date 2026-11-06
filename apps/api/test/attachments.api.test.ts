@@ -378,7 +378,12 @@ describe('ATT — round-trip آپلود و دانلود', () => {
     expect(r.body.owner_id).toBe(ownerId);
     expect(r.body.content_type).toBe('image/png');
     expect(r.body.size_bytes).toBe(PNG_BYTES.length);
-    expect(r.body.file_name).toBe('pod_shot.png'); // «/» → «_»
+    // لایهٔ HTTP: busboy/multer خودش basename را می‌گیرد (originalname='shot.png' به
+    // سرویس می‌رسد)؛ پس قاعدهٔ «/»→«_»ِ sanitizeFileName در این لایه دیده نمی‌شود و
+    // با تستِ واحدِ attachments.test.ts (pod_shot.jpg) پین شده است. خاصیتِ امنیتیِ
+    // این سطح که باید برقرار بماند: هیچ جداکنندهٔ مسیری در نامِ ذخیره‌شده نیست.
+    expect(r.body.file_name).toBe('shot.png');
+    expect(r.body.file_name).not.toMatch(/[/\\]/);
     expect(r.body.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(typeof r.body.url).toBe('string');
 
