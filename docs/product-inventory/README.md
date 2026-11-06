@@ -32,9 +32,9 @@
 
 ## ۴) یافته‌های اصلی (خلاصه)
 
-1. **Product Master آمادهٔ شروع است — نه به‌عنوانِ پروژهٔ سبز، بلکه به‌عنوانِ تکمیلِ ماژولِ موجود.** بنیادها (واحدها، گروه‌ها، برندها، مالیات، بسته‌بندی/بارکد، بچ/انقضا، قیمت‌گذاری، جست‌وجوی trgm) در schema و API پیاده و تست‌شده‌اند؛ شکاف‌های §۸ نقشهٔ راه (alias/نامِ دوزبانه، attribute/variant، جایگزین/بسته، import انبوه، snapshot نام) باید درونِ همین ماژول بسته شوند. جزئیات: `IMPLEMENTATION_SEQUENCE.md`.
+1. **Product Master — آمادگیِ دقیق:** برای **معماری/طراحی `READY`**؛ برای **پیاده‌سازی `CONDITIONAL READY`** (بدونِ مانعِ خارجی؛ مشروط به تثبیتِ طراحیِ هدف + چهار تصمیمِ سیاستِ کسب‌وکار + بستهٔ تستِ رفتاریِ موتورِ تایید برای سیم‌کشیِ تغییراتِ حساس). نه به‌عنوانِ پروژهٔ سبز، بلکه به‌عنوانِ تکمیلِ ماژولِ موجود. جزئیات: `IMPLEMENTATION_SEQUENCE.md` §۳ و `PRODUCT_MASTER_TARGET_DESIGN.md`.
 2. **زنجیره‌های بزرگِ کسب‌وکار از قبل پیاده‌سازی شده‌اند** (inventory، purchasing، GL/finance، توزیع/POD، تور/مسیر) — توالیِ موقتِ §۷ نقشهٔ راه باید «تکمیل‌محور» شود نه «سبز-محور»؛ پیشنهادِ مستند در `ROADMAP_UPDATE_PROPOSAL.md`.
-3. **هیچ شکافِ CRITICAL امنیتی/یکپارچگیِ داده یافت نشد**؛ مهم‌ترین یافته‌های HIGH مربوط به نبودِ تستِ رفتاریِ موتورِ rules/approval، نبودِ مرکزِ اعلان، و نبودِ اثباتِ backup/restore است.
+3. **هیچ شکافِ CRITICAL امنیتی/یکپارچگیِ داده یافت نشد**؛ یافته‌های HIGH دقیقاً سه‌اند: E2E مسدود (G-01)، اندرویدِ اثبات‌نشده (G-02)، و نبودِ تستِ رفتاریِ موتورِ rules/approval (G-03). مهم‌ترین MEDIUMها: مرکزِ اعلان (G-05)، تکمیلِ Product Master (G-06)، و نبودِ اثباتِ backup/restore (G-11).
 4. **تست‌های اجراشده در همین وظیفه:** typecheck (rc=0) · API واحدِ بدون‌DB: **۲۳۴/۲۳۴ پاس** · وب: **۵۲/۵۲ پاس** · `openapi:check` (rc=0). ۲۸ فایلِ تستِ وابسته به DB محلی اجرا نشدند (environmental) و در CI (Integration Postgres) سبزند.
 
 ## ۵) محدودیت‌های مهم
@@ -52,6 +52,7 @@
 | [`DEPENDENCY_MAP.md`](./DEPENDENCY_MAP.md) | ماتریسِ وابستگی، نقشهٔ پایه‌های مشترک، دیاگرام‌های Mermaid، بلوغِ جریان‌های canonical |
 | [`GAP_REGISTER.md`](./GAP_REGISTER.md) | ثبتِ شکاف‌های یکتا و اولویت‌بندی‌شده با شدت، اثر و توصیه |
 | [`IMPLEMENTATION_SEQUENCE.md`](./IMPLEMENTATION_SEQUENCE.md) | توالیِ پیشنهادیِ اثبات‌محور + ارزیابیِ صریحِ آمادگیِ Product Master |
+| [`PRODUCT_MASTER_TARGET_DESIGN.md`](./PRODUCT_MASTER_TARGET_DESIGN.md) | طراحیِ هدفِ Product Master (TASK-21R): مدلِ variant/SKU، یکپارچگیِ تاریخی، import، تاییدها، اثراتِ downstream |
 | [`EVIDENCE_INDEX.md`](./EVIDENCE_INDEX.md) | ایندکسِ قابلِ ردیابیِ شواهد (مسیرها، مهاجرت‌ها، عملیات‌ها، تست‌ها، CI) |
 | [`ROADMAP_UPDATE_PROPOSAL.md`](./ROADMAP_UPDATE_PROPOSAL.md) | پیشنهادِ اصلاحِ نقشهٔ راه — تفکیکِ اصلاحاتِ فاکتی از تغییراتِ نیازمندِ تأییدِ مالک |
 

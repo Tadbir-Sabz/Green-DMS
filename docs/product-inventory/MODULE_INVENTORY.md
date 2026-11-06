@@ -77,16 +77,18 @@
 
 ## G. موجودی، انبار و تدارکات
 
+> شناسه‌های این بخش `INV-01..INV-08` است (در TASK-21 از G-01..G-08 بود؛ برای رفعِ تلاقی با شناسه‌های `GAP_REGISTER` تغییر کرد).
+
 | ID | قابلیت | وضعیت | شاهد | شکاف/وابستگی | سطحِ تأیید |
 |---|---|---|---|---|---|
-| G-01 | دفترِ موجودی (inventory_txn با batch/warehouse/branch) | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۸؛ `stock.controller` (۲)؛ `inventory.api.test.ts` | — | API+DB |
-| G-02 | موجودیِ تراز/رزرو/انتقال/تعدیل/شمارش | `IMPLEMENTED & VERIFIED` | `stock_balance/reservation/transfer(+line)/adjustment(+line)/count(+line)`؛ `transfer.controller` (۳)، `stocktake.controller` (۵)؛ `warehouses.api.test.ts` | UI اجرانشده | API |
-| G-03 | دریافتِ کالا (goods_receipt) + بهای تمام‌شده (cost_layer/landed_cost/standard_cost) | `IMPLEMENTED & VERIFIED` | `goods-receipt.controller` (۵) + `goods-receipt.api.test.ts` + جداولِ هزینه | — | API |
-| G-04 | خرید/تدارکات (purchase_request/order + فاکتورِ تامین‌کننده + دفتر) | `IMPLEMENTED WITH GAPS` | `purchasing.controller` (۱۱) + `purchasing.api.test.ts`؛ جداولِ `purchase_*`/`supplier_*` | **UI ندارد** (صفحه‌ای در وب نیست)؛ تاییدِ PO و تسویهٔ تامین‌کننده ناقص | API |
-| G-05 | FEFO/FIFO و ردیابیِ بچ | `IMPLEMENTED WITH GAPS` | ساختارها + `cost_method` | اجرای انتخابِ FEFO در picking/تحویل بدونِ تستِ اختصاصی | DB |
-| G-06 | picking/packing (فرم‌های برداشت/بسته‌بندی) | `MISSING` | — (فقط `vehicle_load` = بارگیری) | نیازِ P5 | — |
-| G-07 | نقطهٔ سفارش/بازه‌سازی (reorder_policy) | `IMPLEMENTED WITH GAPS` | جدولِ `reorder_policy` | موتورِ پیشنهادِ سفارشِ خرید `MISSING` | DB |
-| G-08 | انبارگردانی/قفسه/موقعیت (location/bin) | `IMPLEMENTED WITH GAPS` | `stock_count` + `warehouse` | bin/location ساختارمند نیست (`location_sample` فقط ردیابیِ GPS است) | API |
+| INV-01 | دفترِ موجودی (inventory_txn با batch/warehouse/branch) | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۸؛ `stock.controller` (۲)؛ `inventory.api.test.ts` | — | API+DB |
+| INV-02 | موجودیِ تراز/رزرو/انتقال/تعدیل/شمارش | `IMPLEMENTED & VERIFIED` | `stock_balance/reservation/transfer(+line)/adjustment(+line)/count(+line)`؛ `transfer.controller` (۳)، `stocktake.controller` (۵)؛ `warehouses.api.test.ts` | UI اجرانشده | API |
+| INV-03 | دریافتِ کالا (goods_receipt) + بهای تمام‌شده (cost_layer/landed_cost/standard_cost) | `IMPLEMENTED & VERIFIED` | `goods-receipt.controller` (۵) + `goods-receipt.api.test.ts` + جداولِ هزینه | — | API |
+| INV-04 | خرید/تدارکات (purchase_request/order + فاکتورِ تامین‌کننده + دفتر) | `IMPLEMENTED WITH GAPS` | `purchasing.controller` (۱۱) + `purchasing.api.test.ts`؛ جداولِ `purchase_*`/`supplier_*` | **UI ندارد** (صفحه‌ای در وب نیست)؛ تاییدِ PO و تسویهٔ تامین‌کننده ناقص | API |
+| INV-05 | FEFO/FIFO و ردیابیِ بچ | `IMPLEMENTED WITH GAPS` | ساختارها + `cost_method` | اجرای انتخابِ FEFO در picking/تحویل بدونِ تستِ اختصاصی | DB |
+| INV-06 | picking/packing (فرم‌های برداشت/بسته‌بندی) | `MISSING` | — (فقط `vehicle_load` = بارگیری) | نیازِ P5 | — |
+| INV-07 | نقطهٔ سفارش/بازه‌سازی (reorder_policy) | `IMPLEMENTED WITH GAPS` | جدولِ `reorder_policy` | موتورِ پیشنهادِ سفارشِ خرید `MISSING` | DB |
+| INV-08 | انبارگردانی/قفسه/موقعیت (location/bin) | `IMPLEMENTED WITH GAPS` | `stock_count` + `warehouse` | bin/location ساختارمند نیست (`location_sample` فقط ردیابیِ GPS است) | API |
 
 ## H. توزیع، تحویل و ناوگان
 
@@ -186,16 +188,19 @@
 | ضمیمه/storage | `IMPLEMENTED & VERIFIED` | owner-chain + S3 + ۹ تست |
 | UI مشترک (design system، RTL، Jalali) | `IMPLEMENTED WITH GAPS` | ۸۶ کامپوننت + fa-IR/Jalali در صفحات؛ اجرای مرورگری `UNVERIFIED` |
 
-## شمارشِ وضعیت‌ها (سطرهای بالا؛ ۷۲ قابلیت)
+## شمارشِ وضعیت‌ها (بازشماری‌شده در TASK-21R؛ ۹۳ قابلیتِ بخش‌های A..O — جدا از ۶ لایهٔ جدولِ P)
 
 | وضعیت | تعداد |
 |---|---|
-| `IMPLEMENTED & VERIFIED` | ۳۰ |
-| `IMPLEMENTED WITH GAPS` | ۲۸ |
-| `MISSING` | ۹ |
+| `IMPLEMENTED & VERIFIED` | ۳۷ |
+| `IMPLEMENTED WITH GAPS` | ۳۳ |
+| `MISSING` | ۱۴ |
+| `UNVERIFIED` | ۶ |
 | `NEEDS REDESIGN` | ۲ |
-| `UNVERIFIED` | ۳ |
 | `BROKEN` | ۰ |
 | `NOT APPLICABLE` | ۱ |
+| **مجموع** | **۹۳** |
+
+> راستی‌آزماییِ TASK-21R: شمارشِ قبلی («۷۲ قابلیت» با جمعِ داخلیِ ۷۳) اشتباه بود؛ اعداد بالا مستقیماً از ستونِ وضعیتِ همین جدول‌ها بازشماری شد. ارجاع‌های `G-xx` در این سند = شناسه‌های `GAP_REGISTER`؛ شناسه‌های قابلیتِ بخشِ موجودی/انبار پیش‌وندِ `INV-` گرفتند تا با شناسه‌های شکاف تلاقی نکنند.
 
 > نکته: هیچ قابلیتی `BROKEN` شناخته نشد (خرابیِ شناخته‌شده‌ای در کدِ ادغام‌شده نیست؛ ناتوانیِ build اپ‌های اندروید به‌دلیلِ نبودِ ابزار `UNVERIFIED` و کمبودِ محتوا `NEEDS REDESIGN` طبقه‌بندی شد).

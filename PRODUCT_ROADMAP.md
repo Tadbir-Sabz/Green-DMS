@@ -305,7 +305,7 @@ Update this roadmap when scope, priority, dependencies, or completion status mat
 - [x] TASK-18R merged to main (merge commit recorded in Section 3).
 - [x] TASK-19 runtime packaging/deployment validation: completed and merged via PR #6 (`d39ba068ed9dae1bcb9f6aac241ec9f5e2bffdf5`); QA PASS WITH FINDINGS — open deferrals recorded in Section 3.
 - [x] Product inventory and dependency map: produced by TASK-21 (`docs/product-inventory/`) — pending owner review.
-- [ ] Product Master: first planned business-domain focus; assessed READY to start as a completion module (prerequisite assessment in `docs/product-inventory/IMPLEMENTATION_SEQUENCE.md`) — not started.
+- [ ] Product Master: first planned business-domain focus; readiness assessed precisely by TASK-21R: **ready for architecture/design**, **conditional-ready for implementation** (no external blockers; requires target-design sign-off, four business-policy decisions, and the G-03 approval-engine test pack before sensitive-change wiring) — see `docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md` and `IMPLEMENTATION_SEQUENCE.md` §3. Not started.
 - [ ] Remaining modules: evidence-based sequence proposed in `docs/product-inventory/IMPLEMENTATION_SEQUENCE.md` (P1–P9) — pending owner approval.
 
 ## 14. Definition of overall product maturity

@@ -20,7 +20,7 @@
 | ۰۰۰۳/۰۰۰۴ | سازمانِ فروش (region/sales_area/route/visit/staff) | A-02, D-02 |
 | **۰۰۰۵** | uom, product_category, brand, tax_code, **product**, product_packaging (+`uq_product_barcode`)، batch | C-01..C-06 |
 | **۰۰۰۶** | price_list/item (daterange+EXCLUDE), customer_price, promotion (۹ نوع) | E-01..E-03 |
-| ۰۰۰۸ | inventory_txn, stock_balance/reservation/transfer/adjustment/count, reorder_policy | G-01..G-08 |
+| ۰۰۰۸ | inventory_txn, stock_balance/reservation/transfer/adjustment/count, reorder_policy | INV-01..INV-08 |
 | ۰۰۱۰ | sales_order(+status check)/line (snapshot مالی)، invoice، waybill، **moadian_submission** | F-01..F-03, J-01 |
 | ۰۰۱۷ | settings, sms_template, print_template | A-03, J-03 |
 | ۰۰۲۲ | seed مجوزها (RBAC) | B-02 |

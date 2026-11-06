@@ -54,14 +54,14 @@ flowchart TB
 |---|---|---|---|---|---|---|
 | سازمان/مستأجر (A) | platform | company_id, branch_id | — | همه | TEN, RLS | تغییرِ scoping = مهاجرتِ حساس |
 | کاربر/نقش/مجوز (B) | platform | user_id, role_id, permission | A | همه | AUTH, user_scope | — |
-| Product Master (C) | master-data | product_id, uom_id, packaging_id | A | D,E,F,G,H,I,J,M | tax_code, attachment('product') | تغییرِ نام/واحد نباید تاریخچه را بازنویسی کند (§۸) |
+| Product Master (C) | master-data | product_id, uom_id, packaging_id | A | D,E,F,INV,H,I,J,M | tax_code, attachment('product') | تغییرِ نام/واحد نباید تاریخچه را بازنویسی کند (§۸) |
 | مشتری/اعتبار (D) | sales-adjacent | customer_id, customer_credit | A | E,F,H,I | person, geofence | — |
 | قیمت/تخفیف (E) | pricing | price_list_id, promotion_id | C,D | F (snapshot در خط) | rules-engine (تاییدها) | تغییرِ engine نباید اسنادِ گذشته را تغییر دهد |
 | سفارش/فروش (F) | sales | sales_order_id, invoice_id | C,D,E, G(موجودی), B | H,I,J,M | RULES (approval), QUEUE | وضعیت‌های چرخه در check constraint — مهاجرت برای تغییر |
-| موجودی/انبار (G) | inventory | inventory_txn, stock_balance, batch | C, A | F,H,I | QUEUE | صحتِ تراز = منبعِ حقیقتِ موجودی؛ تعارض با stock_valuation ممنوع |
-| خرید/تدارکات (G2) | purchasing | purchase_order_id, goods_receipt | C,G | I (payable) | approval (PO) | — |
+| موجودی/انبار (INV) | inventory | inventory_txn, stock_balance, batch | C, A | F,H,I | QUEUE | صحتِ تراز = منبعِ حقیقتِ موجودی؛ تعارض با stock_valuation ممنوع |
+| خرید/تدارکات (INV-04) | purchasing | purchase_order_id, goods_receipt | C,INV | I (payable) | approval (PO) | — |
 | توزیع/POD (H) | distribution | delivery_id, pod_id, tour_id | F,G | I (وصولی), M | DOC (POD attachments), tracking | زنجیرهٔ مالکیتِ pod→delivery→branch (TASK-14) نباید شکسته شود |
-| مالی/GL (I) | finance | journal_entry, gl_account | F,G,H | J,M | fiscal_period, account_mapping | اسنادِ حسابداری نامتغیر؛ reversal کنترل‌شده |
+| مالی/GL (I) | finance | journal_entry, gl_account | F,INV,H | J,M | fiscal_period, account_mapping | اسنادِ حسابداری نامتغیر؛ reversal کنترل‌شده |
 | Moadian/یکپارچه‌سازی (J) | integrations | moadian_submission, webhook | I,F | خارج | QUEUE (retry), integration_credential | سازگاریِ قراردادِ بیرونی |
 | موبایل (K) | field-force | client_sync_receipt | قرارداد, F,D,H | — | CONTRACT, offline cache | نسخهٔ API باید با کلاینتِ تولیدی همگام بماند |
 | اعلان/سند/وظیفه (L) | platform-cross | — | QUEUE, DOC | همه (آینده) | — | **مرزِ معماریِ گمشده** (G-05) |
