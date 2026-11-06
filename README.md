@@ -120,7 +120,10 @@ the OpenAPI document (`--allow-drift` to report without failing).
   `/api/*` to the `api` container (`API_PROXY_TARGET=http://api:4000`), so it
   works for local and remote deploys without CORS or a browser-side host
   assumption. `NEXT_PUBLIC_API_URL` (a build-arg, inlined into the web bundle)
-  overrides this to call a separate API origin directly.
+  overrides this to call a separate API origin directly. ⚠️ Both values are
+  **build-time** (Next bakes the rewrite target into `.next/routes-manifest.json`;
+  the web image takes `API_PROXY_TARGET` as a build-arg) — rebuild the web image
+  after changing either.
 - Health endpoints (kept out of the OpenAPI contract as infra probes):
   `GET /api/health` (summary: `ok|degraded` + database), `GET /api/v1/health/live`
   (liveness — never fails on a transient DB outage), `GET /api/v1/health/ready`

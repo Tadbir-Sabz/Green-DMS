@@ -5,6 +5,12 @@ RUN npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
+# TASK-19 — Next.js rewriteهای next.config.mjs را در زمانِ build در
+# .next/routes-manifest.json می‌پزد (مقادیرِ process.env همان لحظه خوانده می‌شوند؛
+# تغییرِ env در زمانِ اجرا اثری ندارد — برخلافِ `next dev`). پس API_PROXY_TARGET
+# باید build-arg باشد؛ پیش‌فرضِ http://api:4000 برایِ پشتهٔ docker compose است.
+ARG API_PROXY_TARGET=http://api:4000
+ENV API_PROXY_TARGET=$API_PROXY_TARGET
 COPY . .
 RUN npm run build -w apps/web
 

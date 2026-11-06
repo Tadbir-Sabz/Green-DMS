@@ -124,21 +124,18 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Default is EMPTY so the browser uses same-origin /api/v1 and the Next
-        # server proxies it to the api container (API_PROXY_TARGET below). This
-        # works for local AND remote deploys — the browser never assumes the API
-        # is on its own localhost (which breaks behind a proxy/preview or a remote
-        # host) — and needs no CORS. NEXT_PUBLIC_* is inlined into the browser
-        # bundle at BUILD time; set it only to call an API on a separate origin.
+        # هر دو مقدار در زمانِ **build** در باندل/manifest پخته می‌شوند:
+        # NEXT_PUBLIC_API_URL در باندلِ مرورگر (خالی = هم‌مبدأ) و API_PROXY_TARGET در
+        # rewriteهایِ پروکسیِ هم‌مبدأ (routes-manifest). تغییرِ هرکدام نیازمندِ
+        # `docker compose build web` است؛ env زمانِ اجرا این‌ها را عوض نمی‌کند.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        API_PROXY_TARGET: ${API_PROXY_TARGET:-http://api:4000}
     ports:
       - "127.0.0.1:3000:3000"
     environment:
       NODE_ENV: production
       WEB_PORT: 3000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-      # Server-side proxy target for same-origin /api/* requests (next.config rewrites).
-      API_PROXY_TARGET: ${API_PROXY_TARGET:-http://api:4000}
     depends_on:
       api:
         condition: service_healthy

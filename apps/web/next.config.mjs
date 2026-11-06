@@ -14,6 +14,12 @@ const nextConfig = {
    * ورود را می‌شکست)؛ (۲) چون درخواست از دیدِ مرورگر هم‌مبدأ است، نیازی به CORS نیست.
    * اگر NEXT_PUBLIC_API_URL ست شود، وب همان آدرس مطلق را مستقیم صدا می‌زند و این
    * پروکسی استفاده نمی‌شود (برای استقرارهایی با API روی دامنهٔ جدا).
+   *
+   * ⚠️ نکتهٔ حیاتیِ استقرار (TASK-19): Next.js این rewriteها را در زمانِ **build** در
+   * .next/routes-manifest.json می‌پزد؛ مقدارِ process.env.API_PROXY_TARGET فقط هنگامِ
+   * build خوانده می‌شود و تغییرِ آن در زمانِ اجرا (`next start`) اثری ندارد (برخلافِ
+   * `next dev` که کانفیگ را دوباره می‌خواند). در Dockerfile به‌صورتِ build-arg پاس
+   * داده می‌شود (پیش‌فرضِ compose: http://api:4000).
    */
   async rewrites() {
     const target = process.env.API_PROXY_TARGET ?? "http://127.0.0.1:4000";
