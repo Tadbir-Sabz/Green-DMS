@@ -177,6 +177,16 @@ export class SalesChainRepository {
     return rows[0]?.branch_id ?? null;
   }
 
+  /** D5 — کدام‌یک از این SKUها بسته‌اند؟ (ممنوعیتِ فاکتور تا P5) */
+  async findBundleProductIds(productIds: string[]): Promise<string[]> {
+    if (productIds.length === 0) return [];
+    const { rows } = await this.pool.query<{ bundle_product_id: string }>(
+      'select distinct bundle_product_id from product_bundle where bundle_product_id = any($1::uuid[])',
+      [productIds],
+    );
+    return rows.map((r) => r.bundle_product_id);
+  }
+
   async insertRequest(
     dto: CreateRequestDto,
     branchId: string,

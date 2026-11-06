@@ -7,15 +7,23 @@ import {
 } from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
+import type { AuditService } from '../../common/audit.service';
+import { AUDIT_SERVICE } from '../../common/audit.service';
+import type { RequestMeta } from '../../common/request-meta';
 import type { ProductRow } from './product.repository';
 import { ProductRepository } from './product.repository';
 import { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from './product.dto';
 import { PRODUCT_REPOSITORY } from './tokens';
+import { ProductMasterRepository } from './product-master.repository';
+import { detectSensitiveProductChanges, assertSensitiveConfirmed } from './product-sensitivity';
+import { permissionMatches } from '../identity-rbac/permissions';
 
 @Injectable()
 export class ProductService {
   constructor(
     @Inject(PRODUCT_REPOSITORY) private readonly repo: ProductRepository,
+    private readonly masterRepo: ProductMasterRepository,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
   ) {}
 
   async list(companyId: string, query: ListProductsQueryDto): Promise<Page<ProductRow>> {
@@ -39,10 +47,29 @@ export class ProductService {
     return row;
   }
 
-  async create(companyId: string, dto: CreateProductDto): Promise<ProductRow> {
+  async create(
+    companyId: string,
+    dto: CreateProductDto,
+    actor: { userId: string; permissions: string[] },
+    meta: RequestMeta,
+  ): Promise<ProductRow> {
     await this.assertReferences(companyId, dto);
+    // D1: کدِ دستی یا تولیدِ خودکار
+    const code = dto.code ?? (await this.masterRepo.nextCodeSeq(companyId).then((seq) => `SKU-${String(seq).padStart(6, '0')}`));
     try {
-      return await this.repo.insert(companyId, dto);
+      const row = await this.repo.insert(companyId, { ...dto, code });
+      await this.audit.record({
+        companyId,
+        actorUserId: actor.userId,
+        action: 'create',
+        entityType: 'product',
+        entityId: row.id,
+        after: { code: row.code, name: row.name, tax_code_id: row.tax_code_id, base_uom_id: row.base_uom_id },
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+      return row;
     } catch (err) {
       throw this.mapDbError(err, 'ساخت کالا');
     }
@@ -52,12 +79,30 @@ export class ProductService {
     companyId: string,
     id: string,
     dto: UpdateProductDto,
+    actor: { userId: string; permissions: string[] },
+    meta: RequestMeta,
   ): Promise<ProductRow> {
     this.assertId(id);
-    if (!(await this.repo.findById(companyId, id))) {
+    const existing = await this.repo.findById(companyId, id);
+    if (!existing) {
       throw new NotFoundException({ code: 'not_found', message_fa: 'کالا یافت نشد' });
     }
     await this.assertReferences(companyId, dto);
+
+    // D4 — نگهبانِ حساسیت در مرزِ نوشتن (همهٔ مسیرها همین service را می‌گذرانند)
+    const changes = detectSensitiveProductChanges(existing, dto);
+    const hasStatusPermission = actor.permissions.some((p) => permissionMatches(p, 'master.product.status'));
+    assertSensitiveConfirmed(changes, dto.confirm_sensitive ?? false, hasStatusPermission, 'ویرایشِ کالا');
+
+    // M-3 — تغییرناپذیریِ هویتِ variant پس از نخستینِ ارجاعِ عملیاتی
+    const familyChanging = 'family_id' in dto && (dto.family_id ?? null) !== existing.family_id;
+    if (familyChanging && (await this.masterRepo.productHasOperationalRefs(id))) {
+      throw new ConflictException({
+        code: 'variant_signature_immutable',
+        message_fa:
+          'پس از نخستین ارجاعِ عملیاتی (سند/موجودی/قیمت)، خانواده/محورهای variant تغییرناپذیرند؛ SKU جدید بسازید.',
+      });
+    }
 
     const row = await this.repo.update(companyId, id, dto, dto.row_version);
     if (!row) {
@@ -67,13 +112,53 @@ export class ProductService {
         message_fa: 'کالا هم‌زمان توسط کاربر دیگری تغییر کرده است؛ دوباره بارگیری کنید.',
       });
     }
+    await this.audit.record({
+      companyId,
+      actorUserId: actor.userId,
+      action: 'update',
+      entityType: 'product',
+      entityId: id,
+      before: {
+        name: existing.name,
+        status: existing.status,
+        tax_code_id: existing.tax_code_id,
+        base_uom_id: existing.base_uom_id,
+        family_id: existing.family_id,
+      },
+      after: {
+        name: row.name,
+        status: row.status,
+        tax_code_id: row.tax_code_id,
+        base_uom_id: row.base_uom_id,
+        family_id: row.family_id,
+        sensitive_changes: changes.map((c) => c.field),
+      },
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
     return row;
   }
 
-  async remove(companyId: string, id: string): Promise<void> {
+  async remove(
+    companyId: string,
+    id: string,
+    actor: { userId: string; permissions: string[] },
+    meta: RequestMeta,
+  ): Promise<void> {
     this.assertId(id);
     const ok = await this.repo.softDelete(companyId, id);
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'کالا یافت نشد' });
+    await this.audit.record({
+      companyId,
+      actorUserId: actor.userId,
+      action: 'delete',
+      entityType: 'product',
+      entityId: id,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
   }
 
   private async assertReferences(
@@ -92,6 +177,12 @@ export class ProductService {
         message_fa: 'واحد اندازه‌گیری انتخاب‌شده معتبر نیست.',
       });
     }
+    if (dto.family_id && !(await this.masterRepo.familyExists(companyId, dto.family_id))) {
+      throw new BadRequestException({
+        code: 'invalid_family',
+        message_fa: 'خانوادهٔ انتخاب‌شده برای این شرکت تعریف نشده است.',
+      });
+    }
   }
 
   private mapDbError(err: unknown, action: string): Error {
@@ -100,6 +191,12 @@ export class ProductService {
       return new ConflictException({
         code: 'duplicate_code',
         message_fa: 'کد کالا قبلاً ثبت شده است؛ کد دیگری انتخاب کنید.',
+      });
+    }
+    if (pgErr?.code === '23505' && pgErr.constraint === 'uq_product_variant_signature') {
+      return new ConflictException({
+        code: 'duplicate_variant',
+        message_fa: 'ترکیبِ صفاتِ محوری برای این خانواده قبلاً ثبت شده است (تکرارِ variant).',
       });
     }
     if (pgErr?.code === '23514') {
@@ -111,7 +208,7 @@ export class ProductService {
     if (pgErr?.code === '23503') {
       return new BadRequestException({
         code: 'invalid_reference',
-        message_fa: 'یکی از مراجع (دسته‌بندی/واحد) معتبر نیست.',
+        message_fa: 'یکی از مراجع (دسته‌بندی/واحد/خانواده) معتبر نیست.',
       });
     }
     return new BadRequestException({

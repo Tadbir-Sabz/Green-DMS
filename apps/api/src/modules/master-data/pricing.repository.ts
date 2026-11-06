@@ -21,6 +21,7 @@ export interface PriceListRow extends QueryResultRow {
 
 export interface PriceListItemRow extends QueryResultRow {
   product_id: string;
+  packaging_id: string | null;
   price: string;
   valid_from: string | null;
   valid_to: string | null;
@@ -91,7 +92,7 @@ export class PricingRepository {
 
   async findPriceListItems(priceListId: string): Promise<PriceListItemRow[]> {
     const { rows } = await this.pool.query<PriceListItemRow>(
-      `select product_id, price::text as price,
+      `select product_id, packaging_id, price::text as price,
               lower(valid)::text as valid_from,
               upper(valid)::text as valid_to
          from price_list_item
@@ -164,12 +165,12 @@ export class PricingRepository {
   private async insertItem(
     client: PoolClient,
     priceListId: string,
-    item: { product_id: string; price: string; valid_from?: string | null; valid_to?: string | null },
+    item: { product_id: string; packaging_id?: string | null; price: string; valid_from?: string | null; valid_to?: string | null },
   ): Promise<void> {
     await client.query(
-      `insert into price_list_item (price_list_id, product_id, price, min_qty, valid)
-       values ($1, $2, $3, 0, ${RANGE.replace('%d', '4').replace('%d', '5')})`,
-      [priceListId, item.product_id, item.price, item.valid_from ?? null, item.valid_to ?? null],
+      `insert into price_list_item (price_list_id, product_id, packaging_id, price, min_qty, valid)
+       values ($1, $2, $3, $4, 0, ${RANGE.replace('%d', '5').replace('%d', '6')})`,
+      [priceListId, item.product_id, item.packaging_id ?? null, item.price, item.valid_from ?? null, item.valid_to ?? null],
     );
   }
 

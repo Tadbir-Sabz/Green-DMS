@@ -18,9 +18,10 @@ import type { ProductService } from './product.service';
 import { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from './product.dto';
 import { PRODUCT_SERVICE } from './tokens';
 import { AuthGuard } from '../identity-rbac/auth.guard';
-import { CurrentUser } from '../identity-rbac/auth-context.decorator';
+import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.decorator';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
+import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 
 /**
  * CRUD کالا — GET/POST /products و GET/PATCH/DELETE /products/{id}
@@ -57,9 +58,10 @@ export class ProductController {
   @RequirePermissions('master.product.create')
   create(
     @Body() dto: CreateProductDto,
-    @CurrentUser('companyId') companyId: string,
+    @CurrentUser() user: AuthContext,
+    @RequestMetaParam() meta: RequestMeta,
   ): Promise<ProductRow> {
-    return this.service.create(companyId, dto);
+    return this.service.create(user.companyId, dto, user, meta);
   }
 
   @Patch(':id')
@@ -67,9 +69,10 @@ export class ProductController {
   update(
     @Param('id') id: string,
     @Body() dto: UpdateProductDto,
-    @CurrentUser('companyId') companyId: string,
+    @CurrentUser() user: AuthContext,
+    @RequestMetaParam() meta: RequestMeta,
   ): Promise<ProductRow> {
-    return this.service.update(companyId, id, dto);
+    return this.service.update(user.companyId, id, dto, user, meta);
   }
 
   @Delete(':id')
@@ -77,8 +80,9 @@ export class ProductController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id') id: string,
-    @CurrentUser('companyId') companyId: string,
+    @CurrentUser() user: AuthContext,
+    @RequestMetaParam() meta: RequestMeta,
   ): Promise<void> {
-    await this.service.remove(companyId, id);
+    await this.service.remove(user.companyId, id, user, meta);
   }
 }

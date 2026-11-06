@@ -318,6 +318,16 @@ export class OrderRepository {
     return rows.length > 0;
   }
 
+  /** D5 — کدام‌یک از این SKUها بسته‌اند؟ (ممنوعیتِ سفارش/فروش تا P5) */
+  async findBundleProductIds(productIds: string[]): Promise<string[]> {
+    if (productIds.length === 0) return [];
+    const { rows } = await this.pool.query<{ bundle_product_id: string }>(
+      'select distinct bundle_product_id from product_bundle where bundle_product_id = any($1::uuid[])',
+      [productIds],
+    );
+    return rows.map((r) => r.bundle_product_id);
+  }
+
   /**
    * اعتبار در دسترس مشتری از v_customer_exposure (سقف + اعتبار موقت − بدهی).
    * اگر ردیف customer_credit نباشد، credit_limit=0 و available_credit منفی/صفر است؛

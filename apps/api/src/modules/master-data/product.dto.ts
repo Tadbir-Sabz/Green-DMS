@@ -21,21 +21,32 @@ export const DISTRIBUTION_KINDS = ['cold', 'warm', 'both'] as const;
 
 /** POST /api/v1/products — فیلدهای نوشتنی (فیلدهای readOnly سرور تولید می‌کند) */
 export class CreateProductDto {
+  /** D1: کدِ SKU دستی؛ در صورتِ عدمِ ارسال، سرور تولیدِ خودکار می‌کند */
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(64)
-  code: string;
+  code?: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
   name: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name_latin?: string | null;
+
   @IsUUID()
   category_id: string;
 
   @IsUUID()
   base_uom_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  family_id?: string | null;
 
   @IsOptional()
   @IsUUID()
@@ -98,6 +109,11 @@ export class UpdateProductDto extends PartialType(CreateProductDto) {
   @IsInt()
   @Min(0)
   row_version?: number;
+
+  /** D4: تأییدِ صریحِ دومرحله‌ای برای تغییراتِ حساس (مالیات/وضعیت/واحدِ پایه) */
+  @IsOptional()
+  @IsBoolean()
+  confirm_sensitive?: boolean;
 }
 
 /** GET /api/v1/products — صفحه‌بندی cursor + فیلترها (ضمیمه F) */

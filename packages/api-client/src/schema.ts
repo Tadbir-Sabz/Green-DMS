@@ -1437,6 +1437,991 @@ export interface paths {
         };
         trace?: never;
     };
+    "/products/{id}/barcodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** فهرست بارکدهای کالا (چند بارکد در هر SKU/سطحِ بسته‌بندی — H-1) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description بارکدها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductBarcode"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت بارکد (یکتاییِ نوع‌محور: GS1 سراسری / داخلیِ شرکت — D2) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductBarcodeCreate"];
+                };
+            };
+            responses: {
+                /** @description بارکد ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductBarcode"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/barcodes/{barcodeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                barcodeId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** حذف بارکد */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    barcodeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description حذف شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/scan/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description بارکد/کدِ اسکن‌شده (نرمال‌سازی در سرور) */
+                code: string;
+            };
+            cookie?: never;
+        };
+        /** resolution قطعیِ اسکن — بارکد ← کد ← alias نوعِ code (برخورد چندپاسخی = 409) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description بارکد/کدِ اسکن‌شده (نرمال‌سازی در سرور) */
+                    code: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description کالای یکتا */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScanResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/duplicate-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تشخیصِ تکرار (D2) — کد/بارکد تکراری = مانع؛ نامِ مشابه = هشدار */
+        get: {
+            parameters: {
+                query?: {
+                    name?: string;
+                    code?: string;
+                    barcode?: string;
+                    product_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ بررسی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DuplicateCheckResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/import/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** اعتبارسنجیِ CSV محصول بدونِ نوشتن (پیش‌نمایشِ ردیف‌به‌ردیفِ فارسی — §E) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description متنِ CSV (فارسی/انگلیسی؛ ≤۱۰٬۰۰۰ ردیف، ≤۱MB) */
+                        csv: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description گزارشِ اعتبارسنجی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportValidationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/import/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** اجرای import (idempotency + همه‌یاهیچ در هر دسته + audit — M-5 برای فیلدهای حساس) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        csv: string;
+                        /** @enum {string} */
+                        mode: "create" | "update" | "upsert";
+                        idempotency_key: string;
+                        /** @description M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند) */
+                        confirm_sensitive?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description نتیجهٔ import */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/import/report/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** گزارشِ import انجام‌شده */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description گزارش */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-families": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست خانواده‌های کالا (مدلِ variant — SKU-per-variant با خانوادهٔ اختیاری) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description خانواده‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductFamily"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** تعریف خانواده */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        code: string;
+                        name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description خانواده ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductFamily"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** فهرست aliasهای کالا */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description aliasها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductAlias"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت alias (نرمال‌سازی + جلوگیری از برخورد با کد/بارکد — H-1) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        alias: string;
+                        /**
+                         * @default brand_slang
+                         * @enum {string}
+                         */
+                        kind?: "brand_slang" | "latin" | "code";
+                    };
+                };
+            };
+            responses: {
+                /** @description alias ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductAlias"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-aliases/{aliasId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                aliasId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** حذف alias */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    aliasId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description حذف شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست تعریفِ صفات (text/number/enum؛ محورِ variant — B3) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفات */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductAttributeDef"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** تعریف صفت (enum با مقادیرِ مجاز) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductAttributeDefCreate"];
+                };
+            };
+            responses: {
+                /** @description صفت ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductAttributeDef"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-attributes/{defId}/enum-values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                defId: string;
+            };
+            cookie?: never;
+        };
+        /** مقادیرِ مجازِ صفتِ enum */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    defId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description مقادیر */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id?: string;
+                            value?: string;
+                            value_norm?: string;
+                        }[];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        /** افزودنِ مقدارِ مجاز به صفتِ enum */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    defId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        value: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description مقدار ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id?: string;
+                            value?: string;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مقادیرِ صفاتِ SKU + امضای فعلیِ variant (نمایش در UI جزئیات) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description مقادیر + امضا */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            values: components["schemas"]["ProductAttributeValue"][];
+                            variant_signature: string | null;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /** ثبت مقادیرِ صفاتِ SKU + محاسبهٔ امضای variant (M-3؛ تغییرناپذیر پس از ارجاعِ عملیاتی) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        values: {
+                            /** Format: uuid */
+                            def_id: string;
+                            value_text?: string | null;
+                            value_num?: number | null;
+                            value_enum?: string | null;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description مقادیر + امضا */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            values?: components["schemas"]["ProductAttributeValue"][];
+                            variant_signature?: string | null;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** فهرست جایگزین/مکمل‌های کالا */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description روابط */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelation"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت رابطه (خودارجاع/حلقهٔ substitute ممنوع) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        related_id: string;
+                        /** @enum {string} */
+                        kind: "substitute" | "complement";
+                        /** @default 100 */
+                        priority?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description رابطه ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelation"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-relations/{relationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                relationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** حذف رابطه */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    relationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description حذف شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** ترکیبِ کاتالوگیِ بسته (P1 — فقط تعریف/نمایش؛ D5) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description اجزا */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BundleComponent"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        /** تنظیمِ ترکیبِ بسته (فیلدِ حساس — D4 با confirm_sensitive؛ تا P5 غیرقابل سفارش/فروش) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            component_product_id: string;
+                            qty: number;
+                        }[];
+                        /** @description D4: تأییدِ صریحِ دومرحله‌ایِ اجزای bundle */
+                        confirm_sensitive?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description ترکیبِ ثبت‌شده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BundleComponent"][];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/product-categories": {
         parameters: {
             query?: never;
@@ -8614,6 +9599,15 @@ export interface components {
             readonly id: string;
             code: string;
             name: string;
+            /** @description نام لاتین (اختیاری) — نمایش: فارسی، fallback لاتین */
+            name_latin?: string | null;
+            /**
+             * Format: uuid
+             * @description خانوادهٔ اختیاریِ variant (SKU-per-variant)
+             */
+            family_id?: string | null;
+            /** @description sha256 قطعیِ محورهای variant (M-3) */
+            readonly variant_signature?: string | null;
             /** Format: uuid */
             category_id: string;
             /** Format: uuid */
@@ -8645,10 +9639,18 @@ export interface components {
             /** @description قفل خوش‌بینانه — PATCH با این مقدار مغایرت = 409 version_conflict */
             readonly row_version: number;
         };
-        /** @description فیلدهای نوشتنی برای POST — سرور id، status، created_at و row_version را می‌سازد؛ فیلدهای اختیاری مقدار پیش‌فرض DDL می‌گیرند */
+        /** @description فیلدهای نوشتنی برای POST — سرور id، status، created_at و row_version را می‌سازد؛ فیلدهای اختیاری مقدار پیش‌فرض DDL می‌گیرند. D1: code اختیاری است؛ در صورتِ عدمِ ارسال، کدِ خودکارِ SKU-XXXXXX ساخته می‌شود. */
         ProductCreate: {
-            code: string;
+            /** @description D1: اختیاری — خالی = تولیدِ خودکارِ SKU */
+            code?: string;
             name: string;
+            /** @description M-3: نامِ لاتینِ کالا */
+            name_latin?: string | null;
+            /**
+             * Format: uuid
+             * @description M-3: خانواده (محورِ variant)
+             */
+            family_id?: string | null;
             /** Format: uuid */
             category_id: string;
             /** Format: uuid */
@@ -8673,6 +9675,9 @@ export interface components {
         ProductUpdate: {
             code?: string;
             name?: string;
+            name_latin?: string | null;
+            /** Format: uuid */
+            family_id?: string | null;
             /** Format: uuid */
             category_id?: string;
             /** Format: uuid */
@@ -8695,6 +9700,8 @@ export interface components {
             status?: "active" | "blocked" | "discontinued";
             /** @description قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد */
             row_version?: number;
+            /** @description D4: تأییدِ صریحِ دومرحله‌ای برای تغییراتِ حساس (مالیات/وضعیت/واحدِ پایه) — بدون آن 400 */
+            confirm_sensitive?: boolean;
         };
         /** @description دسته‌بندی درختی کالا (هر شرکت ساختار خودش را دارد) */
         ProductCategory: {
@@ -8735,6 +9742,11 @@ export interface components {
             items?: {
                 /** Format: uuid */
                 product_id?: string;
+                /**
+                 * Format: uuid
+                 * @description M-2: قیمتِ سطحِ بسته‌بندی — NULL = واحدِ پایه
+                 */
+                packaging_id?: string | null;
                 /** @description قیمت واحد (رشته اعشاری) */
                 price?: string;
                 /** Format: date */
@@ -10124,8 +11136,177 @@ export interface components {
             barcode?: string | null;
             is_sales_default?: boolean;
             is_purchase_default?: boolean;
+            /** @description D4: فاکتورِ تبدیل حساس است — تأییدِ صریح الزامی (else 400) */
+            confirm_sensitive?: boolean;
             readonly uom_code?: string | null;
             readonly uom_title?: string | null;
+        };
+        /** @description بارکدِ کالا (H-1) — یکتاییِ نوع‌محور: gs1_* جهانی، internal/other در هر شرکت */
+        ProductBarcode: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly company_id?: string;
+            /** Format: uuid */
+            product_id: string;
+            /**
+             * Format: uuid
+             * @description سطحِ بسته‌بندی (اختیاری)
+             */
+            packaging_id?: string | null;
+            /** @description نرمال‌شده (ارقامِ لاتین، بدونِ فاصله) */
+            barcode: string;
+            /** @enum {string} */
+            kind: "gs1_ean13" | "gs1_ean8" | "gs1_upc" | "gs1_itf14" | "internal" | "other";
+            is_primary?: boolean;
+        };
+        ProductBarcodeCreate: {
+            barcode: string;
+            /** @enum {string} */
+            kind: "gs1_ean13" | "gs1_ean8" | "gs1_upc" | "gs1_itf14" | "internal" | "other";
+            /** Format: uuid */
+            packaging_id?: string | null;
+            is_primary?: boolean;
+        };
+        ScanResult: {
+            product: {
+                /** Format: uuid */
+                id?: string;
+                code?: string;
+                name?: string;
+                status?: string;
+            };
+            /** @enum {string} */
+            matched_by: "barcode" | "code" | "alias_code";
+            /** Format: uuid */
+            packaging_id?: string | null;
+        };
+        /** @description D2 — کد/بارکد تکراری = blocking؛ نامِ مشابه = warnings */
+        DuplicateCheckResult: {
+            blocking: {
+                kind?: string;
+                /** Format: uuid */
+                product_id?: string;
+                code?: string;
+                name?: string;
+            }[];
+            warnings: {
+                kind?: string;
+                /** Format: uuid */
+                product_id?: string;
+                code?: string;
+                name?: string;
+                score?: number;
+            }[];
+        };
+        ProductFamily: {
+            /** Format: uuid */
+            readonly id: string;
+            code: string;
+            name: string;
+        };
+        ProductAlias: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            product_id: string;
+            alias: string;
+            readonly alias_norm: string;
+            /** @enum {string} */
+            kind: "brand_slang" | "latin" | "code";
+        };
+        ProductAttributeDef: {
+            /** Format: uuid */
+            readonly id: string;
+            code: string;
+            title: string;
+            /** @enum {string} */
+            kind: "text" | "number" | "enum";
+            is_variant_axis?: boolean;
+            is_required?: boolean;
+            sort_order?: number;
+            enum_values?: {
+                /** Format: uuid */
+                id?: string;
+                value?: string;
+            }[];
+        };
+        ProductAttributeDefCreate: {
+            code: string;
+            title: string;
+            /** @enum {string} */
+            kind: "text" | "number" | "enum";
+            is_variant_axis?: boolean;
+            is_required?: boolean;
+            sort_order?: number;
+            enum_values?: string[];
+        };
+        ProductAttributeValue: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            def_id: string;
+            value_text?: string | null;
+            /** @description رشتهٔ اعشاری از دیتابیس */
+            value_num?: string | null;
+            value_enum?: string | null;
+        };
+        ProductRelation: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            related_id: string;
+            /** @enum {string} */
+            kind: "substitute" | "complement";
+            priority?: number;
+            readonly related_code?: string;
+            readonly related_name?: string;
+        };
+        /** @description D5 — ترکیبِ کاتالوگیِ بسته؛ SKU بسته تا P5 غیرقابل سفارش/فروش/حرکت موجودی */
+        BundleComponent: {
+            /** Format: uuid */
+            bundle_product_id: string;
+            /** Format: uuid */
+            component_product_id: string;
+            /** @description رشتهٔ اعشاری از دیتابیس */
+            qty: string;
+            readonly component_code?: string;
+            readonly component_name?: string;
+            readonly component_status?: string;
+        };
+        ImportValidationResult: {
+            rows: {
+                [key: string]: string;
+            }[];
+            row_errors: {
+                row?: number;
+                code?: string;
+                message_fa?: string;
+            }[];
+            warnings: {
+                row?: number;
+                code?: string;
+                message_fa?: string;
+            }[];
+            headers: string[];
+        };
+        ImportResult: {
+            /** Format: uuid */
+            import_id: string;
+            total_rows: number;
+            created_rows: number;
+            updated_rows: number;
+            failed_rows: number;
+            idempotent_replay?: boolean;
+            errors: {
+                row?: number;
+                code?: string;
+                message_fa?: string;
+            }[];
         };
         /** @description زنجیره تأیید با گام‌های تعریف‌شده */
         ApprovalChain: {
