@@ -404,8 +404,14 @@ jobs:
         shell: bash
         run: |
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
-          echo "::error title=attachment-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×' /tmp/att.log | head -n 40 | enc)"
-          echo "::error title=attachment-tail::$(tail -n 50 /tmp/att.log | enc)"
+          strip() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g'; }
+          # ANSI را اول پاک می‌کنیم وگرنه grep روی خروجیِ رنگیِ vitest بی‌نتیجه می‌ماند
+          # و annotation خالی حذف می‌شود (بدونِ هیچ تشخیصی).
+          MATCH=$(strip </tmp/att.log | grep -nE 'FAIL|AssertionError|Error|✗|×|failed' | head -n 40)
+          if [ -n "$MATCH" ]; then
+            echo "::error title=attachment-failures::$(printf '%s' "$MATCH" | enc)"
+          fi
+          echo "::error title=attachment-tail::$(strip </tmp/att.log | tail -n 50 | enc)"
 
   # ---------------------------------------------------------------------------
   # TASK-17 — بهداشتِ اعتبارنامه در اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا.
