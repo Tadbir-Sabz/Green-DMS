@@ -262,12 +262,14 @@ jobs:
           docker info --format 'server={{.ServerVersion}} ostype={{.OSType}}/{{.Architecture}} mirrors={{.RegistryConfig.Mirrors}}' 2>&1
 
           # نامزد|آرگومانِ اجرا|پورت|access|secret|health-path
-          # ترتیب بر پایهٔ شاهدِ اجرایِ قبلیِ همین گام: adobe/s3mock:3.9.1 واقعاً pull شد و
-          # بالا آمد (pull_rc=0) و فقط به‌خاطرِ «رقابتِ زمانِ آماده‌سازی» (health_http=000،
-          # socket hang up) در round-trip رد شد ⇒ اول آن، با تلاشِ مجدد. نامِ درستِ تصویرِ
-          # SeaweedFS در Docker Hub «chrislusf/seaweedfs» است (seaweedfs/seaweedfs وجود ندارد و
-          # «pull access denied» می‌داد). localstack:3.9 در اجرایِ قبلی «not found» شد.
-          CANDIDATES='adobe/s3mock:3.9.1||8090|minio|minio123|/
+          # adobe/s3mock:3.9.1: طبق README همان تگِ پین‌شده (api.github.com، ref=3.9.1):
+          # «Ports: 9090 (HTTP), 9191 (HTTPS)» و فقط path-style. پورتِ 8090 کانکتورِ TLS
+          # است و probeِ HTTP با آن همان socket hang up می‌دهد که پیش‌تر «رقابتِ
+          # آماده‌سازی» پنداشته می‌شد (TASK-19: ریشه با شاهدِ مستند قطعی شد).
+          # نامِ درستِ تصویرِ SeaweedFS در Docker Hub «chrislusf/seaweedfs» است
+          # (seaweedfs/seaweedfs وجود ندارد و «pull access denied» می‌داد).
+          # localstack:3.9 در اجرایِ قبلی «not found» شد.
+          CANDIDATES='adobe/s3mock:3.9.1||9090|minio|minio123|/
           chrislusf/seaweedfs:3.76|server -s3 -s3.port=9000 -ip=0.0.0.0 -dir=/tmp/weed -master.defaultReplication=000|9000|minio|minio123|/
           localstack/localstack:3.9|-e SERVICES=s3 -e AWS_ACCESS_KEY_ID=minio -e AWS_SECRET_ACCESS_KEY=minio123|4566|minio|minio123|/_localstack/health
           quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z|server /data --console-address :9001|9000|minio|minio123|/minio/health/live'

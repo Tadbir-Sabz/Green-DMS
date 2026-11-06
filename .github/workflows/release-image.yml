@@ -352,21 +352,25 @@ jobs:
             exit 1
           fi
           DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$CAND" 2>/dev/null)
+          # adobe/s3mock:3.9.1 — طبق README همان تگِ پین‌شده (api.github.com تأیید شد):
+          # «Ports: 9090 (HTTP), 9191 (HTTPS)» و فقط path-style. پورتِ 8090 کانکتورِ
+          # TLS است و صحبتِ HTTP با آن دقیقاً همان socket hang up/_http_client می‌دهد
+          # که پیش‌تر «رقابتِ آماده‌سازی» پنداشته می‌شد. پس: 9090 + HTTP (useSSL:false).
           docker rm -f relimg-s3probe >/dev/null 2>&1
-          docker run -d --name relimg-s3probe -p 127.0.0.1:8090:8090 "$CAND" >/dev/null 2>&1; RUN_RC=$?
+          docker run -d --name relimg-s3probe -p 127.0.0.1:9090:9090 "$CAND" >/dev/null 2>&1; RUN_RC=$?
           echo "run_rc=${RUN_RC} digest=${DIGEST:-unresolved}"
-          # اول باز شدنِ پورت (s3mock با Spring Boot کند بالا می‌آید — همان رقابتِ
-          # مستندشده در jobِ Integration (MinIO))، بعد round-trip با تلاشِ مجدد.
+          # اول باز شدنِ پورت (s3mock با Spring Boot کند بالا می‌آید)، بعد round-trip
+          # با تلاشِ مجدد.
           PORTUP=0
           for i in $(seq 1 60); do
-            (exec 3<>"/dev/tcp/127.0.0.1/8090") 2>/dev/null && { PORTUP=1; echo "s3 port answered after ${i} probe(s)"; break; }
+            (exec 3<>"/dev/tcp/127.0.0.1/9090") 2>/dev/null && { PORTUP=1; echo "s3 port answered after ${i} probe(s)"; break; }
             sleep 2
           done
           OK=0
           LASTERR=""
           if [ "$PORTUP" = 1 ]; then
             for attempt in $(seq 1 20); do
-              OUT=$(node ./.relimg-s3-roundtrip.mjs 127.0.0.1 8090 minio minio123 greendms 2>&1)
+              OUT=$(node ./.relimg-s3-roundtrip.mjs 127.0.0.1 9090 minio minio123 greendms 2>&1)
               RC=$?
               echo "round-trip attempt ${attempt}: rc=${RC} ${OUT}" >>/tmp/relimg-s3.log
               if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '"ok":true'; then OK=1; echo "round-trip PASSED on attempt ${attempt}"; break; fi
