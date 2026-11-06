@@ -1,9 +1,9 @@
 # Green-DMS Product Completion & Evolution Roadmap
 
-> **Document status:** Proposed product-development baseline, pending review and merge.
+> **Document status:** Canonical product-development baseline — merged to `main` (PR #7) and in effect.
 > **Repository:** `Tadbir-Sabz/Green-DMS`
 > **Primary language of product UX:** Persian (fa-IR), full RTL; optional English localization.
-> **Last updated:** 2026-11-06
+> **Last updated:** 2026-11-06 (Gate 1 checkpoint correction — factual updates only; see `docs/product-inventory/ROADMAP_UPDATE_PROPOSAL.md`)
 
 ## 1. Product vision
 
@@ -35,6 +35,11 @@ At the time this roadmap was drafted:
 - The README describes API and web as active surfaces and Android applications as present but not yet buildable.
 - TASK-18R was merged to `main` through merge commit `3daca7c66e9224561f70d4cefbcaf0b8fdc05d32`.
 - TASK-19 (runtime packaging, Docker deployment validation, and release readiness) was reported as in progress when this roadmap was agreed.
+
+Verified checkpoint corrections (2026-11-06, TASK-21 — factual, evidence in `docs/product-inventory/EVIDENCE_INDEX.md`):
+- TASK-19 completed and merged to `main` via PR #6; merge commit `d39ba068ed9dae1bcb9f6aac241ec9f5e2bffdf5` is the latest `main` commit as of Gate 1 (verified against the remote).
+- Independent release QA (TASK-20) verdict: `PASS WITH FINDINGS`; owner-approved deferrals remain open: browser E2E blocked by the `minio/minio` registry issue (user workflows `UNVERIFIED`), backup/restore and operational upgrade/rollback unproven, real SMS/Moadian/PSP gateways unverified.
+- Gate 1 (product inventory and dependency map) produced by TASK-21 under `docs/product-inventory/`; pending owner review.
 
 These facts must be re-verified against the live repository and runtime before execution. Do not treat this section as a current deployment-health claim.
 
@@ -298,10 +303,10 @@ Update this roadmap when scope, priority, dependencies, or completion status mat
 ### Current program checkpoint
 
 - [x] TASK-18R merged to main (merge commit recorded in Section 3).
-- [ ] TASK-19 runtime packaging/deployment validation: in progress at roadmap creation; verify latest status before proceeding.
-- [ ] Product inventory and dependency map: not started; starts after TASK-19 review/gate.
-- [ ] Product Master: first planned business-domain focus; not started.
-- [ ] Remaining modules: sequence to be finalized from evidence-based inventory.
+- [x] TASK-19 runtime packaging/deployment validation: completed and merged via PR #6 (`d39ba068ed9dae1bcb9f6aac241ec9f5e2bffdf5`); QA PASS WITH FINDINGS — open deferrals recorded in Section 3.
+- [x] Product inventory and dependency map: produced by TASK-21 (`docs/product-inventory/`) — pending owner review.
+- [ ] Product Master: first planned business-domain focus; assessed READY to start as a completion module (prerequisite assessment in `docs/product-inventory/IMPLEMENTATION_SEQUENCE.md`) — not started.
+- [ ] Remaining modules: evidence-based sequence proposed in `docs/product-inventory/IMPLEMENTATION_SEQUENCE.md` (P1–P9) — pending owner approval.
 
 ## 14. Definition of overall product maturity
 
