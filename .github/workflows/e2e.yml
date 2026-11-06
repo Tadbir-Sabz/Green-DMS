@@ -39,6 +39,27 @@ jobs:
       - name: install deps
         run: npm ci
 
+      # TASK-19 — پشته با اعتبارسنجیِ fail-closedِ production (docker-compose.prod.yml)
+      # بوت می‌شود؛ پس رمزهای واقعیِ هر اجرا لازم است. مقادیر تصادفی‌اند، با
+      # ::add-mask:: پنهان می‌شوند و هرگز چاپ نمی‌شوند (نه در لاگ، نه در artifact).
+      # SMS_ALLOW_LOG_PROVIDER=true فقط برایِ همین CI: جریان‌های Playwright کدِ OTP را
+      # از لاگِ پیامکِ log می‌خوانند؛ در استقرارِ واقعی درگاهِ پیامک واقعی لازم است.
+      - name: generate ephemeral stack secrets (masked)
+        shell: bash
+        run: |
+          set -e
+          jwt=$(openssl rand -hex 32)
+          pgpw=$(openssl rand -hex 24)
+          apppw=$(openssl rand -hex 24)
+          echo "::add-mask::${jwt}"
+          echo "::add-mask::${pgpw}"
+          echo "::add-mask::${apppw}"
+          echo "JWT_SECRET=${jwt}" >> "$GITHUB_ENV"
+          echo "POSTGRES_PASSWORD=${pgpw}" >> "$GITHUB_ENV"
+          echo "APP_DB_PASSWORD=${apppw}" >> "$GITHUB_ENV"
+          echo "SMS_ALLOW_LOG_PROVIDER=true" >> "$GITHUB_ENV"
+          echo "stack secrets generated (values masked; never printed)"
+
       - name: install Playwright chromium
         run: npx playwright install --with-deps chromium
 
@@ -57,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          docker compose -f docker-compose.yml config --images 2>&1 | tee /tmp/compose-images.log
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config --images 2>&1 | tee /tmp/compose-images.log
 
       # `docker compose config` مقادیرِ env را چاپ می‌کند؛ پیش از هر چیز redact می‌شود.
       - name: compose config (secrets redacted)
@@ -67,7 +88,7 @@ jobs:
           set +e
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
           redact() { sed -E 's/(PASSWORD|SECRET|_KEY|TOKEN|ACCESS|CREDENTIAL)([":= ]+)[^"'"'"'[:space:]]+/\1\2***REDACTED***/Ig'; }
-          docker compose -f docker-compose.yml config 2>&1 | redact > /tmp/compose-config.log
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config 2>&1 | redact > /tmp/compose-config.log
           CFG_RC=$?
           echo "config_rc=${CFG_RC}"
           tail -n 40 /tmp/compose-config.log
@@ -115,7 +136,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          docker compose -f docker-compose.yml build --progress=plain >/tmp/compose-build.log 2>&1
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --progress=plain >/tmp/compose-build.log 2>&1
           BUILD_RC=$?
           echo "build_rc=${BUILD_RC}"
           tail -n 60 /tmp/compose-build.log
@@ -143,11 +164,11 @@ jobs:
         shell: bash
         run: |
           set +e
-          docker compose -f docker-compose.yml up -d --no-build >/tmp/compose-up.log 2>&1
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build >/tmp/compose-up.log 2>&1
           UP_RC=$?
           echo "up_rc=${UP_RC}"
           cat /tmp/compose-up.log
-          docker compose -f docker-compose.yml ps -a 2>&1 | tee /tmp/compose-ps.log
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -a 2>&1 | tee /tmp/compose-ps.log
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
           if [ "$UP_RC" -ne 0 ]; then
             echo "::error title=BLOCKED-e2e-stack-up::docker compose up failed (rc=${UP_RC}); browser tests NOT executed"
@@ -169,8 +190,8 @@ jobs:
           if [ "$OK" -ne 1 ]; then
             enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
             echo "::error title=BLOCKED-e2e-api-unhealthy::API did not become healthy; browser tests NOT executed"
-            echo "::error title=e2e-api-log::$(docker compose -f docker-compose.yml logs --no-color --tail 60 api 2>&1 | enc)"
-            echo "::error title=e2e-compose-ps::$(docker compose -f docker-compose.yml ps -a 2>&1 | enc)"
+            echo "::error title=e2e-api-log::$(docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 60 api 2>&1 | enc)"
+            echo "::error title=e2e-compose-ps::$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -a 2>&1 | enc)"
             exit 1
           fi
           echo "healthy=true" >> "$GITHUB_OUTPUT"
@@ -188,7 +209,7 @@ jobs:
           if [ "$OK" -ne 1 ]; then
             enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
             echo "::error title=BLOCKED-e2e-web-unhealthy::Web did not become healthy; browser tests NOT executed"
-            echo "::error title=e2e-web-log::$(docker compose -f docker-compose.yml logs --no-color --tail 60 web 2>&1 | enc)"
+            echo "::error title=e2e-web-log::$(docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 60 web 2>&1 | enc)"
             exit 1
           fi
           echo "healthy=true" >> "$GITHUB_OUTPUT"
@@ -211,7 +232,7 @@ jobs:
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
           echo "::error title=e2e-test-failures::$(grep -nE 'Error|error:|failed|Timeout|expect|✘|✓|[0-9]+ (passed|failed)' /tmp/e2e.log | tail -n 40 | enc)"
           echo "::error title=e2e-test-tail::$(tail -n 50 /tmp/e2e.log | enc)"
-          echo "::error title=e2e-api-log-on-test-failure::$(docker compose -f docker-compose.yml logs --no-color --tail 40 api 2>&1 | enc)"
+          echo "::error title=e2e-api-log-on-test-failure::$(docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail 40 api 2>&1 | enc)"
 
       - name: upload Playwright report
         if: always()
@@ -224,4 +245,4 @@ jobs:
 
       - name: tear down
         if: always()
-        run: docker compose -f docker-compose.yml down -v
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v

@@ -375,6 +375,10 @@ jobs:
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "digest=${DIGEST:-unresolved}" >> "$GITHUB_OUTPUT"
           echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          # TASK-19: گامِ «Attachment round-trip tests» به steps.minio.outputs.healthy
+          # شرط شده بود ولی این خروجی هرگز ست نمی‌شد ⇒ تستِ ضمیمه «همیشه» skip
+          # می‌شد (skip بی‌صدایِ دروازه). اکنون فقط در مسیرِ موفقِ resolve ست می‌شود.
+          echo "healthy=true" >> "$GITHUB_OUTPUT"
           echo "MINIO_ENDPOINT=localhost" >> "$GITHUB_ENV"
           echo "MINIO_PORT=${PORT}" >> "$GITHUB_ENV"
           echo "MINIO_ACCESS_KEY=${AKEY}" >> "$GITHUB_ENV"
