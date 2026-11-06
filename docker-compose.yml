@@ -1,20 +1,29 @@
 # GreenDMS — local/self-hosted stack.
-# Production overrides: copy .env.production.example -> .env.production and
-# pass it with `docker compose --env-file .env.production up -d`.
+# Production overrides (MANDATORY in production):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d
+# `docker-compose.prod.yml` fail-closed بودنِ اعتبارسنجیِ پیکربندی را روشن می‌کند
+# (DMS_ACCEPT_INSECURE_LOCAL_SETUP=false) و restart policy تولید می‌گذارد.
+#
+# شبکه (TASK-19 — Phase 2D): همهٔ پورت‌های منتشرشده فقط روی 127.0.0.1 میزبان بسته
+# می‌شوند؛ یعنی PostgreSQL/Redis/MinIO/API/Web از اینترنت/شبکهٔ LAN قابلِ دسترسی
+# نیستند و مرزِ بیرونی فقط reverse-proxy روی همان میزبان است (به docs/deploy/
+# PRODUCTION_DEPLOYMENT.md نگاه کنید). برایِ دسترسیِ از راه دورِ Docker daemon
+# (مثلاً docker روی میزبانِ دیگر) این bindingها را خودتان با آگاهی باز کنید.
+#
 # NOTE: the `version` key is obsolete in the Compose spec and intentionally omitted.
 
 services:
   postgres:
     image: postgis/postgis:16-3.4
     environment:
-      POSTGRES_USER: dms
-      POSTGRES_PASSWORD: dms
-      POSTGRES_DB: greendms
+      POSTGRES_USER: ${POSTGRES_USER:-dms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dms}
+      POSTGRES_DB: ${POSTGRES_DB:-greendms}
       # LOCAL-ONLY default for the runtime role created by the init script below.
       # Override it (`--env-file .env.production`) — never reuse it in production.
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-dms_app_local}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       # Runs ONLY when the pg_data volume is empty (first `compose up`), so it can
@@ -23,7 +32,7 @@ services:
       # migration 0041 then hardens (nosuperuser/nobypassrls/…) and grants it.
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dms -d greendms"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dms} -d ${POSTGRES_DB:-greendms}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -31,7 +40,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -44,11 +53,11 @@ services:
     image: ${MINIO_IMAGE:-minio/minio}
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
 
@@ -57,21 +66,22 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     environment:
       NODE_ENV: production
       API_PORT: 4000
       # Host names match the compose service names above.
       # Migration/admin identity (AUTO_MIGRATE below uses this one).
-      DATABASE_URL: postgres://dms:dms@postgres:5432/greendms
+      DATABASE_URL: postgres://${POSTGRES_USER:-dms}:${POSTGRES_PASSWORD:-dms}@postgres:5432/${POSTGRES_DB:-greendms}
       # Runtime identity — REQUIRED because NODE_ENV=production above: the API
       # refuses to start without it (no silent fallback to the privileged role).
-      APP_DATABASE_URL: postgres://dms_app:${APP_DB_PASSWORD:-dms_app_local}@postgres:5432/greendms
+      APP_DATABASE_URL: postgres://dms_app:${APP_DB_PASSWORD:-dms_app_local}@postgres:5432/${POSTGRES_DB:-greendms}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # Apply migrations on boot so a fresh stack is not missing tables
       # (e.g. relation "auth_otp" does not exist). Set false and run
-      # `npm run db:migrate` as a deploy step for controlled rollouts.
+      # `docker compose exec api node scripts/migrate.mjs up` as a deploy step
+      # for controlled rollouts.
       AUTO_MIGRATE: "true"
       JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION}
       JWT_ACCESS_TTL: 900
@@ -83,11 +93,29 @@ services:
       PSP_ENDPOINT: ${PSP_ENDPOINT:-}
       PSP_API_KEY: ${PSP_API_KEY:-}
       PSP_WEBHOOK_SECRET: ${PSP_WEBHOOK_SECRET:-}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      # TASK-19 — این پشته «throwaway محلی» است و با NODE_ENV=production بالا می‌آید؛
+      # اعتبارسنجیِ امنیتیِ production فقط با این اذعانِ صریح رد می‌شود (هشدارِ بلند
+      # در لاگِ api). docker-compose.prod.yml آن را false می‌کند؛ در استقرارِ واقعی
+      # هرگز true نگذارید — API بدونِ رمزهای واقعی fail-closed بالا نمی‌آید.
+      DMS_ACCEPT_INSECURE_LOCAL_SETUP: ${DMS_ACCEPT_INSECURE_LOCAL_SETUP:-true}
+      SMS_ALLOW_LOG_PROVIDER: ${SMS_ALLOW_LOG_PROVIDER:-true}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # TASK-19 — readiness واقعی: /api/v1/health/ready فقط وقتی 200 می‌دهد که
+    # پایگاه‌داده در دسترسِ سرویس‌دهی باشد (liveness در /api/v1/health/live).
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/v1/health/ready >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   web:
     build:
@@ -102,7 +130,7 @@ services:
         # bundle at BUILD time; set it only to call an API on a separate origin.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       NODE_ENV: production
       WEB_PORT: 3000
@@ -110,7 +138,8 @@ services:
       # Server-side proxy target for same-origin /api/* requests (next.config rewrites).
       API_PROXY_TARGET: ${API_PROXY_TARGET:-http://api:4000}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pg_data:
