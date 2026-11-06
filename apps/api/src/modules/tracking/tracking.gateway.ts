@@ -10,6 +10,7 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { verify } from 'jsonwebtoken';
+import { DEV_DEFAULT_ORIGINS, parseOriginList } from '../../common/origin-policy';
 import { getAuthConfig } from '../identity-rbac/auth.config';
 
 interface WsAuth {
@@ -28,11 +29,13 @@ interface AccessPayload {
 /**
  * مسیرهای مجاز برای اتصال وب‌سوکت — از env خوانده می‌شود (پیش‌فرض توسعه
  * لوکال). پیکربندی در زمان راه‌اندازی خوانده می‌شود نه در لحظهٔ اتصال.
+ * TASK-19: تجزیه با همان قواعدِ origin-policy مشترک است و handleConnection هم
+ * خاستگاهِ مرورگر را دوباره (لایهٔ دوم) چک می‌کند، چون مقدارِ این فهرست در زمانِ
+ * import ماژول (پیش از dotenv) محاسبه می‌شود.
  */
-const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000,http://localhost:3001')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+const parsedOrigins = parseOriginList(process.env.ALLOWED_ORIGINS ?? '');
+const allowedOrigins: string[] =
+  parsedOrigins.origins.length > 0 ? parsedOrigins.origins : [...DEV_DEFAULT_ORIGINS];
 
 /**
  * گیت‌وی رهگیری زنده — فاز B: احراز هویت واقعی + جدایی اتاق‌ها.
@@ -60,6 +63,18 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
       auth?: { token?: unknown };
       headers?: Record<string, string | string[] | undefined>;
     };
+
+    // TASK-19 — لایهٔ دومِ سیاستِ origin: مرورگرها Origin می‌فرستند؛ اگر خاستگاه در
+    // فهرستِ مجاز نباشد (یا فهرستِ پیکربندی در production نامعتبر باشد) اتصال بسته
+    // می‌شود. کلاینت‌هایِ غیرِمرورگری (بدونِ Origin) تابعِ احراز هویت می‌شوند.
+    const rawOrigin = handshake.headers?.origin;
+    const origin = typeof rawOrigin === 'string' ? rawOrigin : undefined;
+    if (origin && !allowedOrigins.includes(origin)) {
+      this.logger.warn(`[tracking] اتصال از خاستگاهِ غیرمجاز رد شد: ${origin}`);
+      client.disconnect(true);
+      return;
+    }
+
     const raw = handshake.auth?.token ?? handshake.headers?.authorization;
     const token =
       typeof raw === 'string' ? (raw.startsWith('Bearer ') ? raw.slice(7).trim() : raw) : null;
