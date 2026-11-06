@@ -355,15 +355,31 @@ jobs:
           docker rm -f relimg-s3probe >/dev/null 2>&1
           docker run -d --name relimg-s3probe -p 127.0.0.1:8090:8090 "$CAND" >/dev/null 2>&1; RUN_RC=$?
           echo "run_rc=${RUN_RC} digest=${DIGEST:-unresolved}"
-          OK=0
-          for attempt in $(seq 1 12); do
-            node /tmp/relimg-s3-roundtrip.mjs 127.0.0.1 8090 minio minio123 greendms >>/tmp/relimg-s3.log 2>&1 && { OK=1; echo "round-trip PASSED on attempt ${attempt}"; break; }
-            sleep 5
+          # اول باز شدنِ پورت (s3mock با Spring Boot کند بالا می‌آید — همان رقابتِ
+          # مستندشده در jobِ Integration (MinIO))، بعد round-trip با تلاشِ مجدد.
+          PORTUP=0
+          for i in $(seq 1 60); do
+            (exec 3<>"/dev/tcp/127.0.0.1/8090") 2>/dev/null && { PORTUP=1; echo "s3 port answered after ${i} probe(s)"; break; }
+            sleep 2
           done
+          OK=0
+          LASTERR=""
+          if [ "$PORTUP" = 1 ]; then
+            for attempt in $(seq 1 20); do
+              OUT=$(node /tmp/relimg-s3-roundtrip.mjs 127.0.0.1 8090 minio minio123 greendms 2>&1)
+              RC=$?
+              echo "round-trip attempt ${attempt}: rc=${RC} ${OUT}" >>/tmp/relimg-s3.log
+              if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '"ok":true'; then OK=1; echo "round-trip PASSED on attempt ${attempt}"; break; fi
+              LASTERR="${OUT}"
+              sleep 5
+            done
+          else
+            LASTERR="tcp port 8090 never answered"
+          fi
           docker logs relimg-s3probe >>/tmp/relimg-s3.log 2>&1
           docker rm -f relimg-s3probe >/dev/null 2>&1
           if [ "$OK" -ne 1 ]; then
-            echo "::error title=BLOCKED-release-image-storage::${CAND} pulled (digest=${DIGEST:-unresolved}) but the real S3 round-trip with the app's minio client FAILED — see log tail (NOT claiming S3 compatibility from pull alone)"
+            echo "::error title=BLOCKED-release-image-storage::${CAND} pulled (digest=${DIGEST:-unresolved}) but the real S3 round-trip with the app's minio client FAILED — last error: $(echo "$LASTERR" | head -c 400) (NOT claiming S3 compatibility from pull alone)"
             echo "::error title=release-image-s3-log::$(tail -n 40 /tmp/relimg-s3.log | enc)"
             exit 1
           fi
