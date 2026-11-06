@@ -9,6 +9,10 @@ GPS tracking, Moadian e-invoicing, and Persian (RTL, Jalali calendar) UIs.
 > surfaces. The three Android apps (`android/apps/*`) are present but **do not
 > yet build** — see `ANDROID_STEPS_PRIORITY.md`.
 
+> **Product direction:** the canonical, evidence-driven module roadmap and
+> completion policy are maintained in [`PRODUCT_ROADMAP.md`](./PRODUCT_ROADMAP.md).
+> Read it before planning or starting new product-module work.
+
 ---
 
 ## Monorepo layout
@@ -123,5 +127,5 @@ the OpenAPI document (`--allow-drift` to report without failing).
 - Dates are stored Gregorian and displayed in the **Jalali** calendar.
 - Multi-tenancy is enforced per-request via a tenant-aware connection pool and
   Postgres GUCs (`apps/api/src/database/`).
-- Access control is RBAC: permissions are seeded in migration `0022` and checked
-  by API guards and the web `RoleGuard` / nav filtering.
+- Access control is RBAC: permissions are seeded in migration `0022` and
+  checked by API guards and the web `RoleGuard` / nav filtering.
