@@ -355,6 +355,8 @@ describe('OD — /orders', () => {
       .send({
         customer_id: customerId,
         order_date: '2024-05-02',
+        // TASK-24F: تاریخِ گذشته بدونِ دلیل و مجوز پذیرفته نمی‌شود
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
         lines: [{ product_id: productId, qty: 2 }],
       })
       .expect(201);
@@ -385,6 +387,7 @@ describe('OD — /orders', () => {
       .send({
         customer_id: customerId,
         order_date: '2024-05-01',
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
         lines: [{ product_id: MISSING, qty: 1, unit_price: '100' }],
       })
       .expect(400);
