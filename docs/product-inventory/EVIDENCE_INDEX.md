@@ -121,6 +121,7 @@
 | شاهد | مقدار |
 |---|---|
 | HEAD مبنا | `d12dc2e04a128775481e9e42c3b48fb339ca4432` (شاخهٔ `arena/1246108f-green-dms`) |
+| commit تحویلِ TASK-24 | `1a65d3c78740f357a996ac8fbe3facc165d8f171` (push‌شده به `arena/1246108f-green-dms`؛ بدون merge/deploy) |
 | مهاجرت | `migrations/0049_pricing_promotion_engine.{up,down}.sql` — چرخهٔ up→down→up در DB ایزوله: `tables 7→0→7`، `pricing_perms 7→0→7`، `price_list_cols 3→0→3`، `triggers 4→0→4`، `forced_rls_tables 8→0→8` |
 | قرارداد | `packages/contracts/openapi.yaml`: مسیرها ۱۷۲ · عملیات ۲۴۹ · schema ۱۲۴ (**drift = ۰**)؛ `npm run openapi:check` سبز؛ `packages/api-client/src/schema.ts` بازتولید شد (کلاینتِ Kotlin در این محیط تولید نشد — نیازِ شبکهٔ Maven) |
 | تست‌های تازه (۱۱۲) | `pricing-engine.unit.test.ts` **۴۲ PASS** · `financial-rounding.test.ts` **۱۱ PASS** · `pricing-engine.api.test.ts` **۳۵ PASS** · `rules-engine-behavior.test.ts` **۲۴ PASS** |
