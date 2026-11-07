@@ -140,7 +140,8 @@
 | شاهد | مقدار |
 |---|---|
 | مبنای حسابرسی‌شده | `5203d3fb8d7957e7ec7095f24f0c83b301eec8e1` (tree `05075982318ab6387bf4e99c79522f0feb7c5ff2`) روی شاخهٔ `arena/1246108f-green-dms` |
-| شاخهٔ اصلاح | `arena/1246108f-green-dms` (بدونِ merge/deploy؛ هیچ push به شاخهٔ دیگر) |
+| commit اصلاح (نتیجه) | `1e36108` — روی همان شاخهٔ `arena/1246108f-green-dms` (بدونِ merge/deploy؛ هیچ push به شاخهٔ دیگر) |
+| حفظِ کارِ پیشین | پیش از هر تغییری وضعیتِ بازیابی‌پذیر ساخته شد: `/home/user/task24f-backup/tracked-changes.patch` (sha256 `afa65edd…`) + `untracked-files.tgz` (sha256 `b57af493…`)؛ هویتِ تحویلِ حسابرسی‌شده با مقایسهٔ ۲۶۱۳ blob تأیید شد (۲۶۱۳/۲۶۱۳ یکسان، ۰ تفاوت) و بازیابی با `git reset --mixed 5203d3f` (فقط index) انجام شد — بدونِ `checkout -f`/`clean`/`force-push` |
 | مهاجرت‌ها | `0050_pricing_remediation.{up,down}.sql` (append-only ledger + `pricing_settings` + ۵ مجوز) · `0051_g03_approval_hardening.{up,down}.sql` (G-03، مستقل) — **چرخهٔ up→down→up در این محیط اجرا نشد: `UNVERIFIED`** |
 | قرارداد | ۱۷۳ مسیر · ۲۵۱ عملیات · ۱۲۶ schema · ۳ webhook · `openapi:check` سبز · `contract-drift` = ۰ (شاملِ ۴ enum و فیلدهای الزامیِ DTO، با کنترلِ منفیِ اثبات‌شده) |
 | کلاینتِ TS | `packages/api-client/src/schema.ts` بازتولید شد · **Kotlin: `UNVERIFIED`** (نیازِ شبکهٔ Maven) |
