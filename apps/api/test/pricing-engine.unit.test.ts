@@ -708,6 +708,7 @@ describe('U6 — کفِ سود', () => {
             id: 'ex-1',
             product_id: PRODUCT,
             customer_id: CUSTOMER,
+            policy_id: policy.id,
             entity_type: 'price_list_item',
             entity_id: null,
             granted_margin_pct: '20',

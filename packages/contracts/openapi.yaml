@@ -1524,6 +1524,39 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /pricing/settings:
+    get:
+      tags: [pricing]
+      summary: سیاست پایدار قیمت‌گذاری شرکت
+      description: |
+        سقف کل تخفیف، سقف پیش‌فرض تخفیف قلم، اعمال خودکار تشویق روی سفارش، اجازه فروش
+        زیر بهای تمام‌شده و حداکثر عقب‌گرد تاریخ سفارش. مقدار مؤثر سفارش و شبیه‌سازی
+        از همین سیاست می‌آید (TASK-24F · HIGH-2).
+      responses:
+        '200':
+          description: سیاست مؤثر (در نبود ردیف، پیش‌فرض‌های fail-closed)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingSettings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [pricing]
+      summary: به‌روزرسانی سیاست قیمت‌گذاری (نیازمند pricing.settings.update)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PricingSettingsUpdate' }
+      responses:
+        '200':
+          description: سیاست مؤثر پس از به‌روزرسانی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingSettings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /pricing/simulate:
     post:
       tags: [pricing]
@@ -5663,10 +5696,35 @@ components:
         actor_user_id: { type: [string, 'null'], format: uuid }
         at: { type: string, format: date-time }
 
+    PricingSettings:
+      type: object
+      description: سیاست پایدار قیمت‌گذاری شرکت (TASK-24F)
+      properties:
+        apply_promotions_on_orders: { type: boolean, description: اعمال خودکار تشویق‌ها روی سفارش (پیش‌فرض false) }
+        max_total_discount_pct: { type: [number, 'null'], minimum: 0, maximum: 100, description: سقف کل تخفیف سند؛ null = بدون سقف }
+        max_line_discount_pct: { type: [number, 'null'], minimum: 0, maximum: 100, description: سقف پیش‌فرض تخفیف هر قلم وقتی منبع قیمت سقف ندارد }
+        allow_loss_making_sales: { type: boolean, description: اجازه فروش زیر بهای تمام‌شده (پیش‌فرض false) }
+        min_order_date_lookback_days: { type: [integer, 'null'], minimum: 0, maximum: 3650, description: حداکثر عقب‌گرد مجاز تاریخ سفارش؛ null = فقط با مجوز pricing.backdate.apply }
+        require_override_reason: { type: boolean, description: الزام دلیل برای قیمت دستی/عبور از سقف/تاریخ گذشته }
+    PricingSettingsUpdate:
+      type: object
+      description: همه فیلدها اختیاری‌اند؛ فقط موارد ارسالی تغییر می‌کند.
+      properties:
+        apply_promotions_on_orders: { type: boolean }
+        max_total_discount_pct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        max_line_discount_pct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        allow_loss_making_sales: { type: boolean }
+        min_order_date_lookback_days: { type: [integer, 'null'], minimum: 0, maximum: 3650 }
+        require_override_reason: { type: boolean }
+
     PriceQuoteRequest:
       type: object
       required: [lines]
-      description: درخواست استعلام/شبیه‌سازی قیمت. پرچم‌های allow_manual_price و allow_discount_override در بدنه نادیده گرفته می‌شوند و فقط از مجوزهای نشست تعیین می‌شوند.
+      description: |
+        درخواست استعلام/شبیه‌سازی قیمت. سقف کل تخفیف دیگر پارامتر درخواست نیست و از
+        سیاست پایدار شرکت (`GET/PATCH /pricing/settings`) خوانده می‌شود (TASK-24F · HIGH-2).
+        پرچم‌های allow_manual_price / allow_discount_override در قرارداد وجود ندارند و
+        فقط از مجوزهای نشست تعیین می‌شوند (TASK-24F · HIGH-3).
       properties:
         customer_id: { type: [string, 'null'], format: uuid }
         pricing_date: { type: [string, 'null'], format: date, description: 'پیش‌فرض: تاریخ امروز' }
@@ -5675,8 +5733,8 @@ components:
           type: array
           maxItems: 10
           items: { type: string, maxLength: 64 }
-        max_total_discount_pct: { type: [number, 'null'], minimum: 0, maximum: 100 }
         apply_promotions: { type: boolean, default: true }
+        cross_domain_reason: { type: [string, 'null'], maxLength: 500, description: 'دلیل استفاده از لیست قیمت قلمروی دیگر؛ فقط همراه مجوز pricing.price_list.cross_domain اثر دارد و ممیزی می‌شود' }
         idempotency_key: { type: [string, 'null'], maxLength: 128, description: 'کلید تکرارناپذیری؛ تکرار با همان بدنه نتیجه ذخیره‌شده را بازمی‌گرداند' }
         persist_audit: { type: boolean, description: فقط در simulate — پیش‌فرض true }
         lines:
@@ -5722,7 +5780,10 @@ components:
             properties:
               promotion_id: { type: string, format: uuid }
               code: { type: string }
-              reason: { type: string, description: 'مثل coupon_required، blocked_by_non_stackable، exclusive_group_conflict، zero_benefit' }
+              reason:
+                type: string
+                enum: [not_applicable, condition_unmatched, unsupported_condition, unsupported_benefit, not_stackable, exclusive_group_conflict, blocked_by_non_stackable, daily_cap_exceeded, total_cap_exceeded, customer_cap_exceeded, coupon_required, coupon_invalid, zero_benefit]
+                description: 'منبعِ حقیقت: SKIP_REASONS در pricing-engine.ts'
               message_fa: { type: string }
         gift_lines:
           type: array
@@ -5736,6 +5797,11 @@ components:
               unit_price: { type: string }
               value: { type: string }
               valuation_source: { type: string, enum: [basket, reference_price, unknown] }
+              line_nos:
+                type: array
+                items: { type: integer }
+                description: خطوط سبدی که هدیه به آن‌ها تخصیص یافته است
+              requested_value: { type: [string, 'null'], description: ارزش نظری پیش از محدودشدن به مانده سبد }
         margin_violations:
           type: array
           items:
@@ -5745,7 +5811,10 @@ components:
               margin_pct: { type: [number, 'null'] }
               required_margin_pct: { type: [number, 'null'] }
               policy_id: { type: [string, 'null'], format: uuid }
-              code: { type: string, enum: [margin_floor_violation, margin_cost_unknown] }
+              code:
+                type: string
+                enum: [margin_floor_violation, margin_cost_unknown, margin_loss_making]
+                description: 'منبعِ حقیقت: MARGIN_VIOLATION_CODES در pricing-engine.ts'
               message_fa: { type: string }
         warnings:
           type: array
@@ -5785,7 +5854,10 @@ components:
             unit_price: { type: string }
             unit_price_base: { type: string }
             source: { type: string, enum: [customer, price_list, manual] }
-            scope: { type: string, enum: [customer, requested_list, domain, company, manual] }
+            scope:
+              type: string
+              enum: [customer, explicit_list, domain, company, manual]
+              description: 'منبع قیمت حل‌شده (TASK-24F: explicit_list جای requested_list)؛ منبعِ حقیقت: PRICE_SCOPES در pricing-engine.ts'
             price_list_id: { type: [string, 'null'], format: uuid }
             price_list_code: { type: [string, 'null'] }
             price_item_id: { type: [string, 'null'], format: uuid }
@@ -5811,8 +5883,12 @@ components:
             margin_pct: { type: [number, 'null'] }
             policy_id: { type: [string, 'null'], format: uuid }
             required_margin_pct: { type: [number, 'null'] }
-            status: { type: string, enum: [ok, below_floor, cost_unknown, no_policy, exception] }
+            status:
+              type: string
+              enum: [ok, violation, cost_unknown, exception_applied, no_policy]
+              description: 'منبعِ حقیقت: MARGIN_STATUSES در pricing-engine.ts (TASK-24F · MEDIUM-3)'
             exception_id: { type: [string, 'null'], format: uuid }
+            exception_granted_margin_pct: { type: [number, 'null'], description: 'سقفِ واقعیِ تخفیفِ اعطاشده در استثنای اعمال‌شده (TASK-24F · MEDIUM-1)' }
             message_fa: { type: [string, 'null'] }
         gift_lines:
           type: array
@@ -6017,7 +6093,10 @@ components:
     SalesOrder:
       type: object
       required: [customer_id, order_date]
-      description: سفارش فروش — قیمت‌گذاری لحظه‌ای، اعتبارسنجی اعتبار و قوانین
+      description: |
+        سفارش فروش — قیمت‌گذاری همیشه از موتور قیمت و با کنترل‌های سرور-محور انجام می‌شود
+        (TASK-24F): کف سود، سقف تخفیف، مجوز قیمت دستی و تاریخ گذشته قابل خاموش‌شدن با
+        بدنه درخواست نیستند.
       properties:
         id: { type: string, format: uuid, readOnly: true }
         branch_id: { type: string, format: uuid, readOnly: true }
@@ -6041,6 +6120,7 @@ components:
           enum: [draft, pending_approval, approved, partially_delivered, delivered, invoiced, cancelled, rejected]
         approval_request_id: { type: [string, 'null'], format: uuid, readOnly: true }
         note: { type: [string, 'null'] }
+        price_override_reason: { type: [string, 'null'], maxLength: 500, description: 'دلیل قیمت دستی/عبور از سقف/تاریخ گذشته؛ در دفتر تغییر قیمت با actor و قیمت سیستمی ثبت می‌شود' }
         client_uuid: { type: [string, 'null'], format: uuid }
         row_version: { type: integer, minimum: 0, description: نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict }
         lines:

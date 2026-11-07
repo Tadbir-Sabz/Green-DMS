@@ -139,6 +139,132 @@ const { ops: code, details } = codeOperations();
 const codeOnly = [...code.keys()].filter((k) => !spec.has(k)).sort();
 const specOnly = [...spec.keys()].filter((k) => !code.has(k)).sort();
 
+// =====================================================================
+// TASK-24F · MEDIUM-3 — تطبیقِ «شکل» نه فقط «مسیر»:
+//   ۱) enumهای حیاتی باید با آرایه‌های منبعِ حقیقت در کد یکی باشند
+//   ۲) فیلدهای requiredِ قرارداد باید با DTOهای واقعی (@IsDefined) یکی باشند
+// بدونِ این بخش، drift=0 فقط می‌گفت مسیرها هم‌خوان‌اند (مثلِ requested_list/explicit_list
+// که مدت‌ها بی‌صدا مانده بود).
+// =====================================================================
+const SPEC_OBJ = YAML.parse(readFileSync(SPEC_FILE, 'utf8'));
+const ENGINE_FILE = path.join(SRC_DIR, 'modules', 'pricing', 'pricing-engine.ts');
+
+const getAt = (obj, pathArr) => pathArr.reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
+
+/** آرایهٔ رشته‌ایِ `export const NAME = ['a', 'b'] as const;` از سورس تایپ‌اسکریپت */
+function tsArrayConst(file, name) {
+  const src = readFileSync(file, 'utf8');
+  const rx = new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\] as const;`, 'm');
+  const m = src.match(rx);
+  if (!m) return null;
+  return [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]);
+}
+
+const ENUM_CONTRACTS = [
+  {
+    label: 'QuoteLineResult.pricing.scope',
+    tsConst: 'PRICE_SCOPES',
+    schemaPath: ['components', 'schemas', 'QuoteLineResult', 'properties', 'pricing', 'properties', 'scope', 'enum'],
+  },
+  {
+    label: 'QuoteLineResult.margin.status',
+    tsConst: 'MARGIN_STATUSES',
+    schemaPath: ['components', 'schemas', 'QuoteLineResult', 'properties', 'margin', 'properties', 'status', 'enum'],
+  },
+  {
+    label: 'QuoteResult.skipped_promotions[].reason',
+    tsConst: 'SKIP_REASONS',
+    schemaPath: [
+      'components', 'schemas', 'QuoteResult', 'properties', 'skipped_promotions',
+      'items', 'properties', 'reason', 'enum',
+    ],
+  },
+  {
+    label: 'QuoteResult.margin_violations[].code',
+    tsConst: 'MARGIN_VIOLATION_CODES',
+    schemaPath: [
+      'components', 'schemas', 'QuoteResult', 'properties', 'margin_violations',
+      'items', 'properties', 'code', 'enum',
+    ],
+  },
+];
+
+const enumDrift = [];
+for (const c of ENUM_CONTRACTS) {
+  const specEnum = getAt(SPEC_OBJ, c.schemaPath);
+  const codeEnum = tsArrayConst(ENGINE_FILE, c.tsConst);
+  if (!Array.isArray(specEnum) || !Array.isArray(codeEnum)) {
+    enumDrift.push({
+      label: c.label,
+      problem: 'enum یا آرایهٔ منبع در کد یافت نشد',
+      spec: specEnum ?? null,
+      code: codeEnum ?? null,
+    });
+    continue;
+  }
+  const a = [...specEnum].sort();
+  const b = [...codeEnum].sort();
+  if (a.join('|') !== b.join('|')) {
+    enumDrift.push({ label: c.label, problem: 'مقادیر هم‌خوان نیستند', spec: a, code: b });
+  }
+}
+
+/** فیلدهای requiredِ یک DTO از روی @IsDefined() */
+function dtoRequiredFields(file, className) {
+  const src = readFileSync(file, 'utf8');
+  const start = src.indexOf(`export class ${className} `);
+  if (start < 0) return null;
+  const rest = src.slice(start + 1);
+  const nextClass = rest.search(/export class /);
+  const body = nextClass < 0 ? rest : rest.slice(0, nextClass);
+  const lines = body.split('\n');
+  const required = [];
+  let pending = false;
+  for (const line of lines) {
+    if (line.includes('@IsDefined()')) pending = true;
+    const field = line.match(/^\s{2}([A-Za-z0-9_]+)\??\s*:/);
+    if (field) {
+      if (pending) required.push(field[1]);
+      pending = false;
+    }
+  }
+  return required.sort();
+}
+
+const REQUIRED_CONTRACTS = [
+  {
+    label: 'POST /pricing/quote (PriceQuoteRequest ↔ QuoteRequestDto)',
+    dtoFile: path.join(SRC_DIR, 'modules', 'pricing', 'pricing.dto.ts'),
+    className: 'QuoteRequestDto',
+    schema: 'PriceQuoteRequest',
+  },
+  {
+    label: 'POST /orders (SalesOrder ↔ CreateOrderDto)',
+    dtoFile: path.join(SRC_DIR, 'modules', 'sales', 'order.dto.ts'),
+    className: 'CreateOrderDto',
+    schema: 'SalesOrder',
+  },
+];
+
+const requiredDrift = [];
+for (const c of REQUIRED_CONTRACTS) {
+  const specRequired = (getAt(SPEC_OBJ, ['components', 'schemas', c.schema, 'required']) ?? []).slice().sort();
+  const dtoRequired = dtoRequiredFields(c.dtoFile, c.className);
+  if (!dtoRequired) {
+    requiredDrift.push({ label: c.label, problem: 'DTO یافت نشد', spec: specRequired, dto: null });
+    continue;
+  }
+  if (specRequired.join('|') !== dtoRequired.join('|')) {
+    requiredDrift.push({
+      label: c.label,
+      problem: 'فیلدهای required هم‌خوان نیستند',
+      spec: specRequired,
+      dto: dtoRequired,
+    });
+  }
+}
+
+
 if (asJson) {
   console.log(
     JSON.stringify(
@@ -147,6 +273,8 @@ if (asJson) {
         code_operations: code.size,
         code_without_spec: codeOnly.map((k) => code.get(k)),
         spec_without_code: specOnly.map((k) => spec.get(k)),
+        enum_drift: enumDrift,
+        required_drift: requiredDrift,
       },
       null,
       2,
@@ -164,9 +292,21 @@ if (asJson) {
   }
   console.log(`\n▸ سند بدون کد (${specOnly.length}) — باید پیاده‌سازی یا از سند حذف شود:`);
   for (const k of specOnly) console.log(`   ${spec.get(k)}`);
+  console.log(`\n▸ واگراییِ enum (${enumDrift.length}) — enum قرارداد باید با آرایهٔ منبعِ کد یکی باشد:`);
+  for (const d of enumDrift) {
+    console.log(`   ${d.label}: ${d.problem}`);
+    if (d.spec) console.log(`      قرارداد: ${JSON.stringify(d.spec)}`);
+    if (d.code) console.log(`      کد      : ${JSON.stringify(d.code)}`);
+  }
+  console.log(`\n▸ واگراییِ required (${requiredDrift.length}) — @IsDefined در DTO باید با requiredِ سند یکی باشد:`);
+  for (const d of requiredDrift) {
+    console.log(`   ${d.label}: ${d.problem}`);
+    if (d.spec) console.log(`      قرارداد: ${JSON.stringify(d.spec)}`);
+    if (d.dto) console.log(`      DTO     : ${JSON.stringify(d.dto)}`);
+  }
 }
 
-const drift = codeOnly.length + specOnly.length;
+const drift = codeOnly.length + specOnly.length + enumDrift.length + requiredDrift.length;
 if (drift > 0 && !allowDrift) {
   console.error(`\n✗ ${drift} اختلاف قرارداد/کد — CI باید شکست بخورد.`);
   process.exit(1);

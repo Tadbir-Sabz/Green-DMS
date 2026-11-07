@@ -15,6 +15,7 @@ import {
   UpdateMarginPolicyDto,
   UpdatePricingDomainDto,
   CreateCustomerPriceDto,
+  UpdatePricingSettingsDto,
 } from './pricing.dto';
 import type { PricingEngineService } from './pricing-engine.service';
 import { PRICING_ENGINE_SERVICE } from './pricing.tokens';
@@ -31,6 +32,25 @@ import { PRICING_ENGINE_SERVICE } from './pricing.tokens';
 @Controller()
 export class PricingAdminController {
   constructor(@Inject(PRICING_ENGINE_SERVICE) private readonly service: PricingEngineService) {}
+
+  // ---------------- سیاستِ پایدارِ قیمت‌گذاری (TASK-24F) ----------------
+
+  /** سیاستِ مؤثرِ شرکت (سقفِ تخفیف، اعمالِ تشویق، فروشِ زیرِ بهای تمام‌شده) */
+  @Get('pricing/settings')
+  @RequirePermissions('pricing.settings.view')
+  getSettings(@CurrentUser('companyId') companyId: string) {
+    return this.service.getSettings(companyId);
+  }
+
+  @Patch('pricing/settings')
+  @RequirePermissions('pricing.settings.update')
+  updateSettings(
+    @Body() dto: UpdatePricingSettingsDto,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.updateSettings(companyId, userId, dto);
+  }
 
   // ---------------- قلمرو ----------------
 

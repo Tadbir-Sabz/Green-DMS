@@ -24,6 +24,19 @@ import type {
  * بین‌اجاره‌ای منجر نمی‌شود (fail-closed). ردیف‌های فرزند از طریقِ والدِ دیده‌شده
  * خوانده می‌شوند (promotion_coupon/promotion_redemption).
  */
+export interface PricingSettingsRow {
+  company_id: string;
+  apply_promotions_on_orders: boolean;
+  max_total_discount_pct: string | null;
+  max_line_discount_pct: string | null;
+  allow_loss_making_sales: boolean;
+  min_order_date_lookback_days: number | null;
+  require_override_reason: boolean;
+  updated_by: string | null;
+  updated_at: string;
+  row_version: number;
+}
+
 @Injectable()
 export class PricingEngineRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -333,7 +346,7 @@ export class PricingEngineRepository {
     productIds: string[],
   ): Promise<MarginExceptionRow[]> {
     const { rows } = await this.pool.query<MarginExceptionRow>(
-      `select id, product_id, customer_id, entity_type, entity_id,
+      `select id, product_id, customer_id, entity_type, entity_id, policy_id,
               granted_margin_pct::text as granted_margin_pct, status, valid_until::text as valid_until
          from margin_exception
         where company_id = $1 and status = 'approved'
@@ -348,9 +361,23 @@ export class PricingEngineRepository {
   // idempotency: کشِ ارزیابی + دفترِ مصرف
   // ---------------------------------------------------------------
 
-  async findEvaluation(companyId: string, idempotencyKey: string): Promise<{ request_hash: string; result: unknown } | null> {
-    const { rows } = await this.pool.query<{ request_hash: string; result: unknown }>(
-      'select request_hash, result from promotion_evaluation where company_id = $1 and idempotency_key = $2',
+  /**
+   * TASK-24F · MEDIUM-5: عمرِ کشِ ارزیابی هم برگردانده می‌شود تا بازپخشِ قدیمی
+   * (قیمتِ کهنه) به سفارشِ جدید تزریق نشود.
+   */
+  async findEvaluation(
+    companyId: string,
+    idempotencyKey: string,
+  ): Promise<{ request_hash: string; result: unknown; age_seconds: number } | null> {
+    const { rows } = await this.pool.query<{
+      request_hash: string;
+      result: unknown;
+      age_seconds: number;
+    }>(
+      `select request_hash, result,
+              greatest(0, extract(epoch from (now() - created_at)))::int as age_seconds
+         from promotion_evaluation
+        where company_id = $1 and idempotency_key = $2`,
       [companyId, idempotencyKey],
     );
     return rows[0] ?? null;
@@ -365,7 +392,10 @@ export class PricingEngineRepository {
     await this.pool.query(
       `insert into promotion_evaluation (company_id, idempotency_key, request_hash, result)
        values ($1, $2, $3, $4::jsonb)
-       on conflict (company_id, idempotency_key) do nothing`,
+       on conflict (company_id, idempotency_key)
+       do update set request_hash = excluded.request_hash,
+                     result = excluded.result,
+                     created_at = now()`,
       [companyId, idempotencyKey, requestHash, JSON.stringify(result)],
     );
   }
@@ -894,6 +924,67 @@ export class PricingEngineRepository {
   }
 
   /** بررسیِ اتمیکِ هم‌زمانی: نسخهٔ ردیفِ قیمت برای تغییرِ هم‌زمان */
+  // ---------------------------------------------------------------
+  // سیاستِ پایدارِ قیمت‌گذاری (TASK-24F · HIGH-2)
+  // ---------------------------------------------------------------
+
+  async getPricingSettings(companyId: string): Promise<PricingSettingsRow | null> {
+    const { rows } = await this.pool.query<PricingSettingsRow>(
+      `select company_id, apply_promotions_on_orders, max_total_discount_pct,
+              max_line_discount_pct, allow_loss_making_sales, min_order_date_lookback_days,
+              require_override_reason, updated_by, updated_at, row_version
+         from pricing_settings
+        where company_id = $1`,
+      [companyId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** upsertِ کامل (سرویس ابتدا مقدارِ فعلی/پیش‌فرض را merge می‌کند) */
+  async upsertPricingSettings(
+    companyId: string,
+    input: {
+      apply_promotions_on_orders: boolean;
+      max_total_discount_pct: number | null;
+      max_line_discount_pct: number | null;
+      allow_loss_making_sales: boolean;
+      min_order_date_lookback_days: number | null;
+      require_override_reason: boolean;
+      updated_by: string | null;
+    },
+  ): Promise<PricingSettingsRow> {
+    const { rows } = await this.pool.query<PricingSettingsRow>(
+      `insert into pricing_settings
+         (company_id, apply_promotions_on_orders, max_total_discount_pct, max_line_discount_pct,
+          allow_loss_making_sales, min_order_date_lookback_days, require_override_reason, updated_by)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (company_id) do update set
+         apply_promotions_on_orders = excluded.apply_promotions_on_orders,
+         max_total_discount_pct = excluded.max_total_discount_pct,
+         max_line_discount_pct = excluded.max_line_discount_pct,
+         allow_loss_making_sales = excluded.allow_loss_making_sales,
+         min_order_date_lookback_days = excluded.min_order_date_lookback_days,
+         require_override_reason = excluded.require_override_reason,
+         updated_by = excluded.updated_by,
+         updated_at = now(),
+         row_version = pricing_settings.row_version + 1
+       returning company_id, apply_promotions_on_orders, max_total_discount_pct,
+                 max_line_discount_pct, allow_loss_making_sales, min_order_date_lookback_days,
+                 require_override_reason, updated_by, updated_at, row_version`,
+      [
+        companyId,
+        input.apply_promotions_on_orders,
+        input.max_total_discount_pct,
+        input.max_line_discount_pct,
+        input.allow_loss_making_sales,
+        input.min_order_date_lookback_days,
+        input.require_override_reason,
+        input.updated_by,
+      ],
+    );
+    return rows[0];
+  }
+
   async priceItemVersion(companyId: string, itemId: string): Promise<number | null> {
     const { rows } = await this.pool.query<{ row_version: number }>(
       `select i.row_version from price_list_item i

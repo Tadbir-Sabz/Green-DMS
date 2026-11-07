@@ -92,33 +92,37 @@ export class QuoteRequestDto {
   @MaxLength(64, { each: true })
   coupon_codes?: string[];
 
-  @IsOptional()
-  @Transform(toNumber)
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  max_total_discount_pct?: number | null;
+  /**
+   * TASK-24F · HIGH-2: سقفِ کلِ تخفیف دیگر پارامترِ درخواست نیست؛ از سیاستِ پایدارِ
+   * شرکت (`pricing_settings.max_total_discount_pct`) خوانده می‌شود تا شبیه‌سازی و
+   * سفارشِ واقعی همیشه یک سقف داشته باشند.
+   */
 
   @IsOptional()
   @Transform(toBoolean)
   @IsBoolean()
   apply_promotions?: boolean;
 
-  @IsOptional()
-  @Transform(toBoolean)
-  @IsBoolean()
-  allow_manual_price?: boolean;
-
-  @IsOptional()
-  @Transform(toBoolean)
-  @IsBoolean()
-  allow_discount_override?: boolean;
+  /**
+   * TASK-24F · HIGH-3: پرچم‌های «قیمتِ دستی» و «عبور از سقفِ تخفیف» از بدنهٔ درخواست
+   * حذف شدند؛ فقط از مجوزهای نشست در کنترلر ساخته می‌شوند (body هرگز مجوز نیست).
+   */
 
   /** کلیدِ idempotency — ارزیابیِ تکراری همان نتیجه را برمی‌گرداند (بدونِ مصرفِ دوباره) */
   @IsOptional()
   @IsString()
   @MaxLength(128)
   idempotency_key?: string | null;
+
+  /**
+   * دلیلِ درخواستِ صریحِ لیستِ قیمتِ قلمرویِ دیگر (TASK-24F · MEDIUM-2).
+   * این فیلد مجوز نیست؛ فقط همراهِ مجوزِ `pricing.price_list.cross_domain` اثر دارد و
+   * در دفترِ تغییرِ قیمت ثبت می‌شود.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  cross_domain_reason?: string | null;
 
   @IsOptional()
   @Transform(toBoolean)
@@ -559,4 +563,55 @@ export class ListPriceChangesQueryDto {
   @Min(1)
   @Max(500)
   limit?: number;
+}
+
+// ---------------------------------------------------------------
+// سیاستِ پایدارِ قیمت‌گذاریِ شرکت (TASK-24F · HIGH-2 / MEDIUM-1)
+// ---------------------------------------------------------------
+
+/**
+ * `PATCH /pricing/settings` — تنها منبعِ سیاست‌های مؤثر بر محاسبهٔ قیمتِ سفارش:
+ *   • apply_promotions_on_orders   : اعمالِ خودکارِ تشویق‌ها روی سفارش (پیش‌فرض: خاموش)
+ *   • max_total_discount_pct       : سقفِ کلِ تخفیفِ سند (NULL = بدونِ سقف)
+ *   • max_line_discount_pct        : سقفِ پیش‌فرضِ تخفیفِ هر قلم وقتی منبعِ قیمت سقف ندارد
+ *   • allow_loss_making_sales      : اجازهٔ فروش زیرِ بهای تمام‌شده (پیش‌فرض: نه)
+ *   • min_order_date_lookback_days : حداکثر عقب‌گردِ مجازِ تاریخِ سفارش (NULL = فقط با مجوز)
+ *   • require_override_reason      : الزامِ دلیل برای قیمتِ دستی/تخفیفِ فراتر از سقف
+ */
+export class UpdatePricingSettingsDto {
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  apply_promotions_on_orders?: boolean;
+
+  @IsOptional()
+  @Transform(toNumber)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  max_total_discount_pct?: number | null;
+
+  @IsOptional()
+  @Transform(toNumber)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  max_line_discount_pct?: number | null;
+
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  allow_loss_making_sales?: boolean;
+
+  @IsOptional()
+  @Transform(toNumber)
+  @IsInt()
+  @Min(0)
+  @Max(3650)
+  min_order_date_lookback_days?: number | null;
+
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  require_override_reason?: boolean;
 }

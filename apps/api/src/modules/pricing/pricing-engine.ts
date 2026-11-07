@@ -135,6 +135,7 @@ export interface MarginExceptionRow {
   id: string;
   product_id: string | null;
   customer_id: string | null;
+  policy_id: string | null;
   entity_type: string;
   entity_id: string | null;
   granted_margin_pct: string | null;
@@ -242,13 +243,18 @@ export interface QuoteOptions {
   explicit_price_list_id?: string | null;
   coupon_codes?: string[];
   max_total_discount_pct?: number | null;
+  /** سقفِ پیش‌فرضِ تخفیفِ هر قلم وقتی منبعِ قیمت سقفِ خودش را ندارد (سیاستِ شرکت) */
+  max_line_discount_pct?: number | null;
   apply_promotions?: boolean;
   /** اجازهٔ قیمتِ دستی (مجوز در لایهٔ سرویس بررسی می‌شود) */
   allow_manual_price?: boolean;
   /** اجازهٔ تخفیفِ دستیِ فراتر از سقفِ قلم (فقط با مجوز/استثنا) */
   allow_discount_override?: boolean;
-  /** لغوِ اثرِ قلمرو برای شبیه‌سازیِ مقایسه‌ای (اختیاری، صریح) */
-  ignore_domain_prices?: boolean;
+  /**
+   * TASK-24F: اجازهٔ فروشِ زیرِ بهای تمام‌شده. از سیاستِ پایدارِ شرکت
+   * (`pricing_settings.allow_loss_making_sales`) پر می‌شود؛ پیش‌فرض `false` (fail-closed).
+   */
+  allow_loss_making?: boolean;
 }
 
 // =====================================================================
@@ -256,7 +262,47 @@ export interface QuoteOptions {
 // =====================================================================
 
 export type PriceSource = 'customer_price' | 'price_list' | 'manual';
-export type PriceScope = 'customer' | 'explicit_list' | 'domain' | 'company' | 'manual';
+
+/**
+ * منبعِ حقیقتِ مقادیرِ شمارشیِ موتور (TASK-24F · MEDIUM-3).
+ * آرایه‌ها هم نوعِ TS را می‌سازند و هم `scripts/contract-drift.mjs` آن‌ها را با
+ * enumهای `packages/contracts/openapi.yaml` مقایسه می‌کند تا واگراییِ قرارداد
+ * (مثلِ `explicit_list` در برابرِ `requested_list`) دیگر بی‌صدا نماند.
+ */
+export const PRICE_SCOPES = ['customer', 'explicit_list', 'domain', 'company', 'manual'] as const;
+export type PriceScope = (typeof PRICE_SCOPES)[number];
+
+export const MARGIN_STATUSES = [
+  'ok',
+  'violation',
+  'cost_unknown',
+  'exception_applied',
+  'no_policy',
+] as const;
+export type MarginStatus = (typeof MARGIN_STATUSES)[number];
+
+export const SKIP_REASONS = [
+  'not_applicable',
+  'condition_unmatched',
+  'unsupported_condition',
+  'unsupported_benefit',
+  'not_stackable',
+  'exclusive_group_conflict',
+  'blocked_by_non_stackable',
+  'daily_cap_exceeded',
+  'total_cap_exceeded',
+  'customer_cap_exceeded',
+  'coupon_required',
+  'coupon_invalid',
+  'zero_benefit',
+] as const;
+export type SkipReason = (typeof SKIP_REASONS)[number];
+
+export const MARGIN_VIOLATION_CODES = [
+  'margin_floor_violation',
+  'margin_cost_unknown',
+  'margin_loss_making',
+] as const;
 
 export interface PriceResolution {
   unit_price: string; // قیمتِ هر واحدِ خط (بسته یا پایه)
@@ -293,20 +339,7 @@ export interface SkippedPromotion {
   promotion_id: string;
   code: string;
   kind: PromotionKind;
-  reason:
-    | 'not_applicable'
-    | 'condition_unmatched'
-    | 'unsupported_condition'
-    | 'unsupported_benefit'
-    | 'not_stackable'
-    | 'exclusive_group_conflict'
-    | 'blocked_by_non_stackable'
-    | 'daily_cap_exceeded'
-    | 'total_cap_exceeded'
-    | 'customer_cap_exceeded'
-    | 'coupon_required'
-    | 'coupon_invalid'
-    | 'zero_benefit';
+  reason: SkipReason;
   message_fa: string;
 }
 
@@ -319,6 +352,10 @@ export interface GiftLine {
   value: string;
   /** هدیه به‌صورتِ تخفیفِ مالی معادلِ ارزش ثبت می‌شود (D5: بدونِ اثرِ انبار/سند) */
   valuation_source: 'basket' | 'reference_price' | 'unknown';
+  /** خطوطی که این هدیه به آن‌ها تخصیص یافته (TASK-24F: انتسابِ صریح به‌جای حدسِ کدِ تشویق) */
+  line_nos?: number[];
+  /** اگر ارزشِ هدیه به ماندهٔ سبد محدود شد، مقدارِ نظریِ اولیه */
+  requested_value?: string;
 }
 
 export interface LineMarginResult {
@@ -329,7 +366,9 @@ export interface LineMarginResult {
   margin_pct: number | null;
   policy_id: string | null;
   required_margin_pct: number | null;
-  status: 'ok' | 'violation' | 'cost_unknown' | 'exception_applied' | 'no_policy';
+  status: MarginStatus;
+  /** سقفِ تخفیفِ مؤثرِ منبعِ قیمت (برای کنترلِ تخفیف در لایهٔ سفارش) */
+  exception_granted_margin_pct?: number | null;
   exception_id: string | null;
   message_fa: string | null;
 }
@@ -380,7 +419,7 @@ export interface QuoteResult {
     margin_pct: number | null;
     required_margin_pct: number | null;
     policy_id: string | null;
-    code: 'margin_floor_violation' | 'margin_cost_unknown';
+    code: (typeof MARGIN_VIOLATION_CODES)[number];
     message_fa: string;
   }[];
   warnings: string[];
@@ -559,7 +598,7 @@ export function resolveLinePrice(
     if (explicit) {
       if (list.id !== explicit) continue;
       scope = 'explicit_list';
-    } else if (list.domain_id && !ctx.options?.ignore_domain_prices) {
+    } else if (list.domain_id) {
       if (!ctx.domain_ids.includes(list.domain_id)) continue;
       scope = 'domain';
     } else if (list.domain_id == null) {
@@ -733,6 +772,10 @@ interface PromotionEvalState {
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** مجموعِ ماندهٔ خطوطِ سبد (بعد از تخفیفِ دستی و تشویق‌های قبلی) */
+const remainingOf = (state: PromotionEvalState): number =>
+  roundMoney2(state.lines.reduce((s, l) => s + l.remaining, 0));
 const asArrayOfStrings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 
@@ -893,13 +936,19 @@ export function evaluatePromotions(
     }
 
     // ---- تخصیص به خطوط ----
+    // TASK-24F · HIGH-4: مبلغی که در سند/دفترِ مصرف ثبت می‌شود باید «مبلغِ واقعاً
+    // تخصیص‌یافته به خطوط» باشد، نه مزیتِ نظری (که می‌تواند از ماندهٔ سبد بیشتر باشد).
     const allocation = outcome.allocate(amount);
+    let allocatedTotal = 0;
+    const allocatedLineNos: number[] = [];
     for (const part of allocation) {
       const lineState = state.lines.find((l) => l.line.line_no === part.line_no);
       if (!lineState) continue;
       if (part.amount > lineState.remaining + 0.0001) part.amount = roundMoney2(lineState.remaining);
       if (part.amount <= 0) continue;
       lineState.remaining = roundMoney2(lineState.remaining - part.amount);
+      allocatedTotal = roundMoney2(allocatedTotal + part.amount);
+      allocatedLineNos.push(part.line_no);
       lineState.line.promotions.push({
         promotion_id: promo.id,
         code: promo.code,
@@ -917,14 +966,20 @@ export function evaluatePromotions(
       lineState.line.discount_total = money(dec(lineState.line.discount_total) + part.amount);
     }
 
-    state.remainingTotal = roundMoney2(state.remainingTotal - amount);
+    // مبلغِ صفر تخصیصی ⇒ تشویق عملاً اعمال نشده (نه در دفترِ مصرف، نه در breakdown)
+    if (allocatedTotal <= 0) {
+      skip('zero_benefit', 'مزیتِ محاسبه‌شده پس از سقفِ خطوط صفر شد؛ اعمال نشد.');
+      continue;
+    }
+
+    state.remainingTotal = roundMoney2(state.remainingTotal - allocatedTotal);
     state.applied.push({
       promotion_id: promo.id,
       code: promo.code,
       title: promo.title,
       kind: promo.kind,
       priority: promo.priority,
-      amount: money(amount),
+      amount: money(allocatedTotal),
       base_amount: money(baseAmount),
       allow_stacking: promo.allow_stacking,
       exclusive_group: promo.exclusive_group,
@@ -932,10 +987,43 @@ export function evaluatePromotions(
       coupon_id: coupon?.id ?? null,
       explanation_fa: [outcome.message_fa, ...outcome.notes].filter(Boolean).join(' '),
     });
-    if (outcome.gift_lines.length > 0) state.gifts.push(...outcome.gift_lines);
+    if (outcome.gift_lines.length > 0) {
+      state.gifts.push(
+        ...outcome.gift_lines.map((gift) => attributeGift(gift, allocatedTotal, allocatedLineNos)),
+      );
+    }
     if (promo.exclusive_group) usedGroups.add(promo.exclusive_group);
     if (!promo.allow_stacking) blockedByNonStackable = true;
   }
+}
+
+/**
+ * TASK-24F · HIGH-4: ارزشِ ثبت‌شدهٔ هدیه نمی‌تواند از مبلغی که واقعاً از سبد کسر شد
+ * بیشتر باشد. مقدارِ فیزیکی (qty) هم با همان نسبت مقیاس می‌شود تا
+ * `value = qty × unit_price` در دفترِ مصرف/تسویه خودسازگار بماند.
+ */
+function attributeGift(
+  gift: GiftLine,
+  allocatedTotal: number,
+  lineNos: number[],
+): GiftLine {
+  // ارزشِ «درخواستی» = بزرگ‌ترین مقداری که تشویق ادعا کرده است (ارزشِ نظریِ هدیه یا
+  // ارزشی که پیش‌تر به ماندهٔ سبد محدود شده بود) تا سقف‌های بعدی گم نشود.
+  const ownValue = dec(gift.value);
+  const priorRequested = gift.requested_value == null ? 0 : dec(gift.requested_value);
+  const requestedValue = Math.max(ownValue, priorRequested);
+  // هیچ‌گاه بیش از مبلغی که واقعاً از سبد کسر شد (allocatedTotal) ثبت نمی‌شود.
+  const allowed = Math.max(0, Math.min(ownValue, allocatedTotal));
+  const ratio = ownValue > 0 ? allowed / ownValue : 0;
+  const unit = dec(gift.unit_price);
+  const cappedQty = unit > 0 ? roundQty(allowed / unit) : roundQty(gift.qty * ratio);
+  return {
+    ...gift,
+    qty: roundQty(Math.min(gift.qty, cappedQty)),
+    value: money(allowed),
+    requested_value: allowed < requestedValue ? money(requestedValue) : undefined,
+    line_nos: lineNos,
+  };
 }
 
 interface ConditionOutcome {
@@ -1216,23 +1304,31 @@ function computeBenefit(
         return { amount: 0, base_amount: 0, message_fa: 'قیمتِ کالای جایزه برای ارزش‌گذاری یافت نشد.', gift_lines: [], notes: [], allocate: allocProportional };
       }
       const giftedUnits = roundQty(sets * freeQty);
-      const value = roundMoney2(giftedUnits * giftUnit);
+      const theoretical = roundMoney2(giftedUnits * giftUnit);
+      // TASK-24F · HIGH-4: ارزشِ جایزه به ماندهٔ واجدِ شرط (یا ماندهٔ سبد) محدود می‌شود.
+      const capBase = eligibleTotal > 0 ? eligibleTotal : remainingOf(state);
+      const value = roundMoney2(Math.min(theoretical, capBase));
+      const appliedUnits = giftUnit > 0 ? roundQty(value / giftUnit) : giftedUnits;
       return {
-        amount: Math.min(value, eligibleTotal > 0 ? value : value),
-        base_amount: value,
+        amount: value,
+        base_amount: capBase,
         message_fa: `خریدِ ${buyQty} عدد ⇒ ${freeQty} عدد جایزه در هر دور (${sets} دور) اعمال شد.`,
+        notes:
+          value < theoretical
+            ? ['ارزشِ جایزه به ماندهٔ سبد محدود شد (بخشِ غیرقابل‌تخصیص اعمال نشد).']
+            : [],
         gift_lines: [
           {
             promotion_id: promo.id,
             promotion_code: promo.code,
             product_id: getProductId,
-            qty: giftedUnits,
+            qty: appliedUnits,
             unit_price: unitPrice(giftUnit),
             value: money(value),
             valuation_source: state.lines.some((l) => l.line.product_id === getProductId) ? 'basket' : 'reference_price',
+            requested_value: value < theoretical ? money(theoretical) : undefined,
           },
         ],
-        notes: [],
         allocate: allocProportional,
       };
     }
@@ -1247,24 +1343,32 @@ function computeBenefit(
       if (giftUnit == null) {
         return { amount: 0, base_amount: 0, message_fa: 'قیمتِ کالای هدیه برای ارزش‌گذاری یافت نشد.', ...noGift, allocate: allocProportional };
       }
-      let value = roundMoney2(giftQty * giftUnit);
-      if (isNum(b.max_amount)) value = Math.min(value, b.max_amount);
+      let requested = roundMoney2(giftQty * giftUnit);
+      if (isNum(b.max_amount)) requested = Math.min(requested, b.max_amount);
+      // TASK-24F · HIGH-4: ارزشِ هدیه به ماندهٔ واجدِ شرط (یا ماندهٔ سبد) محدود می‌شود.
+      const capBase = eligibleTotal > 0 ? eligibleTotal : remainingOf(state);
+      const value = roundMoney2(Math.min(requested, capBase));
+      const appliedQty = giftUnit > 0 ? roundQty(value / giftUnit) : giftQty;
       return {
         amount: value,
-        base_amount: eligibleTotal,
-        message_fa: `هدیهٔ ${giftQty} عددی اعمال شد (معادلِ مالی؛ ثبتِ فیزیکیِ هدیه خارج از این موتور است).`,
+        base_amount: capBase,
+        message_fa: `هدیهٔ ${appliedQty} عددی اعمال شد (معادلِ مالی؛ ثبتِ فیزیکیِ هدیه خارج از این موتور است).`,
         gift_lines: [
           {
             promotion_id: promo.id,
             promotion_code: promo.code,
             product_id: giftProductId,
-            qty: giftQty,
+            qty: appliedQty,
             unit_price: unitPrice(giftUnit),
             value: money(value),
             valuation_source: state.lines.some((l) => l.line.product_id === giftProductId) ? 'basket' : 'reference_price',
+            requested_value: value < requested ? money(requested) : undefined,
           },
         ],
-        notes: [],
+        notes:
+          value < requested
+            ? ['ارزشِ هدیه به ماندهٔ سبد محدود شد (بخشِ غیرقابل‌تخصیص اعمال نشد).']
+            : [],
         allocate: allocProportional,
       };
     }
@@ -1519,7 +1623,7 @@ export function evaluateLineMargin(
     };
   }
 
-  const exception = findException(ctx, product?.id ?? null, policy.id, required);
+  const exception = findException(ctx, product?.id ?? null, policy.id, required, margin);
   if (exception) {
     return {
       result: {
@@ -1532,6 +1636,8 @@ export function evaluateLineMargin(
         required_margin_pct: required,
         status: 'exception_applied',
         exception_id: exception.id,
+        exception_granted_margin_pct:
+          exception.granted_margin_pct == null ? null : dec(exception.granted_margin_pct),
         message_fa: `حاشیهٔ سود کمتر از کف است؛ استثنای تأییدشدهٔ ${exception.id} اعمال شد.`,
       },
       violation: null,
@@ -1563,23 +1669,62 @@ export function evaluateLineMargin(
   };
 }
 
+/**
+ * TASK-24F · MEDIUM-1 — تطبیقِ استثنای کفِ سود (fail-closed).
+ *
+ * پیش از این هر استثنای `approved` (حتی سراسری و بی‌سقف) هر نقضی را مجاز می‌کرد و
+ * `policy_id`/`entity_*` نادیده گرفته می‌شد. اکنون:
+ *   • فقط استثنای **محدود به همان کالا** پذیرفته می‌شود (استثنای سراسری ⇒ هیچ).
+ *   • استثنای مقید به سند/قلمِ خاص (`entity_type/entity_id`) در استعلامِ سبد اعمال
+ *     نمی‌شود؛ فقط مسیرِ نوشتنِ همان قلم آن را مصرف می‌کند.
+ *   • اگر استثنا `policy_id` دارد باید با سیاستِ حل‌شده یکی باشد.
+ *   • `granted_margin_pct` سقفِ واقعیِ تخفیف است: حاشیهٔ محاسبه‌شده باید از آن
+ *     کمتر نباشد وگرنه استثنا معتبر نیست (دیگر «۱۰٪ مجاز» یعنی «هر مبلغی مجاز»).
+ */
+export function exceptionPermits(
+  exception: MarginExceptionRow,
+  input: {
+    productId: string | null;
+    customerId: string | null;
+    policyId: string | null;
+    marginPct: number | null;
+  },
+): boolean {
+  if (exception.status !== 'approved') return false;
+  if (input.productId == null || exception.product_id == null) return false;
+  if (exception.product_id !== input.productId) return false;
+  if (exception.customer_id != null && exception.customer_id !== input.customerId) return false;
+  if (exception.policy_id != null && input.policyId != null && exception.policy_id !== input.policyId) {
+    return false;
+  }
+  if (exception.entity_id != null) return false;
+  if (exception.granted_margin_pct == null || input.marginPct == null) return false;
+  return input.marginPct >= dec(exception.granted_margin_pct) - 0.0001;
+}
+
 function findException(
   ctx: QuoteContext,
   productId: string | null,
   policyId: string,
   required: number,
+  marginPct: number | null,
 ): MarginExceptionRow | null {
   const now = `${ctx.pricing_date}T23:59:59.999Z`;
   const candidates = ctx.margin_exceptions.filter(
     (e) =>
       e.status === 'approved' &&
       (e.valid_until == null || e.valid_until >= now) &&
-      (e.product_id == null || e.product_id === productId) &&
       (e.customer_id == null || e.customer_id === ctx.customer?.id),
   );
-  if (candidates.length === 0) return null;
-  // استثنا فقط اگر حاشیهٔ مجازش کمتر از کف نباشد (یعنی صریحاً پایین‌تر را مجاز کرده باشد)
-  const allowed = candidates.filter((e) => e.granted_margin_pct == null || dec(e.granted_margin_pct) >= required - 0.0001 || dec(e.granted_margin_pct) >= 0);
+  const allowed = candidates.filter((e) =>
+    exceptionPermits(e, {
+      productId,
+      customerId: ctx.customer?.id ?? null,
+      policyId,
+      marginPct,
+    }),
+  );
+  void required;
   return allowed[0] ?? null;
 }
 
@@ -1634,21 +1779,24 @@ export function computeQuote(ctx: QuoteContext, lines: QuoteLineInput[]): QuoteR
       throw new PricingEngineError('discount_cap_exceeded', 'مبلغِ تخفیف نمی‌تواند منفی باشد.', 400, { line_no: lineNo });
     }
     let manualPct = discountPct(manual, gross);
-    if (pricing.max_discount_pct != null && manualPct > pricing.max_discount_pct + 0.0001) {
+    const effectiveDiscountCap =
+      pricing.max_discount_pct ?? ctx.options?.max_line_discount_pct ?? null;
+    if (effectiveDiscountCap != null && manualPct > effectiveDiscountCap + 0.0001) {
       if (!ctx.options?.allow_discount_override) {
         throw new PricingEngineError(
           'discount_cap_exceeded',
-          `تخفیفِ درخواستی (${manualPct}%) از سقفِ مجازِ این قلم (${pricing.max_discount_pct}%) بیشتر است؛ نیازمندِ تأییدِ مجاز است.`,
+          `تخفیفِ درخواستی (${manualPct}%) از سقفِ مجازِ این قلم (${effectiveDiscountCap}%) بیشتر است؛ نیازمندِ تأییدِ مجاز است.`,
           403,
           {
             line_no: lineNo,
             product_id: line.product_id,
             requested_pct: manualPct,
-            max_discount_pct: pricing.max_discount_pct,
+            max_discount_pct: effectiveDiscountCap,
+            cap_source: pricing.max_discount_pct == null ? 'company_policy' : 'price_source',
           },
         );
       }
-      warnings.push(`قلم ${lineNo}: تخفیفِ فراتر از سقف با مجوزِ صریح اعمال شد (${manualPct}% > ${pricing.max_discount_pct}%).`);
+      warnings.push(`قلم ${lineNo}: تخفیفِ فراتر از سقف با مجوزِ صریح اعمال شد (${manualPct}% > ${effectiveDiscountCap}%).`);
     }
     if (manual > gross) {
       throw new PricingEngineError(
@@ -1735,7 +1883,9 @@ export function computeQuote(ctx: QuoteContext, lines: QuoteLineInput[]): QuoteR
     const promoDiscount = roundMoney2(dec(line.discount_total) - dec(line.manual_discount));
     discountTotal = roundMoney2(discountTotal + promoDiscount);
     taxTotal = roundMoney2(taxTotal + tax);
-    line.gift_lines = state.gifts.filter((g) => g.promotion_code === line.promotions[0]?.code);
+    line.gift_lines = state.gifts.filter(
+      (g) => g.line_nos == null || g.line_nos.length === 0 || g.line_nos.includes(line.line_no),
+    );
 
     // حاشیهٔ سود
     const product = productMap.get(line.product_id) ?? null;
@@ -1748,6 +1898,45 @@ export function computeQuote(ctx: QuoteContext, lines: QuoteLineInput[]): QuoteR
     if (lineCost == null) costKnownAll = false;
     else costTotal = roundMoney2(costTotal + lineCost);
     if (marginEval.violation) violations.push(marginEval.violation);
+
+    // TASK-24F · MEDIUM-1: فروشِ زیرِ بهای تمام‌شده فقط با سیاستِ صریحِ مجاز یا
+    // استثنای محدود و تأییدشده مجاز است (حتی وقتی هیچ سیاستِ کفِ سودی تعریف نشده باشد).
+    if (
+      lineCost != null &&
+      netAfterPromotions < lineCost &&
+      line.margin.status !== 'exception_applied' &&
+      ctx.options?.allow_loss_making !== true
+    ) {
+      const lossMargin = marginPct(netAfterPromotions, lineCost);
+      const exception = findException(
+        ctx,
+        product?.id ?? null,
+        policyRef?.policy.id ?? '',
+        0,
+        lossMargin,
+      );
+      if (exception) {
+        line.margin = {
+          ...line.margin,
+          status: 'exception_applied',
+          exception_id: exception.id,
+          exception_granted_margin_pct:
+            exception.granted_margin_pct == null ? null : dec(exception.granted_margin_pct),
+          message_fa: `فروشِ زیرِ بهای تمام‌شده با استثنای تأییدشدهٔ ${exception.id} مجاز شد.`,
+        };
+      } else {
+        const message = `فروشِ زیرِ بهای تمام‌شده (${lossMargin}%) بدونِ مجوزِ صریح مجاز نیست.`;
+        violations.push({
+          product_id: line.product_id,
+          margin_pct: lossMargin,
+          required_margin_pct: line.margin.required_margin_pct,
+          policy_id: line.margin.policy_id,
+          code: 'margin_loss_making',
+          message_fa: message,
+        });
+        line.margin = { ...line.margin, status: 'violation', message_fa: message };
+      }
+    }
 
     if (policyRef) {
       explanation.push(

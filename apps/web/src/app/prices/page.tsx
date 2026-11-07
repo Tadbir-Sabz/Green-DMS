@@ -269,20 +269,32 @@ function PricesInner() {
       key: "margin",
       header: "حاشیه سود",
       align: "end",
-      render: (l) =>
-        l.margin?.margin_pct == null ? (
-          <span className="text-[11px] text-ink-subtle" title={l.margin?.message_fa ?? undefined}>
-            نامشخص
+      render: (l) => {
+        // TASK-24F · MEDIUM-3: وضعیت‌های واقعیِ موتور = ok | violation | cost_unknown |
+        // exception_applied | no_policy (پیش‌تر «below_floor» چک می‌شد که هرگز تولید نمی‌شد
+        // و نقضِ کفِ سود هیچ‌گاه برجسته نمی‌شد).
+        const status = l.margin?.status;
+        const tone =
+          status === "violation"
+            ? "text-danger"
+            : status === "exception_applied"
+              ? "text-warning-ink"
+              : status === "cost_unknown" || status === "no_policy"
+                ? "text-ink-subtle"
+                : "text-ink";
+        const hint =
+          status === "violation"
+            ? "نقضِ کفِ سود — ثبتِ سفارش نیازمندِ استثنای تأییدشده است"
+            : status === "exception_applied"
+              ? "استثنای تأییدشدهٔ کفِ سود"
+              : (l.margin?.message_fa ?? undefined);
+        return (
+          <span className={`text-xs font-medium ${tone}`} title={hint}>
+            {l.margin?.margin_pct == null ? "نامشخص" : formatPercent(l.margin.margin_pct)}
+            {status === "violation" ? " ⚠" : status === "exception_applied" ? " ✓" : ""}
           </span>
-        ) : (
-          <span
-            className={
-              l.margin.status === "below_floor" ? "text-xs font-medium text-danger" : "text-xs font-medium text-ink"
-            }
-          >
-            {formatPercent(l.margin.margin_pct)}
-          </span>
-        ),
+        );
+      },
     },
   ];
 

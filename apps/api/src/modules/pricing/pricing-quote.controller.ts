@@ -5,7 +5,7 @@ import { RequirePermissions } from '../identity-rbac/require-permissions.decorat
 import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.decorator';
 import { permissionMatches } from '../identity-rbac/permissions';
 import { ListPriceChangesQueryDto, QuoteRequestDto } from './pricing.dto';
-import type { PricingEngineService } from './pricing-engine.service';
+import type { PricingEngineService, QuoteRunOptions } from './pricing-engine.service';
 import { PRICING_ENGINE_SERVICE } from './pricing.tokens';
 
 /**
@@ -14,7 +14,8 @@ import { PRICING_ENGINE_SERVICE } from './pricing.tokens';
  *   POST /pricing/simulate  : شبیه‌سازیِ کاملِ تجاری + ثبتِ ردیفِ ممیزی (نه سند)
  *
  * هیچ‌یک از این دو مسیر سند/تراکنشِ کسب‌وکار نمی‌سازد؛ مصرفِ تشویق فقط از مسیرِ
- * صریحِ ایجادِ سفارش (POST /orders با apply_pricing_engine) ثبت می‌شود.
+ * ایجادِ سفارش (POST/PATCH /orders — که همیشه از موتور می‌گذرد) ثبت می‌شود.
+ * TASK-24F · HIGH-1: پرچمِ کلاینتیِ `apply_pricing_engine` وجود ندارد.
  */
 @UseGuards(AuthGuard, PermissionsGuard)
 @Controller('pricing')
@@ -22,15 +23,17 @@ export class PricingQuoteController {
   constructor(@Inject(PRICING_ENGINE_SERVICE) private readonly service: PricingEngineService) {}
 
   /**
-   * پرچم‌های «قیمتِ دستی» و «عبور از سقفِ تخفیف» هرگز از بدنهٔ درخواست پذیرفته
-   * نمی‌شوند؛ فقط از مجوزهای نشست استخراج می‌شوند (TASK-24، کنترلِ تخفیفِ غیرمجاز).
-   * کاربرِ بدونِ مجوز که قیمتِ دستی بفرستد، از موتور ۴۰۳ با دلیلِ صریح می‌گیرد.
+   * پرچم‌های «قیمتِ دستی»/«عبور از سقفِ تخفیف»/«بین‌قلمرویی» نه در DTO هستند و نه از
+   * بدنه خوانده می‌شوند؛ فقط از مجوزهای نشست ساخته می‌شوند (TASK-24F · HIGH-3).
    */
-  private escalationFlags(user: AuthContext): Pick<QuoteRequestDto, 'allow_manual_price' | 'allow_discount_override'> {
+  private runOptions(user: AuthContext, dto: QuoteRequestDto): QuoteRunOptions {
     const has = (code: string) => user.permissions.some((granted) => permissionMatches(granted, code));
     return {
       allow_manual_price: has('pricing.manual_price.apply'),
       allow_discount_override: has('pricing.discount.override'),
+      allow_cross_domain_price_list: has('pricing.price_list.cross_domain'),
+      cross_domain_reason: dto.cross_domain_reason ?? null,
+      actor_user_id: user.userId ?? null,
     };
   }
 
@@ -41,7 +44,7 @@ export class PricingQuoteController {
     @CurrentUser('companyId') companyId: string,
     @CurrentUser() user: AuthContext,
   ) {
-    return this.service.quote(companyId, { ...dto, ...this.escalationFlags(user) });
+    return this.service.quote(companyId, dto, this.runOptions(user, dto));
   }
 
   @Post('simulate')
@@ -52,7 +55,7 @@ export class PricingQuoteController {
     @CurrentUser('userId') userId: string,
     @CurrentUser() user: AuthContext,
   ) {
-    return this.service.simulate(companyId, userId, { ...dto, ...this.escalationFlags(user) });
+    return this.service.simulate(companyId, userId, dto, this.runOptions(user, dto));
   }
 
   @Get('price-changes')

@@ -330,6 +330,8 @@ describe('OD — /orders', () => {
       .send({
         customer_id: customerId,
         order_date: '2024-05-01',
+        // TASK-24F · HIGH-3: دلیلِ قیمتِ دستیِ متفاوت از قیمتِ سیستمی الزامی است
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
         lines: [{ product_id: productId, qty: 3, unit_price: '1000', discount_amount: '200' }],
       })
       .expect(201);
@@ -395,6 +397,7 @@ describe('OD — /orders', () => {
       customer_id: customerId,
       order_date: '2024-05-03',
       client_uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      price_override_reason: 'قیمتِ توافقیِ آزمون',
       lines: [{ product_id: productId, qty: 1, unit_price: '1000' }],
     };
     await api().post('/api/v1/orders').send(body).expect(201);
@@ -435,7 +438,11 @@ describe('OD — /orders', () => {
   it('ویرایش در draft 200 ← مبالغ تازه محاسبه می‌شود؛ خراب 400 و ناموجود 404', async () => {
     const patched = await api()
       .patch(`/api/v1/orders/${orderId}`)
-      .send({ note: 'سفارش آزمایشی', lines: [{ product_id: productId, qty: 5, unit_price: '2000' }] })
+      .send({
+        note: 'سفارش آزمایشی',
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
+        lines: [{ product_id: productId, qty: 5, unit_price: '2000' }],
+      })
       .expect(200);
     expectBodyMatchesSchema('patch', '/orders/{id}', 200, patched.body);
     expect(patched.body.note).toBe('سفارش آزمایشی');

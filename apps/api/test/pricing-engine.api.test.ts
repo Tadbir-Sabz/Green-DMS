@@ -60,10 +60,18 @@ const VIEWER_USER = 'pe_viewer';
 const VIEWER_PASSWORD = 'View!pass1';
 const APPROVER_USER = 'pe_approver';
 const APPROVER_PASSWORD = 'Appr0ve!pass';
+/** TASK-24F · HIGH-3: کاربرِ «ثبتِ سفارش» بدونِ مجوزهای قیمتِ دستی/سقفِ تخفیف */
+const ORDERER_USER = 'pe_orderer';
+const ORDERER_PASSWORD = 'Order!pass1';
+/** همان کاربر بدونِ مجوزِ تاریخِ گذشته (fail-closed) */
+const BACKDATER_USER = 'pe_backdater';
+const BACKDATER_PASSWORD = 'Back!pass1';
 
 let adminToken = '';
 let viewerToken = '';
 let approverToken = '';
+let ordererToken = '';
+let backdaterToken = '';
 
 let companyId = '';
 let otherCompanyId = '';
@@ -82,8 +90,12 @@ let capListId = '';
 let domainId = '';
 let otherDomainId = '';
 let companyListId = '';
+/** لیستِ قیمتِ متعلق به قلمروِ دیگر (MEDIUM-2) */
+let foreignDomainListId = '';
 
 const TODAY = '2026-06-15';
+/** دلیلِ الزامیِ ثبتِ سندِ عقب‌گرد (TASK-24F · HIGH-1) */
+const BACKDATE_REASON = 'ثبتِ سندِ آزمایشی با تاریخِ گذشته برای آزمونِ کنترل‌ها';
 const ALL_DATES = { valid_from: '2026-01-01', valid_to: '2026-12-31' };
 
 const api = (token?: string | null) => {
@@ -321,6 +333,19 @@ beforeAll(async () => {
     'pricing.margin.override',
     'pricing.simulation.run',
   ]);
+  // TASK-24F · HIGH-3: ثبتِ سفارش بدونِ مجوزِ قیمتِ دستی/عبور از سقف (ولی با مجوزِ تاریخِ گذشته)
+  await seedUser(ORDERER_USER, ORDERER_PASSWORD, 'ORD', [
+    'master.price.view',
+    'sales.order.create',
+    'sales.order.view',
+    'pricing.backdate.apply',
+  ]);
+  // همان کاربر، بدونِ مجوزِ تاریخِ گذشته
+  await seedUser(BACKDATER_USER, BACKDATER_PASSWORD, 'BDT', [
+    'master.price.view',
+    'sales.order.create',
+    'sales.order.view',
+  ]);
 
   process.env.DATABASE_URL = testUrl.toString();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -332,6 +357,8 @@ beforeAll(async () => {
   adminToken = await login(ADMIN_USER, ADMIN_PASSWORD);
   viewerToken = await login(VIEWER_USER, VIEWER_PASSWORD);
   approverToken = await login(APPROVER_USER, APPROVER_PASSWORD);
+  ordererToken = await login(ORDERER_USER, ORDERER_PASSWORD);
+  backdaterToken = await login(BACKDATER_USER, BACKDATER_PASSWORD);
 
   // ---- داده‌های قیمت از مسیرِ API ----
   domainId = (
@@ -528,10 +555,12 @@ describe('PE-2 — تقدمِ قیمت، قلمرو و مرزِ تاریخ', () 
         [person.rows[0].id, otherBranchId],
       )
     ).rows[0].id;
-    await api().post('/api/v1/price-lists').send({
-      code: 'PL-DOM2', title: 'لیست قلمرو شعبه دو', kind: 'channel', priority: 50, domain_id: otherDomainId,
-      items: [{ product_id: productId, price: '1100', ...ALL_DATES }],
-    }).expect(201);
+    foreignDomainListId = (
+      await api().post('/api/v1/price-lists').send({
+        code: 'PL-DOM2', title: 'لیست قلمرو شعبه دو', kind: 'channel', priority: 50, domain_id: otherDomainId,
+        items: [{ product_id: productId, price: '1100', ...ALL_DATES }],
+      }).expect(201)
+    ).body.id;
 
     const res = await api()
       .post('/api/v1/pricing/quote')
@@ -675,19 +704,40 @@ describe('PE-3 — اجرای تشویق، عدمِ انباشت و سقفِ ت�
     await api().patch(`/api/v1/promotions/${promo.body.id}`).send({ is_active: false }).expect(200);
   });
 
-  it('سقفِ کلِ سند (max_total_discount_pct) تخفیف را محدود می‌کند', async () => {
+  it('سقفِ کلِ سند از سیاستِ پایدار (pricing_settings) اعمال می‌شود، نه از بدنهٔ درخواست', async () => {
     const promo = await api().post('/api/v1/promotions').send({
       code: 'PROM-BIG', title: 'بزرگ', kind: 'percent_line', priority: 300,
       allow_stacking: true, is_active: true, ...ALL_DATES,
       benefit: { percent: 40 },
     }).expect(201);
 
-    const res = await api()
+    // پارامترِ سقف از قراردادِ درخواست حذف شد (HIGH-2): ارسالش هیچ اثری ندارد
+    const loose = await api()
       .post('/api/v1/pricing/quote')
-      .send(quoteBody({ max_total_discount_pct: 5 }))
+      .send(quoteBody({ max_total_discount_pct: 5 } as never))
       .expect(201);
+    expect(num(loose.body.discount_total)).toBe(340); // ۴۰٪ از ۸۵۰ ⇒ سقفِ بدنه نادیده گرفته شد
+
+    // سیاستِ پایدارِ شرکت: ۵٪
+    const settings = await api().get('/api/v1/pricing/settings').expect(200);
+    expect(settings.body).toHaveProperty('max_total_discount_pct');
+    const patched = await api()
+      .patch('/api/v1/pricing/settings')
+      .send({ max_total_discount_pct: 5 })
+      .expect(200);
+    expect(num(patched.body.max_total_discount_pct)).toBe(5);
+
+    const tight = await api().post('/api/v1/pricing/quote').send(quoteBody()).expect(201);
     // سقفِ سند ۵٪ از ۸۵۰ = ۴۲.۵ ⇒ تخفیف نباید از آن بیشتر شود
-    expect(num(res.body.discount_total)).toBeLessThanOrEqual(42.5);
+    expect(num(tight.body.discount_total)).toBe(42.5);
+    expect(tight.body.skipped_promotions.length + tight.body.applied_promotions.length).toBeGreaterThan(0);
+
+    // بازگشتِ سیاست به حالتِ پیش‌فرض (بدونِ سقف)
+    const reset = await api()
+      .patch('/api/v1/pricing/settings')
+      .send({ max_total_discount_pct: null })
+      .expect(200);
+    expect(reset.body.max_total_discount_pct).toBeNull();
 
     await api().patch(`/api/v1/promotions/${promo.body.id}`).send({ is_active: false }).expect(200);
   });
@@ -753,18 +803,25 @@ describe('PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ �
     expect(res.body.approval_required.reasons.join(' ')).toContain('کفِ');
   });
 
-  it('ثبتِ سفارشِ زیرِ کفِ سود با موتور ⇒ 409 margin_floor_violation (بدونِ دور زدن)', async () => {
-    const res = await api()
-      .post('/api/v1/orders')
-      .send({
+  it('ثبتِ سفارشِ زیرِ کفِ سود با موتور ⇒ 409 (پرچم‌های بدنه نمی‌توانند کنترل را خاموش کنند)', async () => {
+    // HIGH-1: پرچم‌های کلاینتی حذف شده‌اند؛ ارسالشان (حتی false) هیچ اثری ندارد ⇒ همیشه 409
+    const bodies = [
+      { customer_id: customerId, order_date: TODAY, price_override_reason: BACKDATE_REASON, lines: [{ product_id: productId, qty: 1 }] },
+      {
         customer_id: customerId,
         order_date: TODAY,
-        apply_pricing_engine: true,
+        price_override_reason: BACKDATE_REASON,
+        apply_pricing_engine: false,
+        allow_manual_price: true,
+        allow_discount_override: true,
         lines: [{ product_id: productId, qty: 1 }],
-      })
-      .expect(409);
-    expect(res.body.code).toBe('margin_floor_violation');
-    expect(res.body.details.violations[0].code).toBe('margin_floor_violation');
+      },
+    ];
+    for (const body of bodies) {
+      const res = await api().post('/api/v1/orders').send(body).expect(409);
+      expect(res.body.code).toBe('margin_floor_violation');
+      expect(res.body.details.violations[0].code).toBe('margin_floor_violation');
+    }
   });
 
   it('استثنا فقط با تأییدِ شخصِ دوم معتبر می‌شود؛ خودتأییدی ۴۰۳ است', async () => {
@@ -775,6 +832,8 @@ describe('PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ �
       policy_id: policyId,
       required_margin_pct: 30,
       effective_margin_pct: 5.88,
+      // MEDIUM-1: سقفِ اعطاشده باید صریح باشد؛ استثنای بدونِ سقف بی‌اثر (fail-closed) است
+      granted_margin_pct: 5.88,
       reason: 'قرارداد راهبردی با مشتری کلیدی',
       valid_until: '2026-12-31',
     }).expect(201);
@@ -889,7 +948,7 @@ describe('PE-6 — سندِ تاریخی تغییر نمی‌کند', () => {
       .send({
         customer_id: customerId,
         order_date: TODAY,
-        apply_pricing_engine: true,
+        price_override_reason: BACKDATE_REASON,
         lines: [{ product_id: productId, qty: 2 }],
       })
       .expect(201);
@@ -974,7 +1033,7 @@ describe('PE-7 — درخواستِ تکراری/بازپخش‌شده', () => {
     const payload = {
       customer_id: customerId,
       order_date: TODAY,
-      apply_pricing_engine: true,
+      price_override_reason: BACKDATE_REASON,
       pricing_idempotency_key: key,
       lines: [{ product_id: productId, qty: 1 }],
     };
@@ -1073,10 +1132,256 @@ describe('PE-9 — جداسازیِ اجاره', () => {
       .send({
         customer_id: otherCustomerId,
         order_date: TODAY,
-        apply_pricing_engine: true,
         lines: [{ product_id: productId, qty: 1 }],
       });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
+  });
+});
+
+  it('لیستِ قیمتِ صریحِ قلمروِ دیگر بدونِ مجوز بین‌قلمرویی رد می‌شود (MEDIUM-2)', async () => {
+    const res = await api(viewerToken)
+      .post('/api/v1/pricing/quote')
+      .send({ pricing_date: TODAY, price_list_id: foreignDomainListId, lines: [{ product_id: productId, qty: 1 }] })
+      .expect(403);
+    expect(res.body.code).toBe('price_list_domain_forbidden');
+    expect(res.body.details.price_list_domain_id).toBe(otherDomainId);
+    expect(res.body.details.source).toBe('request');
+  });
+
+  it('لیستِ صریحِ همان قلمرو پذیرفته می‌شود (بدونِ نیاز به override)', async () => {
+    // لیستِ قلمروِ مشتری (همان قلمرو) — دسترسی مجاز و بدونِ ممیزیِ بین‌قلمرویی
+    const ok = await api()
+      .post('/api/v1/pricing/quote')
+      .send({ pricing_date: TODAY, lines: [{ product_id: productId, qty: 1 }] })
+      .expect(201);
+    expect(ok.body.lines[0].pricing.scope).toBe('customer'); // قیمتِ اختصاصی هنوز اولویت دارد
+  });
+
+  it('مجوزِ بین‌قلمرویی بدونِ دلیل ⇒ 400؛ با دلیل ⇒ مجاز + ممیزیِ cross_domain_use', async () => {
+    const noReason = await api()
+      .post('/api/v1/pricing/quote')
+      .send({ pricing_date: TODAY, price_list_id: foreignDomainListId, lines: [{ product_id: productId, qty: 1 }] })
+      .expect(400);
+    expect(noReason.body.code).toBe('cross_domain_reason_required');
+
+    const before = await pool.query<{ c: number }>(
+      `select count(*)::int as c from price_change_log
+        where company_id = $1 and entity_type = 'price_list' and entity_id = $2 and action = 'cross_domain_use'`,
+      [companyId, foreignDomainListId],
+    );
+    const ok = await api()
+      .post('/api/v1/pricing/quote')
+      .send({
+        pricing_date: TODAY,
+        price_list_id: foreignDomainListId,
+        cross_domain_reason: 'قراردادِ بین‌شعبه‌ایِ مشتریِ کلیدی',
+        lines: [{ product_id: productId, qty: 1 }],
+      })
+      .expect(201);
+    expect(ok.body.warnings.length).toBeGreaterThanOrEqual(0);
+    const after = await pool.query<{ c: number }>(
+      `select count(*)::int as c from price_change_log
+        where company_id = $1 and entity_type = 'price_list' and entity_id = $2 and action = 'cross_domain_use'`,
+      [companyId, foreignDomainListId],
+    );
+    expect(after.rows[0].c).toBe(before.rows[0].c + 1);
+    const logged = await pool.query<{ reason: string; actor_user_id: string }>(
+      `select after_data->>'reason' as reason, actor_user_id from price_change_log
+        where company_id = $1 and entity_type = 'price_list' and entity_id = $2 and action = 'cross_domain_use'
+        order by at desc limit 1`,
+      [companyId, foreignDomainListId],
+    );
+    expect(logged.rows[0].reason).toBe('قراردادِ بین‌شعبه‌ایِ مشتریِ کلیدی');
+    expect(logged.rows[0].actor_user_id).toBeTruthy();
+  });
+});
+
+// =====================================================================
+// PE-10  TASK-24F — کنترل‌های سرور-محورِ مسیرِ سفارش (HIGH-1/HIGH-3)
+// =====================================================================
+
+describe('PE-10 — سفارش: مجوز از نشست، ممیزی از دفترِ تغییرِ قیمت', () => {
+  it('کاربرِ بدونِ pricing.manual_price.apply با قیمتِ دستی ⇒ 403 (و پرچمِ بدنه کمکی نمی‌کند)', async () => {
+    for (const extra of [{}, { allow_manual_price: true, allow_discount_override: true, apply_pricing_engine: true }]) {
+      const res = await api(ordererToken)
+        .post('/api/v1/orders')
+        .send({
+          customer_id: customerId,
+          order_date: TODAY,
+          price_override_reason: BACKDATE_REASON,
+          ...extra,
+          lines: [{ product_id: productId, qty: 1, unit_price: '900' }],
+        })
+        .expect(403);
+      expect(res.body.code).toBe('manual_price_not_authorized');
+    }
+  });
+
+  it('کاربرِ بدونِ pricing.discount.override با تخفیفِ فراتر از سقفِ قلم ⇒ 403', async () => {
+    const res = await api(ordererToken)
+      .post('/api/v1/orders')
+      .send({
+        customer_id: customerId,
+        order_date: TODAY,
+        price_override_reason: BACKDATE_REASON,
+        price_list_id: capListId,
+        lines: [{ product_id: capProductId, qty: 1, discount_amount: '400' }],
+      })
+      .expect(403);
+    expect(res.body.code).toBe('discount_cap_exceeded');
+    expect(res.body.details.max_discount_pct).toBe(5);
+  });
+
+  it('تاریخِ گذشته بدونِ pricing.backdate.apply ⇒ 403 (دلیل هم کمکی نمی‌کند)', async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const noReason = await api(backdaterToken)
+      .post('/api/v1/orders')
+      .send({ customer_id: customerId, order_date: yesterday, lines: [{ product_id: productId, qty: 1 }] })
+      .expect(403);
+    expect(noReason.body.code).toBe('backdate_forbidden');
+
+    const withReason = await api(backdaterToken)
+      .post('/api/v1/orders')
+      .send({
+        customer_id: customerId,
+        order_date: yesterday,
+        price_override_reason: BACKDATE_REASON,
+        lines: [{ product_id: productId, qty: 1 }],
+      })
+      .expect(403);
+    expect(withReason.body.code).toBe('backdate_forbidden');
+  });
+
+  it('قیمتِ دستیِ مجاز با دلیل ⇒ 201 و ثبتِ actor/قیمتِ سیستمی/قیمتِ درخواستی/دلیل در price_change_log', async () => {
+    const created = await api()
+      .post('/api/v1/orders')
+      .send({
+        customer_id: customerId,
+        order_date: TODAY,
+        price_list_id: null,
+        price_override_reason: 'قیمتِ توافقیِ قراردادِ سالانه',
+        lines: [{ product_id: productId, qty: 1, unit_price: '900' }],
+      })
+      .expect(201);
+    expect(num(created.body.lines[0].unit_price)).toBe(900);
+
+    const adminId = (
+      await pool.query<{ id: string }>(`select id from app_user where username = $1`, [ADMIN_USER])
+    ).rows[0].id;
+    const log = await pool.query<{ action: string; before_data: any; after_data: any; actor_user_id: string }>(
+      `select action, before_data, after_data, actor_user_id
+         from price_change_log
+        where company_id = $1 and entity_type = 'sales_order_line' and entity_id = $2
+        order by at desc limit 1`,
+      [companyId, created.body.id],
+    );
+    expect(log.rowCount).toBe(1);
+    const row = log.rows[0];
+    expect(row.action).toBe('manual_price_create');
+    expect(row.actor_user_id).toBe(adminId);
+    expect(Number(row.before_data.system_unit_price)).toBe(850);
+    expect(Number(row.after_data.unit_price)).toBe(900);
+    expect(row.after_data.reason).toBe('قیمتِ توافقیِ قراردادِ سالانه');
+    expect(row.after_data.pricing_date).toBeTruthy();
+    expect(row.after_data.policy).toHaveProperty('max_total_discount_pct');
+  });
+
+  it('سندِ عقب‌گرد، تشویقِ منقضی را دوباره فعال نمی‌کند (قیمت‌گذاری با «امروز»)', async () => {
+    // تاریخ‌ها نسبت به ساعتِ واقعی محاسبه می‌شوند تا آزمون به تقویم وابسته نباشد:
+    // تشویق تا «دیروز» معتبر است ولی امروز منقضی شده؛ سند به تاریخِ دیروز ثبت می‌شود.
+    const day = (offset: number) =>
+      new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    const yesterday = day(-1);
+    const promo = await api().post('/api/v1/promotions').send({
+      code: 'PROM-BACKDATE', title: 'منقضی', kind: 'percent_line', priority: 900,
+      allow_stacking: true, is_active: true,
+      valid_from: day(-30), valid_to: yesterday,
+      benefit: { percent: 10 },
+    }).expect(201);
+    await api().patch('/api/v1/pricing/settings').send({ apply_promotions_on_orders: true }).expect(200);
+    try {
+      const order = await api()
+        .post('/api/v1/orders')
+        .send({
+          customer_id: customerId,
+          order_date: yesterday,
+          price_override_reason: BACKDATE_REASON,
+          lines: [{ product_id: productId, qty: 1 }],
+        })
+        .expect(201);
+      // اگر تاریخِ سند مبنای قیمت‌گذاری بود، ۱۰٪ تخفیف اعمال می‌شد
+      expect(num(order.body.discount_total)).toBe(0);
+    } finally {
+      await api().patch('/api/v1/pricing/settings').send({ apply_promotions_on_orders: false }).expect(200);
+      await api().patch(`/api/v1/promotions/${promo.body.id}`).send({ is_active: false }).expect(200);
+    }
+  });
+});
+
+// =====================================================================
+// PE-11  TASK-24F — دفترِ مصرفِ تشویق: یکپارچگی و فقط-افزودنی
+// =====================================================================
+
+describe('PE-11 — promotion_redemption: هم‌خوانی با سند و فقط-افزودنی', () => {
+  it('مبلغِ مصرف = تخفیفِ واقعیِ سند (HIGH-4) و ردیفِ دفتر قابلِ UPDATE/DELETE نیست (MEDIUM-4)', async () => {
+    const promo = await api().post('/api/v1/promotions').send({
+      code: 'PROM-LEDGER', title: 'دفتر', kind: 'percent_line', priority: 950,
+      allow_stacking: true, is_active: true, ...ALL_DATES,
+      benefit: { percent: 10 },
+    }).expect(201);
+
+    await api().patch('/api/v1/pricing/settings').send({ apply_promotions_on_orders: true }).expect(200);
+    try {
+      const order = await api()
+        .post('/api/v1/orders')
+        .send({
+          customer_id: customerId,
+          order_date: '2026-06-15',
+          price_override_reason: BACKDATE_REASON,
+          pricing_idempotency_key: 'ledger-order-0001',
+          lines: [{ product_id: productId, qty: 2 }],
+        })
+        .expect(201);
+
+      const redemption = await pool.query<{ discount_amount: string; entity_id: string; promotion_id: string }>(
+        `select discount_amount::text as discount_amount, entity_id, promotion_id
+           from promotion_redemption
+          where company_id = $1 and idempotency_key = 'ledger-order-0001' and promotion_id = $2`,
+        [companyId, promo.body.id],
+      );
+      expect(redemption.rowCount).toBe(1);
+      expect(redemption.rows[0].entity_id).toBe(order.body.id);
+      // تخفیفِ ثبت‌شده در سند و در دفترِ مصرف یک عدد است
+      expect(Number(redemption.rows[0].discount_amount)).toBe(num(order.body.discount_total));
+      expect(Number(redemption.rows[0].discount_amount)).toBeGreaterThan(0);
+
+      // فقط-افزودنی: UPDATE و DELETE باید توسط trigger رد شوند
+      await expect(
+        pool.query(`update promotion_redemption set discount_amount = 0 where entity_id = $1`, [order.body.id]),
+      ).rejects.toThrow();
+      await expect(
+        pool.query(`delete from promotion_redemption where entity_id = $1`, [order.body.id]),
+      ).rejects.toThrow();
+
+      // و نقشِ اپلیکیشن هم مجوزِ UPDATE/DELETE ندارد (fail-closed در سطحِ DB)
+      const priv = await pool.query<{ upd: boolean; del: boolean; ins: boolean }>(
+        `select has_table_privilege('dms_app', 'promotion_redemption', 'UPDATE') as upd,
+                has_table_privilege('dms_app', 'promotion_redemption', 'DELETE') as del,
+                has_table_privilege('dms_app', 'promotion_redemption', 'INSERT') as ins`,
+      );
+      expect(priv.rows[0]).toEqual({ upd: false, del: false, ins: true });
+    } finally {
+      await api().patch('/api/v1/pricing/settings').send({ apply_promotions_on_orders: false }).expect(200);
+      await api().patch(`/api/v1/promotions/${promo.body.id}`).send({ is_active: false }).expect(200);
+    }
+  });
+
+  it('تکرارِ همان کلیدِ idempotency ردیفِ دفتر را دوباره نمی‌سازد (MEDIUM-5)', async () => {
+    const count = await pool.query<{ c: number }>(
+      `select count(*)::int as c from promotion_redemption where company_id = $1 and idempotency_key = 'ledger-order-0001'`,
+      [companyId],
+    );
+    expect(count.rows[0].c).toBe(1);
   });
 });

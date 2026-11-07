@@ -16,6 +16,7 @@ import {
   computeQuote,
   costBasisFor,
   evaluateLineMargin,
+  exceptionPermits,
   resolveLinePrice,
   resolveMarginPolicy,
   validatePromotionDefinition,
@@ -35,6 +36,7 @@ import type {
   UpdateCustomerPriceDto,
   UpdateMarginPolicyDto,
   UpdatePricingDomainDto,
+  UpdatePricingSettingsDto,
 } from './pricing.dto';
 import { PRICING_ENGINE_REPOSITORY } from './pricing.tokens';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
@@ -74,6 +76,63 @@ const canonical = (value: unknown): string => {
   return JSON.stringify(walk(value));
 };
 
+/**
+ * TASK-24F — سیاستِ پایدارِ قیمت‌گذاریِ شرکت (HIGH-2 / MEDIUM-1).
+ * پیش‌فرض‌ها fail-closed هستند: اعمالِ خودکارِ تشویق روی سفارش خاموش، فروشِ زیرِ
+ * بهای تمام‌شده ممنوع، و دلیلِ عبور از سقف الزامی است. سقف‌ها NULL = بدونِ سقف
+ * (رفتارِ امروز) تا تصمیمِ تجاری بدونِ مصوبه اعمال نشود.
+ */
+export interface PricingSettings {
+  apply_promotions_on_orders: boolean;
+  max_total_discount_pct: number | null;
+  max_line_discount_pct: number | null;
+  allow_loss_making_sales: boolean;
+  min_order_date_lookback_days: number | null;
+  require_override_reason: boolean;
+}
+
+export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
+  apply_promotions_on_orders: false,
+  max_total_discount_pct: null,
+  max_line_discount_pct: null,
+  allow_loss_making_sales: false,
+  min_order_date_lookback_days: null,
+  require_override_reason: true,
+};
+
+/** گزینه‌های اجرای ارزیابی — فقط از سرویس/مجوزها پر می‌شوند، نه از بدنهٔ درخواست */
+export interface QuoteRunOptions {
+  apply_promotions?: boolean;
+  max_total_discount_pct?: number | null;
+  max_line_discount_pct?: number | null;
+  allow_manual_price?: boolean;
+  allow_discount_override?: boolean;
+  allow_loss_making?: boolean;
+  allow_cross_domain_price_list?: boolean;
+  cross_domain_reason?: string | null;
+  actor_user_id?: string | null;
+  /** عمرِ مجازِ بازپخشِ کشِ ارزیابی (ثانیه) — MEDIUM-5 */
+  replay_ttl_seconds?: number;
+}
+
+/** مجوزهای مؤثرِ کاربر روی مسیرِ سفارش (از نشست، نه از بدنه) */
+export interface OrderPricingPermissions {
+  manual_price: boolean;
+  discount_override: boolean;
+  cross_domain_price_list: boolean;
+  backdate: boolean;
+}
+
+export interface OrderQuoteResult {
+  quote: QuoteResult;
+  /** قیمتِ سیستمیِ هر قلم (برای ممیزیِ قیمتِ دستی)، هم‌ترتیب با خطوط */
+  system_unit_prices: (string | null)[];
+  settings: PricingSettings;
+  /** تاریخِ مؤثرِ قیمت‌گذاری (اگر سفارش عقب‌گرد باشد = امروز) */
+  pricing_date: string;
+  backdated: boolean;
+}
+
 @Injectable()
 export class PricingEngineService {
   constructor(
@@ -96,12 +155,31 @@ export class PricingEngineService {
     return new Date().toISOString().slice(0, 10);
   }
 
+  /** تاریخِ امروز بر مبنای منطقهٔ زمانیِ کسب‌وکار (Asia/Tehran) — مرزِ «عقب‌گرد» */
+  private todayTehran(): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tehran',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  }
+
+  private replayTtlSeconds(): number {
+    const raw = Number(process.env.PRICING_REPLAY_TTL_SECONDS ?? '');
+    return Number.isFinite(raw) && raw >= 0 ? raw : 300;
+  }
+
   // =================================================================
   // §1  ساختِ زمینه و استعلامِ قیمت
   // =================================================================
 
   /** ساختِ زمینهٔ کاملِ موتور — همهٔ داده از شرکتِ جاری (RLS + فیلترِ صریح) */
-  async buildContext(companyId: string, dto: QuoteRequestDto): Promise<QuoteContext> {
+  async buildContext(
+    companyId: string,
+    dto: QuoteRequestDto,
+    opts: QuoteRunOptions = {},
+  ): Promise<QuoteContext> {
     const pricingDate = (dto.pricing_date ?? this.today()).slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pricingDate)) {
       throw badRequest('invalid_date', 'تاریخِ قیمت‌گذاری معتبر نیست (قالب: YYYY-MM-DD).');
@@ -136,9 +214,61 @@ export class PricingEngineService {
         this.repo.loadOrderHistory(companyId, customer?.id ?? null),
       ]);
 
+    let crossDomainUse: {
+      price_list_id: string;
+      price_list_domain_id: string | null;
+      reason: string;
+    } | null = null;
     const explicitListId = dto.price_list_id ?? customer?.price_list_id ?? null;
     if (explicitListId && !priceLists.some((l) => l.id === explicitListId)) {
       throw badRequest('price_list_not_found', 'لیستِ قیمتِ انتخاب‌شده در این شرکت فعال نیست یا یافت نشد.');
+    }
+    // TASK-24F · MEDIUM-2: لیستِ قیمتِ صریح باید با قلمروی عملیاتیِ مجازِ مشتری بخواند.
+    if (explicitListId) {
+      const list = priceLists.find((l) => l.id === explicitListId);
+      const foreign = Boolean(list?.domain_id) && !domainIds.includes(list!.domain_id as string);
+      if (foreign) {
+        if (!opts.allow_cross_domain_price_list) {
+          throw new ForbiddenException({
+            code: 'price_list_domain_forbidden',
+            message_fa:
+              'لیستِ قیمتِ انتخاب‌شده به قلمروی دیگری تعلق دارد؛ استفاده از آن نیازمندِ مجوزِ صریحِ بین‌قلمرویی است.',
+            details: {
+              price_list_id: explicitListId,
+              price_list_domain_id: list?.domain_id ?? null,
+              allowed_domain_ids: domainIds,
+              source: dto.price_list_id ? 'request' : 'customer_default',
+            },
+          });
+        }
+        if (!opts.cross_domain_reason || opts.cross_domain_reason.trim().length < 3) {
+          throw badRequest(
+            'cross_domain_reason_required',
+            'برای استفاده از لیستِ قیمتِ قلمرویِ دیگر، ثبتِ دلیلِ صریح الزامی است.',
+            { price_list_id: explicitListId },
+          );
+        }
+        crossDomainUse = {
+          price_list_id: explicitListId,
+          price_list_domain_id: list?.domain_id ?? null,
+          reason: opts.cross_domain_reason.trim(),
+        };
+        // ممیزیِ اجباریِ عبورِ بین‌قلمرویی (قبل از هر محاسبهٔ قیمت)
+        await this.repo.logPriceChange({
+          company_id: companyId,
+          entity_type: 'price_list',
+          entity_id: explicitListId,
+          action: 'cross_domain_use',
+          before: null,
+          after: {
+            ...crossDomainUse,
+            customer_id: customer?.id ?? null,
+            allowed_domain_ids: domainIds,
+            actor_user_id: opts.actor_user_id ?? null,
+          },
+          actor_user_id: opts.actor_user_id ?? null,
+        });
+      }
     }
     const listIds = explicitListId
       ? [explicitListId]
@@ -206,10 +336,12 @@ export class PricingEngineService {
       options: {
         explicit_price_list_id: explicitListId,
         coupon_codes: couponCodes,
-        max_total_discount_pct: dto.max_total_discount_pct ?? null,
-        apply_promotions: dto.apply_promotions !== false,
-        allow_manual_price: dto.allow_manual_price === true,
-        allow_discount_override: dto.allow_discount_override === true,
+        max_total_discount_pct: opts.max_total_discount_pct ?? null,
+        max_line_discount_pct: opts.max_line_discount_pct ?? null,
+        apply_promotions: opts.apply_promotions !== false,
+        allow_manual_price: opts.allow_manual_price === true,
+        allow_discount_override: opts.allow_discount_override === true,
+        allow_loss_making: opts.allow_loss_making === true,
       },
     };
   }
@@ -239,23 +371,37 @@ export class PricingEngineService {
    * ذخیره‌شده برگردانده می‌شود (بازپخشِ بی‌اثر)؛ در صورتِ تغییرِ بدنه با همان کلید
    * خطای 409 صریح داده می‌شود تا کلید اشتباهی مصرف نشود.
    */
-  async quote(companyId: string, dto: QuoteRequestDto): Promise<QuoteResult & { replayed?: boolean; idempotency_key?: string | null }> {
+  async quote(
+    companyId: string,
+    dto: QuoteRequestDto,
+    opts: QuoteRunOptions = {},
+  ): Promise<QuoteResult & { replayed?: boolean; idempotency_key?: string | null }> {
     const key = dto.idempotency_key ?? null;
+    // TASK-24F · MEDIUM-5: کلیدِ بازپخش فقط برای «همان درخواست + همان گزینه‌های
+    // سرور» و در بازهٔ عمرِ کوتاه معتبر است؛ قیمتِ کهنه به سفارشِ بعدی تزریق نمی‌شود.
+    const ttl = opts.replay_ttl_seconds ?? this.replayTtlSeconds();
     if (key) {
       if (!/^[A-Za-z0-9_-]{8,128}$/.test(key)) {
         throw badRequest('invalid_idempotency_key', 'کلیدِ idempotency باید ۸ تا ۱۲۸ کاراکترِ مجاز باشد.');
       }
-      const hash = createHash('sha256').update(canonical(dto)).digest('hex');
+      const hash = createHash('sha256')
+        .update(canonical({ dto, opts: this.cacheableOptions(opts) }))
+        .digest('hex');
       const cached = await this.repo.findEvaluation(companyId, key);
       if (cached) {
         if (cached.request_hash !== hash) {
           throw conflict('idempotency_key_reuse', 'این کلیدِ idempotency با درخواستِ متفاوتی استفاده شده است.');
         }
-        return { ...(cached.result as QuoteResult), replayed: true, idempotency_key: key };
+        const cachedResult = cached.result as QuoteResult;
+        const sameDate = cachedResult?.pricing_date === (dto.pricing_date ?? this.today()).slice(0, 10);
+        if (cached.age_seconds <= ttl && sameDate) {
+          return { ...cachedResult, replayed: true, idempotency_key: key };
+        }
+        // کهنه/تاریخِ متفاوت ⇒ محاسبهٔ دوباره و تازه‌سازیِ کش (نه بازپخش)
       }
     }
 
-    const ctx = await this.buildContext(companyId, dto);
+    const ctx = await this.buildContext(companyId, dto, opts);
     let result: QuoteResult;
     try {
       result = computeQuote(ctx, dto.lines);
@@ -264,10 +410,220 @@ export class PricingEngineService {
     }
 
     if (key) {
-      const hash = createHash('sha256').update(canonical(dto)).digest('hex');
+      const hash = createHash('sha256')
+        .update(canonical({ dto, opts: this.cacheableOptions(opts) }))
+        .digest('hex');
       await this.repo.saveEvaluation(companyId, key, hash, result);
     }
     return { ...result, replayed: false, idempotency_key: key };
+  }
+
+  /** فقط گزینه‌های مؤثر در محاسبه (بدونِ actor/ttl) در هشِ بازپخش می‌آیند */
+  private cacheableOptions(opts: QuoteRunOptions): Record<string, unknown> {
+    return {
+      apply_promotions: opts.apply_promotions !== false,
+      max_total_discount_pct: opts.max_total_discount_pct ?? null,
+      max_line_discount_pct: opts.max_line_discount_pct ?? null,
+      allow_manual_price: opts.allow_manual_price === true,
+      allow_discount_override: opts.allow_discount_override === true,
+      allow_loss_making: opts.allow_loss_making === true,
+      allow_cross_domain_price_list: opts.allow_cross_domain_price_list === true,
+    };
+  }
+
+  // =================================================================
+  // §1.1  سیاستِ پایدارِ قیمت‌گذاری (TASK-24F)
+  // =================================================================
+
+  async getSettings(companyId: string): Promise<PricingSettings> {
+    const row = await this.repo.getPricingSettings(companyId);
+    if (!row) return { ...DEFAULT_PRICING_SETTINGS };
+    const num = (v: string | null): number | null => (v == null ? null : dec(v));
+    return {
+      apply_promotions_on_orders: row.apply_promotions_on_orders,
+      max_total_discount_pct: num(row.max_total_discount_pct),
+      max_line_discount_pct: num(row.max_line_discount_pct),
+      allow_loss_making_sales: row.allow_loss_making_sales,
+      min_order_date_lookback_days: row.min_order_date_lookback_days,
+      require_override_reason: row.require_override_reason,
+    };
+  }
+
+  async updateSettings(
+    companyId: string,
+    actor: string,
+    dto: UpdatePricingSettingsDto,
+  ): Promise<PricingSettings> {
+    const before = await this.getSettings(companyId);
+    const merged: PricingSettings = {
+      apply_promotions_on_orders:
+        dto.apply_promotions_on_orders ?? before.apply_promotions_on_orders,
+      max_total_discount_pct:
+        dto.max_total_discount_pct === undefined
+          ? before.max_total_discount_pct
+          : dto.max_total_discount_pct,
+      max_line_discount_pct:
+        dto.max_line_discount_pct === undefined
+          ? before.max_line_discount_pct
+          : dto.max_line_discount_pct,
+      allow_loss_making_sales: dto.allow_loss_making_sales ?? before.allow_loss_making_sales,
+      min_order_date_lookback_days:
+        dto.min_order_date_lookback_days === undefined
+          ? before.min_order_date_lookback_days
+          : dto.min_order_date_lookback_days,
+      require_override_reason: dto.require_override_reason ?? before.require_override_reason,
+    };
+    await this.repo.upsertPricingSettings(companyId, { ...merged, updated_by: actor });
+    await this.repo.logPriceChange({
+      company_id: companyId,
+      entity_type: 'pricing_settings',
+      entity_id: null,
+      action: 'update',
+      before,
+      after: merged,
+      actor_user_id: actor,
+    });
+    return merged;
+  }
+
+  /**
+   * TASK-24F · HIGH-1/HIGH-2 — قیمت‌گذاریِ سفارش با کنترل‌های سرور-محور:
+   *   • همیشه از موتور (بدونِ پرچمِ کلاینتی که کنترل‌ها را خاموش کند)
+   *   • مجوزِ قیمتِ دستی/عبور از سقف از نشست می‌آید، نه از بدنه
+   *   • سقفِ کلِ تخفیف و اعمالِ تشویق از `pricing_settings` می‌آید
+   *   • تاریخِ گذشته: نتیجهٔ قیمت‌گذاری با «امروز» محاسبه می‌شود تا تخفیف/سیاستِ
+   *     منقضی دوباره فعال نشود؛ خودِ سند تاریخِ گذشته را نگه می‌دارد (با مجوز+دلیل+audit)
+   */
+  async quoteForOrder(
+    companyId: string,
+    input: {
+      customer_id: string;
+      order_date: string;
+      price_list_id?: string | null;
+      coupon_codes?: string[];
+      lines: QuoteLineInput[];
+      idempotency_key?: string | null;
+      override_reason?: string | null;
+    },
+    perm: OrderPricingPermissions,
+    actorUserId: string | null,
+  ): Promise<OrderQuoteResult> {
+    const settings = await this.getSettings(companyId);
+    const orderDate = (input.order_date ?? '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(orderDate)) {
+      throw badRequest('invalid_date', 'تاریخِ سفارش معتبر نیست (قالب: YYYY-MM-DD).');
+    }
+    const today = this.todayTehran();
+    const backdated = orderDate < today;
+    const reason = (input.override_reason ?? '').trim();
+
+    if (backdated) {
+      if (settings.min_order_date_lookback_days != null) {
+        const limit = new Date(`${today}T00:00:00Z`);
+        limit.setUTCDate(limit.getUTCDate() - settings.min_order_date_lookback_days);
+        if (orderDate < limit.toISOString().slice(0, 10)) {
+          throw new ForbiddenException({
+            code: 'backdate_out_of_range',
+            message_fa: `تاریخِ سفارش بیش از ${settings.min_order_date_lookback_days} روز عقب‌تر از امروز است و مجاز نیست.`,
+            details: { order_date: orderDate, today, max_lookback_days: settings.min_order_date_lookback_days },
+          });
+        }
+      }
+      if (!perm.backdate) {
+        throw new ForbiddenException({
+          code: 'backdate_forbidden',
+          message_fa:
+            'ثبتِ سفارش با تاریخِ گذشته نیازمندِ مجوزِ pricing.backdate.apply است (برای جلوگیری از فعال‌سازیِ خاموشِ قیمت/تشویقِ منقضی).',
+          details: { order_date: orderDate, today },
+        });
+      }
+      if (reason.length < 3) {
+        throw badRequest('override_reason_required', 'برای تاریخِ گذشته، ثبتِ دلیل الزامی است.', {
+          order_date: orderDate,
+        });
+      }
+    }
+
+    const usesManualPrice = input.lines.some((l) => l.unit_price != null);
+
+    const dto: QuoteRequestDto = {
+      customer_id: input.customer_id,
+      // قیمت‌گذاری همیشه با تاریخِ مؤثر (امروز برای عقب‌گرد) انجام می‌شود
+      pricing_date: backdated ? today : orderDate,
+      price_list_id: input.price_list_id ?? null,
+      coupon_codes: input.coupon_codes ?? [],
+      idempotency_key: input.idempotency_key ?? null,
+      cross_domain_reason: reason || null,
+      lines: input.lines.map((l) => ({
+        product_id: l.product_id,
+        qty: l.qty,
+        packaging_id: l.packaging_id ?? null,
+        unit_price: l.unit_price ?? null,
+        discount_amount: l.discount_amount ?? null,
+      })),
+    } as QuoteRequestDto;
+
+    const opts: QuoteRunOptions = {
+      apply_promotions: settings.apply_promotions_on_orders,
+      max_total_discount_pct: settings.max_total_discount_pct,
+      max_line_discount_pct: settings.max_line_discount_pct,
+      allow_loss_making: settings.allow_loss_making_sales,
+      allow_manual_price: perm.manual_price,
+      allow_discount_override: perm.discount_override,
+      allow_cross_domain_price_list: perm.cross_domain_price_list,
+      cross_domain_reason: reason || null,
+      actor_user_id: actorUserId,
+      // بازپخشِ قیمتِ ذخیره‌شده فقط برای همان سفارش (کلیدِ سفارش‌محور)
+      replay_ttl_seconds: 0,
+    };
+
+    const quote = await this.quote(companyId, dto, opts);
+
+    // قیمتِ سیستمیِ هر قلم برای ممیزیِ قیمتِ دستی (بدونِ قیمتِ دستی)
+    let systemPrices: (string | null)[] = quote.lines.map(() => null);
+    if (usesManualPrice) {
+      try {
+        const systemQuote = await this.quote(
+          companyId,
+          {
+            ...dto,
+            idempotency_key: null,
+            lines: dto.lines.map((l) => ({ ...l, unit_price: null })),
+          },
+          { ...opts, allow_manual_price: false, allow_discount_override: false, replay_ttl_seconds: 0 },
+        );
+        systemPrices = systemQuote.lines.map((l) => l.unit_price);
+      } catch {
+        // قیمتِ سیستمی در دسترس نیست ⇒ در ممیزی null ثبت می‌شود (بدونِ شکستنِ سفارش)
+      }
+    }
+
+    // دلیلِ اجباری: قیمتِ دستیِ متفاوت از قیمتِ سیستمی، یا تخفیفِ فراتر از سقف
+    const manualDiverged = quote.lines.some((line, idx) => {
+      const requested = dto.lines[idx]?.unit_price;
+      if (requested == null) return false;
+      const system = systemPrices[idx];
+      return system == null || Math.abs(Number(requested) - Number(system)) > 0.005;
+    });
+    const overrodeCap = quote.warnings.some((w) => w.includes('فراتر از سقف'));
+    if ((manualDiverged || overrodeCap) && settings.require_override_reason && reason.length < 3) {
+      throw badRequest(
+        'override_reason_required',
+        'برای قیمتِ دستیِ متفاوت از قیمتِ سیستم یا تخفیفِ فراتر از سقف، ثبتِ دلیل الزامی است.',
+        {
+          reason: manualDiverged ? 'manual_price' : 'discount_override',
+          system_unit_prices: systemPrices,
+        },
+      );
+    }
+
+    return {
+      quote,
+      system_unit_prices: systemPrices,
+      settings,
+      pricing_date: dto.pricing_date as string,
+      backdated,
+    };
   }
 
   /** شبیه‌سازی — همان استعلام + ثبتِ audit (فقط سبکِ ممیزی، نه سندِ کسب‌وکار) */
@@ -275,8 +631,9 @@ export class PricingEngineService {
     companyId: string,
     actorUserId: string | null,
     dto: QuoteRequestDto,
+    opts: QuoteRunOptions = {},
   ): Promise<QuoteResult & { simulation_id: string | null }> {
-    const result = await this.quote(companyId, dto);
+    const result = await this.quote(companyId, dto, opts);
     let simulationId: string | null = null;
     if (dto.persist_audit !== false && result.replayed !== true) {
       simulationId = await this.repo.logSimulation(companyId, actorUserId, dto, {
@@ -285,8 +642,14 @@ export class PricingEngineService {
         tax_total: result.tax_total,
         grand_total: result.grand_total,
         margin_pct: result.margin_pct,
-        applied: result.applied_promotions.map((p) => ({ code: p.code, amount: p.amount })),
+        applied: result.applied_promotions.map((p) => ({
+          code: p.code,
+          amount: p.amount,
+          gift_lines: result.gift_lines.filter((g) => g.promotion_code === p.code).length,
+        })),
         violations: result.margin_violations.map((v) => v.code),
+        /* TASK-24F: سیاست/مجوزهای مؤثر در همان ارزیابی، برای بازتولیدِ نتیجه */
+        policy: this.cacheableOptions(opts),
       });
     }
     return { ...result, simulation_id: simulationId };
@@ -596,6 +959,12 @@ export class PricingEngineService {
     required_margin_pct: number | null;
     policy_id: string | null;
     exception_id: string | null;
+    /**
+     * TASK-24F · MEDIUM-1: تأییدکنندهٔ واقعیِ استثنا (`decided_by`)، هرگز نویسندهٔ قیمت نیست.
+     * اگر استثنایی اعمال نشده باشد، NULL است (نوشتنِ عادی نیازی به تأیید ندارد).
+     */
+    approved_by: string | null;
+    approval_request_id: string | null;
   }> {
     const [productBundle, packaging, costs, policies, exceptions] = await Promise.all([
       this.repo.loadProducts(input.companyId, [input.productId]),
@@ -651,12 +1020,31 @@ export class PricingEngineService {
     if (evaluation.violation) {
       if (input.marginExceptionId) {
         const ex = await this.repo.findMarginException(input.companyId, input.marginExceptionId);
+        /* TASK-24F · MEDIUM-1: همان قواعدِ سخت‌گیرانهٔ استعلام — کالای مشخص،
+           سیاستِ منطبق، سقفِ granted_margin_pct و ردِ استثنای مقید به سندِ دیگر. */
         const valid =
-          ex &&
-          ex.status === 'approved' &&
-          (ex.product_id == null || ex.product_id === product.id) &&
-          (ex.customer_id == null || ex.customer_id === input.customerId) &&
-          (ex.valid_until == null || String(ex.valid_until) >= input.pricingDate);
+          Boolean(ex) &&
+          exceptionPermits(
+            {
+              id: String(ex!.id),
+              product_id: (ex!.product_id as string | null) ?? null,
+              customer_id: (ex!.customer_id as string | null) ?? null,
+              policy_id: (ex!.policy_id as string | null) ?? null,
+              entity_type: String(ex!.entity_type ?? ''),
+              entity_id: (ex!.entity_id as string | null) ?? null,
+              granted_margin_pct:
+                ex!.granted_margin_pct == null ? null : String(ex!.granted_margin_pct),
+              status: String(ex!.status ?? ''),
+              valid_until: (ex!.valid_until as string | null) ?? null,
+            },
+            {
+              productId: product.id,
+              customerId: input.customerId,
+              policyId: evaluation.result.policy_id,
+              marginPct: evaluation.result.margin_pct,
+            },
+          ) &&
+          (ex!.valid_until == null || String(ex!.valid_until) >= input.pricingDate);
         if (!valid) {
           throw new ForbiddenException({
             code: 'margin_exception_invalid',
@@ -670,6 +1058,9 @@ export class PricingEngineService {
           required_margin_pct: evaluation.result.required_margin_pct,
           policy_id: evaluation.result.policy_id,
           exception_id: input.marginExceptionId,
+          // MEDIUM-1: نویسنده هرگز به‌عنوان تأییدکننده ثبت نمی‌شود
+          approved_by: (ex!.decided_by as string | null) ?? null,
+          approval_request_id: (ex!.approval_request_id as string | null) ?? null,
         };
       }
       throw conflict('margin_floor_violation', evaluation.violation.message_fa, {
@@ -684,6 +1075,8 @@ export class PricingEngineService {
       required_margin_pct: evaluation.result.required_margin_pct,
       policy_id: evaluation.result.policy_id,
       exception_id: null,
+      approved_by: null,
+      approval_request_id: null,
     };
   }
 
@@ -751,7 +1144,10 @@ export class PricingEngineService {
         max_discount_pct: dto.max_discount_pct ?? null,
         valid_from: dto.valid_from ?? null,
         valid_to: dto.valid_to ?? null,
-        approved_by: margin.status === 'exception_applied' ? actor : null,
+        // MEDIUM-1: تأییدکننده = تصمیم‌گیرندهٔ استثنا (نه نویسندهٔ قیمت)
+        approved_by: margin.status === 'exception_applied' ? margin.approved_by : null,
+        approval_request_id:
+          margin.status === 'exception_applied' ? margin.approval_request_id : null,
         note: dto.note ?? null,
         created_by: actor,
       });
@@ -787,8 +1183,9 @@ export class PricingEngineService {
         throw conflict('version_conflict', 'قیمت هم‌زمان توسط کاربرِ دیگری تغییر کرده است؛ دوباره بارگیری کنید.');
       }
     }
+    let margin: Awaited<ReturnType<PricingEngineService['assertMarginForPriceWrite']>> | null = null;
     if (dto.price != null) {
-      await this.assertMarginForPriceWrite({
+      margin = await this.assertMarginForPriceWrite({
         companyId,
         productId: String(before.product_id),
         packagingId: (before.packaging_id as string | null) ?? null,
@@ -804,6 +1201,9 @@ export class PricingEngineService {
       ...(dto.max_qty !== undefined ? { max_qty: dto.max_qty } : {}),
       ...(dto.max_discount_pct !== undefined ? { max_discount_pct: dto.max_discount_pct } : {}),
       ...(dto.note !== undefined ? { note: dto.note } : {}),
+      ...(margin && margin.status === 'exception_applied'
+        ? { approved_by: margin.approved_by, approval_request_id: margin.approval_request_id }
+        : {}),
     });
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'قیمتِ اختصاصی یافت نشد.' });
     if (dto.valid_from !== undefined || dto.valid_to !== undefined) {
