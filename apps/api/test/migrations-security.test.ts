@@ -92,7 +92,7 @@ async function assert0048EndState(q: pg.Pool): Promise<void> {
       (select count(*)::int from pg_policy where polname='p_geofence_tenant') as geofence_pol,
       (select count(*)::int from pg_class where relname in ('mv_ar_aging_src','mv_daily_sales_src','mv_salesperson_performance_src') and relkind='m') as src_mvs,
       (select count(*)::int from pg_class where relname in ('mv_ar_aging','mv_daily_sales','mv_salesperson_performance') and relkind='v') as shadow_views,
-      (select coalesce((select option_value from pg_options_to_table(c.reloptions) where option_name='security_invoker'),'f')
+      (select coalesce((select option_value from pg_options_to_table(c.reloptions) where option_name='security_invoker'),'false')::boolean
          from pg_class c where c.relname='v_stock_valuation_variance') as svv_si,
       (select has_table_privilege('dms_app', 'mv_ar_aging_src', 'SELECT')) as src_select,
       (select has_table_privilege('dms_app', 'mv_ar_aging', 'SELECT')) as shadow_select`);
@@ -102,7 +102,8 @@ async function assert0048EndState(q: pg.Pool): Promise<void> {
   expect(rows[0].geofence_pol).toBe(1);
   expect(rows[0].src_mvs).toBe(3);
   expect(rows[0].shadow_views).toBe(3);
-  expect(rows[0].svv_si).toBe('true');
+  // مقدارِ معناییِ boolean از کاتالوگ (نه بازنماییِ متنی): security_invoker باید روشن باشد.
+  expect(rows[0].svv_si).toBe(true);
   expect(rows[0].src_select).toBe(false);
   expect(rows[0].shadow_select).toBe(true);
 }
@@ -114,14 +115,18 @@ async function assertPre0048State(q: pg.Pool): Promise<void> {
       (select relrowsecurity from pg_class where relname='geofence') as geofence_rls,
       (select count(*)::int from pg_policy where polname in ('p_device_tenant','p_geofence_tenant')) as pols,
       (select count(*)::int from pg_class where relname in ('mv_ar_aging','mv_daily_sales','mv_salesperson_performance') and relkind='m') as mvs,
-      (select coalesce((select option_value from pg_options_to_table(c.reloptions) where option_name='security_invoker'),'f')
+      (select coalesce((select option_value from pg_options_to_table(c.reloptions) where option_name='security_invoker'),'false')::boolean
          from pg_class c where c.relname='v_stock_valuation_variance') as svv_si,
       (select has_table_privilege('dms_app', 'mv_ar_aging', 'SELECT')) as mv_select`);
   expect(rows[0].device_rls).toBe(false);
   expect(rows[0].geofence_rls).toBe(false);
   expect(rows[0].pols).toBe(0);
   expect(rows[0].mvs).toBe(3);
-  expect(rows[0].svv_si).toBe('f');
+  // مقدارِ معناییِ boolean از کاتالوگ: security_invoker باید خاموش باشد — چه گزینه
+  // اصلاً ثبت نشده باشد (نصبِ تازه پیش از 0048) و چه صریحاً false ثبت شده باشد
+  // (قراردادِ down با `set (security_invoker=false)`). بازنماییِ متنی ('f' یا 'false')
+  // به PostgreSQL/psql وابسته است و عمداً معیار نیست؛ مقدارِ boolean معیار است.
+  expect(rows[0].svv_si).toBe(false);
   expect(rows[0].mv_select).toBe(true);
 }
 
@@ -177,6 +182,9 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
   }, 300_000);
 
   it('بازگردانیِ گرانت: پس از down/up، *_src باز هم از dms_app پنهان و سایه در دسترس است', async () => {
+    // پیش‌شرطِ صریح: چرخهٔ تستِ قبلی باید DB را در وضعیتِ پایانیِ 0048 تحویل داده
+    // باشد؛ در غیر این صورت شکست با پیامِ معنادار گزارش می‌شود (نه «relation does not exist»).
+    await assert0048EndState(db);
     const { rows } = await db.query(`
       select has_table_privilege('dms_app','mv_daily_sales_src','SELECT') as src,
              has_table_privilege('dms_app','mv_daily_sales','SELECT') as shadow,

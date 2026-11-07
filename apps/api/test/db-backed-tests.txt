@@ -1,0 +1,22 @@
+# Non-api test files that require a live PostgreSQL (DATABASE_URL) — TASK-23R (F-02).
+#
+# These files MUST NOT be selected by the CI `unit` (no-DB) job; they run in the
+# `integration-db` job alongside *.api.test.ts. The partition is verified by
+# `node scripts/check-test-partition.mjs` (static CI job): every test file that
+# reads process.env.DATABASE_URL (directly or through a test-dir fixture) must be
+# listed here, and nothing else may be. To classify a new test, just run the check.
+#
+# 47 TASK-23 security scenarios live in the first four files (view-isolation 22,
+# device-rls 11, geofence-rls 11, migrations-security 3).
+device-rls.test.ts
+geofence-rls.test.ts
+migrations-security.test.ts
+view-isolation.test.ts
+product-master-attributes.test.ts
+product-master-barcode.test.ts
+product-master-bundle.test.ts
+product-master-core.test.ts
+product-master-import.test.ts
+product-master-rls.test.ts
+product-master-security.test.ts
+product-master-snapshots.test.ts
