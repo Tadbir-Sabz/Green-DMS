@@ -9,16 +9,18 @@ import type { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from '.
  * cast می‌شود چون قرارداد آن را number اعلام کرده (پول‌ها همچنان string‌اند).
  */
 const COLUMNS = `
-  id, code, name, category_id, brand_id, base_uom_id, tax_code_id,
+  id, code, name, name_latin, family_id, category_id, brand_id, base_uom_id, tax_code_id,
   is_batch_tracked, is_expiry_tracked, shelf_life_days,
   is_returnable_container, requires_permit, distribution_kind,
   min_order_qty::double precision as min_order_qty, weight_gr, volume_cm3,
-  status, created_at, row_version`;
+  status, variant_signature, created_at, row_version`;
 
 export interface ProductRow extends QueryResultRow {
   id: string;
   code: string;
   name: string;
+  name_latin: string | null;
+  family_id: string | null;
   category_id: string;
   brand_id: string | null;
   base_uom_id: string;
@@ -33,6 +35,7 @@ export interface ProductRow extends QueryResultRow {
   weight_gr: number | null;
   volume_cm3: number | null;
   status: string;
+  variant_signature: string | null;
   created_at: string;
   row_version: number;
 }
@@ -47,6 +50,8 @@ export interface ListProductsResult {
 const UPDATABLE: (keyof ProductRow)[] = [
   'code',
   'name',
+  'name_latin',
+  'family_id',
   'category_id',
   'brand_id',
   'base_uom_id',
@@ -145,23 +150,25 @@ export class ProductRepository {
     return rows.length > 0;
   }
 
-  async insert(companyId: string, dto: CreateProductDto): Promise<ProductRow> {
+  async insert(companyId: string, dto: CreateProductDto & { code: string }): Promise<ProductRow> {
     const { rows } = await this.pool.query<ProductRow>(
-      `insert into product (company_id, code, name, category_id, base_uom_id,
+      `insert into product (company_id, code, name, name_latin, family_id, category_id, base_uom_id,
                             brand_id, tax_code_id,
                             is_batch_tracked, is_expiry_tracked, shelf_life_days,
                             is_returnable_container, requires_permit, distribution_kind,
                             min_order_qty, weight_gr, volume_cm3)
-       values ($1, $2, $3, $4, $5,
-               $6, $7,
-               coalesce($8, false), coalesce($9, false), $10,
-               coalesce($11, false), coalesce($12, false), coalesce($13, 'both'),
-               coalesce($14, 0), $15, $16)
+       values ($1, $2, $3, $4, $5, $6, $7,
+               $8, $9,
+               coalesce($10, false), coalesce($11, false), $12,
+               coalesce($13, false), coalesce($14, false), coalesce($15, 'both'),
+               coalesce($16, 0), $17, $18)
        returning ${COLUMNS}`,
       [
         companyId,
         dto.code,
         dto.name,
+        dto.name_latin ?? null,
+        dto.family_id ?? null,
         dto.category_id,
         dto.base_uom_id,
         dto.brand_id ?? null,

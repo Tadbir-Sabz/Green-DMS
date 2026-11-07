@@ -4,6 +4,8 @@
 > شدت‌ها بدونِ بزرگ‌نمایی؛ برای هر ریشه یک شناسه (بدونِ تکرار). «تأییدِ مالک» = آیا تصمیم/بودجه/دامنه نیاز به تاییدِ صریح دارد.
 
 **خلاصه (بازشماری‌شده در TASK-21R از رویِ همین ورودی‌ها):** مجموع: **۱۹** · CRITICAL: ۰ · HIGH: ۳ (G-01..G-03) · MEDIUM: ۸ (G-04، G-05، G-06، G-08، G-09، G-11، G-12، G-13) · LOW: ۶ (G-07، G-10، G-14، G-15، G-16، G-17) · INFORMATIONAL: ۲ (G-18، G-19)
+
+> **به‌روزرسانیِ TASK-22 (پیاده‌سازیِ P1 — Product Master):** G-06 از `MISSING` به `IMPLEMENTED WITH GAPS` و G-07 به `IMPLEMENTED & VERIFIED` و G-13 به `IMPLEMENTED WITH GAPS (پایهٔ محصول)` تغییر کرد؛ شمارشِ بالا مربوط به بازشماریِ TASK-21R است و وضعیتِ به‌روزِ هر شکاف در ورودیِ خودش معتبر است.
 > راستی‌آزماییِ TASK-21R: خلاصهٔ قبلی «۲۰ یافته/۹ MEDIUM» اشتباهِ شمارشی بود؛ هیچ یافته‌ای کم نبوده و شناسه‌ای اختراع نمی‌شود. شناسه‌های این سند (G-xx) با شناسه‌های قابلیتِ MODULE_INVENTORY مجزاست؛ قابلیت‌های بخشِ موجودی/انبار اکنون پیش‌وندِ `INV-` دارند.
 
 ---
@@ -53,15 +55,16 @@
 
 ## G-06 — تکمیلِ Product Master (دامنهٔ §۸ نقشهٔ راه)
 - **دامنه:** C-09..C-12 · **قابلیت:** alias/نامِ دوزبانه، attribute/variant، جایگزین/مکمل/بسته، UX تصویر، import انبوه
-- **وضعیت:** `MISSING` (اجزا) · **دسته:** قابلیتِ ناقص (تکمیلِ ماژولِ موجود) · **شدت:** MEDIUM
-- **شاهد:** مهاجرت ۰۰۰۵ (هسته قوی) بدونِ جدولِ alias/attribute/variant/relation؛ `product.controller` CRUD ساده.
-- **توصیه:** **فازِ P1** — همین‌ها scope اصلیِ «تکمیلِ Product Master» هستند؛ schema باید extend شود نه بازنویسی. طراحیِ هدف تکمیل و پس از TASK-21Q آشتی شد (`PRODUCT_MASTER_TARGET_DESIGN.md` — D1–D5 مصوب). **معیار:** §۸ نقشهٔ راه + تست‌های downstream. **تأییدِ مالک:** خیر (دامنه از قبل مصوب است)؛ جزئیاتِ variant طراحی نیاز دارد.
+- **وضعیت:** `IMPLEMENTED WITH GAPS` (به‌روزرسانیِ TASK-22) · **دسته:** قابلیتِ ناقص (تکمیلِ ماژولِ موجود) · **شدت:** MEDIUM
+- **شاهد (پیش از TASK-22):** مهاجرت ۰۰۰۵ (هسته قوی) بدونِ جدولِ alias/attribute/variant/relation؛ `product.controller` CRUD ساده.
+- **شاهد (TASK-22 — پیاده‌سازیِ P1):** مهاجرت **۰۰۴۶** (`product_family`/`product_alias`/`product_attribute_def|enum_value|value`/`product_relation`/`product_bundle`/`product_barcode`/`product_code_seq`/`product_import` + `name_latin`/`family_id`/`variant_signature`) · سرویس‌ها/کنترلرهای `product-master.*` + `product-barcode/catalog/import.controller` · UI ماژولِ منسجمِ `apps/web/src/app/products/` (فهرست+اسکن، ویزاردِ ساخت، جزئیات با ۷ تب، ویزاردِ import) · ۶۸ تستِ رفتاریِ جدید (product-master-*). باقی‌مانده از این شکاف: UX تصویرِ پیشرفته (مدیریتِ attachment موجود است)، مدیریتِ کاملِ UI برای uom/category/brand، تکمیلِ import سایر حوزه‌ها (G-13).
+- **توصیه:** **فازِ P1** — اجرا شد (TASK-22)؛ schema extend شد نه بازنویسی. طراحیِ هدف: `PRODUCT_MASTER_TARGET_DESIGN.md` — D1–D5 مصوب. **معیار:** §۸ نقشهٔ راه + تست‌های downstream (سبز: ۹۵۰ API + ۵۲ وب). **تأییدِ مالک:** بله (D1–D5 در TASK-21S).
 
 ## G-07 — snapshot نامِ محصول/عنوانِ واحد در اسنادِ تاریخی
 - **دامنه:** C/E/F · **قابلیت:** یکپارچگیِ تاریخی (§۸)
-- **وضعیت:** `IMPLEMENTED WITH GAPS` · **دسته:** نقصِ محصول (جزئی) · **شدت:** LOW
-- **شاهد:** `sales_order_line` قیمت/مالیات/تخفیف را snapshot می‌کند (۰۰۱۰) اما نامِ کالا/عنوانِ واحد را نه؛ نمایشِ اسنادِ قدیمی پس از تغییرِ نام، نامِ جدید را نشان می‌دهد.
-- **توصیه:** ستون‌های snapshot در P1 طبقِ ماتریسِ `PRODUCT_MASTER_TARGET_DESIGN.md` §D (پوششِ ۹ نوعِ سند). **معیار:** تستِ تغییرِ نام بدونِ اثر روی سندِ گذشته. **تأییدِ مالک:** خیر.
+- **وضعیت:** `IMPLEMENTED & VERIFIED` (به‌روزرسانیِ TASK-22) · **دسته:** نقصِ محصول (جزئی) · **شدت:** LOW
+- **شاهد (پیش از TASK-22):** `sales_order_line` قیمت/مالیات/تخفیف را snapshot می‌کند (۰۰۱۰) اما نامِ کالا/عنوانِ واحد را نه؛ نمایشِ اسنادِ قدیمی پس از تغییرِ نام، نامِ جدید را نشان می‌دهد.
+- **شاهد (TASK-22):** مهاجرت ۰۰۴۶ — ستون‌های snapshot (`product_code_snapshot`/`product_name_snapshot`/`uom_title_snapshot`/`factor_to_base_snapshot`) روی **۱۰ جدولِ خطِ سند** + تریگرِ `fn_product_line_snapshot()` (INSERT: پرکردن؛ UPDATE: فقط NULLها ⇒ تغییرناپذیری) + نمایِ `v_document_line_display` (L-3) · تست‌های `product-master-snapshots.test.ts` (تغییرِ نام/واحد بی‌اثر روی سندِ گذشته + مقاومتِ UPDATE مستقیم). **معیار:** تستِ تغییرِ نام بدونِ اثر روی سندِ گذشته — برآورده شد.
 
 ## G-08 — درگاهِ واقعیِ Moadian/PSP اثبات‌نشده
 - **دامنه:** J-01/J-02 · **قابلیت:** انطباقِ قانونیِ صورتحساب الکترونیکی
@@ -96,9 +99,10 @@
 
 ## G-13 — مرکزِ import/export انبوه گمشده
 - **دامنه:** L-05/A-05/C-12 · **قابلیت:** پردازشِ انبوه
-- **وضعیت:** `MISSING` · **دسته:** پایهٔ گمشده · **شدت:** MEDIUM
-- **شاهد:** فقط خروجیِ گزارش‌ها؛ هیچ validation/preview/error-report برای import.
-- **توصیه:** پایهٔ مشترک (حداقل CSV با اعتبارسنجی) در P1 برای محصولات؛ مرکزِ کامل در P8. **تأییدِ مالک:** خیر.
+- **وضعیت:** `IMPLEMENTED WITH GAPS` (به‌روزرسانیِ TASK-22: پایهٔ محصول) · **دسته:** پایهٔ گمشده · **شدت:** MEDIUM
+- **شاهد (پیش از TASK-22):** فقط خروجیِ گزارش‌ها؛ هیچ validation/preview/error-report برای import.
+- **شاهد (TASK-22):** import محصول پیاده‌سازی شد: `POST /products/import/validate` (validate-before-persist، خطای ردیف‌به‌ردیفِ فارسی) + `POST /products/import/commit` (idempotency_key، همه‌یاهیچ در هر دسته، audit، M-5 برای فیلدهای حساس) + `GET /products/import/report/{id}` · UI ویزاردِ `products/import` · تست‌های `product-master-import.test.ts`. باقی‌مانده: import سایر حوزه‌ها (مشتری/قیمت/موجودی) و مرکزِ مشترکِ P8.
+- **توصیه:** پایهٔ مشترک (حداقل CSV با اعتبارسنجی) در P1 برای محصولات — **برآورده شد**؛ مرکزِ کامل در P8. **تأییدِ مالک:** خیر.
 
 ## G-14 — ناوگان: نگهداری/سوخت/بیمه/بازرسی/حادثه
 - **دامنه:** H-06 · **قابلیت:** مدیریتِ ناوگان

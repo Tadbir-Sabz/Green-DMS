@@ -1,53 +1,45 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { components } from '@dms/api-client';
-import { api, errorMessage, getToken } from '@/lib/api';
+import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
+import {
+  type Category,
+  type Product,
+  type ScanResult,
+  DIST_LABEL,
+  STATUS_LABEL,
+  btnGhost,
+  btnPrimary,
+  btnSmall,
+  errorCls,
+  faError,
+  inputCls,
+  okCls,
+  panelCls,
+  selectCls,
+  statusBadgeCls,
+  tableWrapCls,
+  tdCls,
+  thCls,
+} from './products-lib';
 
 /**
- * فهرست و فرم کالا — همه فراخوانی‌ها با کلاینت تایپ‌شده از openapi.yaml:
- *   GET    /products              فهرست با جست‌وجو/فیلتر (صفحه‌بندی cursor)
- *   POST   /products              ساخت کالا
- *   PATCH  /products/{id}         تغییر وضعیت با قفل خوش‌بینانه (row_version)
- *   GET    /product-categories    دسته‌بندی‌ها (واحد فرم)
- *   GET    /units                 واحدهای اندازه‌گیری (واحد فرم)
+ * فهرست کالاها — خانهٔ ماژولِ Product Master:
+ *   GET  /products               فهرست با جست‌وجو/فیلتر (صفحه‌بندی cursor)
+ *   GET  /products/scan/{code}   resolution قطعیِ اسکنِ بارکد/کد (H-1)
+ * ورودی‌های عملیاتی به زیرصفحاتِ منسجم وصل‌اند:
+ *   /products/new   ویزارد ساخت     ·  /products/import  ورود گروهی     ·  /products/{id}  جزئیات
  */
-
-type Product = components['schemas']['Product'];
-type Category = components['schemas']['ProductCategory'];
-type Unit = components['schemas']['Unit'];
-
-const STATUS_LABEL: Record<string, string> = {
-  active: 'فعال',
-  blocked: 'مسدود',
-  discontinued: 'متوقف',
-};
-const DIST_LABEL: Record<string, string> = {
-  cold: 'سرد',
-  warm: 'گرم',
-  both: 'سرد و گرم',
-};
-
-const EMPTY_FORM = {
-  code: '',
-  name: '',
-  category_id: '',
-  base_uom_id: '',
-  distribution_kind: 'both' as 'cold' | 'warm' | 'both',
-  min_order_qty: '1',
-  is_batch_tracked: false,
-  is_expiry_tracked: false,
-  shelf_life_days: '',
-};
 
 export default function ProductsPage(): React.JSX.Element {
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
   const [items, setItems] = useState<Product[]>([]);
-  /** cursor صفحهٔ بعدی — فقط وقتی سرور has_more فرستاده باشد ست می‌شود */
+  const [categories, setCategories] = useState<Category[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -55,40 +47,34 @@ export default function ProductsPage(): React.JSX.Element {
 
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [scan, setScan] = useState('');
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
 
-  const [showForm, setShowForm] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const categoryName = useCallback(
+    (id: string | null | undefined): string => {
+      if (!id) return '—';
+      return categories.find((c) => c.id === id)?.name ?? '—';
+    },
+    [categories],
+  );
 
   const load = useCallback(async (query: string, st: string, cursor?: string) => {
     setLoading(true);
     setListError(null);
     const { data, error } = await api.GET('/products', {
-      // openapi-fetch: پارامترها داخل params.query؛ نوشتنِ query در سطح بالا نادیده گرفته می‌شود
-      params: {
-        query: {
-          q: query || undefined,
-          status: st || undefined,
-          cursor: cursor ?? undefined,
-          limit: 100,
-        },
-      },
+      params: { query: { q: query || undefined, status: st || undefined, cursor: cursor ?? undefined, limit: 100 } },
     });
     setLoading(false);
     if (error) {
-      setListError(errorMessage(error));
+      setListError(faError(error));
       return;
     }
     const pageItems = data?.items ?? [];
-    // صفحهٔ بعدی به انتهای فهرست می‌چسبد (ادامهٔ cursor طبق قرارداد)
     setItems((prev) => (cursor ? [...prev, ...pageItems] : pageItems));
     setNextCursor(data?.has_more ? (data?.next_cursor ?? null) : null);
   }, []);
 
-  // نگهبان ورود: بدون توکن به صفحه ورود
   useEffect(() => {
     if (!getToken()) {
       router.replace('/login');
@@ -96,79 +82,37 @@ export default function ProductsPage(): React.JSX.Element {
     }
     setReady(true);
     void load('', '');
+    void api.GET('/product-categories').then(({ data }) => setCategories(data?.items ?? []));
   }, [router, load]);
 
-  const openForm = async (): Promise<void> => {
-    setForm(EMPTY_FORM);
-    setFormError(null);
-    setShowForm(true);
-    const [cats, unts] = await Promise.all([
-      api.GET('/product-categories'),
-      api.GET('/units'),
-    ]);
-    const catItems = cats.data?.items ?? [];
-    const unitItems = unts.data?.items ?? [];
-    setCategories(catItems);
-    setUnits(unitItems);
-    setForm((f) => ({
-      ...f,
-      category_id: catItems[0]?.id ?? '',
-      base_uom_id: unitItems[0]?.id ?? '',
-    }));
-  };
-
-  const submitForm = async (e: FormEvent): Promise<void> => {
+  /** اسکنِ بارکد/کد — قطعی: یا به صفحهٔ کالا می‌رود یا پیامِ دقیق می‌دهد */
+  const doScan = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
-    setSaving(true);
-    setFormError(null);
-    const { data, error } = await api.POST('/products', {
-      body: {
-        code: form.code.trim(),
-        name: form.name.trim(),
-        category_id: form.category_id,
-        base_uom_id: form.base_uom_id,
-        distribution_kind: form.distribution_kind,
-        min_order_qty: form.min_order_qty ? Number(form.min_order_qty) : 1,
-        is_batch_tracked: form.is_batch_tracked,
-        is_expiry_tracked: form.is_expiry_tracked,
-        ...(form.is_expiry_tracked && form.shelf_life_days
-          ? { shelf_life_days: Number(form.shelf_life_days) }
-          : {}),
-      },
-    });
-    setSaving(false);
-    if (error || !data) {
-      setFormError(errorMessage(error));
+    const code = scan.trim();
+    if (!code) return;
+    setScanBusy(true);
+    setScanMsg(null);
+    const { data, error } = await api.GET('/products/scan/{code}', { params: { path: { code } } });
+    setScanBusy(false);
+    if (error) {
+      const body = error as { code?: string; message_fa?: string };
+      if ((error as { status?: number }) || body.code === 'ambiguous_scan') {
+        setScanMsg(body.message_fa ?? 'چند کالا با این ورودی مطابقت دارد؛ کد را کامل‌تر وارد کنید.');
+      } else {
+        setScanMsg(body.message_fa ?? 'کالایی با این بارکد/کد یافت نشد.');
+      }
       return;
     }
-    setShowForm(false);
-    setNotice(`کالا «${data.name}» با کد ${data.code} ساخته شد.`);
-    await load(q, status);
-  };
-
-  const toggleStatus = async (p: Product): Promise<void> => {
-    setNotice(null);
-    setListError(null);
-    const next = p.status === 'active' ? 'blocked' : 'active';
-    const { error } = await api.PATCH('/products/{id}', {
-      params: { path: { id: p.id } },
-      body: { status: next, row_version: p.row_version },
-    });
-    if (error) {
-      // 409 version_conflict یعنی هم‌زمان ویرایش شده؛ فهرست تازه می‌شود
-      setListError(errorMessage(error));
-    } else {
-      setNotice(`وضعیت «${p.name}» → ${STATUS_LABEL[next]}`);
-    }
-    await load(q, status);
+    const result = data as ScanResult;
+    setNotice(`کالای «${result.product.name}» (${result.product.code}) از طریق ${result.matched_by === 'barcode' ? 'بارکد' : result.matched_by === 'code' ? 'کد' : 'نامِ جایگزین'} یافت شد.`);
+    router.push(`/products/${result.product.id}`);
   };
 
   if (!ready) return <AppLoader />;
 
   return (
     <>
-
-      {/* نوار ابزار: جست‌وجو + فیلتر + ساخت */}
+      {/* نوار ابزار: جست‌وجو + فیلتر + اسکن */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -179,7 +123,7 @@ export default function ProductsPage(): React.JSX.Element {
         <label className="flex-1 text-sm">
           جست‌وجو (کد/نام)
           <input
-            className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
+            className={`${inputCls} mt-1`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="مثلاً شیر یا P-100"
@@ -188,7 +132,7 @@ export default function ProductsPage(): React.JSX.Element {
         <label className="text-sm">
           وضعیت
           <select
-            className="h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1 w-40"
+            className={`${selectCls} mt-1 w-40`}
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -201,197 +145,67 @@ export default function ProductsPage(): React.JSX.Element {
             <option value="discontinued">متوقف</option>
           </select>
         </label>
-        <button
-          type="submit"
-          className="rounded-lg border border-line-strong px-4 py-2 text-sm hover:bg-surface-hover focus-ring"
-        >
+        <button type="submit" className={btnGhost}>
           جست‌وجو
-        </button>
-        <button
-          type="button"
-          onClick={() => void openForm()}
-          className="rounded-lg bg-info px-4 py-2 text-sm font-medium text-on-info hover:bg-info focus-ring"
-        >
-          + کالای جدید
         </button>
       </form>
 
-      {notice && (
-        <p className="mb-4 rounded-lg bg-brand-soft px-4 py-2 text-sm text-success-ink">
-          {notice}
-        </p>
-      )}
-      {listError && (
-        <p className="mb-4 rounded-lg bg-danger-soft px-4 py-2 text-sm text-danger-ink">
-          {listError}
-        </p>
-      )}
+      {/* اسکنِ بارکد — ورودیِ اسکنرها مستقیم این‌جا می‌نشیند */}
+      <form onSubmit={doScan} className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-info-line bg-info-soft p-4">
+        <label className="flex-1 text-sm">
+          اسکن یا ورودِ بارکد/کد
+          <input
+            className={`${inputCls} mt-1 font-mono`}
+            value={scan}
+            onChange={(e) => setScan(e.target.value)}
+            placeholder="بارکد را اسکن کنید یا کد را بنویسید…"
+            autoComplete="off"
+          />
+        </label>
+        <button type="submit" disabled={scanBusy || !scan.trim()} className={btnPrimary}>
+          {scanBusy ? 'در حال جست‌وجو…' : 'یافتنِ کالا'}
+        </button>
+        {scanMsg && <p className="w-full text-sm text-danger-ink">{scanMsg}</p>}
+      </form>
 
-      {/* فرم ساخت کالا */}
-      {showForm && (
-        <form
-          onSubmit={submitForm}
-          className="mb-6 rounded-xl border border-info-line bg-info-soft p-5"
-        >
-          <h2 className="mb-4 font-semibold">کالای جدید</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="text-sm">
-              کد کالا *
-              <input
-                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value })}
-                required
-              />
-            </label>
-            <label className="text-sm sm:col-span-2">
-              نام کالا *
-              <input
-                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </label>
-            <label className="text-sm">
-              دسته‌بندی *
-              <select
-                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
-                value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                required
-              >
-                {categories.length === 0 && <option value="">— دسته‌ای ثبت نشده —</option>}
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
-              واحد اندازه‌گیری *
-              <select
-                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
-                value={form.base_uom_id}
-                onChange={(e) => setForm({ ...form, base_uom_id: e.target.value })}
-                required
-              >
-                {units.length === 0 && <option value="">— واحدی ثبت نشده —</option>}
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.code} — {u.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
-              نوع توزیع
-              <select
-                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer pe-8 mt-1"
-                value={form.distribution_kind}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    distribution_kind: e.target.value as 'cold' | 'warm' | 'both',
-                  })
-                }
-              >
-                <option value="cold">سرد</option>
-                <option value="warm">گرم</option>
-                <option value="both">سرد و گرم</option>
-              </select>
-            </label>
-            <label className="text-sm">
-              حداقل سفارش
-              <input
-                type="number"
-                min={0}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
-                value={form.min_order_qty}
-                onChange={(e) => setForm({ ...form, min_order_qty: e.target.value })}
-              />
-            </label>
-            <label className="mt-6 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.is_batch_tracked}
-                onChange={(e) => setForm({ ...form, is_batch_tracked: e.target.checked })}
-              />
-              ردیابی بچ
-            </label>
-            <label className="mt-6 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.is_expiry_tracked}
-                onChange={(e) => setForm({ ...form, is_expiry_tracked: e.target.checked })}
-              />
-              کالای انقضادار
-            </label>
-            {form.is_expiry_tracked && (
-              <label className="text-sm">
-                ماندگاری (روز)
-                <input
-                  type="number"
-                  min={1}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60 mt-1"
-                  value={form.shelf_life_days}
-                  onChange={(e) => setForm({ ...form, shelf_life_days: e.target.value })}
-                />
-              </label>
-            )}
-          </div>
+      <div className="mb-4 flex flex-wrap gap-3">
+        <Link href="/products/new" className={btnPrimary}>
+          ＋ کالای جدید
+        </Link>
+        <Link href="/products/import" className={btnGhost}>
+          ورودِ گروهی (CSV)
+        </Link>
+      </div>
 
-          {formError && (
-            <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink">
-              {formError}
-            </p>
-          )}
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="submit"
-              disabled={saving || !form.category_id || !form.base_uom_id}
-              className="rounded-lg bg-info px-5 py-2 text-sm font-medium text-on-info hover:bg-info disabled:opacity-50 focus-ring"
-            >
-              {saving ? 'در حال ثبت…' : 'ثبت کالا'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-lg border border-line-strong px-5 py-2 text-sm focus-ring"
-            >
-              انصراف
-            </button>
-          </div>
-        </form>
-      )}
+      {notice && <p className={`mb-4 ${okCls}`}>{notice}</p>}
+      {listError && <p className={`mb-4 ${errorCls}`}>{listError}</p>}
 
       {/* جدول فهرست */}
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
+      <div className={tableWrapCls}>
         <table className="w-full text-sm">
-          <thead className="bg-surface-alt text-start text-ink-muted">
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">کد</th>
-              <th className="px-4 py-3 font-medium">نام</th>
-              <th className="px-4 py-3 font-medium">وضعیت</th>
-              <th className="px-4 py-3 font-medium">نوع توزیع</th>
-              <th className="px-4 py-3 font-medium">حداقل سفارش</th>
-              <th className="px-4 py-3 font-medium">نسخه</th>
-              <th className="px-4 py-3 font-medium">عملیات</th>
+              <th className={thCls}>کد</th>
+              <th className={thCls}>نام</th>
+              <th className={thCls}>نام لاتین</th>
+              <th className={thCls}>گروه</th>
+              <th className={thCls}>وضعیت</th>
+              <th className={thCls}>نوع توزیع</th>
+              <th className={thCls}>حداقل سفارش</th>
+              <th className={thCls}>عملیات</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-ink-subtle">
+                <td colSpan={8} className={`${tdCls} py-8 text-center text-ink-subtle`}>
                   در حال دریافت فهرست…
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-ink-subtle">
+                <td colSpan={8} className={`${tdCls} py-8 text-center text-ink-subtle`}>
                   کالایی یافت نشد
                 </td>
               </tr>
@@ -399,27 +213,21 @@ export default function ProductsPage(): React.JSX.Element {
             {!loading &&
               items.map((p) => (
                 <tr key={p.id} className="border-t border-line hover:bg-surface-alt">
-                  <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
-                  <td className="px-4 py-3">{p.name}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${ p.status === 'active' ? 'bg-brand-soft text-success-ink' : p.status === 'blocked' ? 'bg-danger-soft text-danger-ink' : 'bg-surface-alt text-ink-muted' }`}
-                    >
-                      {STATUS_LABEL[p.status] ?? p.status}
-                    </span>
+                  <td className={`${tdCls} font-mono text-xs`}>{p.code}</td>
+                  <td className={tdCls}>{p.name}</td>
+                  <td className={`${tdCls} text-ink-muted`} dir="ltr">
+                    {p.name_latin ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-ink-muted">
-                    {DIST_LABEL[p.distribution_kind] ?? p.distribution_kind}
+                  <td className={`${tdCls} text-ink-muted`}>{categoryName(p.category_id)}</td>
+                  <td className={tdCls}>
+                    <span className={statusBadgeCls(p.status)}>{STATUS_LABEL[p.status] ?? p.status}</span>
                   </td>
-                  <td className="px-4 py-3">{p.min_order_qty}</td>
-                  <td className="px-4 py-3 text-ink-subtle">{p.row_version}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => void toggleStatus(p)}
-                      className="rounded border border-line-strong px-2 py-1 text-xs hover:bg-surface focus-ring"
-                    >
-                      {p.status === 'active' ? 'مسدود کن' : 'فعال کن'}
-                    </button>
+                  <td className={`${tdCls} text-ink-muted`}>{DIST_LABEL[p.distribution_kind] ?? p.distribution_kind}</td>
+                  <td className={tdCls}>{p.min_order_qty}</td>
+                  <td className={tdCls}>
+                    <Link href={`/products/${p.id}`} className={btnSmall}>
+                      مشاهده و ویرایش
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -432,15 +240,18 @@ export default function ProductsPage(): React.JSX.Element {
           {items.length} کالا {nextCursor && '— صفحات بیشتری موجود است'}
         </span>
         {nextCursor && (
-          <button
-            onClick={() => void load(q, status, nextCursor)}
-            disabled={loading}
-            className="rounded-lg border border-line-strong px-3 py-1.5 text-ink-muted hover:bg-surface disabled:opacity-50 focus-ring"
-          >
+          <button onClick={() => void load(q, status, nextCursor)} disabled={loading} className={btnGhost}>
             {loading ? 'در حال دریافت…' : 'صفحه بعدی'}
           </button>
         )}
       </div>
+
+      {/* راهنمای کوچکِ ماژول */}
+      <p className={`${panelCls} mt-4 text-xs text-ink-muted`}>
+        اسکنِ بارکد به‌صورت قطعی resolve می‌شود: بارکد ← کد ← نامِ جایگزین. برای ورودِ گروهی از «ورودِ گروهی (CSV)»
+        استفاده کنید (اعتبارسنجی پیش از نوشتن). تغییرِ فیلدهای حساس (وضعیت، واحدِ پایه، ضریبِ تبدیل، اجزای بسته)
+        نیازمندِ تأییدِ صریح است.
+      </p>
     </>
   );
 }

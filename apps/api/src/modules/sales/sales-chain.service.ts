@@ -172,6 +172,14 @@ export class InvoiceService {
     if (!dto.lines || dto.lines.length === 0) {
       throw badRequest('lines_required', 'فاکتور باید حداقل یک قلم کالا داشته باشد.');
     }
+    // D5 (مصوبهٔ مالک): SKU بسته تا P5 نباید فاکتور شود
+    const bundles = await this.repo.findBundleProductIds(dto.lines.map((l) => l.product_id));
+    if (bundles.length > 0) {
+      throw badRequest(
+        'bundle_not_orderable',
+        'فاکتور روی محصولِ «بسته» تا پیاده‌سازیِ کاملِ semantics عملیاتی در P5 مجاز نیست (مصوبهٔ D5).',
+      );
+    }
     const branchId = await this.repo.customerBranch(companyId, dto.customer_id);
     if (!branchId) throw badRequest('customer_not_found', 'مشتری انتخاب‌شده در این شرکت یافت نشد.');
     let id: string;

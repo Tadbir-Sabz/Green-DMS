@@ -827,6 +827,488 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /products/{id}/barcodes:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: فهرست بارکدهای کالا (چند بارکد در هر SKU/سطحِ بسته‌بندی — H-1)
+      responses:
+        '200':
+          description: بارکدها
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductBarcode' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: 'ثبت بارکد (یکتاییِ نوع‌محور: GS1 سراسری / داخلیِ شرکت — D2)'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductBarcodeCreate' }
+      responses:
+        '201':
+          description: بارکد ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductBarcode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/barcodes/{barcodeId}:
+    parameters:
+      - { name: barcodeId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [products]
+      summary: حذف بارکد
+      responses:
+        '200':
+          description: حذف شد
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/scan/{code}:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string }, description: 'بارکد/کدِ اسکن‌شده (نرمال‌سازی در سرور)' }
+    get:
+      tags: [products]
+      summary: resolution قطعیِ اسکن — بارکد ← کد ← alias نوعِ code (برخورد چندپاسخی = 409)
+      responses:
+        '200':
+          description: کالای یکتا
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/duplicate-check:
+    get:
+      tags: [products]
+      summary: تشخیصِ تکرار (D2) — کد/بارکد تکراری = مانع؛ نامِ مشابه = هشدار
+      parameters:
+        - { name: name, in: query, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: barcode, in: query, schema: { type: string } }
+        - { name: product_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: نتیجهٔ بررسی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DuplicateCheckResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/import/validate:
+    post:
+      tags: [products]
+      summary: اعتبارسنجیِ CSV محصول بدونِ نوشتن (پیش‌نمایشِ ردیف‌به‌ردیفِ فارسی — §E)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [csv]
+              properties:
+                csv: { type: string, description: 'متنِ CSV (فارسی/انگلیسی؛ ≤۱۰٬۰۰۰ ردیف، ≤۱MB)' }
+      responses:
+        '200':
+          description: گزارشِ اعتبارسنجی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportValidationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/import/commit:
+    post:
+      tags: [products]
+      summary: اجرای import (idempotency + همه‌یاهیچ در هر دسته + audit — M-5 برای فیلدهای حساس)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [csv, mode, idempotency_key]
+              properties:
+                csv: { type: string }
+                mode: { type: string, enum: [create, update, upsert] }
+                idempotency_key: { type: string, maxLength: 128 }
+                confirm_sensitive:
+                  type: boolean
+                  description: 'M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند)'
+      responses:
+        '200':
+          description: نتیجهٔ import
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/import/report/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: گزارشِ import انجام‌شده
+      responses:
+        '200':
+          description: گزارش
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /product-families:
+    get:
+      tags: [products]
+      summary: فهرست خانواده‌های کالا (مدلِ variant — SKU-per-variant با خانوادهٔ اختیاری)
+      responses:
+        '200':
+          description: خانواده‌ها
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductFamily' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: تعریف خانواده
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string, maxLength: 64 }
+                name: { type: string, maxLength: 255 }
+      responses:
+        '201':
+          description: خانواده ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductFamily' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/aliases:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: فهرست aliasهای کالا
+      responses:
+        '200':
+          description: aliasها
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductAlias' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ثبت alias (نرمال‌سازی + جلوگیری از برخورد با کد/بارکد — H-1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [alias]
+              properties:
+                alias: { type: string, maxLength: 255 }
+                kind: { type: string, enum: [brand_slang, latin, code], default: brand_slang }
+      responses:
+        '201':
+          description: alias ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductAlias' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /product-aliases/{aliasId}:
+    parameters:
+      - { name: aliasId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [products]
+      summary: حذف alias
+      responses:
+        '200':
+          description: حذف شد
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /product-attributes:
+    get:
+      tags: [products]
+      summary: فهرست تعریفِ صفات (text/number/enum؛ محورِ variant — B3)
+      responses:
+        '200':
+          description: صفات
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductAttributeDef' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: تعریف صفت (enum با مقادیرِ مجاز)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductAttributeDefCreate' }
+      responses:
+        '201':
+          description: صفت ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductAttributeDef' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /product-attributes/{defId}/enum-values:
+    parameters:
+      - { name: defId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: مقادیرِ مجازِ صفتِ enum
+      responses:
+        '200':
+          description: مقادیر
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    value: { type: string }
+                    value_norm: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [products]
+      summary: افزودنِ مقدارِ مجاز به صفتِ enum
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: string, maxLength: 255 }
+      responses:
+        '201':
+          description: مقدار ثبت شد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  value: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/attributes:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: مقادیرِ صفاتِ SKU + امضای فعلیِ variant (نمایش در UI جزئیات)
+      responses:
+        '200':
+          description: مقادیر + امضا
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [values, variant_signature]
+                properties:
+                  values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
+                  variant_signature: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [products]
+      summary: ثبت مقادیرِ صفاتِ SKU + محاسبهٔ امضای variant (M-3؛ تغییرناپذیر پس از ارجاعِ عملیاتی)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [values]
+              properties:
+                values:
+                  type: array
+                  items:
+                    type: object
+                    required: [def_id]
+                    properties:
+                      def_id: { type: string, format: uuid }
+                      value_text: { type: [string, 'null'] }
+                      value_num: { type: [number, 'null'] }
+                      value_enum: { type: [string, 'null'] }
+      responses:
+        '200':
+          description: مقادیر + امضا
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
+                  variant_signature: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/relations:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: فهرست جایگزین/مکمل‌های کالا
+      responses:
+        '200':
+          description: روابط
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductRelation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ثبت رابطه (خودارجاع/حلقهٔ substitute ممنوع)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [related_id, kind]
+              properties:
+                related_id: { type: string, format: uuid }
+                kind: { type: string, enum: [substitute, complement] }
+                priority: { type: integer, minimum: 0, default: 100 }
+      responses:
+        '201':
+          description: رابطه ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /product-relations/{relationId}:
+    parameters:
+      - { name: relationId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [products]
+      summary: حذف رابطه
+      responses:
+        '200':
+          description: حذف شد
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/bundle:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: ترکیبِ کاتالوگیِ بسته (P1 — فقط تعریف/نمایش؛ D5)
+      responses:
+        '200':
+          description: اجزا
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BundleComponent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [products]
+      summary: تنظیمِ ترکیبِ بسته (فیلدِ حساس — D4 با confirm_sensitive؛ تا P5 غیرقابل سفارش/فروش)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [component_product_id, qty]
+                    properties:
+                      component_product_id: { type: string, format: uuid }
+                      qty: { type: number, exclusiveMinimum: 0 }
+                confirm_sensitive: { type: boolean, description: 'D4: تأییدِ صریحِ دومرحله‌ایِ اجزای bundle' }
+      responses:
+        '200':
+          description: ترکیبِ ثبت‌شده
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BundleComponent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /product-categories:
     get:
       tags: [products]
@@ -4543,6 +5025,9 @@ components:
         id: { type: string, format: uuid, readOnly: true }
         code: { type: string }
         name: { type: string }
+        name_latin: { type: [string, 'null'], description: 'نام لاتین (اختیاری) — نمایش: فارسی، fallback لاتین' }
+        family_id: { type: [string, 'null'], format: uuid, description: 'خانوادهٔ اختیاریِ variant (SKU-per-variant)' }
+        variant_signature: { type: [string, 'null'], readOnly: true, description: 'sha256 قطعیِ محورهای variant (M-3)' }
         category_id: { type: string, format: uuid }
         brand_id: { type: [string, 'null'], format: uuid }
         base_uom_id: { type: string, format: uuid }
@@ -4565,13 +5050,16 @@ components:
 
     ProductCreate:
       type: object
-      required: [code, name, category_id, base_uom_id]
-      description: >
+      required: [name, category_id, base_uom_id]
+      description: >-
         فیلدهای نوشتنی برای POST — سرور id، status، created_at و row_version را
-        می‌سازد؛ فیلدهای اختیاری مقدار پیش‌فرض DDL می‌گیرند
+        می‌سازد؛ فیلدهای اختیاری مقدار پیش‌فرض DDL می‌گیرند. D1: code اختیاری است؛
+        در صورتِ عدمِ ارسال، کدِ خودکارِ SKU-XXXXXX ساخته می‌شود.
       properties:
-        code: { type: string }
+        code: { type: string, description: 'D1: اختیاری — خالی = تولیدِ خودکارِ SKU' }
         name: { type: string }
+        name_latin: { type: [string, 'null'], description: 'M-3: نامِ لاتینِ کالا' }
+        family_id: { type: [string, 'null'], format: uuid, description: 'M-3: خانواده (محورِ variant)' }
         category_id: { type: string, format: uuid }
         brand_id: { type: [string, 'null'], format: uuid }
         base_uom_id: { type: string, format: uuid }
@@ -4594,6 +5082,8 @@ components:
       properties:
         code: { type: string }
         name: { type: string }
+        name_latin: { type: [string, 'null'] }
+        family_id: { type: [string, 'null'], format: uuid }
         category_id: { type: string, format: uuid }
         brand_id: { type: [string, 'null'], format: uuid }
         base_uom_id: { type: string, format: uuid }
@@ -4611,6 +5101,9 @@ components:
         row_version:
           type: integer
           description: قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد
+        confirm_sensitive:
+          type: boolean
+          description: 'D4: تأییدِ صریحِ دومرحله‌ای برای تغییراتِ حساس (مالیات/وضعیت/واحدِ پایه) — بدون آن 400'
 
     ProductCategory:
       type: object
@@ -4649,6 +5142,7 @@ components:
             type: object
             properties:
               product_id: { type: string, format: uuid }
+              packaging_id: { type: [string, 'null'], format: uuid, description: 'M-2: قیمتِ سطحِ بسته‌بندی — NULL = واحدِ پایه' }
               price: { type: string, description: 'قیمت واحد (رشته اعشاری)' }
               valid_from: { type: [string, 'null'], format: date }
               valid_to: { type: [string, 'null'], format: date }
@@ -5831,8 +6325,198 @@ components:
         barcode: { type: [string, 'null'], maxLength: 64 }
         is_sales_default: { type: boolean }
         is_purchase_default: { type: boolean }
+        confirm_sensitive:
+          type: boolean
+          description: 'D4: فاکتورِ تبدیل حساس است — تأییدِ صریح الزامی (else 400)'
         uom_code: { type: [string, 'null'], readOnly: true }
         uom_title: { type: [string, 'null'], readOnly: true }
+
+    ProductBarcode:
+      type: object
+      description: 'بارکدِ کالا (H-1) — یکتاییِ نوع‌محور: gs1_* جهانی، internal/other در هر شرکت'
+      required: [id, product_id, barcode, kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        company_id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        packaging_id: { type: [string, 'null'], format: uuid, description: 'سطحِ بسته‌بندی (اختیاری)' }
+        barcode: { type: string, description: 'نرمال‌شده (ارقامِ لاتین، بدونِ فاصله)' }
+        kind: { type: string, enum: [gs1_ean13, gs1_ean8, gs1_upc, gs1_itf14, internal, other] }
+        is_primary: { type: boolean }
+
+    ProductBarcodeCreate:
+      type: object
+      required: [barcode, kind]
+      properties:
+        barcode: { type: string, maxLength: 64 }
+        kind: { type: string, enum: [gs1_ean13, gs1_ean8, gs1_upc, gs1_itf14, internal, other] }
+        packaging_id: { type: [string, 'null'], format: uuid }
+        is_primary: { type: boolean }
+
+    ScanResult:
+      type: object
+      required: [product, matched_by]
+      properties:
+        product:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: string }
+            status: { type: string }
+        matched_by: { type: string, enum: [barcode, code, alias_code] }
+        packaging_id: { type: [string, 'null'], format: uuid }
+
+    DuplicateCheckResult:
+      type: object
+      description: 'D2 — کد/بارکد تکراری = blocking؛ نامِ مشابه = warnings'
+      required: [blocking, warnings]
+      properties:
+        blocking:
+          type: array
+          items:
+            type: object
+            properties:
+              kind: { type: string }
+              product_id: { type: string, format: uuid }
+              code: { type: string }
+              name: { type: string }
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              kind: { type: string }
+              product_id: { type: string, format: uuid }
+              code: { type: string }
+              name: { type: string }
+              score: { type: number }
+
+    ProductFamily:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        name: { type: string }
+
+    ProductAlias:
+      type: object
+      required: [id, product_id, alias, alias_norm, kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        alias: { type: string }
+        alias_norm: { type: string, readOnly: true }
+        kind: { type: string, enum: [brand_slang, latin, code] }
+
+    ProductAttributeDef:
+      type: object
+      required: [id, code, title, kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [text, number, enum] }
+        is_variant_axis: { type: boolean }
+        is_required: { type: boolean }
+        sort_order: { type: integer }
+        enum_values:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              value: { type: string }
+
+    ProductAttributeDefCreate:
+      type: object
+      required: [code, title, kind]
+      properties:
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 255 }
+        kind: { type: string, enum: [text, number, enum] }
+        is_variant_axis: { type: boolean }
+        is_required: { type: boolean }
+        sort_order: { type: integer }
+        enum_values: { type: array, items: { type: string } }
+
+    ProductAttributeValue:
+      type: object
+      required: [id, product_id, def_id]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        def_id: { type: string, format: uuid }
+        value_text: { type: [string, 'null'] }
+        value_num: { type: [string, 'null'], description: 'رشتهٔ اعشاری از دیتابیس' }
+        value_enum: { type: [string, 'null'] }
+
+    ProductRelation:
+      type: object
+      required: [id, product_id, related_id, kind]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        product_id: { type: string, format: uuid }
+        related_id: { type: string, format: uuid }
+        kind: { type: string, enum: [substitute, complement] }
+        priority: { type: integer }
+        related_code: { type: string, readOnly: true }
+        related_name: { type: string, readOnly: true }
+
+    BundleComponent:
+      type: object
+      description: 'D5 — ترکیبِ کاتالوگیِ بسته؛ SKU بسته تا P5 غیرقابل سفارش/فروش/حرکت موجودی'
+      required: [bundle_product_id, component_product_id, qty]
+      properties:
+        bundle_product_id: { type: string, format: uuid }
+        component_product_id: { type: string, format: uuid }
+        qty: { type: string, description: 'رشتهٔ اعشاری از دیتابیس' }
+        component_code: { type: string, readOnly: true }
+        component_name: { type: string, readOnly: true }
+        component_status: { type: string, readOnly: true }
+
+    ImportValidationResult:
+      type: object
+      required: [rows, row_errors, warnings, headers]
+      properties:
+        rows: { type: array, items: { type: object, additionalProperties: { type: string } } }
+        row_errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row: { type: integer }
+              code: { type: string }
+              message_fa: { type: string }
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              row: { type: integer }
+              code: { type: string }
+              message_fa: { type: string }
+        headers: { type: array, items: { type: string } }
+
+    ImportResult:
+      type: object
+      required: [import_id, total_rows, created_rows, updated_rows, failed_rows, errors]
+      properties:
+        import_id: { type: string, format: uuid }
+        total_rows: { type: integer }
+        created_rows: { type: integer }
+        updated_rows: { type: integer }
+        failed_rows: { type: integer }
+        idempotent_replay: { type: boolean }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row: { type: integer }
+              code: { type: string }
+              message_fa: { type: string }
 
     ApprovalChain:
       type: object

@@ -58,6 +58,11 @@ export class PriceListItemDto {
   @IsUUID('4')
   product_id: string;
 
+  /** M-2: قیمتِ سطحِ بسته‌بندی — NULL = واحدِ پایه/رفتارِ فعلیِ ردیف‌های legacy */
+  @IsOptional()
+  @IsUUID('4')
+  packaging_id?: string | null;
+
   @IsDefined()
   @Transform(toDecimalString)
   @IsString()

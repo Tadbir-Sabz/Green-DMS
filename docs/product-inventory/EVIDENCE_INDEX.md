@@ -97,3 +97,19 @@
 1. هر قابلیت: مهاجرت (ساختار) ← controller/endpoint (سطح) ← فایلِ تست (اجرا) ← CI (شاهدِ اجرای اخیر) ← UI (فقط استاتیک).
 2. هرگز route/جدول به‌تنهایی = پیاده‌سازی؛ هرگز تستِ اجرا-نشده = تأیید؛ mock = جریانِ واقعی نیست.
 3. `UNVERIFIED` برای هر شکافِ اجراییِ محیطی؛ «تاریخیِ معتبر» برای محدودیت‌های بدونِ تغییر از TASK-19/20.
+
+## ۹) افزودنیِ TASK-22 — پیاده‌سازیِ P1 (Product Master)
+
+| شاهد | مقدار |
+|---|---|
+| شاخه / commit شروع | `arena/0d6d3dbc-green-dms` @ `eeecca5d1f26a1c3dd8cb12488b778c835054ffb` (== `main` پس از ادغامِ PR #8) |
+| مهاجرت | `migrations/0046_product_master.up.sql` + `.down.sql` — چرخهٔ up→down→up محلی rc=0؛ additive/nullable؛ `product_barcode` با backfill از `product_packaging.barcode`؛ ستون‌های snapshot روی ۱۰ خطِ سند + `fn_product_line_snapshot` + `v_document_line_display`؛ `fn_reject_bundle_line` (D5) روی ۴ خطِ فروش؛ مجوزهای `master.product.import`/`master.product.status` |
+| API (apps/api/src/modules/master-data) | `product-normalize.ts` · `product-sensitivity.ts` (D4) · `product-master.repository.ts` · `product-master.service.ts` · `product-barcode.controller.ts` (H-1: barcodes/scan) · `product-catalog.controller.ts` (families/aliases/attributes/relations/bundle/duplicate-check) · `product-import.controller.ts` (§E) · بازنویسیِ `product.service.ts` (D1 auto-SKU + D4) · `packaging.controller.ts` (D4+barcode sync) · sales D5 guards · pricing `packaging_id` (M-2) |
+| قرارداد | `packages/contracts/openapi.yaml` — ۱۵۸ مسیر / ۲۳۱ عملیات / ۱۱۴ اسکیما؛ `npm run openapi:check` سبز؛ کلاینتِ TS بازتولید شد (`openapi-typescript`)؛ تولیدِ کلاینتِ Kotlin **BLOCKED** (دانلودِ maven/adoptium در sandbox مسدود) |
+| UI (apps/web/src/app/products) | فهرست+جست‌وجو+اسکنِ بارکد (`page.tsx`) · ویزاردِ ساخت با duplicate-check زنده (`new/`) · جزئیات با ۷ تب: مشخصات(D4)/صفات و variant(M-3)/نام‌های جایگزین/بارکد‌ها/بسته‌بندی(D3)/روابط/ترکیب بسته(D5) (`[id]/`) · ویزاردِ import (`import/`) — RTL فارسی، تایپوگرافی موجود، build تولیدی سبز |
+| تست‌های جدید (apps/api/test) | `product-master-fixture.ts` (DB موقتِ ایزوله + همهٔ مهاجرت‌ها) + ۷ فایل: core(15) · barcode(11) · attributes(9) · snapshots(5) · bundle(6) · import(7) · security(21) = **۶۸** |
+| نتیجهٔ اجرای کامل | **API: ۹۵۰/۹۵۰ (۵۱ فایل)** = پایهٔ ۸۸۲ در `eeecca5d` + ۶۸ جدید · **web: ۵۲/۵۲** · `npm run typecheck` rc=0 · `next build` rc=0 |
+| اثبات‌های امنیتی/رفتاری | SKU یکتا (23505→409) · scan قطعی (409 برای برخورد) · تبدیلِ ۴ رقمی بدونِ گردکردنِ مالی (D3 — قواعدِ موجود دست‌نخورده) · D4: تغییرِ حساس بدونِ `confirm_sensitive` → 400 + `master.product.status` برای وضعیت → 403 · M-3: امضای قطعی + یکتایی در خانواده + تغییرناپذیری پس از ارجاع · D5: ردِ خطِ سندِ فروشِ حاویِ bundle در DB (تریگر) + pre-check سرویس · import: validate-before-persist + idempotency + همه‌یاهیچ + audit · audit_log در همهٔ نوشتن‌های حساس |
+| باگِ ازپیش‌موجود رفع‌شده | `PackagingController` + `MasterDataRepository` در `MasterDataModule` ثبت نشده بودند ⇒ مسیرهای `/packaging/*` پیش از TASK-22 عملاً 404 بودند (کدِ مرده) |
+| تغییرِ قراردادِ مستندشده | D4: `PATCH /products/{id}` برای تغییرِ وضعیت اکنون `confirm_sensitive:true` می‌خواهد (تستِ `products.api.test.ts` متناسب به‌روزرسانی شد) |
+| محیطِ تست (بازسازی‌شده) | PG18.6 محلی (embedded) + PostGIS 3.6/pgcrypto با shim/patch سازگاریِ glibc · s3rver :9000 · DBهای تست موقت/ایزوله · هیچ اتصالی به DB اشتراکی/تولید |
