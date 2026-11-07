@@ -45,6 +45,12 @@ jobs:
           echo "api: $(npm exec -w apps/api -- vitest --version)"
           echo "web: $(npm exec -w apps/web -- vitest --version)"
 
+      # TASK-23R (F-02): پارتیشنِ تست‌های بدونِ DB / با DB را با کدِ تست می‌سنجد؛
+      # اگر تستِ DB-دارِ جدیدی به مانیفستِ test/db-backed-tests.txt اضافه نشود، همین‌جا
+      # با پیامِ صریح شکست می‌خورد (پیش از آنکه jobِ بدونِ DB بی‌صدا بشکند).
+      - name: Test partition guard (DB-free vs DB-backed)
+        run: node scripts/check-test-partition.mjs
+
       - name: Typecheck (packages + api + web)
         run: npm run typecheck
 
@@ -78,7 +84,10 @@ jobs:
           set -o pipefail
           rc=0
           cd apps/api
-          files=$(ls test/*.test.ts | grep -v '\.api\.test\.ts$' | tr '\n' ' ')
+          # TASK-23R (F-02): انتخاب از پارتیشنِ محاسبه‌شده. فایل‌های DB-دار (مانیفستِ
+          # test/db-backed-tests.txt — مجموعه‌های امنیتیِ TASK-23 و خانوادهٔ Product Master)
+          # اینجا انتخاب نمی‌شوند؛ در jobِ integration-db اجرا می‌شوند.
+          files=$(node ../../scripts/check-test-partition.mjs --print unit)
           echo "selected: $files"
           ../../node_modules/.bin/vitest run $files 2>&1 | tee /tmp/api-unit.log || rc=$?
           exit $rc
@@ -154,7 +163,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql-client
       - run: npm ci
 
-      # همهٔ *.api.test.ts به‌جز attachments.api.test.ts (که پیش‌نیازِ MinIO دارد).
+      # همهٔ تست‌های DB-دار اینجا جمع می‌شوند: *.api.test.ts به‌جز attachments.api.test.ts
+      # (که پیش‌نیازِ MinIO دارد و jobِ integration-storage آن را می‌پوشاند) به‌علاوهٔ
+      # فایل‌های non-api فهرست‌شده در test/db-backed-tests.txt (TASK-23R/F-02): سناریوهای
+      # امنیتیِ TASK-23 (view-isolation, device-rls, geofence-rls, migrations-security)
+      # و خانوادهٔ Product Master — پیش‌تر این فایل‌ها به‌اشتباه در jobِ بدونِ DB می‌افتادند
+      # و در هیچ jobِ DB-داری اجرا نمی‌شدند.
       - name: API integration tests (DB-backed, excludes storage round-trip)
         id: apidb
         shell: bash
@@ -162,7 +176,7 @@ jobs:
           set -o pipefail
           rc=0
           cd apps/api
-          files=$(ls test/*.api.test.ts | grep -v '^test/attachments\.api\.test\.ts$' | tr '\n' ' ')
+          files="$(ls test/*.api.test.ts | grep -v '^test/attachments\.api\.test\.ts$' | tr '\n' ' ')$(node ../../scripts/check-test-partition.mjs --print db)"
           echo "selected $(echo "$files" | wc -w) files"
           ../../node_modules/.bin/vitest run $files 2>&1 | tee /tmp/api-db.log || rc=$?
           exit $rc
