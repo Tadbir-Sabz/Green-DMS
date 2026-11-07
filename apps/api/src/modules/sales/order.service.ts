@@ -299,6 +299,15 @@ export class OrderService {
   }
 
   private async validateReferences(companyId: string, dto: CreateOrderDto | UpdateOrderDto): Promise<void> {
+    // D5 (مصوبهٔ مالک): SKU بسته تا P5 نباید قابلِ سفارش/فروش باشد
+    const lineProductIds = (dto.lines ?? []).map((l) => l.product_id).filter(Boolean);
+    const bundles = await this.repo.findBundleProductIds(lineProductIds);
+    if (bundles.length > 0) {
+      throw badRequest(
+        'bundle_not_orderable',
+        'سفارش روی محصولِ «بسته» تا پیاده‌سازیِ کاملِ semantics عملیاتی در P5 مجاز نیست (مصوبهٔ D5).',
+      );
+    }
     if ((dto as any).request_id && !(await this.repo.requestExists(companyId, (dto as any).request_id))) {
       throw badRequest('request_not_found', 'درخواست انتخاب‌شده یافت نشد.');
     }

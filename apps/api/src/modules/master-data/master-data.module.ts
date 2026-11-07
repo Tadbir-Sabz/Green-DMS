@@ -1,10 +1,17 @@
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { MasterDataController } from './master-data.controller';
+import { MasterDataRepository } from './master-data.repository';
+import { PackagingController } from './packaging.controller';
 import { PersonController } from './person.controller';
 import { PersonRepository } from './person.repository';
 import { PersonService } from './person.service';
+import { ProductBarcodeController } from './product-barcode.controller';
+import { ProductCatalogController } from './product-catalog.controller';
 import { ProductController } from './product.controller';
+import { ProductImportController } from './product-import.controller';
+import { ProductMasterRepository } from './product-master.repository';
+import { ProductMasterService } from './product-master.service';
 import { ProductRepository } from './product.repository';
 import { ProductService } from './product.service';
 import { ReferenceController } from './reference.controller';
@@ -17,6 +24,7 @@ import { StaffController } from './staff.controller';
 import { StaffRepository } from './staff.repository';
 import { StaffService } from './staff.service';
 import {
+  MASTER_DATA_REPOSITORY,
   PERSON_REPOSITORY,
   PERSON_SERVICE,
   PRICING_REPOSITORY,
@@ -39,7 +47,13 @@ import {
   imports: [IdentityRbacModule],
   controllers: [
     MasterDataController,
+    // نکته: کنترلرهای Product Master باید قبل از ProductController ثبت شوند تا
+    // مسیرهای literal زیرمجموعهٔ /products (مثل duplicate-check) قبل از ':id' match شوند.
+    ProductImportController,
+    ProductBarcodeController,
+    ProductCatalogController,
     ProductController,
+    PackagingController,
     PersonController,
     StaffController,
     ReferenceController,
@@ -47,10 +61,14 @@ import {
     PromotionController,
   ],
   providers: [
+    ProductMasterRepository,
+    ProductMasterService,
     ProductRepository,
     { provide: PRODUCT_REPOSITORY, useExisting: ProductRepository },
     ProductService,
     { provide: PRODUCT_SERVICE, useExisting: ProductService },
+    MasterDataRepository,
+    { provide: MASTER_DATA_REPOSITORY, useExisting: MasterDataRepository },
     PersonRepository,
     { provide: PERSON_REPOSITORY, useExisting: PersonRepository },
     PersonService,

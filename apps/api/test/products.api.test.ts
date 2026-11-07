@@ -129,7 +129,7 @@ beforeAll(async () => {
   await pool.query(
     `insert into role_permission (role_id, permission_code)
      select $1, code from permission
-      where code in ('master.product.view', 'master.product.create', 'master.product.update')`,
+      where code in ('master.product.view', 'master.product.create', 'master.product.update', 'master.product.status')`,
     [role.rows[0].id],
   );
   // انتساب نقش به کاربر (بدون user_role، PermissionsGuard مجوزی نمی‌بیند → 403)
@@ -323,14 +323,19 @@ describe('PATCH /api/v1/products/{id} — قفل خوش‌بینانه', () => {
   });
 
   it('بدون row_version (ویرایش معمولی) مجاز است', async () => {
-    const res = await api()
+    // D4 (مصوبهٔ مالک): تغییرِ وضعیت «حساس» است — بدونِ تأییدِ صریح رد می‌شود
+    await api()
       .patch(`/api/v1/products/${createdId}`)
       .send({ status: 'blocked' })
+      .expect(400);
+    const res = await api()
+      .patch(`/api/v1/products/${createdId}`)
+      .send({ status: 'blocked', confirm_sensitive: true })
       .expect(200);
     expect(res.body.status).toBe('blocked');
     expect(res.body.row_version).toBe(2);
     // برگرداندن برای تست‌های بعدی
-    await api().patch(`/api/v1/products/${createdId}`).send({ status: 'active' }).expect(200);
+    await api().patch(`/api/v1/products/${createdId}`).send({ status: 'active', confirm_sensitive: true }).expect(200);
   });
 });
 
