@@ -113,3 +113,21 @@
 | باگِ ازپیش‌موجود رفع‌شده | `PackagingController` + `MasterDataRepository` در `MasterDataModule` ثبت نشده بودند ⇒ مسیرهای `/packaging/*` پیش از TASK-22 عملاً 404 بودند (کدِ مرده) |
 | تغییرِ قراردادِ مستندشده | D4: `PATCH /products/{id}` برای تغییرِ وضعیت اکنون `confirm_sensitive:true` می‌خواهد (تستِ `products.api.test.ts` متناسب به‌روزرسانی شد) |
 | محیطِ تست (بازسازی‌شده) | PG18.6 محلی (embedded) + PostGIS 3.6/pgcrypto با shim/patch سازگاریِ glibc · s3rver :9000 · DBهای تست موقت/ایزوله · هیچ اتصالی به DB اشتراکی/تولید |
+
+---
+
+## ۸) TASK-24 — موتورِ قیمت/تخفیف (P2)
+
+| شاهد | مقدار |
+|---|---|
+| HEAD مبنا | `d12dc2e04a128775481e9e42c3b48fb339ca4432` (شاخهٔ `arena/1246108f-green-dms`) |
+| مهاجرت | `migrations/0049_pricing_promotion_engine.{up,down}.sql` — چرخهٔ up→down→up در DB ایزوله: `tables 7→0→7`، `pricing_perms 7→0→7`، `price_list_cols 3→0→3`، `triggers 4→0→4`، `forced_rls_tables 8→0→8` |
+| قرارداد | `packages/contracts/openapi.yaml`: مسیرها ۱۷۲ · عملیات ۲۴۹ · schema ۱۲۴ (**drift = ۰**)؛ `npm run openapi:check` سبز؛ `packages/api-client/src/schema.ts` بازتولید شد (کلاینتِ Kotlin در این محیط تولید نشد — نیازِ شبکهٔ Maven) |
+| تست‌های تازه (۱۱۲) | `pricing-engine.unit.test.ts` **۴۲ PASS** · `financial-rounding.test.ts` **۱۱ PASS** · `pricing-engine.api.test.ts` **۳۵ PASS** · `rules-engine-behavior.test.ts` **۲۴ PASS** |
+| رگرسیونِ هدفمند | `pricing.api.test.ts` + `orders.api.test.ts` = **۳۱ PASS / ۰ FAIL** |
+| مجموعهٔ کاملِ API | **۱۰۷۳ PASS / ۳۴ FAIL / ۶۶ SKIP** (مبنا: ۹۶۱/۳۴/۶۶)؛ ۳۴ شکست = محدودیتِ محیط (PostGIS/MinIO/Redis/psql/init-role) |
+| typecheck | API ✅ · Web ✅ · `packages/api-client` ✅ |
+| UI | `apps/web/src/app/prices/page.tsx` — شبیه‌سازی + تجزیه + هشدارِ کفِ سود + سیاست‌ها + تاریخچه؛ اجرای مرورگری `UNVERIFIED` (G-01) |
+| داوری | A/B/C/D **PASS** · E **PASS با گیتِ G-03** · F **BLOCKED (تصمیمِ مالک)** |
+
+جزئیاتِ کامل: `docs/product-inventory/TASK-24_PRICING_ENGINE.md`.

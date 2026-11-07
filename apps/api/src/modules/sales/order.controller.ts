@@ -33,8 +33,9 @@ export class OrderController {
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<OrderView> {
-    return this.service.create(companyId, dto);
+    return this.service.create(companyId, dto, userId);
   }
 
   @Get(':id')
@@ -52,8 +53,9 @@ export class OrderController {
     @Param('id') id: string,
     @Body() dto: UpdateOrderDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<OrderView> {
-    return this.service.update(companyId, id, dto);
+    return this.service.update(companyId, id, dto, userId);
   }
 
   @Post(':id/approve')

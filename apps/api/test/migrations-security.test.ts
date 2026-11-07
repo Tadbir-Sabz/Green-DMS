@@ -11,7 +11,7 @@ import pg from 'pg';
 /**
  * آزمون‌های مهاجرتِ امنیتی — TASK-23 (مجموعهٔ E).
  *
- * پوشش: نصبِ تازه (fresh) با همهٔ ۴۸ مهاجرت؛ چرخهٔ up/down/up فقطِ 0048 با
+ * پوشش: نصبِ تازه (fresh) با همهٔ ۴۹ مهاجرت؛ چرخهٔ up/down/up فقطِ 0048 با
  * راستی‌آزماییِ «داده» (ردیف‌های واقعیِ device/geofence و منبعِ matview)، نه
  * «برابریِ شمارِ اشیاء»؛ بازگردانیِ سیاست‌ها (p_device_tenant/p_geofence_tenant،
  * enabled+forced) و گرانت‌ها (matview src بدونِ گرانتِ برنامه، نمایِ سایه با SELECT).
@@ -154,11 +154,12 @@ afterAll(async () => {
 });
 
 describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
-  it('fresh: همهٔ مهاجرت‌ها (۰۰۰۱..۰۰۴۸) بدونِ خطا اعمال می‌شوند', async () => {
+  it('fresh: همهٔ مهاجرت‌ها (۰۰۰۱..۰۰۴۹) بدونِ خطا اعمال می‌شوند', async () => {
     const files = readdirSync(path.join(ROOT, 'migrations'))
       .filter((f) => f.endsWith('.up.sql'))
       .sort();
-    expect(files.length).toBe(48);
+    // TASK-24: مهاجرتِ افزودنیِ 0049 (موتور قیمت/تخفیف) به مجموعه اضافه شد
+    expect(files.length).toBe(49);
     for (const f of files) runSqlFile(path.join(ROOT, 'migrations', f));
     await assert0048EndState(db);
   }, 300_000);

@@ -114,6 +114,9 @@ export interface ExceptionItemRow extends QueryResultRow {
   created_at: string;
 }
 
+/** شناسهٔ UUID — پیش‌اعتبارسنجیِ پارامترهای مسیر پیش از رفتن به Postgres */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class RulesEngineRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -133,6 +136,7 @@ export class RulesEngineRepository {
   }
 
   async getRule(companyId: string, ruleId: string): Promise<RuleRow | null> {
+    if (!UUID_RE.test(ruleId)) return null;
     const { rows } = await this.pool.query<RuleRow>(
       `select id, company_id, code, title, entity, event, effect, priority,
               message_fa, valid, is_active, created_at, updated_at
@@ -360,6 +364,7 @@ export class RulesEngineRepository {
   }
 
   async getApprovalChain(companyId: string, chainId: string): Promise<ApprovalChainRow | null> {
+    if (!UUID_RE.test(chainId)) return null;
     const { rows } = await this.pool.query<ApprovalChainRow>(
       `select id, company_id, code, entity, is_active
          from approval_chain
@@ -452,6 +457,8 @@ export class RulesEngineRepository {
   }
 
   async getApprovalRequest(companyId: string, requestId: string): Promise<ApprovalRequestRow | null> {
+    // TASK-24 (G-03): شناسهٔ غیر-UUID نباید 500 بدهد — «یافت‌نشد» پاسخِ درست است
+    if (!UUID_RE.test(requestId)) return null;
     const { rows } = await this.pool.query<ApprovalRequestRow>(
       `select a.id, a.approval_chain_id, a.entity_type, a.entity_id, a.requested_by,
               a.amount, a.status, a.current_step, a.created_at, a.closed_at

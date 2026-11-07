@@ -15,6 +15,9 @@ import type { RulesEngineService } from '../rules-engine/rules-engine.service';
 import type { RuleContext, RuleEvaluation } from '../rules-engine/rules-engine.service';
 import { DOC_NUMBER_SERVICE, persianYear } from '../../common/doc-number.service';
 import type { DocNumberService } from '../../common/doc-number.service';
+import { PRICING_ENGINE_SERVICE } from '../pricing/pricing.tokens';
+import type { PricingEngineService } from '../pricing/pricing-engine.service';
+import type { QuoteResult } from '../pricing/pricing-engine';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -22,7 +25,8 @@ const badRequest = (code: string, message_fa: string): BadRequestException =>
 const notFound = (): NotFoundException =>
   new NotFoundException({ code: 'not_found', message_fa: 'سفارش یافت نشد' });
 
-const money = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
+// منبعِ واحدِ گرد‌کردنِ مالی (TASK-24) — رفتارِ پیشین عیناً حفظ شده است
+import { lineTax as computeLineTax, money } from '../../common/financial';
 
 export interface OrderView extends OrderRow {
   lines?: {
@@ -62,6 +66,11 @@ export class OrderService {
     @Inject(ORDER_REPOSITORY) private readonly repo: OrderRepository,
     @Inject(RULES_ENGINE_SERVICE) private readonly rules: RulesEngineService,
     @Inject(DOC_NUMBER_SERVICE) private readonly docNumbers: DocNumberService,
+    /**
+     * موتورِ قیمت (TASK-24) — فقط وقتی سند پرچمِ apply_pricing_engine را دارد.
+     * پیش‌فرض خاموش است تا رفتارِ مالیِ موجود بی‌تغییر بماند (بازگشت‌پذیر و صریح).
+     */
+    @Inject(PRICING_ENGINE_SERVICE) private readonly pricing: PricingEngineService,
   ) {}
 
   private assertId(id: string): void {
@@ -81,13 +90,16 @@ export class OrderService {
     return { ...row, lines };
   }
 
-  async create(companyId: string, dto: CreateOrderDto): Promise<OrderView> {
+  async create(companyId: string, dto: CreateOrderDto, actorUserId: string | null = null): Promise<OrderView> {
     const pricing = await this.repo.getCustomerPricing(companyId, dto.customer_id);
     if (!pricing) throw badRequest('customer_not_found', 'مشتری انتخاب‌شده در این شرکت یافت نشد.');
     await this.validateReferences(companyId, dto);
     // ابتدا اقلام/جمع‌ها محاسبه می‌شود تا زمینهٔ ارزیابی قاعده و بررسی اعتبار/موجودی
     // مقادیر واقعی (subtotal/discount/grand_total) را داشته باشد.
-    const { lines, totals } = await this.computeLines(companyId, dto, pricing.price_list_id);
+    const engineQuote = dto.apply_pricing_engine ? await this.quoteViaEngine(companyId, dto) : null;
+    const { lines, totals } = engineQuote
+      ? this.mapEngineQuote(engineQuote)
+      : await this.computeLines(companyId, dto, pricing.price_list_id);
 
     // ارزیابی واقعی موتور قوانین (before_save) روی زمینهٔ سفارش
     await this.evaluateOrderRules(companyId, dto, lines, totals);
@@ -112,7 +124,75 @@ export class OrderService {
     } catch (err) {
       throw this.mapOrderError(err);
     }
+    if (engineQuote) {
+      // مصرفِ تشویق‌ها idempotent است: تکرارِ همان کلید ردیفِ تکراری نمی‌سازد.
+      await this.pricing.commitUsage(companyId, {
+        actor_user_id: actorUserId,
+        entity_type: 'order',
+        entity_id: id,
+        customer_id: dto.customer_id,
+        idempotency_key: dto.pricing_idempotency_key ?? `order:${id}`,
+        quote: engineQuote,
+      });
+    }
     return this.get(companyId, id);
+  }
+
+  /**
+   * قیمت‌گذاری از طریقِ موتورِ جدید (TASK-24) — فقط با پرچمِ صریحِ سند.
+   * نقضِ کفِ سود ⇒ 409 با دلیلِ صریح (نیازمندِ استثنای تأییدشده).
+   */
+  private async quoteViaEngine(companyId: string, dto: CreateOrderDto): Promise<QuoteResult> {
+    const quote = await this.pricing.quote(companyId, {
+      customer_id: dto.customer_id,
+      pricing_date: dto.order_date,
+      price_list_id: dto.price_list_id ?? null,
+      coupon_codes: dto.coupon_codes ?? [],
+      idempotency_key: dto.pricing_idempotency_key ?? null,
+      apply_promotions: true,
+      // قیمتِ دستی همان رفتارِ پیشینِ سفارش است (unit_price روی قلم)؛ سقفِ تخفیف/کفِ سود
+      // همچنان اعمال می‌شود و لازم نیست کاربر مجوزِ اضافی داشته باشد.
+      allow_manual_price: true,
+      lines: (dto.lines ?? []).map((l) => ({
+        product_id: l.product_id,
+        packaging_id: l.packaging_id ?? null,
+        qty: l.qty,
+        unit_price: l.unit_price ?? null,
+        discount_amount: l.discount_amount ?? null,
+      })),
+    });
+    if (quote.margin_violations.length > 0) {
+      throw new ConflictException({
+        code: 'margin_floor_violation',
+        message_fa: quote.margin_violations[0].message_fa,
+        details: { violations: quote.margin_violations },
+      });
+    }
+    return quote;
+  }
+
+  /** نگاشتِ خروجیِ موتور به ساختارِ خطوط/جمع‌های سفارش (بدونِ تغییرِ قراردادِ API) */
+  private mapEngineQuote(quote: QuoteResult): { lines: OrderLineValues[]; totals: ComputedTotals } {
+    const lines: OrderLineValues[] = quote.lines.map((l) => ({
+      line_no: l.line_no,
+      product_id: l.product_id,
+      packaging_id: l.packaging_id,
+      qty: l.qty,
+      qty_base: l.qty_base,
+      unit_price: l.unit_price,
+      discount_amount: l.discount_total,
+      tax_rate_pct: l.tax_rate_pct,
+      tax_amount: l.tax_amount,
+    }));
+    return {
+      lines,
+      totals: {
+        subtotal: quote.subtotal,
+        discount_total: quote.discount_total,
+        tax_total: quote.tax_total,
+        grand_total: quote.grand_total,
+      },
+    };
   }
 
   /**
@@ -218,7 +298,7 @@ export class OrderService {
     }
   }
 
-  async update(companyId: string, id: string, dto: UpdateOrderDto): Promise<OrderView> {
+  async update(companyId: string, id: string, dto: UpdateOrderDto, actorUserId: string | null = null): Promise<OrderView> {
     this.assertId(id);
     const existing = await this.repo.findById(companyId, id);
     if (!existing) throw notFound();
@@ -237,11 +317,11 @@ export class OrderService {
     let lines: OrderLineValues[] = [];
     let totals: ComputedTotals;
     if (dto.lines) {
-      const computed = await this.computeLines(
-        companyId,
-        { ...dto, customer_id: customerId } as CreateOrderDto,
-        dto.price_list_id ?? pricing.price_list_id,
-      );
+      const effective = { ...dto, customer_id: customerId } as CreateOrderDto;
+      const engineQuote = effective.apply_pricing_engine ? await this.quoteViaEngine(companyId, effective) : null;
+      const computed = engineQuote
+        ? this.mapEngineQuote(engineQuote)
+        : await this.computeLines(companyId, effective, dto.price_list_id ?? pricing.price_list_id);
       lines = computed.lines;
       totals = computed.totals;
       // اقلام تغییر کرده‌اند → ارزیابی قاعده و بررسی اعتبار/موجودی دوباره انجام می‌شود
@@ -253,6 +333,7 @@ export class OrderService {
       );
       await this.enforceCreditLimit(companyId, customerId, Number(totals.grand_total));
       await this.enforceStock(companyId, lines);
+      void actorUserId;
     } else {
       totals = {
         subtotal: existing.subtotal,
@@ -381,7 +462,7 @@ export class OrderService {
       // مالیات بر مبنای نرخ tax_code کالا، پس از کسر تخفیف، و فقط اگر vat شرکت فعال باشد
       const taxRate = vatEnabled ? (taxRates.get(line.product_id) ?? 0) : 0;
       const lineGross = line.qty * Number(unitPrice) - Number(discount);
-      const lineTax = taxRate > 0 ? Math.round(lineGross * taxRate) / 100 : 0;
+      const lineTax = computeLineTax(lineGross, taxRate);
       subtotal += line.qty * Number(unitPrice);
       discountTotal += Number(discount);
       taxTotal += lineTax;

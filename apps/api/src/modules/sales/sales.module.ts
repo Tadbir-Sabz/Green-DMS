@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import type { ModuleInfo } from '../../common/module-info';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { RulesEngineModule } from '../rules-engine/rules-engine.module';
+import { PricingModule } from '../pricing/pricing.module';
 import { AreaController } from './area.controller';
 import { CustomerController } from './customer.controller';
 import { CustomerRepository } from './customer.repository';
@@ -77,7 +78,7 @@ export class SalesController {
  * (گاردهای کنترلر در همین ماژول نمونه‌سازی می‌شوند و به providerهای آن نیاز دارند).
  */
 @Module({
-  imports: [IdentityRbacModule, RulesEngineModule],
+  imports: [IdentityRbacModule, RulesEngineModule, PricingModule],
   controllers: [
     SalesController,
     AreaController,

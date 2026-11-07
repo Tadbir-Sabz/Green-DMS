@@ -1498,6 +1498,393 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ---------------- موتور قیمت/تخفیف (TASK-24) ----------------
+  /pricing/quote:
+    post:
+      tags: [pricing]
+      summary: استعلام قطعی قیمت برای خطوط سبد (بدون ثبت سند کسب‌وکار)
+      description: |
+        قیمت را از منابع مجاز (قیمت مشتری → لیست صریح → قلمرو → لیست سراسری → دستی) به‌صورت
+        قطعی حل می‌کند، تشویق‌های واجد شرط را با ترتیب/انباشت/سقف اعمال می‌کند، مالیات و
+        حاشیه سود را حساب می‌کند و توضیح گام‌به‌گام می‌دهد. `allow_manual_price` و
+        `allow_discount_override` از بدنه پذیرفته نمی‌شوند و فقط از مجوزهای نشست
+        (`pricing.manual_price.apply` / `pricing.discount.override`) استخراج می‌شوند.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceQuoteRequest' }
+      responses:
+        '201':
+          description: نتیجه ارزیابی قیمت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /pricing/simulate:
+    post:
+      tags: [pricing]
+      summary: شبیه‌سازی کامل تجاری + ثبت ردیف ممیزی (بدون سند کسب‌وکار)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceQuoteRequest' }
+      responses:
+        '201':
+          description: نتیجه شبیه‌سازی همراه با شناسه ممیزی
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/QuoteResult' }
+                  - type: object
+                    properties:
+                      simulation_id: { type: [string, 'null'], format: uuid, description: در صورت persist_audit=false تهی است }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /pricing/price-changes:
+    get:
+      tags: [pricing]
+      summary: دفتر تغییر قیمت (append-only)
+      parameters:
+        - { name: entity_type, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        '200':
+          description: ردیف‌های دفتر تغییر قیمت (جدیدترین اول)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PriceChangeLog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /pricing-domains:
+    get:
+      tags: [pricing]
+      summary: فهرست قلمروهای قیمت‌گذاری
+      responses:
+        '200':
+          description: قلمروها (اولویت نزولی)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PricingDomain' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [pricing]
+      summary: ساخت قلمرو قیمت (کانال/حوزه/شعبه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PricingDomain' }
+      responses:
+        '201':
+          description: قلمرو ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingDomain' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /pricing-domains/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [pricing]
+      summary: به‌روزرسانی قلمرو قیمت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PricingDomain' }
+      responses:
+        '200':
+          description: قلمرو به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingDomain' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /margin-policies:
+    get:
+      tags: [pricing]
+      summary: فهرست سیاست‌های کف سود
+      responses:
+        '200':
+          description: سیاست‌ها
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/MarginPolicy' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [pricing]
+      summary: تعریف سیاست کف سود (شرکت/دسته/کالا، اختیاری در قلمرو)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarginPolicy' }
+      responses:
+        '201':
+          description: سیاست ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarginPolicy' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /margin-policies/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [pricing]
+      summary: به‌روزرسانی سیاست کف سود
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarginPolicy' }
+      responses:
+        '200':
+          description: سیاست به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarginPolicy' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /margin-exceptions:
+    get:
+      tags: [pricing]
+      summary: فهرست درخواست‌های استثنای کف سود
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, expired, cancelled] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        '200':
+          description: درخواست‌های استثنا
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/MarginException' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [pricing]
+      summary: ثبت درخواست استثنای کف سود (وضعیت pending)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarginException' }
+      responses:
+        '201':
+          description: درخواست ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarginException' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /margin-exceptions/{id}/decision:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [pricing]
+      summary: تصمیم شخص دوم درباره استثنا (تأیید/رد)
+      description: مجوز `pricing.margin.override` جدا از مجوز تعریف سیاست است؛ تصمیم‌گیرنده باید با درخواست‌دهنده متفاوت باشد (در غیر این صورت 403 second_person_required).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                note: { type: [string, 'null'], maxLength: 1000 }
+                granted_margin_pct: { type: [number, 'null'] }
+      responses:
+        '201':
+          description: تصمیم ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarginException' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /customer-prices:
+    get:
+      tags: [pricing]
+      summary: فهرست قیمت‌های اختصاصی مشتری
+      parameters:
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: product_id, in: query, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        '200':
+          description: قیمت‌های اختصاصی
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CustomerPrice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [pricing]
+      summary: ثبت قیمت اختصاصی مشتری (اولویت اول)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerPrice' }
+      responses:
+        '201':
+          description: قیمت اختصاصی ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerPrice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /customer-prices/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [pricing]
+      summary: به‌روزرسانی قیمت اختصاصی مشتری (با قفل خوش‌بینانه row_version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerPrice' }
+      responses:
+        '200':
+          description: قیمت اختصاصی به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerPrice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /coupons:
+    get:
+      tags: [promotions]
+      summary: فهرست کوپن‌ها
+      parameters:
+        - { name: promotion_id, in: query, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        '200':
+          description: کوپن‌ها
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Coupon' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /coupons/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [promotions]
+      summary: فعال/غیرفعال‌کردن کوپن
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: کوپن به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Coupon' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /promotions/{id}/coupons:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [promotions]
+      summary: صدور کوپن برای تشویق
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Coupon' }
+      responses:
+        '201':
+          description: کوپن صادر شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Coupon' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   # ---------------- انبار ----------------
   /warehouses:
     get:
@@ -5171,6 +5558,281 @@ components:
           additionalProperties: true
           description: منفعت (درصد/مبلغ/کالای جایزه)
         is_active: { type: boolean }
+
+    # ---------------- موتور قیمت/تخفیف (TASK-24) ----------------
+    PricingDomain:
+      type: object
+      required: [code, title, kind]
+      description: قلمرو قیمت‌گذاری (کانال/حوزه/شعبه) — قیمت قلمروی بر لیست سراسری شرکت اولویت دارد
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 128 }
+        kind: { type: string, enum: [channel, area, branch] }
+        channel: { type: [string, 'null'], enum: [retail, wholesale, chain, horeca, institution, null] }
+        area_id: { type: [string, 'null'], format: uuid }
+        branch_id: { type: [string, 'null'], format: uuid }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+        is_active: { type: boolean }
+
+    MarginPolicy:
+      type: object
+      required: [scope, min_margin_pct]
+      description: سیاست کف سود؛ دقت انتخاب کالا(۳) > دسته(۲) > شرکت(۱) و در تساوی، قلمرو و اولویت
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        domain_id: { type: [string, 'null'], format: uuid }
+        scope: { type: string, enum: [company, category, product] }
+        category_id: { type: [string, 'null'], format: uuid }
+        product_id: { type: [string, 'null'], format: uuid }
+        cost_basis: { type: string, enum: [avg_cost, standard_cost, last_purchase_cost], default: avg_cost }
+        min_margin_pct: { type: string, description: درصد کف سود (رشته اعشاری؛ می‌تواند منفی باشد) }
+        on_unknown_cost: { type: string, enum: [block, warn, ignore], default: warn }
+        valid_from: { type: [string, 'null'], format: date }
+        valid_to: { type: [string, 'null'], format: date }
+        priority: { type: integer, minimum: 0, maximum: 1000 }
+        is_active: { type: boolean }
+
+    MarginException:
+      type: object
+      required: [entity_type, reason]
+      description: استثنای کف سود؛ فقط با تأیید شخص دوم (≠ درخواست‌دهنده) معتبر است
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        entity_type: { type: string, enum: [price_list_item, customer_price, sales_order, promotion] }
+        entity_id: { type: [string, 'null'], format: uuid }
+        product_id: { type: [string, 'null'], format: uuid }
+        customer_id: { type: [string, 'null'], format: uuid }
+        policy_id: { type: [string, 'null'], format: uuid }
+        required_margin_pct: { type: [number, 'null'] }
+        effective_margin_pct: { type: [number, 'null'] }
+        granted_margin_pct: { type: [number, 'null'] }
+        reason: { type: string, maxLength: 1000 }
+        status: { type: string, enum: [pending, approved, rejected, expired, cancelled], readOnly: true }
+        requested_by: { type: string, format: uuid, readOnly: true }
+        decided_by: { type: [string, 'null'], format: uuid, readOnly: true }
+        decided_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        valid_until: { type: [string, 'null'], format: date }
+        approval_request_id: { type: [string, 'null'], format: uuid, readOnly: true }
+
+    CustomerPrice:
+      type: object
+      required: [customer_id, product_id, price]
+      description: قیمت اختصاصی مشتری — بالاترین اولویت در حل قیمت
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        customer_id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        packaging_id: { type: [string, 'null'], format: uuid }
+        price: { type: string }
+        min_qty: { type: [string, 'null'] }
+        max_qty: { type: [string, 'null'] }
+        max_discount_pct: { type: [string, 'null'] }
+        valid_from: { type: [string, 'null'], format: date }
+        valid_to: { type: [string, 'null'], format: date }
+        note: { type: [string, 'null'], maxLength: 500 }
+        margin_exception_id: { type: [string, 'null'], format: uuid }
+        row_version: { type: integer, minimum: 0 }
+        approved_by: { type: [string, 'null'], format: uuid, readOnly: true }
+
+    Coupon:
+      type: object
+      required: [code]
+      description: کوپن تشویق؛ اجرای تشویق‌های requires_coupon فقط با کوپن معتبر
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        promotion_id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, maxLength: 64 }
+        customer_id: { type: [string, 'null'], format: uuid }
+        valid_from: { type: [string, 'null'], format: date }
+        valid_to: { type: [string, 'null'], format: date }
+        max_uses: { type: [integer, 'null'], minimum: 1 }
+        max_uses_per_customer: { type: [integer, 'null'], minimum: 1 }
+        is_active: { type: boolean }
+
+    PriceChangeLog:
+      type: object
+      description: 'ردیف دفتر تغییر قیمت (append-only؛ UPDATE/DELETE در DB مسدود است)'
+      properties:
+        id: { type: integer }
+        entity_type: { type: string }
+        entity_id: { type: [string, 'null'], format: uuid }
+        action: { type: string }
+        before_data: { type: [object, 'null'], additionalProperties: true }
+        after_data: { type: [object, 'null'], additionalProperties: true }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        at: { type: string, format: date-time }
+
+    PriceQuoteRequest:
+      type: object
+      required: [lines]
+      description: درخواست استعلام/شبیه‌سازی قیمت. پرچم‌های allow_manual_price و allow_discount_override در بدنه نادیده گرفته می‌شوند و فقط از مجوزهای نشست تعیین می‌شوند.
+      properties:
+        customer_id: { type: [string, 'null'], format: uuid }
+        pricing_date: { type: [string, 'null'], format: date, description: 'پیش‌فرض: تاریخ امروز' }
+        price_list_id: { type: [string, 'null'], format: uuid }
+        coupon_codes:
+          type: array
+          maxItems: 10
+          items: { type: string, maxLength: 64 }
+        max_total_discount_pct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        apply_promotions: { type: boolean, default: true }
+        idempotency_key: { type: [string, 'null'], maxLength: 128, description: 'کلید تکرارناپذیری؛ تکرار با همان بدنه نتیجه ذخیره‌شده را بازمی‌گرداند' }
+        persist_audit: { type: boolean, description: فقط در simulate — پیش‌فرض true }
+        lines:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [product_id, qty]
+            properties:
+              product_id: { type: string, format: uuid }
+              packaging_id: { type: [string, 'null'], format: uuid }
+              qty: { type: number, exclusiveMinimum: 0, maximum: 1000000000 }
+              unit_price: { type: [string, 'null'], description: قیمت دستی (نیازمند مجوز pricing.manual_price.apply) }
+              discount_amount: { type: [string, 'null'], description: تخفیف دستی قلم (فراتر از سقف نیازمند مجوز pricing.discount.override) }
+
+    QuoteResult:
+      type: object
+      description: نتیجه ارزیابی موتور قیمت — همه مبالغ رشته اعشاری دو رقم اعشار
+      properties:
+        pricing_date: { type: string, format: date }
+        currency: { type: string }
+        customer_id: { type: [string, 'null'], format: uuid }
+        domain_ids:
+          type: array
+          items: { type: string, format: uuid }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/QuoteLineResult' }
+        subtotal: { type: string }
+        manual_discount_total: { type: string }
+        discount_total: { type: string }
+        tax_total: { type: string }
+        grand_total: { type: string }
+        cost_total: { type: string }
+        margin_pct: { type: [number, 'null'], description: حاشیه سود درصدی؛ در نبود درآمد تهی است }
+        applied_promotions:
+          type: array
+          items: { $ref: '#/components/schemas/AppliedPromotion' }
+        skipped_promotions:
+          type: array
+          items:
+            type: object
+            properties:
+              promotion_id: { type: string, format: uuid }
+              code: { type: string }
+              reason: { type: string, description: 'مثل coupon_required، blocked_by_non_stackable، exclusive_group_conflict، zero_benefit' }
+              message_fa: { type: string }
+        gift_lines:
+          type: array
+          items:
+            type: object
+            properties:
+              promotion_id: { type: string, format: uuid }
+              promotion_code: { type: string }
+              product_id: { type: string, format: uuid }
+              qty: { type: number }
+              unit_price: { type: string }
+              value: { type: string }
+              valuation_source: { type: string, enum: [basket, reference_price, unknown] }
+        margin_violations:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string, format: uuid }
+              margin_pct: { type: [number, 'null'] }
+              required_margin_pct: { type: [number, 'null'] }
+              policy_id: { type: [string, 'null'], format: uuid }
+              code: { type: string, enum: [margin_floor_violation, margin_cost_unknown] }
+              message_fa: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        approval_required:
+          type: object
+          properties:
+            required: { type: boolean }
+            reasons:
+              type: array
+              items: { type: string }
+        explanation:
+          type: array
+          items: { type: string }
+        replayed: { type: boolean, description: true یعنی پاسخ از کش idempotency بازپخش شده است }
+        idempotency_key: { type: [string, 'null'] }
+
+    QuoteLineResult:
+      type: object
+      properties:
+        line_no: { type: integer }
+        product_id: { type: string, format: uuid }
+        product_code: { type: string }
+        product_name: { type: string }
+        packaging_id: { type: [string, 'null'], format: uuid }
+        packaging_title: { type: [string, 'null'] }
+        packaging_factor: { type: number }
+        qty: { type: number }
+        qty_base: { type: number }
+        unit_price: { type: string }
+        gross: { type: string }
+        manual_discount: { type: string }
+        manual_discount_pct: { type: number }
+        pricing:
+          type: object
+          properties:
+            unit_price: { type: string }
+            unit_price_base: { type: string }
+            source: { type: string, enum: [customer, price_list, manual] }
+            scope: { type: string, enum: [customer, requested_list, domain, company, manual] }
+            price_list_id: { type: [string, 'null'], format: uuid }
+            price_list_code: { type: [string, 'null'] }
+            price_item_id: { type: [string, 'null'], format: uuid }
+            customer_price_id: { type: [string, 'null'], format: uuid }
+            packaging_id: { type: [string, 'null'], format: uuid }
+            max_discount_pct: { type: [number, 'null'] }
+            explanation_fa: { type: string }
+        promotions:
+          type: array
+          items: { $ref: '#/components/schemas/AppliedPromotion' }
+        discount_total: { type: string }
+        net_ex_tax: { type: string }
+        tax_rate_pct: { type: number }
+        tax_amount: { type: string }
+        line_total: { type: string }
+        margin:
+          type: object
+          properties:
+            cost_basis: { type: string, enum: [avg_cost, standard_cost, last_purchase_cost, none] }
+            cost_unit: { type: [string, 'null'] }
+            cost_total: { type: [string, 'null'] }
+            net_revenue: { type: string }
+            margin_pct: { type: [number, 'null'] }
+            policy_id: { type: [string, 'null'], format: uuid }
+            required_margin_pct: { type: [number, 'null'] }
+            status: { type: string, enum: [ok, below_floor, cost_unknown, no_policy, exception] }
+            exception_id: { type: [string, 'null'], format: uuid }
+            message_fa: { type: [string, 'null'] }
+        gift_lines:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    AppliedPromotion:
+      type: object
+      properties:
+        promotion_id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [percent_line, amount_line, bundle, buy_x_get_y, gift_item, cash_discount, repeat_order, coupon, volume_tier] }
+        priority: { type: integer }
+        amount: { type: string }
+        base_amount: { type: string }
+        allow_stacking: { type: boolean }
+        exclusive_group: { type: [string, 'null'] }
+        coupon_code: { type: [string, 'null'] }
+        coupon_id: { type: [string, 'null'], format: uuid }
+        explanation_fa: { type: string }
 
     Warehouse:
       type: object

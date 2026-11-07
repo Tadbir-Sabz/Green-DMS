@@ -57,12 +57,12 @@
 
 | ID | قابلیت | وضعیت | شاهد | شکاف/وابستگی | سطحِ تأیید |
 |---|---|---|---|---|---|
-| E-01 | لیستِ قیمت با تاریخِ اعتبار (daterange + EXCLUDE) و تیراژ (min_qty) | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۶ (`price_list_item` + `ex_price_list_item`)؛ `price-list.controller` (۴)؛ `pricing.api.test.ts` | — | API+DB |
-| E-02 | قیمتِ اختصاصیِ مشتری (اولویتِ اول) با تاییدکننده | `IMPLEMENTED & VERIFIED` | `customer_price` + `approved_by` + `ex_customer_price` | — | DB+API |
-| E-03 | تخفیف/جایزه: ۹ نوع (percent/amount/bundle/buy_x_get_y/gift/cash/repeat/coupon/volume) با stacking و سقف | `IMPLEMENTED WITH GAPS` | مهاجرت ۰۰۰۶ (`promotion`، `rule*` نیز)؛ `promotion.controller` (۴) | **engine ترکیب/اولویت‌بندیِ cascade بدونِ تستِ رفتاریِ اختصاصی** (G-04) | API(جزئی) |
-| E-04 | snapshot قیمت/مالیات/تخفیف در اسنادِ تاییدشده | `IMPLEMENTED & VERIFIED` | `sales_order_line.unit_price/discount_*/tax_*/line_total/promotion_id` (مهاجرت ۰۰۱۰) | snapshot نامِ محصول/عنوانِ واحد نیست (G-07) | DB |
-| E-05 | کفِ سود/شبیه‌سازیِ قیمت/تخفیفِ تصویب‌محور | `MISSING` | — | نیازِ P2 | — |
-| E-06 | تسویهٔ کمپین (promotion settlement) و اثربخشی | `MISSING` | — | نیازِ P2/P9 | — |
+| E-01 | لیستِ قیمت با تاریخِ اعتبار (daterange + EXCLUDE) و تیراژ (min_qty) | `IMPLEMENTED & VERIFIED` | مهاجرت ۰۰۰۶ (`price_list_item` + `ex_price_list_item`)؛ `price-list.controller`؛ انتخابِ قطعیِ سطحِ تعداد/بسته‌بندی: `pricing-engine.ts` + `pricing-engine.unit.test.ts` (U4/U7) و `pricing-engine.api.test.ts` (PE-2) | — | API+DB |
+| E-02 | قیمتِ اختصاصیِ مشتری (اولویتِ اول) با تاییدکننده | `IMPLEMENTED & VERIFIED` | `customer_price` + `approved_by` + `ex_customer_price`؛ APIِ `/customer-prices` (GET/POST/PATCH) و تقدمِ اثبات‌شده بر لیست/قلمرو در `pricing-engine.api.test.ts` (PE-2) | — | DB+API |
+| E-03 | تخفیف/جایزه: ۹ نوع (percent/amount/bundle/buy_x_get_y/gift/cash/repeat/coupon/volume) با stacking و سقف | `IMPLEMENTED & VERIFIED (با محدودهٔ عملیاتی)` | موتورِ کاملِ TASK-24: `pricing-engine.ts` (`computeQuote`/`computeBenefit`) + `pricing-engine.unit.test.ts` (۴۲ تست، هر ۹ نوع) + `pricing-engine.api.test.ts` (PE-3: درصدی، عدمِ انباشت، سقفِ مبلغ/سند، هدیه)؛ جدول‌های `promotion*`/`promotion_coupon`/`promotion_evaluation`/`promotion_redemption` (0049) | محدودهٔ عملیاتیِ bundle/buy_x_get_y طبق تصمیمِ D-24-05؛ تسویهٔ کمپین باز است (E-06) | API+DB |
+| E-04 | snapshot قیمت/مالیات/تخفیف در اسنادِ تاییدشده | `IMPLEMENTED & VERIFIED` | `sales_order_line.unit_price/discount_*/tax_*/line_total/promotion_id` (مهاجرت ۰۰۱۰)؛ اثباتِ تغییرناپذیریِ سند پس از تغییرِ قیمت: `pricing-engine.api.test.ts` (PE-6) | snapshot نامِ محصول/عنوانِ واحد نیست (G-07) | DB+API |
+| E-05 | کفِ سود/شبیه‌سازیِ قیمت/تخفیفِ تصویب‌محور | `IMPLEMENTED & VERIFIED` | `margin_policy`/`margin_exception` (0049) با تفکیکِ مجوزِ `pricing.margin.update` از `pricing.margin.override` و قاعدهٔ «شخصِ دوم» (DB constraint + سرویس)؛ شبیه‌سازیِ بدونِ سند: `POST /pricing/simulate`؛ تست‌ها: `pricing-engine.unit.test.ts` (U5/U8)، `pricing-engine.api.test.ts` (PE-1/PE-4/PE-5) | اتصال به موتورِ تأیید چندمرحله‌ای فقط وقتی زنجیرهٔ فعال تعریف شود (G-03) | API+DB |
+| E-06 | تسویهٔ کمپین (promotion settlement) و اثربخشی | `MISSING (سیاستی — BLOCKED ON OWNER DECISION)` | پیش‌نیازهای فنی موجود است (`promotion_redemption` با مبلغ/کوپن/کلید idempotency + `price_change_log`) ولی هیچ سند/تعهد/حسابداریِ تسویه ساخته نشده | تصمیم‌های مالک: مبنای تسویه، مسئولیتِ تأمین‌کننده، رفتارِ حسابداری (سند TASK-24 §F) | — |
 
 ## F. فروش و مدیریتِ سفارش
 

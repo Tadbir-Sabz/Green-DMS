@@ -17,12 +17,21 @@ export interface PriceListRow extends QueryResultRow {
   kind: string;
   currency: string;
   is_active: boolean;
+  domain_id: string | null;
+  priority: number;
+  is_default: boolean;
+  row_version: number;
 }
 
 export interface PriceListItemRow extends QueryResultRow {
+  id?: string;
   product_id: string;
   packaging_id: string | null;
   price: string;
+  min_qty?: string;
+  max_qty?: string | null;
+  max_discount_pct?: string | null;
+  row_version?: number;
   valid_from: string | null;
   valid_to: string | null;
 }
@@ -41,6 +50,12 @@ export interface PromotionRow extends QueryResultRow {
   conditions: Record<string, unknown>;
   benefit: Record<string, unknown>;
   is_active: boolean;
+  domain_id: string | null;
+  exclusive_group: string | null;
+  max_discount_pct: string | null;
+  max_uses_total: number | null;
+  max_uses_per_customer: number | null;
+  requires_coupon: boolean;
 }
 
 const encodeCursor = (v: string): string => Buffer.from(v, 'utf8').toString('base64url');
@@ -69,7 +84,8 @@ export class PricingRepository {
     }
     params.push(limit + 1);
     const { rows } = await this.pool.query<PriceListRow>(
-      `select id, code, title, kind, currency, is_active from price_list
+      `select id, code, title, kind, currency, is_active, domain_id, priority, is_default, row_version
+        from price_list
         where ${where.join(' and ')}
         order by code
         limit $${params.length}`,
@@ -83,7 +99,8 @@ export class PricingRepository {
 
   async findPriceList(companyId: string, id: string): Promise<PriceListRow | null> {
     const { rows } = await this.pool.query<PriceListRow>(
-      `select id, code, title, kind, currency, is_active from price_list
+      `select id, code, title, kind, currency, is_active, domain_id, priority, is_default, row_version
+        from price_list
         where id = $1 and company_id = $2`,
       [id, companyId],
     );
@@ -92,12 +109,14 @@ export class PricingRepository {
 
   async findPriceListItems(priceListId: string): Promise<PriceListItemRow[]> {
     const { rows } = await this.pool.query<PriceListItemRow>(
-      `select product_id, packaging_id, price::text as price,
+      `select id, product_id, packaging_id, price::text as price,
+              min_qty::text as min_qty, max_qty::text as max_qty,
+              max_discount_pct::text as max_discount_pct, row_version,
               lower(valid)::text as valid_from,
               upper(valid)::text as valid_to
          from price_list_item
         where price_list_id = $1
-        order by product_id`,
+        order by product_id, min_qty`,
       [priceListId],
     );
     return rows;
@@ -108,10 +127,22 @@ export class PricingRepository {
     try {
       await client.query('begin');
       const header = await client.query<{ id: string }>(
-        `insert into price_list (company_id, code, title, kind, currency, is_active)
-         values ($1, $2, $3, coalesce($4,'general'), coalesce($5,'IRR'), coalesce($6,true))
+        `insert into price_list
+           (company_id, code, title, kind, currency, is_active, domain_id, priority, is_default)
+         values ($1, $2, $3, coalesce($4,'general'), coalesce($5,'IRR'), coalesce($6,true),
+                 $7, coalesce($8,100), coalesce($9,false))
          returning id`,
-        [companyId, dto.code, dto.title, dto.kind ?? null, dto.currency ?? null, dto.is_active ?? null],
+        [
+          companyId,
+          dto.code,
+          dto.title,
+          dto.kind ?? null,
+          dto.currency ?? null,
+          dto.is_active ?? null,
+          dto.domain_id ?? null,
+          dto.priority ?? null,
+          dto.is_default ?? null,
+        ],
       );
       const id = header.rows[0].id;
       for (const item of dto.items ?? []) {
@@ -137,10 +168,27 @@ export class PricingRepository {
            title = coalesce($4, title),
            kind = coalesce($5, kind),
            currency = coalesce($6, currency),
-           is_active = coalesce($7, is_active)
+           is_active = coalesce($7, is_active),
+           domain_id = case when $8::boolean then $9 else domain_id end,
+           priority = coalesce($10, priority),
+           is_default = coalesce($11, is_default)
          where id = $1 and company_id = $2
+           and ($12::int is null or row_version = $12::int)
          returning id`,
-        [id, companyId, dto.code ?? null, dto.title ?? null, dto.kind ?? null, dto.currency ?? null, dto.is_active ?? null],
+        [
+          id,
+          companyId,
+          dto.code ?? null,
+          dto.title ?? null,
+          dto.kind ?? null,
+          dto.currency ?? null,
+          dto.is_active ?? null,
+          dto.domain_id !== undefined,
+          dto.domain_id ?? null,
+          dto.priority ?? null,
+          dto.is_default ?? null,
+          dto.row_version ?? null,
+        ],
       );
       if (owned.rowCount === 0) {
         await client.query('rollback');
@@ -165,13 +213,50 @@ export class PricingRepository {
   private async insertItem(
     client: PoolClient,
     priceListId: string,
-    item: { product_id: string; packaging_id?: string | null; price: string; valid_from?: string | null; valid_to?: string | null },
+    item: {
+      product_id: string;
+      packaging_id?: string | null;
+      price: string;
+      min_qty?: string;
+      max_qty?: string | null;
+      max_discount_pct?: string | null;
+      valid_from?: string | null;
+      valid_to?: string | null;
+    },
   ): Promise<void> {
     await client.query(
-      `insert into price_list_item (price_list_id, product_id, packaging_id, price, min_qty, valid)
-       values ($1, $2, $3, $4, 0, ${RANGE.replace('%d', '5').replace('%d', '6')})`,
-      [priceListId, item.product_id, item.packaging_id ?? null, item.price, item.valid_from ?? null, item.valid_to ?? null],
+      `insert into price_list_item
+         (price_list_id, product_id, packaging_id, price, min_qty, max_qty, max_discount_pct, valid)
+       values ($1, $2, $3, $4, coalesce($5,0), $6, $7,
+               ${RANGE.replace('%d', '8').replace('%d', '9')})`,
+      [
+        priceListId,
+        item.product_id,
+        item.packaging_id ?? null,
+        item.price,
+        item.min_qty ?? null,
+        item.max_qty ?? null,
+        item.max_discount_pct ?? null,
+        item.valid_from ?? null,
+        item.valid_to ?? null,
+      ],
     );
+  }
+
+  async packagingBelongsToProduct(productId: string, packagingId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      'select 1 from product_packaging where id = $1 and product_id = $2',
+      [packagingId, productId],
+    );
+    return rows.length > 0;
+  }
+
+  async domainExists(companyId: string, domainId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      'select 1 from pricing_domain where id = $1 and company_id = $2',
+      [domainId, companyId],
+    );
+    return rows.length > 0;
   }
 
   async productExists(companyId: string, productId: string): Promise<boolean> {
@@ -208,7 +293,9 @@ export class PricingRepository {
               priority, allow_stacking,
               max_discount_amount::text as max_discount_amount,
               max_per_customer_per_day::text as max_per_customer_per_day,
-              conditions, benefit, is_active
+              conditions, benefit, is_active,
+              domain_id, exclusive_group, max_discount_pct::text as max_discount_pct,
+              max_uses_total, max_uses_per_customer, requires_coupon
          from promotion
         where ${where.join(' and ')}
         order by code
@@ -229,7 +316,9 @@ export class PricingRepository {
               priority, allow_stacking,
               max_discount_amount::text as max_discount_amount,
               max_per_customer_per_day::text as max_per_customer_per_day,
-              conditions, benefit, is_active
+              conditions, benefit, is_active,
+              domain_id, exclusive_group, max_discount_pct::text as max_discount_pct,
+              max_uses_total, max_uses_per_customer, requires_coupon
          from promotion
         where id = $1 and company_id = $2`,
       [id, companyId],
@@ -241,11 +330,14 @@ export class PricingRepository {
     const { rows } = await this.pool.query<{ id: string }>(
       `insert into promotion
          (company_id, code, title, kind, valid, priority, allow_stacking,
-          max_discount_amount, max_per_customer_per_day, conditions, benefit, is_active)
+          max_discount_amount, max_per_customer_per_day, conditions, benefit, is_active,
+          domain_id, exclusive_group, max_discount_pct, max_uses_total, max_uses_per_customer,
+          requires_coupon)
        values ($1, $2, $3, $4,
                ${RANGE.replace('%d', '5').replace('%d', '6')},
                coalesce($7,100), coalesce($8,false), $9, $10,
-               coalesce($11::jsonb,'{}'::jsonb), coalesce($12::jsonb,'{}'::jsonb), coalesce($13,true))
+               coalesce($11::jsonb,'{}'::jsonb), coalesce($12::jsonb,'{}'::jsonb), coalesce($13,true),
+               $14, $15, $16, $17, $18, coalesce($19,false))
        returning id`,
       [
         companyId,
@@ -261,6 +353,12 @@ export class PricingRepository {
         JSON.stringify(dto.conditions ?? {}),
         JSON.stringify(dto.benefit ?? {}),
         dto.is_active ?? null,
+        dto.domain_id ?? null,
+        dto.exclusive_group ?? null,
+        dto.max_discount_pct ?? null,
+        dto.max_uses_total ?? null,
+        dto.max_uses_per_customer ?? null,
+        dto.requires_coupon ?? null,
       ],
     );
     return rows[0].id;
@@ -292,6 +390,12 @@ export class PricingRepository {
     if (dto.conditions !== undefined) add(`conditions = $?::jsonb`, JSON.stringify(dto.conditions));
     if (dto.benefit !== undefined) add(`benefit = $?::jsonb`, JSON.stringify(dto.benefit));
     if (dto.is_active !== undefined) add('is_active = $?', dto.is_active);
+    if (dto.domain_id !== undefined) add('domain_id = $?', dto.domain_id);
+    if (dto.exclusive_group !== undefined) add('exclusive_group = $?', dto.exclusive_group);
+    if (dto.max_discount_pct !== undefined) add('max_discount_pct = $?', dto.max_discount_pct);
+    if (dto.max_uses_total !== undefined) add('max_uses_total = $?', dto.max_uses_total);
+    if (dto.max_uses_per_customer !== undefined) add('max_uses_per_customer = $?', dto.max_uses_per_customer);
+    if (dto.requires_coupon !== undefined) add('requires_coupon = $?', dto.requires_coupon);
 
     if (sets.length === 0) return id;
     const { rows } = await this.pool.query<{ id: string }>(

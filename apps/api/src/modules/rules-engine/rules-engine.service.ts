@@ -284,13 +284,29 @@ export class RulesEngineService {
     if (!RULE_EFFECTS.includes(dto.effect as any)) {
       throw badRequest('invalid_effect', 'اقدام قاعده معتبر نیست.');
     }
-    const id = await this.repo.createRule(
-      companyId,
-      dto,
-      dto.conditions ?? [],
-      dto.actions ?? [],
-      dto.scopes ?? [],
-    );
+    let id: string;
+    try {
+      id = await this.repo.createRule(
+        companyId,
+        dto,
+        dto.conditions ?? [],
+        dto.actions ?? [],
+        dto.scopes ?? [],
+      );
+    } catch (err) {
+      // TASK-24 (G-03): کدِ تکراری قاعده نباید 500 شود — خطای دامنه‌ایِ صریح
+      const e = err as { code?: string; constraint?: string };
+      if (e.code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_code',
+          message_fa: 'کدِ قاعده برای این شرکت قبلاً ثبت شده است.',
+        });
+      }
+      if (e.code === '23503') {
+        throw badRequest('reference_invalid', 'یکی از ارجاع‌های قاعده معتبر نیست.');
+      }
+      throw err;
+    }
     return this.getRule(companyId, id);
   }
 
