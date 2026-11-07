@@ -737,9 +737,10 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
     // گرافِ کلیدِ خارجی استخراج می‌شود (جدولِ دارایِ company_id/branch_id یا فرزندِ
     // بازگشتیِ چنین جدولی). هر شکافِ «بدونِ سیاست» باید یا ناموجود باشد یا در فهرستِ
     // شکاف‌هایِ مستندِ زیر — وگرنه تست می‌شکند (هر شکافِ جدید = شکستِ CI).
-    // شکاف‌هایِ مستند (بیرون از مرزِ Product Master؛ ثبت‌شده در گزارشِ TASK-22R §F و
-    // نیازمندِ پیگیریِ جدا): device و geofence (ماژولِ ردیابی 0012 — پیش از TASK-22).
-    const KNOWN_GAPS = ['device', 'geofence'];
+    // شکاف‌هایِ مستند: خالی — device و geofence (ماژولِ ردیابی 0012) در TASK-23 با
+    // مهاجرتِ 0048 سیاستِ p_device_tenant/p_geofence_tenant گرفتند؛ هر شکافِ جدید
+    // باید همین‌جا عمداً ثبت شود وگرنه تست می‌شکند.
+    const KNOWN_GAPS: string[] = [];
     const { rows } = await ownerPool.query<{ relname: string }>(`
       with recursive owned as (
         select c.oid, c.relname
