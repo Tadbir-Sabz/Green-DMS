@@ -248,16 +248,18 @@ describe('نقشِ زمانِ اجرا (dms_app) — حداقلِ امتیاز �
   });
 
   it('FORCE ROW LEVEL SECURITY رویِ جدول‌هایِ اجاره‌محور فعال است', async () => {
+    // L-01 (TASK-22R): به‌جای فهرستِ ثابتِ ۶تایی، هر جدولی که سیاست دارد باید
+    // RLS+FORCE هم داشته باشد — از کاتالوگ، بدونِ نام‌بردنِ جدول‌ها.
     const { rows } = await asRuntime('none', (c) =>
       c.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(
         `select cl.relname, cl.relrowsecurity, cl.relforcerowsecurity
            from pg_class cl join pg_namespace n on n.oid = cl.relnamespace
-          where n.nspname = 'public'
-            and cl.relname in ('billing_invoice','customer','portal_user','attachment','setting','company')
+          where n.nspname = 'public' and cl.relkind in ('r','p')
+            and exists (select 1 from pg_policy p where p.polrelid = cl.oid)
           order by cl.relname`,
       ),
     );
-    expect(rows.length).toBe(6);
+    expect(rows.length).toBeGreaterThanOrEqual(139);
     for (const r of rows) {
       expect(r.relrowsecurity, `${r.relname} rls`).toBe(true);
       expect(r.relforcerowsecurity, `${r.relname} force`).toBe(true);
@@ -731,15 +733,38 @@ describe('سیاست‌هایِ زنجیرهٔ والد (0042) — جداولِ 
   });
 
   it('پوششِ واقعی از کاتالوگ: همهٔ جداولِ هدف RLS + FORCE + سیاست دارند', async () => {
-    const { rows } = await ownerPool.query(`
-      select count(*)::int n
-        from pg_class c
-        join pg_namespace ns on ns.oid = c.relnamespace
-       where ns.nspname = 'public' and c.relkind = 'r'
-         and c.relrowsecurity and c.relforcerowsecurity
-         and exists (select 1 from pg_policy p where p.polrelid = c.oid)`);
-    // 0041: ۷۱ جدول · 0042: ۶۸ فرزند + ۳ پارتیشن‌شده ⇒ دستِ‌کم ۱۳۹ والد
-    expect(rows[0].n).toBeGreaterThanOrEqual(139);
+    // L-01 (TASK-22R): به‌جایِ آستانهٔ ثابتِ «≥139»، مجموعهٔ هدف به‌صورتِ پویا از
+    // گرافِ کلیدِ خارجی استخراج می‌شود (جدولِ دارایِ company_id/branch_id یا فرزندِ
+    // بازگشتیِ چنین جدولی). هر شکافِ «بدونِ سیاست» باید یا ناموجود باشد یا در فهرستِ
+    // شکاف‌هایِ مستندِ زیر — وگرنه تست می‌شکند (هر شکافِ جدید = شکستِ CI).
+    // شکاف‌هایِ مستند (بیرون از مرزِ Product Master؛ ثبت‌شده در گزارشِ TASK-22R §F و
+    // نیازمندِ پیگیریِ جدا): device و geofence (ماژولِ ردیابی 0012 — پیش از TASK-22).
+    const KNOWN_GAPS = ['device', 'geofence'];
+    const { rows } = await ownerPool.query<{ relname: string }>(`
+      with recursive owned as (
+        select c.oid, c.relname
+          from pg_class c
+          join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public' and c.relkind = 'r'
+           and (c.relname = 'company'
+                or exists (select 1 from pg_attribute a
+                            where a.attrelid = c.oid and a.attname in ('company_id','branch_id')
+                              and not a.attisdropped))
+        union
+        select t.oid, t.relname
+          from pg_constraint con
+          join pg_class t on t.oid = con.conrelid
+          join pg_namespace n on n.oid = t.relnamespace
+          join owned o on con.confrelid = o.oid
+         where con.contype = 'f' and n.nspname = 'public' and t.relkind = 'r'
+      )
+      select o.relname
+        from owned o
+       where not exists (select 1 from pg_policy p where p.polrelid = o.oid)
+       order by 1`);
+    const uncovered = rows.map((r) => r.relname);
+    const undocumented = uncovered.filter((t) => !KNOWN_GAPS.includes(t));
+    expect(undocumented, `undocumented RLS gaps: ${undocumented.join(', ')}`).toEqual([]);
   });
 });
 
