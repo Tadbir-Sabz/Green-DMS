@@ -232,3 +232,26 @@ after_reup   {"tables":7,"pricing_perms":7,"price_list_cols":3,"triggers":4,"for
 ### ۸-۴) G-03
 
 سخت‌سازیِ حداقلی **جدا از قیمت‌گذاری** و در فایل/مهاجرتِ مستقل انجام شد (زنجیرهٔ خالی ⇒ ۴۰۹، گام از `current_step` و نه از بدنه، `requested_by` از نشست، منعِ خودتأییدی، RBACِ تأییدکننده، یکتاییِ تصمیم). **G-03 همچنان `PARTIAL` و `VERIFIED=NO`** است تا حسابرسیِ مستقلِ بعدی: هیچ عملیاتِ حساسِ قیمت به موتورِ تأیید وصل نشده و اتصالِ استثنای کفِ سود به آن همچنان اختیاری/سیاستی است.
+
+---
+
+## ۹) TASK-24V — نتیجهٔ دروازهٔ راستی‌آزمایی (پس از TASK-24F)
+
+**داوریِ کلی: FAIL** — یک نقصِ مسدودکنندهٔ تازه‌کشف + دو یافتهٔ بازِ کارکردی. گزارشِ کامل:
+`docs/product-inventory/TASK-24V_VERIFICATION_REPORT.md`.
+
+| مورد | وضعیتِ نهایی |
+|---|---|
+| مهاجرت 0050/0051 | ✅ چرخهٔ up→down→up روی PostGIS واقعی در CI (`42402374930`, `42450239490`) + بازرسیِ اشیا در DB ایزوله |
+| RLSِ `pricing_settings` | ✅ آزمونِ تازهٔ **PE-12** (نقشِ `dms_app`: ۱ ردیف، درجِ بین‌شرکتی 42501، بدونِ زمینه fail-closed) — سبز در CI |
+| HIGH-1 مسیرِ یگانه | **PARTIAL** — `/orders` و ویرایش و sales-chain از موتور می‌گذرند، ولی `sales-chain.convert` actor/permissions/دلیل را منتقل نمی‌کند ⇒ `403 manual_price_not_authorized` برای هر درخواستِ دارایِ `requested_price` (probe) — `HIGH-1-R1` |
+| HIGH-2 سقف از سیاست | **PARTIAL** — روی مسیرِ سفارش اعمال می‌شود؛ `POST /pricing/quote` و `simulate` سیاست را نمی‌خوانند (`it.fails` مستند) — `HIGH-2-R1` |
+| HIGH-3 ممیزی | **FIXED** (PE-10، ۵ سناریو، سبز) |
+| HIGH-4 تخصیص/هدیه/دفتر | **FIXED** (PE-3/PE-11، سبز) |
+| MEDIUM-1..5 | **FIXED** (PE-4، PE-9، drift/openapi/typecheck، PE-11 فقط-افزودنی، idempotency) |
+| G-03 | **PARTIAL + پس‌رفت** — `amount_band_mismatch` گردشِ چندمرحله‌ای را در گامِ ۲ قفل می‌کند (`rules-engine.service.ts:605-614`) ⇒ `G-23` |
+| اتصالِ عملیاتِ حساس به موتورِ تأیید | **اصلاحِ ادعا:** استثنای کفِ سود هنگام وجودِ زنجیرهٔ `pricing.margin_exception` به موتورِ تأیید گره می‌خورد (`pricing-engine.service.ts:838-857`, `899-912`) ⇒ «وصل نیست» دقیق نبود؛ بقیهٔ عملیات وصل نیستند (Q-24-11) |
+| CI (PR #13) | static ✅ · unit ✅ · MinIO ✅ · init-hygiene ✅ · integration-db ❌ (۱ شکست = نقصِ بالا؛ ۸۸۷ pass) · migrations ✅ · release-image ✅ · e2e ⛔ BLOCKED (MinIO) |
+| Kotlin | **UNVERIFIED** (شبکهٔ Maven) |
+
+**هیچ merge/deploy انجام نشد؛ merge توصیه نمی‌شود تا رفعِ G-23 و تصمیمِ مالک.**

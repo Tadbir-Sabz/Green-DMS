@@ -149,3 +149,24 @@
 | آزمونِ DB-محورِ تازه (نوشته‌شده) | `pricing-engine.api.test.ts`: PE-10 (سفارش/مجوز/ممیزی ×۵)، PE-11 (هم‌خوانیِ دفتر + فقط-افزودنی + idempotency)، PE-9 (بین‌قلمرویی ×۳)، بازنویسیِ آزمونِ سقف روی `pricing_settings` · `orders.api.test.ts` به‌روزرسانی شد — **اجرا نشده در این محیط: `UNVERIFIED`** |
 | typecheck | `tsc -p apps/api` → ۰ خطا (src) |
 | مرزِ صداقت | هیچ DB اشتراکی/تولیدی استفاده نشد؛ هر ادعای DB-محور که اجرا نشده، صریحاً `UNVERIFIED` است |
+
+---
+
+## ۱۰) TASK-24V — دروازهٔ راستی‌آزماییِ نهایی و حسابرسیِ مستقل (read-only audit)
+
+| شاهد | مقدار |
+|---|---|
+| نسخهٔ حسابرسی‌شده | `00f7f12ca655a90e0e3ff043ae89e0bed19366de` · tree `e102b2b1aa056ce5493f799df0341bbeac0da4b0` (شاخهٔ `arena/1246108f-green-dms`) |
+| commitهای دروازه | `c1c9a3e` (ترمیمِ نحوی + هم‌ترازیِ آزمون‌های قیمت) · `75728e8` (هم‌ترازیِ G-03/مهاجرت + آزمونِ RLS) · HEAD شاخه = `75728e8` |
+| PR | **#13 (draft)** فقط برای اجرای workflowهای موجود روی PR — **merge نشده**، هیچ push به شاخهٔ دیگر |
+| CI — مهاجرت‌ها (up→down→up + مقایسهٔ اشیا، PostGIS واقعی) | `42402374930` @`00f7f12` ✅ · `42450239490` @`75728e8` ✅ |
+| CI — release-image (build+boot+migrate+health+login+proxy+secret-scan+fail-closed) | `42450239575` @`75728e8` ✅ |
+| CI — e2e | `42450239526` ⛔ **BLOCKED** (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری) |
+| CI — Integration (Postgres) | `42404284138` @`c1c9a3e`: ۱۳ fail/۸۷۴ pass · **`42450239559` @`75728e8`: ۱ fail/۸۸۷ pass/۱ expected-fail (۸۸۹)، ۴۰/۴۱ فایل سبز** |
+| شکستِ باقی‌ماندهٔ CI (محصول) | `rules-engine-behavior.test.ts > تأییدِ دومرحله‌ای` ⇒ `409 amount_band_mismatch` — پس‌رفتِ `1e36108` در `rules-engine.service.ts:605-614` (G-23) |
+| آزمون‌های قیمت در CI | `pricing-engine.api.test.ts` ۴۵ pass + ۱ expected-fail (شاملِ PE-12 RLS تازه) · `orders`+`pricing` ۳۱/۳۱ · `pricing-remediation.unit` ۱۶/۱۶ |
+| DB ایزوله (پیش از بازنشانیِ سندباکس) | PG 17.6 · `127.0.0.1:55432` · `data=/tmp/pgdata24` · بدونِ PostGIS/DB اشتراکی؛ `mig_probe`: همهٔ upها در یک تراکنش exit 0 · چرخهٔ 0051 و 0050 down→up پاک · RLSِ `pricing_settings` با `dms_app`: ۱ ردیف، درجِ بین‌شرکتی `42501`، بدونِ زمینه ۰ |
+| static | `typecheck` (API+Web) ۰ · `openapi:check` ۱۷۳/۲۵۱/۱۲۶/۳ · `contract-drift` ۰ · `check-test-partition` OK (schema.ts بدونِ diff) |
+| Kotlin | **UNVERIFIED** — `npm run clients:generate` ⇒ `fetch failed` به `repo1.maven.org` |
+| داوریِ کلی | **FAIL** (یک نقصِ مسدودکننده + دو یافتهٔ بازِ کارکردی) · **merge توصیه نمی‌شود** |
+| گزارشِ کامل | `docs/product-inventory/TASK-24V_VERIFICATION_REPORT.md` (بخش‌های ۱–۹) |
