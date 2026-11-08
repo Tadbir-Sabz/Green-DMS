@@ -13,7 +13,8 @@
 |---|---|
 | مبنای پیش از اصلاح | `1c849bc23309cc8716269aca6bfc2d24523d4dbf` (تأییدشده با `git fetch` + `gh pr view`: برابرِ `headRefOid`) |
 | commitِ کد/آزمون/قرارداد | `f5c89b61c5595261f7754f18e02728b60c5f8e0b` |
-| commitهای مستندات | پس از این سند (فقط `docs/` + درخواستِ حسابرسی) |
+| commitهای مستندات | `eaf95cf` — گزارش + درخواستِ حسابرسی + به‌روزرسانیِ شواهد (فقط `docs/`) |
+| HEAD نهاییِ شاخه | `eaf95cf` (CI سبز روی همین commit) |
 | ancestry | `1c849bc` → `f5c89b6` → مستندات؛ هر دو روی `arena/1246108f-green-dms`، شاخه از `main`(`d12dc2e`) جدا شده |
 | worktree پیش از کار | پاک (`git status --porcelain` خالی) |
 
@@ -27,7 +28,7 @@
 | مورد | مقدار |
 |---|---|
 | PR | **#13 — DRAFT**، `state: OPEN`، `mergeable: MERGEABLE` |
-| head | `f5c89b6` (پس از این گزارش: commitِ مستندات) |
+| head | `eaf95cf` (کدِ اصلاح: `f5c89b6`) |
 | merge/deploy | **انجام نشد** — تصمیم در اختیارِ مالک |
 
 ## ۳) HIGH-1-R1 — داوری: **CLOSED** (ادعای Agent-1؛ منتظرِ حسابرسیِ مستقل)
@@ -94,10 +95,11 @@ permissions و بدونِ دلیل ⇒ هر `requested_price` (حتی برابر
 
 | workflow | Run ID | نتیجه |
 |---|---|---|
-| CI (static · unit · **Integration (Postgres)** · MinIO · init-hygiene) | `42458240290` | ✅ **success — هر ۵ job** |
-| مهاجرت‌های پایگاه‌داده (up→down→up) | `42458240314` | ✅ success |
-| release-image (build+boot+migrate+login+fail-closed) | `42458240295` | ✅ success |
-| e2e (Playwright) | `42458240364` | ⛔ BLOCKED — نبودِ ایمیجِ MinIO (پیش‌موجود روی `main`) |
+| CI @`f5c89b6` (کد) | `42458240290` | ✅ **success — هر ۵ job** |
+| CI @`eaf95cf` (HEAD نهایی، مستندات) | `42458666777` | ✅ **success — هر ۵ job** (تأییدِ تکرارپذیری) |
+| مهاجرت‌های پایگاه‌داده | `42458240314` @`f5c89b6` · `42458666736` @`eaf95cf` | ✅ success |
+| release-image | `42458240295` @`f5c89b6` | ✅ success |
+| e2e (Playwright) | `42458240364` · `42458666697` | ⛔ BLOCKED — نبودِ ایمیجِ MinIO (پیش‌موجود روی `main`: `42372429275`, `42372091303`, `42349918251`, `42250552238`) |
 
 **محدودیتِ محیطِ محلی (افشا):** سندباکس PostGIS ندارد؛ اجرای DB-محور روی کپیِ harness با مهاجرت‌های
 «PostGIS-پچ‌شده» انجام شد. به همین دلیل `geofences`, `customers`, `postgres-init-role`,
