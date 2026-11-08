@@ -74,7 +74,7 @@
 | **CI @ `090c78b` (HEAD — پس از رفعِ G-23)** | `42452304238` | `090c78b` | ✅ **success — هر ۵ job سبز** (static · unit · Integration (Postgres) · Integration (MinIO) · init-hygiene) |
 | مهاجرت‌های پایگاه‌داده @ HEAD | `42452304177` | `090c78b` | ✅ success |
 | release-image @ HEAD | `42452304402` | `090c78b` | ✅ success |
-| e2e @ HEAD | `42452304218` | `090c78b` | ⛔ BLOCKED (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری) |
+| e2e @ HEAD | `42452304218` / `42452625588` | `090c78b` / `9b8bf87` | ⛔ BLOCKED (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری). **پیش‌موجود، نه رگرسیونِ این شاخه:** e2e روی `main` هم پیش از این کار در ۴ اجرای متوالی (`42372429275`، `42372091303`، `42349918251`، `42250552238`) شکست خورده است |
 
 **تفکیکِ jobهای CI @ `75728e8`:** static ✅ · unit (DB-free) ✅ · Integration (MinIO) ✅ ·
 Init credential hygiene ✅ · **Integration (Postgres) ❌ (۱ شکست)**.
