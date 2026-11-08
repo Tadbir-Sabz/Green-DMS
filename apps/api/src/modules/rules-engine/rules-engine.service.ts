@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -284,13 +285,29 @@ export class RulesEngineService {
     if (!RULE_EFFECTS.includes(dto.effect as any)) {
       throw badRequest('invalid_effect', 'اقدام قاعده معتبر نیست.');
     }
-    const id = await this.repo.createRule(
-      companyId,
-      dto,
-      dto.conditions ?? [],
-      dto.actions ?? [],
-      dto.scopes ?? [],
-    );
+    let id: string;
+    try {
+      id = await this.repo.createRule(
+        companyId,
+        dto,
+        dto.conditions ?? [],
+        dto.actions ?? [],
+        dto.scopes ?? [],
+      );
+    } catch (err) {
+      // TASK-24 (G-03): کدِ تکراری قاعده نباید 500 شود — خطای دامنه‌ایِ صریح
+      const e = err as { code?: string; constraint?: string };
+      if (e.code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_code',
+          message_fa: 'کدِ قاعده برای این شرکت قبلاً ثبت شده است.',
+        });
+      }
+      if (e.code === '23503') {
+        throw badRequest('reference_invalid', 'یکی از ارجاع‌های قاعده معتبر نیست.');
+      }
+      throw err;
+    }
     return this.getRule(companyId, id);
   }
 
@@ -515,17 +532,28 @@ export class RulesEngineService {
     return this.shapeApproval(updated);
   }
 
-  async createApprovalRequest(companyId: string, dto: CreateApprovalRequestDto) {
+  async createApprovalRequest(companyId: string, dto: CreateApprovalRequestDto, actorUserId?: string) {
     // بررسی وجود زنجیره تأیید
     const chain = await this.repo.getApprovalChain(companyId, dto.approval_chain_id);
     if (!chain) throw notFound('زنجیره تأیید یافت نشد');
 
-    const id = await this.repo.createApprovalRequest(dto);
+    // TASK-24F · G-03: زنجیرهٔ بدونِ مرحله نباید درخواستِ «قابلِ تأییدِ خودکار» بسازد.
+    const steps = await this.repo.getApprovalChainSteps(dto.approval_chain_id);
+    if (steps.length === 0) {
+      throw new ConflictException({
+        code: 'approval_chain_empty',
+        message_fa: 'زنجیرهٔ تأیید هیچ مرحله‌ای ندارد؛ امکانِ ثبتِ درخواست وجود ندارد.',
+        details: { approval_chain_id: dto.approval_chain_id },
+      });
+    }
+
+    // G-03: درخواست‌دهنده از نشست گرفته می‌شود، نه از بدنه (جلوگیری از جعلِ «شخصِ اول»).
+    const requestedBy = actorUserId ?? dto.requested_by;
+    const id = await this.repo.createApprovalRequest({ ...dto, requested_by: requestedBy });
     const req = await this.repo.getApprovalRequest(companyId, id);
     if (!req) throw badRequest('create_failed', 'ایجاد درخواست تأیید ناموفق بود.');
 
     // تعیین مرحله فعلی بر اساس مبلغ
-    const steps = await this.repo.getApprovalChainSteps(dto.approval_chain_id);
     const currentStep = findCurrentStep(steps, dto.amount ?? null);
     await this.repo.updateApprovalRequestStatus(id, 'pending', currentStep, null);
 
@@ -552,57 +580,124 @@ export class RulesEngineService {
     if (req.status !== 'pending') {
       throw badRequest('not_pending', 'درخواست تأیید در وضعیت منتظر نیست.');
     }
+    // G-03: مرحلهٔ تصمیم از وضعیتِ خودِ درخواست گرفته می‌شود، نه از بدنهٔ درخواست.
+    stepNo = Number(req.current_step);
 
-    await this.repo.createApprovalDecision(
-      requestId,
-      stepNo,
-      decidedBy,
-      decision,
-      comment,
-    );
+    // TASK-24F · G-03 — کنترل‌های پیش از ثبتِ تصمیم:
+    //   ۱) زنجیرهٔ بدونِ مرحله ⇒ fail-closed (پیش‌تر Math.max([]) = -Infinity ⇒ تأییدِ فوری)
+    //   ۲) مرحله باید همان مرحلهٔ جاری/باندِ مبلغ باشد (بازاعتبارسنجی در زمانِ تصمیم)
+    //   ۳) خودتأییدی ممنوع
+    //   ۴) تصمیم‌گیرنده باید با نقش/کارمندِ همان مرحله مجاز باشد
+    const steps = await this.repo.getApprovalChainSteps(req.approval_chain_id);
+    if (steps.length === 0) {
+      throw new ConflictException({
+        code: 'approval_chain_empty',
+        message_fa: 'زنجیرهٔ تأیید هیچ مرحله‌ای ندارد؛ تأیید ممکن نیست (fail-closed).',
+      });
+    }
+    const step = steps.find((s) => s.step_no === stepNo);
+    if (!step) {
+      throw new ConflictException({
+        code: 'invalid_step',
+        message_fa: 'مرحلهٔ اعلام‌شده در این زنجیره وجود ندارد.',
+        details: { step_no: stepNo },
+      });
+    }
+    // TASK-24V · G-23: بازمحاسبهٔ گام از باند در لحظهٔ تصمیم نادرست بود.
+    // `findCurrentStep` «نخستین گامِ سازگار با مبلغ» را برمی‌گرداند؛ پس در هر زنجیرهٔ ≥۲ مرحله‌ای که
+    // گامِ ۱ بی‌باند است (یا مبلغ در باندِ گامِ ۱ می‌افتد) خروجی همیشه ۱ است و تصمیمِ گامِ ۲ با
+    // `amount_band_mismatch` برای همیشه قفل می‌شد (CI run 42450239559).
+    // کنترلِ درست: باند فقط «گامِ ورود» را در لحظهٔ ثبتِ درخواست تعیین می‌کند؛ در زمانِ تصمیم فقط
+    // یک بار — پیش از نخستین تصمیم — بررسی می‌کنیم که گامِ جاری هنوز همان گامِ متناظر با مبلغ است
+    // (ضدِ دستکاریِ مبلغ پس از ثبت). پیشرویِ گام‌ها با `stepNo = req.current_step` (بالا) و
+    // به‌روزرسانیِ شرطی (`expected: {status:'pending', currentStep: stepNo}`) تضمین می‌شود.
+    const amount = req.amount == null ? null : Number(req.amount);
+    if (amount != null) {
+      const previousDecisions = await this.repo.listApprovalDecisions(requestId);
+      if (previousDecisions.length === 0) {
+        const entryStep = findCurrentStep(steps, amount);
+        if (entryStep !== stepNo) {
+          throw new ConflictException({
+            code: 'amount_band_mismatch',
+            message_fa: 'مبلغِ درخواست با باندِ گامِ جاری نمی‌خواند؛ درخواست را دوباره ثبت کنید.',
+            details: { step_no: stepNo, expected_step: entryStep, amount },
+          });
+        }
+      }
+    }
+    if (req.requested_by === decidedBy) {
+      throw new ForbiddenException({
+        code: 'self_approval_forbidden',
+        message_fa: 'تأییدِ درخواستِ خود (self-approval) مجاز نیست؛ تأییدکننده باید شخصِ دیگری باشد.',
+      });
+    }
+    const canApprove = await this.repo.userCanApproveStep(companyId, decidedBy, step);
+    if (!canApprove) {
+      throw new ForbiddenException({
+        code: 'approver_not_authorized',
+        message_fa: 'شما برای این مرحلهٔ تأیید مجاز نیستید (نقش/کارمندِ مرحله).',
+        details: { step_no: stepNo },
+      });
+    }
 
+    try {
+      await this.repo.createApprovalDecision(requestId, stepNo, decidedBy, decision, comment);
+    } catch (err) {
+      // G-03: ایندکسِ یکتای (approval_request_id, step_no) — مهاجرت 0051
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_decision',
+          message_fa: 'برای این مرحله قبلاً تصمیم ثبت شده است.',
+          details: { step_no: stepNo },
+        });
+      }
+      throw err;
+    }
+
+    const expected = { status: 'pending', currentStep: stepNo };
     if (decision === 'rejected') {
-      await this.repo.updateApprovalRequestStatus(
+      const ok = await this.repo.updateApprovalRequestStatus(
         requestId,
         'rejected',
         stepNo,
         new Date().toISOString(),
+        expected,
       );
+      if (!ok) throw this.concurrentDecision();
       return this.repo.getApprovalRequest(companyId, requestId);
     }
 
     if (decision === 'returned') {
-      await this.repo.updateApprovalRequestStatus(
+      const ok = await this.repo.updateApprovalRequestStatus(
         requestId,
         'cancelled',
         stepNo,
         new Date().toISOString(),
+        expected,
       );
+      if (!ok) throw this.concurrentDecision();
       return this.repo.getApprovalRequest(companyId, requestId);
     }
 
-    // approved → پیش رفتن به مرحله بعدی یا بسته شدن
-    // مرحله از خود درخواست گرفته می‌شود؛ approval_request ستون company_id ندارد
-    const steps = await this.repo.getApprovalChainSteps(req.approval_chain_id);
-    const maxStep = Math.max(...steps.map((s) => s.step_no));
-
-    if (stepNo >= maxStep) {
-      await this.repo.updateApprovalRequestStatus(
-        requestId,
-        'approved',
-        stepNo,
-        new Date().toISOString(),
-      );
-    } else {
-      await this.repo.updateApprovalRequestStatus(
-        requestId,
-        'pending',
-        stepNo + 1,
-        null,
-      );
-    }
-
+    // approved → پیش رفتن به مرحله بعدی یا بسته شدن (انتقالِ اتمیک)
+    const maxStep = steps.reduce((max, s) => Math.max(max, s.step_no), 0);
+    const done = stepNo >= maxStep;
+    const ok = await this.repo.updateApprovalRequestStatus(
+      requestId,
+      done ? 'approved' : 'pending',
+      done ? stepNo : stepNo + 1,
+      done ? new Date().toISOString() : null,
+      expected,
+    );
+    if (!ok) throw this.concurrentDecision();
     return this.repo.getApprovalRequest(companyId, requestId);
+  }
+
+  private concurrentDecision(): ConflictException {
+    return new ConflictException({
+      code: 'decision_conflict',
+      message_fa: 'درخواست هم‌زمان توسط کاربرِ دیگری تغییر کرده است؛ وضعیت را دوباره بارگیری کنید.',
+    });
   }
 
   // ---------------- استثنا ----------------

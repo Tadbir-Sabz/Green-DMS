@@ -113,9 +113,11 @@ export class RulesEngineController {
   @RequirePermissions('rules.manage')
   createApprovalRequest(
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
     @Body() dto: CreateApprovalRequestDto,
   ) {
-    return this.service.createApprovalRequest(companyId, dto);
+    // G-03: درخواست‌دهنده از نشست (بدنه نمی‌تواند شخصِ اول را جعل کند)
+    return this.service.createApprovalRequest(companyId, dto, userId);
   }
 
   @Get('approvals/:id')
