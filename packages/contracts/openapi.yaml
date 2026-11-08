@@ -4990,9 +4990,10 @@ paths:
       description: |
         فقط درخواست‌های `pending`ِ همین شرکت که مرحلهٔ جاری‌شان با نقش یا کارمندِ
         کاربر منطبق است، یا کاربر نمایندهٔ معتبرِ تأییدکنندهٔ آن مرحله است.
-      parameters:
-        - { name: status, in: query, schema: { type: string } }
+        همیشه فقط وضعیت `pending` — پس پارامترِ فیلتر ندارد.
       responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '200':
           description: درخواست‌های در انتظارِ تصمیم
           content:
@@ -5005,6 +5006,8 @@ paths:
       tags: [rules-engine]
       summary: درخواست‌هایی که خودم ثبت کرده‌ام
       responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '200':
           description: درخواست‌های ارسالیِ من
           content:
@@ -5017,6 +5020,8 @@ paths:
       tags: [rules-engine]
       summary: درخواست‌های منقضی یا ارتقایافته
       responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '200':
           description: درخواست‌های منقضی
           content:
@@ -5101,6 +5106,8 @@ paths:
       tags: [rules-engine]
       summary: تفکیل‌های من (به‌عنوان واگذارکننده یا نماینده)
       responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '200':
           description: تفکیل‌ها
           content:
@@ -5144,6 +5151,8 @@ paths:
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [pending, sent, failed, skipped] } }
       responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '200':
           description: اعلان‌ها
           content:

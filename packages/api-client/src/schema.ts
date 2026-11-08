@@ -9926,6 +9926,426 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rules-engine/approvals/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * کارتابل من — درخواست‌هایی که نوبتِ تصمیمِ من است
+         * @description فقط درخواست‌های `pending`ِ همین شرکت که مرحلهٔ جاری‌شان با نقش یا کارمندِ
+         *     کاربر منطبق است، یا کاربر نمایندهٔ معتبرِ تأییدکنندهٔ آن مرحله است.
+         *     همیشه فقط وضعیت `pending` — پس پارامترِ فیلتر ندارد.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description درخواست‌های در انتظارِ تصمیم */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approvals/submitted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** درخواست‌هایی که خودم ثبت کرده‌ام */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description درخواست‌های ارسالیِ من */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approvals/expired": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** درخواست‌های منقضی یا ارتقایافته */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description درخواست‌های منقضی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequest"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approvals/run-expiry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** اجرای چرخهٔ انقضا/ارتقا برای درخواست‌های گذشته از مهلت */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description شمار درخواست‌های منقضی و ارتقایافته */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expired: number;
+                            escalated: number;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approval-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست سیاست‌های تأیید */
+        get: {
+            parameters: {
+                query?: {
+                    operation?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سیاست‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalPolicy"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * تعریف سیاست تأیید
+         * @description سیاست مرکزی اجباری است و قابل غیرفعال‌سازی نیست. سیاست قلمرو فقط با
+         *     `scope=domain` و `domain_id` معتبر است. پیکربندی ناقص با ۴۰۰ رد می‌شود.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateApprovalPolicy"];
+                };
+            };
+            responses: {
+                /** @description سیاست ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approval-policies/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** فعال/غیرفعال کردن سیاست (سیاست مرکزی قابل غیرفعال‌سازی نیست) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        is_active: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description وضعیت تغییر کرد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
+    "/rules-engine/approval-delegations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تفکیل‌های من (به‌عنوان واگذارکننده یا نماینده) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تفکیل‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalDelegation"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** واگذاری حق تأیید با دامنه و انقضای صریح */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateApprovalDelegation"];
+                };
+            };
+            responses: {
+                /** @description تفکیل ایجاد شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approval-delegations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** لغو تفکیل */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تفکیل لغو شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules-engine/approval-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** اعلان‌های تأیید من (جعبهٔ خروجی) */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "pending" | "sent" | "failed" | "skipped";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description اعلان‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalNotification"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules-engine/exception-items": {
         parameters: {
             query?: never;
@@ -10209,9 +10629,35 @@ export interface components {
     schemas: {
         Error: {
             /**
+             * @description کدِ پایدارِ خطا برای مصرفِ برنامه‌ای (متنِ نمایشی `message_fa` است و ممکن است تغییر کند).
+             *
+             *     کدهای تازهٔ TASK-24X که کلاینت باید بشناسد:
+             *
+             *     **ایمنیِ درخواست (A-1)** — `409`
+             *     - `request_already_converted`: همین `request_id` قبلاً به سفارش تبدیل شده است؛
+             *       `details.sales_order_id` شناسهٔ سفارشِ موجود را می‌دهد. عملیاتِ تکراری نیست:
+             *       کلاینت باید همان سفارش را نمایش دهد، نه دوباره تلاش کند.
+             *
+             *     **استثنای کفِ سود (C-1)** — همگی `409`
+             *     - `approval_chain_required`: هیچ زنجیرهٔ تأییدِ فعالی برای `pricing.margin_exception`
+             *       تعریف نشده است. بدونِ آن هیچ استثنایی ثبت نمی‌شود (fail-closed).
+             *     - `approval_chain_empty`: زنجیره وجود دارد ولی هیچ مرحله‌ای ندارد.
+             *     - `approval_engine_unavailable`: موتورِ تأیید در دسترس نیست.
+             *     - `approval_request_failed`: ساختِ درخواستِ تأیید ناموفق بود؛ استثنا لغو شد.
+             *     - `approval_link_failed`: اتصالِ استثنا به درخواستِ تأیید ناموفق بود؛ استثنا لغو شد.
+             *     - `approval_request_missing`: ردیفِ تاریخی که به هیچ گردشِ تأییدی وصل نیست
+             *       (دادهٔ پیش از TASK-24X) — قابلِ تأیید نیست، باید لغو و دوباره ثبت شود.
+             *     - `approval_pending`: گردشِ تأییدِ متصل هنوز تأیید نشده است.
+             *     - `second_person_required`: تأییدکننده همان درخواست‌دهنده است.
+             *     - `self_approval_forbidden`: تأییدِ درخواستِ خود در گردشِ تأیید (همیشه `403`).
+             *     - `approver_not_authorized`: تصمیم‌گیرنده نقش/کارمندِ آن مرحله نیست (`403`).
+             *     - `amount_band_mismatch`: مبلغِ درخواست با باندِ گامِ ورودی نمی‌خواند.
+             *     - `duplicate_decision`: برای این مرحله قبلاً تصمیم ثبت شده است.
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict
+             * @example request_already_converted
+             * @example approval_chain_required
              */
             code: string;
             /** @description پیام فارسی آماده نمایش به کاربر */
@@ -12064,6 +12510,108 @@ export interface components {
                 decided_at?: string | null;
                 note?: string;
             }[];
+        };
+        /**
+         * @description سیاست تأیید. تقدم `central` بر `domain` **ساختاری** است، نه عددی: یک
+         *     آستانه مبلغ بزرگ در سیاست قلمرو نمی‌تواند سیاست مرکزی را کنار بزند.
+         */
+        ApprovalPolicy: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly company_id?: string;
+            /**
+             * @description عملیات محافظت‌شده، مثلاً `sales.order.approve`
+             * @example sales.order.approve
+             * @example pricing.margin_exception
+             */
+            operation?: string;
+            /** @enum {string} */
+            scope?: "central" | "domain" | "operation";
+            /** Format: uuid */
+            domain_id?: string | null;
+            /** @description حداقل مبلغ (شامل) */
+            min_amount?: string | null;
+            /** @description حداکثر مبلغ (شامل) */
+            max_amount?: string | null;
+            min_risk_score?: number | null;
+            /** Format: uuid */
+            approval_chain_id?: string;
+            expires_in_hours?: number | null;
+            /**
+             * @default escalate
+             * @enum {string}
+             */
+            on_expiry: "escalate" | "auto_reject";
+            /** @default 100 */
+            priority: number;
+            readonly is_active?: boolean;
+        };
+        CreateApprovalPolicy: {
+            operation: string;
+            /** @enum {string} */
+            scope: "central" | "domain" | "operation";
+            /** Format: uuid */
+            domain_id?: string | null;
+            min_amount?: number | null;
+            max_amount?: number | null;
+            min_risk_score?: number | null;
+            /** Format: uuid */
+            approval_chain_id: string;
+            expires_in_hours?: number | null;
+            /** @enum {string} */
+            on_expiry?: "escalate" | "auto_reject";
+            priority?: number;
+        };
+        /** @description تفکیل تأیید با دامنه و انقضای صریح؛ تفکیل منقضی هرگز اثر ندارد. */
+        ApprovalDelegation: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            delegator_id?: string;
+            /** Format: uuid */
+            delegate_id?: string;
+            operation?: string | null;
+            /** Format: uuid */
+            domain_id?: string | null;
+            /** Format: date-time */
+            valid_from?: string;
+            /** Format: date-time */
+            valid_to?: string;
+            reason?: string;
+            is_active?: boolean;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        CreateApprovalDelegation: {
+            /** Format: uuid */
+            delegate_id: string;
+            operation?: string | null;
+            /** Format: uuid */
+            domain_id?: string | null;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_to: string;
+            reason: string;
+        };
+        /** @description اعلان تأیید (جعبه خروجی تراکنشی — در همان تراکنش تغییر وضعیت نوشته می‌شود) */
+        ApprovalNotification: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            approval_request_id?: string | null;
+            /** @enum {string} */
+            kind?: "assigned" | "reminder" | "escalated" | "expired" | "decided" | "cancelled";
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            status?: "pending" | "sent" | "failed" | "skipped";
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            sent_at?: string | null;
         };
         /** @description شناسنامه یک گزارش مجاز (ضمیمه C) */
         ReportDescriptor: {

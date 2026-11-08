@@ -128,6 +128,8 @@ export const navGroups: NavGroup[] = [
       { href: "/geofences", label: "محدوده‌های جغرافیایی", icon: IconGeofence, perm: "tracking.geofence.view", hint: "حریم مجاز بازدید" },
       { href: "/rules", label: "موتور قوانین", icon: IconRules, perm: "rules.view", hint: "سقف اعتبار و تخفیف" },
       { href: "/approvals", label: "درخواست‌های تأیید", icon: IconApproval, perm: "rules.approval.decide", hint: "صف تصمیم‌گیری" },
+      // TASK-24Y — کارتابلِ شخصی و واگذاری‌ها (مجوزِ تصمیم لازم است، نه فقط مشاهده)
+      { href: "/approvals/inbox", label: "کارتابل من", icon: IconApproval, perm: "rules.approval.decide", hint: "نوبتِ تصمیمِ من" },
       { href: "/exceptions", label: "صف استثناها", icon: IconException, perm: "rules.exceptions.resolve", hint: "موارد نیازمند رسیدگی" },
     ],
   },
