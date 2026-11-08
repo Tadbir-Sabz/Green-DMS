@@ -50,6 +50,7 @@ let pool: pg.Pool;
 let app: INestApplication;
 let adminToken = '';
 let viewerToken = '';
+let admin2Token = '';
 let companyId = '';
 let otherCompanyId = '';
 let branchId = '';
@@ -58,9 +59,12 @@ let customerId = '';
 let otherCustomerId = '';
 let productId = '';
 let adminUserId = '';
+let admin2UserId = '';
 let viewerUserId = '';
 
 const ADMIN_USER = 'rb_admin';
+/** تصمیم‌گیرندهٔ دوم — تأییدِ خود (self approval) در TASK-24F ممنوع شده است */
+const ADMIN2_USER = 'rb_admin2';
 const VIEWER_USER = 'rb_viewer';
 const PASSWORD = 'S3cret!pass';
 
@@ -242,8 +246,26 @@ beforeAll(async () => {
   app.useGlobalPipes(new ValidationPipe(validationPipeOptions));
   await app.init();
 
+  const admin2Person = await pool.query<{ id: string }>(
+    `insert into person (company_id, code, legal_type, first_name, last_name)
+     values ($1, 'ADM-2', 'natural', 'مدیر', 'دوم') returning id`,
+    [companyId],
+  );
+  admin2UserId = (
+    await pool.query<{ id: string }>(
+      `insert into app_user (person_id, username, password_hash, access_level)
+       values ($1, $2, $3, 'web') returning id`,
+      [admin2Person.rows[0].id, ADMIN2_USER, hash],
+    )
+  ).rows[0].id;
+  await pool.query(`insert into user_role (app_user_id, role_id) values ($1, $2)`, [
+    admin2UserId,
+    adminRole.rows[0].id,
+  ]);
+
   adminToken = await login(ADMIN_USER, PASSWORD);
   viewerToken = await login(VIEWER_USER, PASSWORD);
+  admin2Token = await login(ADMIN2_USER, PASSWORD);
 }, 180_000);
 
 afterAll(async () => {
@@ -318,6 +340,8 @@ const orderBody = (over: Record<string, unknown> = {}) => ({
   customer_id: customerId,
   order_date: new Date().toISOString().slice(0, 10),
   lines: [{ product_id: productId, qty: 1, unit_price: '5000', discount_amount: '0' }],
+  // TASK-24F: قیمتِ دستیِ واگرا بدونِ دلیلِ صریح پذیرفته نمی‌شود (مسیرِ یگانهٔ موتورِ قیمت)
+  price_override_reason: 'توافقِ قیمتِ آزمونِ قواعد',
   ...over,
 });
 
@@ -459,10 +483,16 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
     const chainId = await seedChain('CH-TWO', 'sales_order', [{ step_no: 1 }, { step_no: 2 }]);
     const req = await createApproval(chainId, '22222222-2222-4222-8222-222222222222', 500).expect(201);
     const id = req.body.id as string;
-    const step1 = await api().post(`/api/v1/approvals/${id}/decision`).send({ decision: 'approve' }).expect(201);
+    const step1 = await api(admin2Token)
+      .post(`/api/v1/approvals/${id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
     expect(step1.body.status).toBe('pending');
     expect(step1.body.current_step).toBe(2);
-    const step2 = await api().post(`/api/v1/approvals/${id}/decision`).send({ decision: 'approve' }).expect(201);
+    const step2 = await api(admin2Token)
+      .post(`/api/v1/approvals/${id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
     expect(step2.body.status).toBe('approved');
     expect(step2.body.closed_at).toBeTruthy();
     // مسیرِ جزئیات در قرارداد `/rules-engine/approvals/{id}` است (نه `/approvals/{id}`)
@@ -477,7 +507,7 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
   it('رد ⇒ rejected و بسته‌شدنِ فوری', async () => {
     const chainId = await seedChain('CH-REJECT', 'sales_order', [{ step_no: 1 }, { step_no: 2 }]);
     const req = await createApproval(chainId, '33333333-3333-4333-8333-333333333333', 100).expect(201);
-    const res = await api()
+    const res = await api(admin2Token)
       .post(`/api/v1/approvals/${req.body.id}/decision`)
       .send({ decision: 'reject', note: 'دلیلِ رد' })
       .expect(201);
@@ -487,8 +517,11 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
   it('تصمیم روی درخواستِ بسته‌شده ⇒ 409 not_pending', async () => {
     const chainId = await seedChain('CH-CLOSED', 'sales_order', [{ step_no: 1 }]);
     const req = await createApproval(chainId, '44444444-4444-4444-8444-444444444444', 10).expect(201);
-    await api().post(`/api/v1/approvals/${req.body.id}/decision`).send({ decision: 'approve' }).expect(201);
-    const again = await api()
+    await api(admin2Token)
+      .post(`/api/v1/approvals/${req.body.id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
+    const again = await api(admin2Token)
       .post(`/api/v1/approvals/${req.body.id}/decision`)
       .send({ decision: 'approve' })
       .expect(409);

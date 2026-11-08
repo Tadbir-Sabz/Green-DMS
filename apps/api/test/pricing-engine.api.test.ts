@@ -1430,3 +1430,57 @@ describe('PE-11 — promotion_redemption: هم‌خوانی با سند و فق�
     expect(count.rows[0].c).toBe(1);
   });
 });
+
+/**
+ * TASK-24V — سیاستِ قیمت‌گذاری به‌عنوانِ دادهٔ اجاره‌ای: RLS روی `pricing_settings`.
+ * این آزمون با نقشِ محدودِ `dms_app` (نه سوپریمزر) اجرا می‌شود؛ اگر RLS در مهاجرتِ
+ * 0050 حذف یا سیاستش سست شود، این آزمون شکست می‌خورد.
+ */
+describe('PE-12 — جداسازیِ اجاره‌ایِ pricing_settings (RLS)', () => {
+  it('dms_app فقط ردیفِ شرکتِ جاری را می‌بیند، درجِ بین‌شرکتی را رد و بدونِ زمینه چیزی نمی‌بیند', async () => {
+    const otherCompany = '99999999-9999-4999-8999-999999999901';
+    await pool.query(
+      `insert into company (id, code, legal_name) values ($1, 'PE12-OTHER', 'شرکتِ آزمونِ جداسازی')
+       on conflict (id) do nothing`,
+      [otherCompany],
+    );
+    const app = new pg.Client({ connectionString: testUrl.toString() });
+    try {
+      await pool.query(
+        `insert into pricing_settings (company_id, max_total_discount_pct) values ($1, 11)
+         on conflict (company_id) do update set max_total_discount_pct = 11`,
+        [companyId],
+      );
+      await pool.query(
+        `insert into pricing_settings (company_id, max_total_discount_pct) values ($1, 12)
+         on conflict (company_id) do update set max_total_discount_pct = 12`,
+        [otherCompany],
+      );
+
+      await app.connect();
+      await app.query('set role dms_app');
+      await app.query(`select set_config('app.company_id', $1, false)`, [companyId]);
+      const visible = await app.query<{ company_id: string }>(
+        'select company_id from pricing_settings',
+      );
+      expect(visible.rows.map((r) => r.company_id)).toEqual([companyId]);
+
+      // درج برای شرکتِ دیگر با زمینهٔ شرکتِ جاری ⇒ نقضِ WITH CHECK
+      await expect(
+        app.query(
+          `insert into pricing_settings (company_id, max_total_discount_pct) values ($1, 5)`,
+          [otherCompany],
+        ),
+      ).rejects.toMatchObject({ code: '42501' });
+
+      // بدونِ زمینه ⇒ fail-closed (هیچ ردیفی)
+      await app.query(`select set_config('app.company_id', '', false)`);
+      const none = await app.query<{ c: number }>('select count(*)::int as c from pricing_settings');
+      expect(none.rows[0].c).toBe(0);
+    } finally {
+      await app.end().catch(() => undefined);
+      await pool.query('delete from pricing_settings where company_id = $1', [otherCompany]);
+      await pool.query('delete from company where id = $1', [otherCompany]);
+    }
+  });
+});
