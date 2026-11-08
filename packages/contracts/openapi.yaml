@@ -5184,7 +5184,34 @@ components:
       type: object
       required: [code, message_fa]
       properties:
-        code: { type: string, examples: ['validation_failed', 'rule_rejected', 'version_conflict'] }
+        code:
+          type: string
+          description: |
+            کدِ پایدارِ خطا برای مصرفِ برنامه‌ای (متنِ نمایشی `message_fa` است و ممکن است تغییر کند).
+
+            کدهای تازهٔ TASK-24X که کلاینت باید بشناسد:
+
+            **ایمنیِ درخواست (A-1)** — `409`
+            - `request_already_converted`: همین `request_id` قبلاً به سفارش تبدیل شده است؛
+              `details.sales_order_id` شناسهٔ سفارشِ موجود را می‌دهد. عملیاتِ تکراری نیست:
+              کلاینت باید همان سفارش را نمایش دهد، نه دوباره تلاش کند.
+
+            **استثنای کفِ سود (C-1)** — همگی `409`
+            - `approval_chain_required`: هیچ زنجیرهٔ تأییدِ فعالی برای `pricing.margin_exception`
+              تعریف نشده است. بدونِ آن هیچ استثنایی ثبت نمی‌شود (fail-closed).
+            - `approval_chain_empty`: زنجیره وجود دارد ولی هیچ مرحله‌ای ندارد.
+            - `approval_engine_unavailable`: موتورِ تأیید در دسترس نیست.
+            - `approval_request_failed`: ساختِ درخواستِ تأیید ناموفق بود؛ استثنا لغو شد.
+            - `approval_link_failed`: اتصالِ استثنا به درخواستِ تأیید ناموفق بود؛ استثنا لغو شد.
+            - `approval_request_missing`: ردیفِ تاریخی که به هیچ گردشِ تأییدی وصل نیست
+              (دادهٔ پیش از TASK-24X) — قابلِ تأیید نیست، باید لغو و دوباره ثبت شود.
+            - `approval_pending`: گردشِ تأییدِ متصل هنوز تأیید نشده است.
+            - `second_person_required`: تأییدکننده همان درخواست‌دهنده است.
+            - `self_approval_forbidden`: تأییدِ درخواستِ خود در گردشِ تأیید (همیشه `403`).
+            - `approver_not_authorized`: تصمیم‌گیرنده نقش/کارمندِ آن مرحله نیست (`403`).
+            - `amount_band_mismatch`: مبلغِ درخواست با باندِ گامِ ورودی نمی‌خواند.
+            - `duplicate_decision`: برای این مرحله قبلاً تصمیم ثبت شده است.
+          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required']
         message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
         details:
           type: object
