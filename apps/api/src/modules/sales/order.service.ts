@@ -502,6 +502,20 @@ export class OrderService {
         'update',
       );
     }
+    if (priced && dto.lines) {
+      await this.auditPriceOverrides(
+        companyId,
+        id,
+        {
+          ...(dto as unknown as CreateOrderDto),
+          customer_id: customerId,
+          order_date: (dto.order_date ?? String(existing.order_date ?? '')).slice(0, 10),
+        },
+        priced,
+        actorUserId,
+        'update',
+      );
+    }
     return this.get(companyId, id);
   }
 
@@ -584,6 +598,11 @@ export class OrderService {
   // TASK-24F · HIGH-1: مسیرِ قدیمیِ محاسبهٔ قیمت (`computeLines`) حذف شد؛ هیچ سفارشی
   // بدونِ کنترلِ کفِ سود/سقفِ تخفیف/مجوزِ قیمتِ دستی ثبت نمی‌شود.
 
+  /**
+   * TASK-24Y · F-1 — `requestId` پیش‌فرض null دارد تا هر دو فراخوان سازگار بمانند؛
+   * بدنهٔ F-1 (نگاشتِ `uq_sales_order_request_active` به ۴۰۹) فقط در همین شاخه بود
+   * و در 531729c وجود نداشت، پس با merge از دست نمی‌رود.
+   */
   private mapOrderError(err: unknown, requestId: string | null = null): Error {
     const e = err as { code?: string; constraint?: string };
     if (e?.code === '23505' && e.constraint === 'uq_sales_order_client') {

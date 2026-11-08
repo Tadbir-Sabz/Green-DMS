@@ -1052,6 +1052,7 @@ export class PricingEngineService {
       actor_user_id: actor,
     });
     return this.repo.findMarginException(companyId, id);
+    // توجه: نسخهٔ 531729c همان دو-تراکنشِ یتیم‌ساز بود (F-2). نسخهٔ اتمیک حفظ می‌شود.
   }
 
   /**

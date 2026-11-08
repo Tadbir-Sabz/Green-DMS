@@ -189,6 +189,7 @@ export class PricingService {
         // TASK-24Y · F-4 — تاریخِ مرجعِ بررسیِ کفِ سود باید «امروزِ کسب‌وکار» (تهران) باشد.
         // پیش از این وقتی `valid_from` فرستاده نمی‌شد، تاریخِ UTC استفاده می‌شد و در
         // بازهٔ ۲۰:۳۰–۲۴:۰۰ UTC سیاستِ روزِ اشتباه اعمال می‌شد — همان نقضِ MEDIUM.
+        // توجه: در 531729c این اصلاح وجود نداشت، پس با merge حفظ می‌شود.
         pricingDate: (item.valid_from ?? businessToday()).slice(0, 10),
         marginExceptionId: item.margin_exception_id ?? null,
       });
