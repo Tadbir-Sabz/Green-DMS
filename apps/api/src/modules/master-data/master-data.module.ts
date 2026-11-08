@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
+import { PricingModule } from '../pricing/pricing.module';
 import { MasterDataController } from './master-data.controller';
 import { MasterDataRepository } from './master-data.repository';
 import { PackagingController } from './packaging.controller';
@@ -44,7 +45,7 @@ import {
  * (گاردهای کنترلر در همین ماژول نمونه‌سازی می‌شوند و به providerهای آن نیاز دارند).
  */
 @Module({
-  imports: [IdentityRbacModule],
+  imports: [IdentityRbacModule, PricingModule],
   controllers: [
     MasterDataController,
     // نکته: کنترلرهای Product Master باید قبل از ProductController ثبت شوند تا
