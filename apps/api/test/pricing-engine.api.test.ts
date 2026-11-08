@@ -646,6 +646,19 @@ describe('PE-2 — تقدمِ قیمت، قلمرو و مرزِ تاریخ', () 
 // =====================================================================
 
 describe('PE-3 — اجرای تشویق، عدمِ انباشت و سقفِ تخفیف', () => {
+  /**
+   * TASK-24W · HIGH-2-R1 — پیش از این دور، `/pricing/quote` سیاستِ پایدار را
+   * نمی‌خواند و تشویق‌ها بی‌قید اعمال می‌شدند. اکنون استعلام دقیقاً مثلِ سفارش
+   * از `pricing_settings` پیروی می‌کند؛ پس آزمون‌های «ریاضیاتِ تشویق» باید نشانِ
+   * صریحِ سیاست داشته باشند (خطِ مبنای بدونِ تشویق در PE-1 پوشش دارد).
+   */
+  beforeAll(async () => {
+    await api().patch('/api/v1/pricing/settings').send({ apply_promotions_on_orders: true }).expect(200);
+  });
+  afterAll(async () => {
+    await api().patch('/api/v1/pricing/settings').send({ apply_promotions_on_orders: false }).expect(200);
+  });
+
   it('تشویقِ درصدی روی قیمت اعمال می‌شود و مالیات روی مبلغِ پس از تخفیف حساب می‌شود', async () => {
     const promo = await api().post('/api/v1/promotions').send({
       code: 'PROM-10', title: 'ده درصد', kind: 'percent_line', priority: 100,
@@ -723,11 +736,11 @@ describe('PE-3 — اجرای تشویق، عدمِ انباشت و سقفِ ت�
   });
 
   /**
-   * TASK-24V — یافتهٔ تأییدشدهٔ HIGH-2 (PARTIAL): سیاستِ پایدار روی مسیرِ سفارش اعمال
-   * می‌شود ولی `POST /pricing/quote` (و `simulate`) `pricing_settings` را نمی‌خوانند؛
-   * بنابراین «هم‌سانیِ سند و شبیه‌سازی» برقرار نیست. این آزمون تا اصلاح، شکستِ موردانتظار دارد.
+   * TASK-24W · HIGH-2-R1 (رفع‌شده) — پیش‌تر این آزمون `it.fails` بود چون استعلام
+   * `pricing_settings` را نمی‌خواند. اکنون هر سه مسیر (quote/simulate/order) از
+   * `pricedPolicyRun` می‌گذرند؛ این آزمون عادی است و باید سبز بماند.
    */
-  it.fails('سیاستِ پایدارِ سقفِ کلِ تخفیف روی استعلام/شبیه‌سازی هم اعمال می‌شود (HIGH-2 — نقصِ باز)', async () => {
+  it('سیاستِ پایدارِ سقفِ کلِ تخفیف روی استعلام/شبیه‌سازی هم اعمال می‌شود (HIGH-2-R1)', async () => {
     const promo = await api().post('/api/v1/promotions').send({
       code: 'PROM-BIG2', title: 'بزرگ۲', kind: 'percent_line', priority: 300,
       allow_stacking: true, is_active: true, ...ALL_DATES,
@@ -743,6 +756,25 @@ describe('PE-3 — اجرای تشویق، عدمِ انباشت و سقفِ ت�
       const tight = await api().post('/api/v1/pricing/quote').send(quoteBody()).expect(201);
       // سقفِ ۵٪ از ۸۵۰ = ۴۲.۵
       expect(num(tight.body.discount_total)).toBe(42.5);
+      // TASK-24W: شبیه‌سازی همان سیاست را می‌بیند ⇒ عددِ یکسان
+      const sim = await api()
+        .post('/api/v1/pricing/simulate')
+        .send(quoteBody({ persist_audit: false }))
+        .expect(201);
+      expect(num(sim.body.discount_total)).toBe(num(tight.body.discount_total));
+      expect(num(sim.body.grand_total)).toBe(num(tight.body.grand_total));
+      // و سفارشِ واقعی هم همان عدد را می‌گیرد (هم‌سانیِ کامل)
+      const order = await api()
+        .post('/api/v1/orders')
+        .send({
+          customer_id: customerId,
+          order_date: TODAY,
+          price_override_reason: 'هم‌سانیِ استعلام و سند در آزمون',
+          lines: [{ product_id: productId, qty: 1 }],
+        })
+        .expect(201);
+      expect(num(order.body.discount_total)).toBe(num(tight.body.discount_total));
+      expect(num(order.body.grand_total)).toBe(num(tight.body.grand_total));
       expect(before.status).toBe(200);
     } finally {
       await api().patch('/api/v1/pricing/settings').send({ max_total_discount_pct: null }).expect(200);

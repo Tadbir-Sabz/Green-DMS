@@ -131,6 +131,12 @@ export interface OrderQuoteResult {
   /** تاریخِ مؤثرِ قیمت‌گذاری (اگر سفارش عقب‌گرد باشد = امروز) */
   pricing_date: string;
   backdated: boolean;
+  /** TASK-24W — حالتِ اجرا: سند یا پرس‌وجوی تاریخی */
+  mode: 'document' | 'lookup';
+  /** آیا ساختِ سند با این ورودی‌ها دلیلِ الزامی می‌خواهد؟ (پاسخِ استعلام) */
+  reason_required: boolean;
+  /** آیا قیمتِ دستی از قیمتِ سیستمی واگراست؟ */
+  manual_price_diverged: boolean;
 }
 
 @Injectable()
@@ -494,16 +500,45 @@ export class PricingEngineService {
    *   • تاریخِ گذشته: نتیجهٔ قیمت‌گذاری با «امروز» محاسبه می‌شود تا تخفیف/سیاستِ
    *     منقضی دوباره فعال نشود؛ خودِ سند تاریخِ گذشته را نگه می‌دارد (با مجوز+دلیل+audit)
    */
-  async quoteForOrder(
+  /**
+   * TASK-24W · HIGH-2-R1 — **تنها مسیرِ اجرای سیاستِ قیمت**.
+   *
+   * پیش از این دور، `POST /pricing/quote` و `/pricing/simulate` با
+   * `buildContext(companyId, dto, opts)` کار می‌کردند که `pricing_settings` را
+   * نمی‌خواند؛ در نتیجه سقفِ کلِ تخفیف / اعمالِ تشویق / منعِ فروشِ زیرِ بهای
+   * تمام‌شده روی مسیرِ شبیه‌سازی بی‌اثر بود و شبیه‌سازی می‌توانست عددی بدهد که
+   * سفارشِ واقعی هرگز نمی‌داد. اکنون هر سه مسیر (quote، simulate، order) از همین
+   * تابع می‌گذرند و فقط «ورودیِ فرضی» تفاوت دارد:
+   *
+   *   • سیاستِ پایدار (سقف‌ها، اعمالِ تشویق، allow_loss_making، lookback،
+   *     الزامِ دلیل) همیشه از `getSettings(companyId)` خوانده می‌شود.
+   *   • مجوزها همیشه از `perm` (ساخته‌شده از نشست) می‌آیند، نه از بدنه.
+   *   • قواعدِ تاریخ/عقب‌گرد یک‌جاست، پس مرزهای تاریخ در سه مسیر یکسان است.
+   */
+  async pricedPolicyRun(
     companyId: string,
     input: {
-      customer_id: string;
+      customer_id?: string | null;
+      /** تاریخِ سند در مسیرِ سفارش؛ در مسیرِ quote/simulate همان `pricing_date` است */
       order_date: string;
       price_list_id?: string | null;
       coupon_codes?: string[];
       lines: QuoteLineInput[];
       idempotency_key?: string | null;
       override_reason?: string | null;
+      /** TASK-24W: پیش‌فرض true؛ اکنون نتیجه‌اش با سفارش یکی است */
+      apply_promotions?: boolean;
+      /**
+       * TASK-24W — تفاوتِ عمدیِ «سند» و «استعلام»:
+       *   • `document` (سفارش): تاریخِ گذشته ⇒ مجوز + دلیل الزامی و قیمت‌گذاری با
+       *     تاریخِ امروز (تا تشویق/قیمتِ منقضی دوباره فعال نشود).
+       *   • `lookup` (quote/simulate): `pricing_date` یک «پرس‌وجوی تاریخی» است، نه
+       *     تاریخِ سند؛ پس نه مجوزِ backdate لازم است نه دلیل. محاسبه با همان
+       *     تاریخِ درخواستی انجام می‌شود (کارکردِ مستندِ «قیمتِ تاریخی»).
+       * بقیهٔ سیاست‌ها (سقف‌ها، کفِ سود، قلمرو، مجوزِ قیمتِ دستی، مالیات/گرد) در
+       * هر دو حالت از یک مسیر اجرا می‌شوند.
+       */
+      mode?: 'document' | 'lookup';
     },
     perm: OrderPricingPermissions,
     actorUserId: string | null,
@@ -513,8 +548,9 @@ export class PricingEngineService {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(orderDate)) {
       throw badRequest('invalid_date', 'تاریخِ سفارش معتبر نیست (قالب: YYYY-MM-DD).');
     }
+    const mode = input.mode ?? 'document';
     const today = this.todayTehran();
-    const backdated = orderDate < today;
+    const backdated = mode === 'document' && orderDate < today;
     const reason = (input.override_reason ?? '').trim();
 
     if (backdated) {
@@ -547,8 +583,8 @@ export class PricingEngineService {
     const usesManualPrice = input.lines.some((l) => l.unit_price != null);
 
     const dto: QuoteRequestDto = {
-      customer_id: input.customer_id,
-      // قیمت‌گذاری همیشه با تاریخِ مؤثر (امروز برای عقب‌گرد) انجام می‌شود
+      customer_id: input.customer_id ?? null,
+      // سندِ عقب‌گرد با «امروز» قیمت می‌خورد؛ پرس‌وجوی تاریخی با تاریخِ خودش
       pricing_date: backdated ? today : orderDate,
       price_list_id: input.price_list_id ?? null,
       coupon_codes: input.coupon_codes ?? [],
@@ -564,7 +600,8 @@ export class PricingEngineService {
     } as QuoteRequestDto;
 
     const opts: QuoteRunOptions = {
-      apply_promotions: settings.apply_promotions_on_orders,
+      // سیاستِ پایدار مرجع است؛ درخواستِ صریحِ «بدونِ تشویق» فقط می‌تواند محدودتر کند
+      apply_promotions: settings.apply_promotions_on_orders && input.apply_promotions !== false,
       max_total_discount_pct: settings.max_total_discount_pct,
       max_line_discount_pct: settings.max_line_discount_pct,
       allow_loss_making: settings.allow_loss_making_sales,
@@ -606,7 +643,8 @@ export class PricingEngineService {
       return system == null || Math.abs(Number(requested) - Number(system)) > 0.005;
     });
     const overrodeCap = quote.warnings.some((w) => w.includes('فراتر از سقف'));
-    if ((manualDiverged || overrodeCap) && settings.require_override_reason && reason.length < 3) {
+    const reasonRequired = (manualDiverged || overrodeCap) && settings.require_override_reason;
+    if (reasonRequired && mode === 'document' && reason.length < 3) {
       throw badRequest(
         'override_reason_required',
         'برای قیمتِ دستیِ متفاوت از قیمتِ سیستم یا تخفیفِ فراتر از سقف، ثبتِ دلیل الزامی است.',
@@ -623,19 +661,93 @@ export class PricingEngineService {
       settings,
       pricing_date: dto.pricing_date as string,
       backdated,
+      mode,
+      reason_required: reasonRequired,
+      manual_price_diverged: manualDiverged,
     };
   }
 
-  /** شبیه‌سازی — همان استعلام + ثبتِ audit (فقط سبکِ ممیزی، نه سندِ کسب‌وکار) */
+  /**
+   * TASK-24W — مسیرِ سفارش: همان `pricedPolicyRun` با تاریخِ سند و دلیلِ override.
+   * رفتارِ پیشین (TASK-24F/HIGH-1) عیناً حفظ شده است؛ فقط نامِ تابعِ داخلی تغییر کرد
+   * تا «یک مسیرِ سیاست» بودنش صریح باشد.
+   */
+  async quoteForOrder(
+    companyId: string,
+    input: {
+      customer_id: string;
+      order_date: string;
+      price_list_id?: string | null;
+      coupon_codes?: string[];
+      lines: QuoteLineInput[];
+      idempotency_key?: string | null;
+      override_reason?: string | null;
+    },
+    perm: OrderPricingPermissions,
+    actorUserId: string | null,
+  ): Promise<OrderQuoteResult> {
+    return this.pricedPolicyRun(companyId, input, perm, actorUserId);
+  }
+
+  /**
+   * TASK-24W — مسیرِ استعلامِ عمومی (`POST /pricing/quote`):
+   * همان سیاست، بدونِ ممیزیِ شبیه‌سازی و بدونِ سند. `pricing_date` نقشِ تاریخِ
+   * مؤثر را دارد؛ محدودیتِ عقب‌گرد روی «تاریخِ سند» معنا ندارد، پس
+   * `min_order_date_lookback_days` اینجا اعمال نمی‌شود ولی بقیهٔ سیاست‌ها بله.
+   */
+  async quoteWithPolicy(
+    companyId: string,
+    actorUserId: string | null,
+    dto: QuoteRequestDto,
+    perm: OrderPricingPermissions,
+  ): Promise<OrderQuoteResult> {
+    const pricingDate = (dto.pricing_date ?? this.today()).slice(0, 10);
+    return this.pricedPolicyRun(
+      companyId,
+      {
+        customer_id: dto.customer_id ?? null,
+        order_date: pricingDate,
+        price_list_id: dto.price_list_id ?? null,
+        coupon_codes: dto.coupon_codes ?? [],
+        idempotency_key: dto.idempotency_key ?? null,
+        override_reason: dto.cross_domain_reason ?? null,
+        apply_promotions: dto.apply_promotions !== false,
+        mode: 'lookup',
+        lines: dto.lines.map((l) => ({
+          product_id: l.product_id,
+          qty: l.qty,
+          packaging_id: l.packaging_id ?? null,
+          unit_price: l.unit_price ?? null,
+          discount_amount: l.discount_amount ?? null,
+        })),
+      },
+      perm,
+      actorUserId,
+    );
+  }
+
+  /**
+   * TASK-24W · HIGH-2-R1 — شبیه‌سازی روی **همان مسیرِ سیاستِ سفارش**.
+   *
+   * تفاوت‌های عمدی و مستند (فقط در پاسخ و ماندگاری، نه در محاسبه):
+   *   • ورودیِ فرضی: `pricing_date`/`lines`/`coupon_codes` می‌توانند «فرضی» باشند
+   *     (`hypothetical_inputs` در پاسخ علامت می‌دهد).
+   *   • خروجیِ `*_persisted` همیشه false است؛ فقط یک ردیفِ `price_simulation_log`
+   *     (سبکِ ممیزی) نوشته می‌شود — هیچ سفارش/فاکتور/مصرفِ تشویق.
+   *   • `pricing_date` یک پرس‌وجوی تاریخی است، نه تاریخِ سند؛ پس حالتِ `lookup`
+   *     اعمال می‌شود: مجوزِ `pricing.backdate.apply` و دلیلِ عقب‌گرد لازم نیست،
+   *     ولی بقیهٔ سیاست‌ها (سقف/کفِ سود/قلمرو/مجوزِ قیمتِ دستی) دقیقاً همان است.
+   */
   async simulate(
     companyId: string,
     actorUserId: string | null,
     dto: QuoteRequestDto,
-    opts: QuoteRunOptions = {},
-  ): Promise<QuoteResult & { simulation_id: string | null }> {
-    const result = await this.quote(companyId, dto, opts);
+    perm: OrderPricingPermissions,
+  ): Promise<QuoteResult & { simulation_id: string | null; hypothetical_inputs: string[]; creates_business_document: false }> {
+    const priced = await this.quoteWithPolicy(companyId, actorUserId, dto, perm);
+    const result = priced.quote;
     let simulationId: string | null = null;
-    if (dto.persist_audit !== false && result.replayed !== true) {
+    if (dto.persist_audit !== false) {
       simulationId = await this.repo.logSimulation(companyId, actorUserId, dto, {
         subtotal: result.subtotal,
         discount_total: result.discount_total,
@@ -648,11 +760,27 @@ export class PricingEngineService {
           gift_lines: result.gift_lines.filter((g) => g.promotion_code === p.code).length,
         })),
         violations: result.margin_violations.map((v) => v.code),
-        /* TASK-24F: سیاست/مجوزهای مؤثر در همان ارزیابی، برای بازتولیدِ نتیجه */
-        policy: this.cacheableOptions(opts),
+        /* TASK-24W: سیاست و مجوزهای مؤثرِ همان ارزیابی، برای بازتولیدِ نتیجه */
+        policy: {
+          settings: priced.settings,
+          permissions: perm,
+          pricing_date: priced.pricing_date,
+          backdated: priced.backdated,
+          mode: priced.mode,
+          reason_required: priced.reason_required,
+        },
       });
     }
-    return { ...result, simulation_id: simulationId };
+    const hypothetical: string[] = [];
+    if (dto.pricing_date) hypothetical.push('pricing_date');
+    if (dto.coupon_codes?.length) hypothetical.push('coupon_codes');
+    if (dto.lines.some((l) => l.unit_price != null)) hypothetical.push('lines.unit_price');
+    return {
+      ...result,
+      simulation_id: simulationId,
+      hypothetical_inputs: hypothetical,
+      creates_business_document: false,
+    };
   }
 
   /**

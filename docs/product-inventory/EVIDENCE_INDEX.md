@@ -171,3 +171,31 @@
 | Kotlin | **UNVERIFIED** — `npm run clients:generate` ⇒ `fetch failed` به `repo1.maven.org` |
 | داوریِ کلی | **PASS برای merge** — هر ۵ jobِ CI + مهاجرت‌ها + release-image سبز · دو یافتهٔ غیرِ‌مسدودکنندهٔ `HIGH-1-R1`/`HIGH-2-R1` و پرسش‌های مالک باز · e2e `BLOCKED` (MinIO) · Kotlin `UNVERIFIED` |
 | گزارشِ کامل | `docs/product-inventory/TASK-24V_VERIFICATION_REPORT.md` (بخش‌های ۱–۹) |
+
+---
+
+## ۱۱) TASK-24W — بستنِ HIGH-1-R1 و HIGH-2-R1
+
+| شاهد | مقدار |
+|---|---|
+| مبنای کار | `1c849bc` (HEAD پیش از این دور، PR #13 draft) |
+| شاخه | `arena/1246108f-green-dms` (بدونِ merge/deploy/force-push) |
+| HIGH-1-R1 | **CLOSED** — `convert()` actor/مجوز/دلیل/ممیزی + قفلِ ضدِ هم‌زمانی |
+| HIGH-2-R1 | **CLOSED** — `pricedPolicyRun()` مسیرِ واحدِ quote/simulate/order |
+| فایل‌های کد | `pricing-permissions.ts` (تازه) · `pricing-engine.service.ts` · `pricing-quote.controller.ts` · `order.controller.ts` · `sales-chain.{service,controller,repository}.ts` · `request.dto.ts` |
+| قرارداد | `openapi.yaml`: اسکیمای `ConvertRequest`، تفاوت‌های مستندِ `quote`/`simulate` — **۱۷۳ مسیر · ۲۵۱ عملیات · ۱۲۷ اسکیما · ۳ وب‌هوک**، drift = ۰ |
+| آزمونِ تازه | `task24w-conversion-and-parity.api.test.ts` — **۲۱/۲۱ PASS** روی DB ایزوله |
+| آزمونِ هم‌ترازی | `pricing-engine.api.test.ts` **۴۷/۴۷ PASS** (شاملِ `it.fails` که اکنون آزمونِ واقعی است) |
+| آزمون‌های واحد | `pricing-engine.unit` + `pricing-remediation.unit` + `financial-rounding` = **۶۹/۶۹** |
+| `rules-engine-behavior` (G-23) | **۲۷/۲۷** (پس از اصلاحِ هم‌ترازی؛ مجموعه سبز) |
+| وب | typecheck ✅ · ۵۲/۵۲ آزمون ✅ |
+| پارتیشنِ تست | `check-test-partition`: OK (۶۲ فایل) |
+| نوع‌شناسی | `tsc -p apps/api` ✅ · `tsc -p apps/web` ✅ |
+| DB ایزوله (این محیط) | PostgreSQL 17.6 · `127.0.0.1:55432` · بدونِ PostGIS (کپیِ harness با پچِ PostGIS) |
+| CI | پس از push بررسی می‌شود — run ID در گزارشِ نهایی |
+
+**محدودیت‌های محیطیِ همان اجرا (نه رگرسیون):** `geofences`، `customers`، `postgres-init-role`،
+`view-isolation`، `tours`، `migrations-security` (چرخهٔ ST_GeomFromText) و یک آزمونِ fuzzy-search در
+`product-master-core` به PostGIS/نقشِ init/افزونهٔ جست‌وجو نیاز دارند که در این سندباکس نیست؛ این
+فایل‌ها در CI با `postgis/postgis:16-3.4` اجرا می‌شوند.
+

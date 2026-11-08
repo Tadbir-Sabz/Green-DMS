@@ -4,8 +4,7 @@ import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.decorator';
-import { permissionMatches } from '../identity-rbac/permissions';
-import type { OrderPricingPermissions } from '../pricing/pricing-engine.service';
+import { pricingPermissionsFromSession } from '../pricing/pricing-permissions';
 import { CreateOrderDto, ListOrdersQueryDto, UpdateOrderDto } from './order.dto';
 import type { OrderRow } from './order.repository';
 import type { OrderService, OrderView } from './order.service';
@@ -22,17 +21,12 @@ export class OrderController {
   constructor(@Inject(ORDER_SERVICE) private readonly service: OrderService) {}
 
   /**
-   * TASK-24F · HIGH-3: مجوزهای مؤثر بر قیمت فقط از نشست خوانده می‌شوند.
-   * بدنهٔ درخواست هیچ راهی برای افزایشِ این مجموعه ندارد.
+   * TASK-24F · HIGH-3 / TASK-24W: مجوزهای مؤثر بر قیمت فقط از نشست خوانده می‌شوند.
+   * ساختِ مجموعه اکنون در `pricing-permissions.ts` است تا هر سه مسیر
+   * (`/orders`, `/pricing/quote|simulate`, `/requests/{id}/convert`) یک قاعده داشته باشند.
    */
-  private pricingPermissions(user: AuthContext): OrderPricingPermissions {
-    const has = (code: string) => user.permissions.some((granted) => permissionMatches(granted, code));
-    return {
-      manual_price: has('pricing.manual_price.apply'),
-      discount_override: has('pricing.discount.override'),
-      cross_domain_price_list: has('pricing.price_list.cross_domain'),
-      backdate: has('pricing.backdate.apply'),
-    };
+  private pricingPermissions(user: AuthContext) {
+    return pricingPermissionsFromSession(user);
   }
 
   @Get()

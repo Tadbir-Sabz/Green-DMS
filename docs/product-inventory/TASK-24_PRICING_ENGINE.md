@@ -255,3 +255,86 @@ after_reup   {"tables":7,"pricing_perms":7,"price_list_cols":3,"triggers":4,"for
 | Kotlin | **UNVERIFIED** (شبکهٔ Maven) |
 
 **هیچ merge/deploy انجام نشد.** از نظرِ دروازهٔ فنی آمادهٔ merge است؛ تصمیم دربارهٔ `HIGH-1-R1`/`HIGH-2-R1` و پرسش‌های Q-24-* در اختیارِ مالک است.
+
+---
+
+## ۱۰) TASK-24W — بستنِ دو یافتهٔ بازِ TASK-24V (HIGH-1-R1 و HIGH-2-R1)
+
+> **نوعِ کار:** اصلاحِ هدفمند (targeted remediation) — نه بازنویسیِ موتور.
+> هیچ یافتهٔ تأییدشدهٔ TASK-24F بدونِ شاهدِ تازه بازگشایی نشد.
+
+### ۱۰-۱) HIGH-1-R1 — تبدیلِ درخواست به سفارش با زمینهٔ کاملِ احراز هویت
+
+**نقصِ پیشین:** `RequestService.convert()` سفارش را با `orders.create(companyId, dto)` می‌ساخت —
+بدونِ `actorUserId`، بدونِ `permissions` و بدونِ `price_override_reason`. نتیجه: هر درخواستِ دارایِ
+`requested_price` (حتی برابرِ قیمتِ سیستمی) با `403 manual_price_not_authorized` رد می‌شد و رکوردِ
+ممیزیِ قلم، `actor_user_id = null` داشت.
+
+**اصلاح (`sales-chain.service.ts`, `sales-chain.controller.ts`, `sales-chain.repository.ts`):**
+
+| # | الزامِ کار | پیاده‌سازی |
+|---|---|---|
+| ۱ | حفظِ actor در کلِ گردش | actor از `@CurrentUser('userId')` به سرویس می‌رود و به `orders.create(..., actorUserId, permissions)` و به ممیزی منتقل می‌شود |
+| ۲ | مجوز از نشست | `pricingPermissionsFromSession(user)` — تابعِ مشترکِ `pricing-permissions.ts` |
+| ۳ | ردِ پرچمِ کلاینتی | `ConvertRequestDto` فقط `price_override_reason`/`note`؛ `whitelist` بقیه را حذف می‌کند؛ آزمونِ «پرچمِ جعلی» ۴۰۳ می‌گیرد |
+| ۴ | `pricing.manual_price.apply` برای `requested_price` | بررسیِ صریح روی اقلامِ درخواست پیش از ساختِ سفارش ⇒ ۴۰۳ |
+| ۵ | دلیلِ معنادار برای واگرایی | همان قاعدهٔ `quoteForOrder` (آستانهٔ ۰٫۰۰۵ + حداقلِ ۳ نویسه) ⇒ ۴۰۰ `override_reason_required` |
+| ۶ | ممیزیِ کامل | ردیفِ `convert_to_order` روی `customer_request` با `request_id`, `order_id`, actor, `requested_prices`, `reason`, `permissions`, `priced_lines` — به‌علاوهٔ ممیزیِ قلم‌ها از مسیرِ سفارش |
+| ۷ | همان محافظ‌های سفارش | سفارش از همان `orders.create` ساخته می‌شود ⇒ کفِ سود/سقفِ تخفیف/قواعد/اعتبار/موجودی عیناً |
+| ۸ | fail-closed | `actorUserId == null` ⇒ ۴۰۳ `authorization_context_missing`؛ زمینهٔ ناقص ⇒ `pricingPermissionsFromSession` استثنا می‌دهد |
+| ۹ | ضدِ تکرار/هم‌زمانی | قفلِ مشورتیِ نشستی (`pg_advisory_lock(hashtextextended(request_id,0))`) + `UPDATE ... WHERE status='submitted'`؛ بازنده ۴۰۹ و **بدونِ سفارشِ یتیم** |
+
+**نکتهٔ طراحی:** قفلِ مشورتی به‌جای مهاجرت انتخاب شد چون (الف) مهاجرت لازم نمی‌شود، (ب) با بستنِ
+اتصال خودکار آزاد می‌شود، (ج) از ساختِ سفارشِ دوم جلوگیری می‌کند — چیزی که `UPDATE` شرطی به‌تنهایی
+نمی‌توانست (چون سند پیش از علامت‌گذاری ساخته می‌شود).
+
+### ۱۰-۲) HIGH-2-R1 — یک مسیرِ واحدِ اجرای سیاست
+
+**نقصِ پیشین:** `POST /pricing/quote` و `/pricing/simulate` از `buildContext(companyId, dto, opts)`
+استفاده می‌کردند و `pricing_settings` را نمی‌خواندند ⇒ سقفِ تجمیعیِ تخفیف، اعمالِ تشویق و
+`allow_loss_making` روی شبیه‌سازی بی‌اثر بود و عددِ شبیه‌سازی با سفارشِ واقعی نمی‌خواند.
+
+**اصلاح:** `PricingEngineService.pricedPolicyRun()` — تنها اجرای سیاست، با `mode`:
+
+| `mode` | مسیر | تاریخ | backdate | دلیل |
+|---|---|---|---|---|
+| `document` | `POST/PATCH /orders`, `convert` | تاریخِ مؤثر (امروز برای عقب‌گرد) | مجوز + دلیل الزامی | الزامی برای واگرایی |
+| `lookup` | `/pricing/quote`, `/pricing/simulate` | تاریخِ درخواستی (پرس‌وجوی تاریخی) | لازم نیست | در پاسخ به‌صورتِ `reason_required` گزارش می‌شود |
+
+بقیهٔ سیاست‌ها در هر دو حالت **یکسان** است: سقفِ کل/قلمِ تخفیف، اعمالِ تشویق، منعِ فروشِ زیرِ بهای
+تمام‌شده، اولویتِ لیست/قلمرو/قیمتِ مشتری، سطحِ بسته‌بندی، مجوزِ قیمتِ دستی، ردِ بین‌قلمرویی، مالیات و گردکردن.
+
+**تفاوت‌های عمدیِ مستند (پاسخ/ماندگاری، نه محاسبه):**
+- `policy_applied` و `system_unit_prices` فقط در پاسخِ استعلام می‌آیند (سند دارایِ این فیلدها نیست).
+- `simulation_id` + `creates_business_document: false` + `hypothetical_inputs[]` فقط در شبیه‌سازی.
+- `mode: 'lookup'` ⇒ قاعدهٔ مجوزِ backdate اعمال نمی‌شود (چون تاریخِ سند نیست).
+- شبیه‌سازی هیچ سفارش/فاکتور/مصرفِ تشویقی نمی‌سازد؛ فقط یک ردیفِ `price_simulation_log`.
+
+### ۱۰-۳) جدولِ وضعیتِ یافته‌ها
+
+| یافته | وضعیتِ TASK-24V | وضعیتِ TASK-24W |
+|---|---|---|
+| HIGH-1-R1 (تبدیلِ درخواست) | OPEN (403 برای هر `requested_price`) | **CLOSED** — ۱۱ سناریوی رگرسیون |
+| HIGH-2-R1 (هم‌سانیِ استعلام/سفارش) | OPEN (`it.fails` مستند) | **CLOSED** — `it.fails` به آزمونِ واقعی تبدیل شد + ۱۰ سناریوی هم‌سانی |
+| HIGH-1 (مسیرِ یگانهٔ سفارش) | PARTIAL | **VERIFIED** (شاملِ مسیرِ تبدیل) |
+| HIGH-2 (سقف از سیاست) | PARTIAL | **VERIFIED** (استعلام/شبیه‌سازی/سفارش) |
+| HIGH-3/4، MEDIUM-1..5 | FIXED | بدونِ تغییر (بازآزمایی شد) |
+| G-23 | RESOLVED (24V) | بدونِ تغییر — ۳ آزمونِ رگرسیونش حفظ شد |
+| G-03 | PARTIAL / VERIFIED=(a),(c),(d) | **بدونِ تغییر** — عمداً کامل اعلام نمی‌شود (§۱۰-۴) |
+
+### ۱۰-۴) G-03 — وضعیتِ سطحِ قابلیت (بدونِ اغراق)
+
+با رفعِ G-23، فقط همان یک نقصِ گامِ تأیید بسته شد. **G-03 کامل حل نشده است**:
+
+| محافظ | وضعیت |
+|---|---|
+| زنجیرهٔ خالی ⇒ ۴۰۹ (a) | **VERIFIED** (آزمونِ رفتاری + CI سبز) |
+| RBACِ گام + منعِ خودتأییدی + `requested_by` از نشست (c) | **VERIFIED** |
+| یکتاییِ تصمیم در هر گام (d) | **VERIFIED** (مهاجرت ۰۰۵۱ + آزمون) |
+| باندِ مبلغ در زمانِ تصمیم | **VERIFIED** پس از اصلاحِ G-23 |
+| `approval_request.company_id` (ستونِ مستقل) | **باز** — جداسازی همچنان با join به `approval_chain` |
+| ناسازگاریِ مسیرِ `GET /approvals/{id}` | **باز** — قابلیت زیرِ `/rules-engine/approvals/{id}` هست |
+| اتصالِ عملیاتِ حساسِ قیمت به موتورِ تأیید | **فقط استثنای کفِ سود، آن هم سیاستی/اختیاری** — بقیه وصل نیستند (Q-24-10/11) |
+
+> **قاعدهٔ رعایت‌شده:** هیچ عملیاتِ حساسِ قیمتی به قابلیتِ تأییدی که مستقلاً تأیید نشده وصل نشد.
+> اتصالِ موجود (استثنای کفِ سود) پیش از این دور بود و در TASK-24W دست‌نخورده ماند.

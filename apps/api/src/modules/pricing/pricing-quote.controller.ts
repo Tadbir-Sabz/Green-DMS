@@ -3,9 +3,9 @@ import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.decorator';
-import { permissionMatches } from '../identity-rbac/permissions';
 import { ListPriceChangesQueryDto, QuoteRequestDto } from './pricing.dto';
-import type { PricingEngineService, QuoteRunOptions } from './pricing-engine.service';
+import type { PricingEngineService } from './pricing-engine.service';
+import { pricingPermissionsFromSession } from './pricing-permissions';
 import { PRICING_ENGINE_SERVICE } from './pricing.tokens';
 
 /**
@@ -25,26 +25,35 @@ export class PricingQuoteController {
   /**
    * پرچم‌های «قیمتِ دستی»/«عبور از سقفِ تخفیف»/«بین‌قلمرویی» نه در DTO هستند و نه از
    * بدنه خوانده می‌شوند؛ فقط از مجوزهای نشست ساخته می‌شوند (TASK-24F · HIGH-3).
+   * TASK-24W: همین قاعده در `pricing-permissions.ts` یک‌جا شده و مسیرِ تبدیلِ
+   * درخواست به سفارش هم از همان استفاده می‌کند.
    */
-  private runOptions(user: AuthContext, dto: QuoteRequestDto): QuoteRunOptions {
-    const has = (code: string) => user.permissions.some((granted) => permissionMatches(granted, code));
-    return {
-      allow_manual_price: has('pricing.manual_price.apply'),
-      allow_discount_override: has('pricing.discount.override'),
-      allow_cross_domain_price_list: has('pricing.price_list.cross_domain'),
-      cross_domain_reason: dto.cross_domain_reason ?? null,
-      actor_user_id: user.userId ?? null,
-    };
-  }
 
   @Post('quote')
   @RequirePermissions('master.price.view')
-  quote(
+  async quote(
     @Body() dto: QuoteRequestDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
     @CurrentUser() user: AuthContext,
   ) {
-    return this.service.quote(companyId, dto, this.runOptions(user, dto));
+    // TASK-24W · HIGH-2-R1: همان مسیرِ سیاستِ سفارش (فقط بدونِ ماندگاریِ سند)
+    const priced = await this.service.quoteWithPolicy(
+      companyId,
+      userId ?? null,
+      dto,
+      pricingPermissionsFromSession(user),
+    );
+    return {
+      ...priced.quote,
+      // فیلدهای تازه (افزایشی، بدونِ شکستنِ کلاینت) — سیاست و زمینهٔ مؤثر
+      policy_applied: {
+        pricing_settings: priced.settings,
+        pricing_date: priced.pricing_date,
+        source: 'pricing_policy' as const,
+      },
+      system_unit_prices: priced.system_unit_prices,
+    };
   }
 
   @Post('simulate')
@@ -55,7 +64,12 @@ export class PricingQuoteController {
     @CurrentUser('userId') userId: string,
     @CurrentUser() user: AuthContext,
   ) {
-    return this.service.simulate(companyId, userId, dto, this.runOptions(user, dto));
+    return this.service.simulate(
+      companyId,
+      userId,
+      dto,
+      pricingPermissionsFromSession(user),
+    );
   }
 
   @Get('price-changes')

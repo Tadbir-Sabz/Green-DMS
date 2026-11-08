@@ -1516,10 +1516,32 @@ paths:
             schema: { $ref: '#/components/schemas/PriceQuoteRequest' }
       responses:
         '201':
-          description: نتیجه ارزیابی قیمت
+          description: |
+            نتیجه ارزیابی قیمت. از TASK-24W (HIGH-2-R1) همین مسیر دقیقاً از همان
+            اجرای سیاستِ سفارش (`pricedPolicyRun`) استفاده می‌کند؛ بنابراین سقفِ کلِ
+            تخفیف، اعمالِ تشویق، منعِ فروشِ زیرِ بهای تمام‌شده، مجوزِ قیمتِ دستی و
+            ردِ لیستِ بین‌قلمرویی مانند `POST /orders` اعمال می‌شوند. دو فیلدِ
+            افزوده (فقط در پاسخِ استعلام، نه در سندِ ذخیره‌شده):
+            `policy_applied` (سیاستِ مؤثر و تاریخِ قیمت‌گذاری) و
+            `system_unit_prices` (قیمتِ سیستمیِ هر قلم برای ممیزیِ قیمتِ دستی).
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/QuoteResult' }
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/QuoteResult' }
+                  - type: object
+                    properties:
+                      policy_applied:
+                        type: object
+                        description: سیاستِ پایدار و تاریخِ مؤثرِ همین اجرا
+                        properties:
+                          pricing_settings: { $ref: '#/components/schemas/PricingSettings' }
+                          pricing_date: { type: string, format: date }
+                          source: { type: string, enum: [pricing_policy] }
+                      system_unit_prices:
+                        type: array
+                        description: قیمتِ سیستمیِ هر قلم (هم‌ترتیب با lines؛ در نبود قیمت تهی)
+                        items: { type: [string, 'null'] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1577,6 +1599,17 @@ paths:
                   - type: object
                     properties:
                       simulation_id: { type: [string, 'null'], format: uuid, description: در صورت persist_audit=false تهی است }
+                      creates_business_document:
+                        type: boolean
+                        enum: [false]
+                        description: همیشه false — شبیه‌سازی سند/فاکتور/مصرفِ تشویق نمی‌سازد (فقط ردیفِ ممیزی)
+                      hypothetical_inputs:
+                        type: array
+                        description: |
+                          ورودی‌های فرضیِ همین اجرا (تفاوتِ عمدی با سفارش): مثلاً
+                          `pricing_date`، `coupon_codes`، `lines.unit_price`. این
+                          ورودی‌ها در جدول‌های کسب‌وکار ذخیره نمی‌شوند.
+                        items: { type: string, enum: [pricing_date, coupon_codes, 'lines.unit_price'] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2599,13 +2632,36 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     post:
       tags: [requests]
-      summary: تبدیل درخواست تأییدشده به سفارش فروش
+      summary: تبدیل درخواست تأییدشده به سفارش فروش (با حفظِ actor و مجوزهای نشست)
+      description: |
+        TASK-24W · HIGH-1-R1 — تبدیل سفارش را از همان مسیرِ یگانهٔ `POST /orders`
+        می‌سازد (کفِ سود، سقفِ تخفیف، قواعد، اعتبار و موجودی همه اعمال می‌شوند) ولی
+        زمینهٔ احراز هویت را حفظ می‌کند:
+
+        * **actor** از نشست می‌آید؛ نبودِ آن ⇒ 403 (fail-closed).
+        * مجوز `sales.request.convert` برای خودِ مسیر الزامی است.
+        * اگر قلمی `requested_price` داشته باشد، مجوز `pricing.manual_price.apply`
+          الزامی است؛ در غیر این صورت 403 `manual_price_not_authorized`.
+        * اگر قیمتِ درخواستی از قیمتِ سیستمی واگرا باشد (یا سقفِ تخفیف رد شود)،
+          `price_override_reason` الزامی است (حداقل ۳ نویسه) وگرنه 400.
+        * پرچم‌های مجوز در بدنه پذیرفته نمی‌شوند؛ فقط `price_override_reason`/`note`.
+        * ممیزی: یک ردیفِ `convert_to_order` در دفترِ تغییرِ قیمت با `request_id`،
+          `order_id`، actor، قیمت‌های درخواستی، دلیل و مجوزهای مؤثر.
+        * تبدیل **اتمیک** است: تبدیلِ هم‌زمان/تکراری ⇒ 409 و فقط یک سفارش.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConvertRequest' }
       responses:
         '201':
           description: سفارش ساخته شد
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/RuleRejected' }
   /orders:
@@ -5750,6 +5806,20 @@ components:
               unit_price: { type: [string, 'null'], description: قیمت دستی (نیازمند مجوز pricing.manual_price.apply) }
               discount_amount: { type: [string, 'null'], description: تخفیف دستی قلم (فراتر از سقف نیازمند مجوز pricing.discount.override) }
 
+    ConvertRequest:
+      type: object
+      description: |
+        بدنهٔ اختیاریِ تبدیلِ درخواست به سفارش (TASK-24W). هیچ فیلدِ مجوزی وجود ندارد؛
+        فیلدهای ناشناختهٔ بدنه توسط ValidationPipe حذف می‌شوند.
+      properties:
+        price_override_reason:
+          type: string
+          maxLength: 500
+          description: دلیلِ الزامی وقتی قیمتِ درخواستی از قیمتِ سیستمی واگراست
+        note:
+          type: string
+          maxLength: 500
+          description: یادداشتِ اختیاریِ سفارش (جایگزینِ یادداشتِ درخواست)
     QuoteResult:
       type: object
       description: نتیجه ارزیابی موتور قیمت — همه مبالغ رشته اعشاری دو رقم اعشار

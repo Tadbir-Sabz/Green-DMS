@@ -288,12 +288,41 @@ export class SalesChainRepository {
   }
 
   /** درخواست را converted و sales_order_id را ست می‌کند */
-  async markRequestConverted(requestId: string, salesOrderId: string): Promise<void> {
-    await this.pool.query(
+  /**
+   * TASK-24W — قفلِ سریال‌سازیِ تبدیلِ یک درخواست.
+   *
+   * مسئله: `sales_order` و `customer_request` در دو تراکنشِ جدا نوشته می‌شوند، پس
+   * یک `UPDATE ... WHERE status='submitted'` به‌تنهایی از ساختِ **سفارشِ یتیم**
+   * (سفارشِ دومِ رهاشده با همان `request_id`) جلوگیری نمی‌کند.
+   *
+   * راه‌حل: قفلِ مشورتیِ نشستی روی هشِ شناسهٔ درخواست، برای تمامِ مدتِ تبدیل.
+   * مهاجرت/تغییرِ طرح‌واره لازم نیست؛ قفل با بستنِ اتصال خودکار آزاد می‌شود، پس
+   * شکستِ فرایند قفلِ دائمی باقی نمی‌گذارد (بدونِ deadlock).
+   */
+  async withRequestConversionLock<T>(requestId: string, work: () => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('select pg_advisory_lock(hashtextextended($1, 0))', [requestId]);
+      return await work();
+    } finally {
+      await client.query('select pg_advisory_unlock(hashtextextended($1, 0))', [requestId]).catch(() => undefined);
+      client.release();
+    }
+  }
+
+  /**
+   * TASK-24W — تبدیل به‌صورتِ **اتمیک و فقط‌یک‌بار**:
+   * شرطِ `status = 'submitted'` در همان UPDATE تضمین می‌کند دو درخواستِ هم‌زمان
+   * (یا بازپخشِ کلاینت) دومین تبدیل را رد کنند؛ خروجی `false` یعنی «شخصِ دیگری
+   * پیش‌تر تبدیل کرده است» و سرویس باید ۴۰۹ بدهد (نه اینکه سفارشِ دوم بسازد).
+   */
+  async markRequestConverted(requestId: string, salesOrderId: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
       `update customer_request set status = 'converted', sales_order_id = $2, updated_at = now()
-        where id = $1`,
+        where id = $1 and status = 'submitted'`,
       [requestId, salesOrderId],
     );
+    return (rowCount ?? 0) > 0;
   }
 
   // ============ Invoices ============
