@@ -163,11 +163,11 @@
 | CI — مهاجرت‌ها (up→down→up + مقایسهٔ اشیا، PostGIS واقعی) | `42402374930` @`00f7f12` ✅ · `42450239490` @`75728e8` ✅ |
 | CI — release-image (build+boot+migrate+health+login+proxy+secret-scan+fail-closed) | `42450239575` @`75728e8` ✅ |
 | CI — e2e | `42450239526` ⛔ **BLOCKED** (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری) |
-| CI — Integration (Postgres) | `42404284138` @`c1c9a3e`: ۱۳ fail/۸۷۴ pass · **`42450239559` @`75728e8`: ۱ fail/۸۸۷ pass/۱ expected-fail (۸۸۹)، ۴۰/۴۱ فایل سبز** |
-| شکستِ باقی‌ماندهٔ CI (محصول) | `rules-engine-behavior.test.ts > تأییدِ دومرحله‌ای` ⇒ `409 amount_band_mismatch` — پس‌رفتِ `1e36108` در `rules-engine.service.ts:605-614` (G-23) |
-| آزمون‌های قیمت در CI | `pricing-engine.api.test.ts` ۴۵ pass + ۱ expected-fail (شاملِ PE-12 RLS تازه) · `orders`+`pricing` ۳۱/۳۱ · `pricing-remediation.unit` ۱۶/۱۶ |
-| DB ایزوله (پیش از بازنشانیِ سندباکس) | PG 17.6 · `127.0.0.1:55432` · `data=/tmp/pgdata24` · بدونِ PostGIS/DB اشتراکی؛ `mig_probe`: همهٔ upها در یک تراکنش exit 0 · چرخهٔ 0051 و 0050 down→up پاک · RLSِ `pricing_settings` با `dms_app`: ۱ ردیف، درجِ بین‌شرکتی `42501`، بدونِ زمینه ۰ |
+| CI — Integration (Postgres) | `42404284138` @`c1c9a3e`: ۱۳ fail/۸۷۴ pass · `42450239559` @`75728e8`: ۱ fail/۸۸۷ pass · **`42452304238` @`090c78b`: ✅ success — هر ۵ job سبز** |
+| نقصِ کشف‌شده و رفع‌شده (G-23) | `rules-engine-behavior.test.ts > تأییدِ دومرحله‌ای` ⇒ `409 amount_band_mismatch` (پس‌رفتِ `1e36108`) — **رفع در `090c78b`**: باند فقط گامِ ورود را تعیین می‌کند و تنها پیش از نخستین تصمیم بازسنجی می‌شود؛ ۳ آزمونِ رگرسیونِ تازه (زنجیرهٔ بی‌باند، زنجیرهٔ تشدید، ردِ مبلغِ دستکاری‌شده) |
+| آزمون‌های قیمت در CI | `pricing-engine.api.test.ts` ۴۵ pass + ۱ expected-fail (شاملِ PE-12 RLS تازه) · `orders`+`pricing` ۳۱/۳۱ · `pricing-remediation.unit` ۱۶/۱۶ · `rules-engine-behavior` (۲۷ سناریو شاملِ ۳ رگرسیونِ G-23) سبز |
+| DB ایزوله (پیش از بازنشانیِ سندباکس؛ شاهدِ مکمل — نسخهٔ معتبر CI با PostGIS است) | PG 17.6 · `127.0.0.1:55432` · `data=/tmp/pgdata24` · بدونِ PostGIS/DB اشتراکی؛ `mig_probe`: همهٔ upها در یک تراکنش exit 0 · چرخهٔ 0051 و 0050 down→up پاک · RLSِ `pricing_settings` با `dms_app`: ۱ ردیف، درجِ بین‌شرکتی `42501`، بدونِ زمینه ۰ |
 | static | `typecheck` (API+Web) ۰ · `openapi:check` ۱۷۳/۲۵۱/۱۲۶/۳ · `contract-drift` ۰ · `check-test-partition` OK (schema.ts بدونِ diff) |
 | Kotlin | **UNVERIFIED** — `npm run clients:generate` ⇒ `fetch failed` به `repo1.maven.org` |
-| داوریِ کلی | **FAIL** (یک نقصِ مسدودکننده + دو یافتهٔ بازِ کارکردی) · **merge توصیه نمی‌شود** |
+| داوریِ کلی | **PASS برای merge** — هر ۵ jobِ CI + مهاجرت‌ها + release-image سبز · دو یافتهٔ غیرِ‌مسدودکنندهٔ `HIGH-1-R1`/`HIGH-2-R1` و پرسش‌های مالک باز · e2e `BLOCKED` (MinIO) · Kotlin `UNVERIFIED` |
 | گزارشِ کامل | `docs/product-inventory/TASK-24V_VERIFICATION_REPORT.md` (بخش‌های ۱–۹) |

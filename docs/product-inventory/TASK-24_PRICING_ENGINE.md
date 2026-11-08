@@ -237,7 +237,7 @@ after_reup   {"tables":7,"pricing_perms":7,"price_list_cols":3,"triggers":4,"for
 
 ## ۹) TASK-24V — نتیجهٔ دروازهٔ راستی‌آزمایی (پس از TASK-24F)
 
-**داوریِ کلی: FAIL** — یک نقصِ مسدودکنندهٔ تازه‌کشف + دو یافتهٔ بازِ کارکردی. گزارشِ کامل:
+**داوریِ کلی: PASS برای merge** — نقصِ مسدودکنندهٔ تازه‌کشف (G-23) کشف و رفع شد (`090c78b`) و CI کامل سبز است؛ دو یافتهٔ بازِ کارکردی غیرِ مسدودکننده‌اند. گزارشِ کامل:
 `docs/product-inventory/TASK-24V_VERIFICATION_REPORT.md`.
 
 | مورد | وضعیتِ نهایی |
@@ -249,9 +249,9 @@ after_reup   {"tables":7,"pricing_perms":7,"price_list_cols":3,"triggers":4,"for
 | HIGH-3 ممیزی | **FIXED** (PE-10، ۵ سناریو، سبز) |
 | HIGH-4 تخصیص/هدیه/دفتر | **FIXED** (PE-3/PE-11، سبز) |
 | MEDIUM-1..5 | **FIXED** (PE-4، PE-9، drift/openapi/typecheck، PE-11 فقط-افزودنی، idempotency) |
-| G-03 | **PARTIAL + پس‌رفت** — `amount_band_mismatch` گردشِ چندمرحله‌ای را در گامِ ۲ قفل می‌کند (`rules-engine.service.ts:605-614`) ⇒ `G-23` |
+| G-03 | **PARTIAL** — `G-23` (قفلِ گردشِ چندمرحله‌ای با `amount_band_mismatch`) در همین دروازه کشف و در `090c78b` **رفع** شد؛ (a)/(c)/(d) با CI سبز تأیید شدند |
 | اتصالِ عملیاتِ حساس به موتورِ تأیید | **اصلاحِ ادعا:** استثنای کفِ سود هنگام وجودِ زنجیرهٔ `pricing.margin_exception` به موتورِ تأیید گره می‌خورد (`pricing-engine.service.ts:838-857`, `899-912`) ⇒ «وصل نیست» دقیق نبود؛ بقیهٔ عملیات وصل نیستند (Q-24-11) |
-| CI (PR #13) | static ✅ · unit ✅ · MinIO ✅ · init-hygiene ✅ · integration-db ❌ (۱ شکست = نقصِ بالا؛ ۸۸۷ pass) · migrations ✅ · release-image ✅ · e2e ⛔ BLOCKED (MinIO) |
+| CI (PR #13) @`090c78b` | **static ✅ · unit ✅ · Integration (Postgres) ✅ · MinIO ✅ · init-hygiene ✅** (`42452304238`) · migrations ✅ · release-image ✅ · e2e ⛔ BLOCKED (MinIO) |
 | Kotlin | **UNVERIFIED** (شبکهٔ Maven) |
 
-**هیچ merge/deploy انجام نشد؛ merge توصیه نمی‌شود تا رفعِ G-23 و تصمیمِ مالک.**
+**هیچ merge/deploy انجام نشد.** از نظرِ دروازهٔ فنی آمادهٔ merge است؛ تصمیم دربارهٔ `HIGH-1-R1`/`HIGH-2-R1` و پرسش‌های Q-24-* در اختیارِ مالک است.
