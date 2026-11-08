@@ -318,6 +318,31 @@ export class OrderRepository {
     return rows.length > 0;
   }
 
+  /**
+   * TASK-24X · A-1 — آیا برای این درخواست سفارشی وجود دارد؟
+   *
+   * دامنهٔ شرکت با join روی `customer_request → branch.company_id` اعمال می‌شود
+   * (همان الگوی `requestExists`)، نه با یک `where` سراسری؛ بنابراین یک شناسهٔ
+   * درخواستِ شرکتِ دیگر نمی‌تواند نتیجهٔ «یافت‌شد» جعلی بسازد.
+   *
+   * سفارش‌های **لغوشده** نادیده گرفته می‌شوند: لغو یک سند تجاری، درخواست را
+   * برای تبدیلِ دوباره آزاد می‌کند (شمارهٔ سند و تاریخچه حفظ می‌شود).
+   */
+  async findOrderIdByRequestId(companyId: string, requestId: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `select o.id
+         from sales_order o
+         join customer_request r on r.id = o.request_id
+         join branch b on b.id = r.branch_id
+        where o.request_id = $1 and b.company_id = $2
+          and o.status not in ('cancelled', 'rejected')
+        order by o.created_at
+        limit 1`,
+      [requestId, companyId],
+    );
+    return rows[0]?.id ?? null;
+  }
+
   /** D5 — کدام‌یک از این SKUها بسته‌اند؟ (ممنوعیتِ سفارش/فروش تا P5) */
   async findBundleProductIds(productIds: string[]): Promise<string[]> {
     if (productIds.length === 0) return [];

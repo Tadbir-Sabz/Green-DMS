@@ -2799,6 +2799,877 @@ export interface paths {
         };
         trace?: never;
     };
+    "/pricing/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * استعلام قطعی قیمت برای خطوط سبد (بدون ثبت سند کسب‌وکار)
+         * @description قیمت را از منابع مجاز (قیمت مشتری → لیست صریح → قلمرو → لیست سراسری → دستی) به‌صورت
+         *     قطعی حل می‌کند، تشویق‌های واجد شرط را با ترتیب/انباشت/سقف اعمال می‌کند، مالیات و
+         *     حاشیه سود را حساب می‌کند و توضیح گام‌به‌گام می‌دهد. `allow_manual_price` و
+         *     `allow_discount_override` از بدنه پذیرفته نمی‌شوند و فقط از مجوزهای نشست
+         *     (`pricing.manual_price.apply` / `pricing.discount.override`) استخراج می‌شوند.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PriceQuoteRequest"];
+                };
+            };
+            responses: {
+                /**
+                 * @description نتیجه ارزیابی قیمت. از TASK-24W (HIGH-2-R1) همین مسیر دقیقاً از همان
+                 *     اجرای سیاستِ سفارش (`pricedPolicyRun`) استفاده می‌کند؛ بنابراین سقفِ کلِ
+                 *     تخفیف، اعمالِ تشویق، منعِ فروشِ زیرِ بهای تمام‌شده، مجوزِ قیمتِ دستی و
+                 *     ردِ لیستِ بین‌قلمرویی مانند `POST /orders` اعمال می‌شوند. دو فیلدِ
+                 *     افزوده (فقط در پاسخِ استعلام، نه در سندِ ذخیره‌شده):
+                 *     `policy_applied` (سیاستِ مؤثر و تاریخِ قیمت‌گذاری) و
+                 *     `system_unit_prices` (قیمتِ سیستمیِ هر قلم برای ممیزیِ قیمتِ دستی).
+                 */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuoteResult"] & {
+                            /** @description سیاستِ پایدار و تاریخِ مؤثرِ همین اجرا */
+                            policy_applied?: {
+                                pricing_settings?: components["schemas"]["PricingSettings"];
+                                /** Format: date */
+                                pricing_date?: string;
+                                /** @enum {string} */
+                                source?: "pricing_policy";
+                            };
+                            /** @description قیمتِ سیستمیِ هر قلم (هم‌ترتیب با lines؛ در نبود قیمت تهی) */
+                            system_unit_prices?: (string | null)[];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pricing/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * سیاست پایدار قیمت‌گذاری شرکت
+         * @description سقف کل تخفیف، سقف پیش‌فرض تخفیف قلم، اعمال خودکار تشویق روی سفارش، اجازه فروش
+         *     زیر بهای تمام‌شده و حداکثر عقب‌گرد تاریخ سفارش. مقدار مؤثر سفارش و شبیه‌سازی
+         *     از همین سیاست می‌آید (TASK-24F · HIGH-2).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سیاست مؤثر (در نبود ردیف، پیش‌فرض‌های fail-closed) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricingSettings"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** به‌روزرسانی سیاست قیمت‌گذاری (نیازمند pricing.settings.update) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PricingSettingsUpdate"];
+                };
+            };
+            responses: {
+                /** @description سیاست مؤثر پس از به‌روزرسانی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricingSettings"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        trace?: never;
+    };
+    "/pricing/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** شبیه‌سازی کامل تجاری + ثبت ردیف ممیزی (بدون سند کسب‌وکار) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PriceQuoteRequest"];
+                };
+            };
+            responses: {
+                /** @description نتیجه شبیه‌سازی همراه با شناسه ممیزی */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["QuoteResult"] & {
+                            /**
+                             * Format: uuid
+                             * @description در صورت persist_audit=false تهی است
+                             */
+                            simulation_id?: string | null;
+                            /**
+                             * @description همیشه false — شبیه‌سازی سند/فاکتور/مصرفِ تشویق نمی‌سازد (فقط ردیفِ ممیزی)
+                             * @enum {boolean}
+                             */
+                            creates_business_document?: false;
+                            /**
+                             * @description ورودی‌های فرضیِ همین اجرا (تفاوتِ عمدی با سفارش): مثلاً
+                             *     `pricing_date`، `coupon_codes`، `lines.unit_price`. این
+                             *     ورودی‌ها در جدول‌های کسب‌وکار ذخیره نمی‌شوند.
+                             */
+                            hypothetical_inputs?: ("pricing_date" | "coupon_codes" | "lines.unit_price")[];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pricing/price-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** دفتر تغییر قیمت (append-only) */
+        get: {
+            parameters: {
+                query?: {
+                    entity_type?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ردیف‌های دفتر تغییر قیمت (جدیدترین اول) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["PriceChangeLog"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pricing-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست قلمروهای قیمت‌گذاری */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description قلمروها (اولویت نزولی) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["PricingDomain"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ساخت قلمرو قیمت (کانال/حوزه/شعبه) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PricingDomain"];
+                };
+            };
+            responses: {
+                /** @description قلمرو ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricingDomain"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pricing-domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** به‌روزرسانی قلمرو قیمت */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PricingDomain"];
+                };
+            };
+            responses: {
+                /** @description قلمرو به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricingDomain"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/margin-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست سیاست‌های کف سود */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سیاست‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["MarginPolicy"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** تعریف سیاست کف سود (شرکت/دسته/کالا، اختیاری در قلمرو) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MarginPolicy"];
+                };
+            };
+            responses: {
+                /** @description سیاست ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarginPolicy"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/margin-policies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** به‌روزرسانی سیاست کف سود */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MarginPolicy"];
+                };
+            };
+            responses: {
+                /** @description سیاست به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarginPolicy"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/margin-exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست درخواست‌های استثنای کف سود */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description درخواست‌های استثنا */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["MarginException"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت درخواست استثنای کف سود (وضعیت pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MarginException"];
+                };
+            };
+            responses: {
+                /** @description درخواست ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarginException"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/margin-exceptions/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * تصمیم شخص دوم درباره استثنا (تأیید/رد)
+         * @description مجوز `pricing.margin.override` جدا از مجوز تعریف سیاست است؛ تصمیم‌گیرنده باید با درخواست‌دهنده متفاوت باشد (در غیر این صورت 403 second_person_required).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        decision: "approve" | "reject";
+                        note?: string | null;
+                        granted_margin_pct?: number | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description تصمیم ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarginException"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customer-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست قیمت‌های اختصاصی مشتری */
+        get: {
+            parameters: {
+                query?: {
+                    customer_id?: string;
+                    product_id?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description قیمت‌های اختصاصی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["CustomerPrice"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ثبت قیمت اختصاصی مشتری (اولویت اول) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CustomerPrice"];
+                };
+            };
+            responses: {
+                /** @description قیمت اختصاصی ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerPrice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customer-prices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** به‌روزرسانی قیمت اختصاصی مشتری (با قفل خوش‌بینانه row_version) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CustomerPrice"];
+                };
+            };
+            responses: {
+                /** @description قیمت اختصاصی به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerPrice"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
+    "/coupons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست کوپن‌ها */
+        get: {
+            parameters: {
+                query?: {
+                    promotion_id?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description کوپن‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Coupon"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coupons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** فعال/غیرفعال‌کردن کوپن */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        is_active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description کوپن به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Coupon"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/promotions/{id}/coupons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** صدور کوپن برای تشویق */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Coupon"];
+                };
+            };
+            responses: {
+                /** @description کوپن صادر شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Coupon"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/warehouses": {
         parameters: {
             query?: never;
@@ -4156,7 +5027,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** تبدیل درخواست تأییدشده به سفارش فروش */
+        /**
+         * تبدیل درخواست تأییدشده به سفارش فروش (با حفظِ actor و مجوزهای نشست)
+         * @description TASK-24W · HIGH-1-R1 — تبدیل سفارش را از همان مسیرِ یگانهٔ `POST /orders`
+         *     می‌سازد (کفِ سود، سقفِ تخفیف، قواعد، اعتبار و موجودی همه اعمال می‌شوند) ولی
+         *     زمینهٔ احراز هویت را حفظ می‌کند:
+         *
+         *     * **actor** از نشست می‌آید؛ نبودِ آن ⇒ 403 (fail-closed).
+         *     * مجوز `sales.request.convert` برای خودِ مسیر الزامی است.
+         *     * اگر قلمی `requested_price` داشته باشد، مجوز `pricing.manual_price.apply`
+         *       الزامی است؛ در غیر این صورت 403 `manual_price_not_authorized`.
+         *     * اگر قیمتِ درخواستی از قیمتِ سیستمی واگرا باشد (یا سقفِ تخفیف رد شود)،
+         *       `price_override_reason` الزامی است (حداقل ۳ نویسه) وگرنه 400.
+         *     * پرچم‌های مجوز در بدنه پذیرفته نمی‌شوند؛ فقط `price_override_reason`/`note`.
+         *     * ممیزی: یک ردیفِ `convert_to_order` در دفترِ تغییرِ قیمت با `request_id`،
+         *       `order_id`، actor، قیمت‌های درخواستی، دلیل و مجوزهای مؤثر.
+         *     * تبدیل **اتمیک** است: تبدیلِ هم‌زمان/تکراری ⇒ 409 و فقط یک سفارش.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -4166,7 +5053,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ConvertRequest"];
+                };
+            };
             responses: {
                 /** @description سفارش ساخته شد */
                 201: {
@@ -4177,6 +5068,9 @@ export interface paths {
                         "application/json": components["schemas"]["SalesOrder"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
                 422: components["responses"]["RuleRejected"];
             };
@@ -9781,6 +10675,369 @@ export interface components {
             };
             is_active?: boolean;
         };
+        /** @description قلمرو قیمت‌گذاری (کانال/حوزه/شعبه) — قیمت قلمروی بر لیست سراسری شرکت اولویت دارد */
+        PricingDomain: {
+            /** Format: uuid */
+            readonly id?: string;
+            code: string;
+            title: string;
+            /** @enum {string} */
+            kind: "channel" | "area" | "branch";
+            /** @enum {string|null} */
+            channel?: "retail" | "wholesale" | "chain" | "horeca" | "institution" | null;
+            /** Format: uuid */
+            area_id?: string | null;
+            /** Format: uuid */
+            branch_id?: string | null;
+            priority?: number;
+            is_active?: boolean;
+        };
+        /** @description سیاست کف سود؛ دقت انتخاب کالا(۳) > دسته(۲) > شرکت(۱) و در تساوی، قلمرو و اولویت */
+        MarginPolicy: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            domain_id?: string | null;
+            /** @enum {string} */
+            scope: "company" | "category" | "product";
+            /** Format: uuid */
+            category_id?: string | null;
+            /** Format: uuid */
+            product_id?: string | null;
+            /**
+             * @default avg_cost
+             * @enum {string}
+             */
+            cost_basis: "avg_cost" | "standard_cost" | "last_purchase_cost";
+            /** @description درصد کف سود (رشته اعشاری؛ می‌تواند منفی باشد) */
+            min_margin_pct: string;
+            /**
+             * @default warn
+             * @enum {string}
+             */
+            on_unknown_cost: "block" | "warn" | "ignore";
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            priority?: number;
+            is_active?: boolean;
+        };
+        /** @description استثنای کف سود؛ فقط با تأیید شخص دوم (≠ درخواست‌دهنده) معتبر است */
+        MarginException: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** @enum {string} */
+            entity_type: "price_list_item" | "customer_price" | "sales_order" | "promotion";
+            /** Format: uuid */
+            entity_id?: string | null;
+            /** Format: uuid */
+            product_id?: string | null;
+            /** Format: uuid */
+            customer_id?: string | null;
+            /** Format: uuid */
+            policy_id?: string | null;
+            required_margin_pct?: number | null;
+            effective_margin_pct?: number | null;
+            granted_margin_pct?: number | null;
+            reason: string;
+            /** @enum {string} */
+            readonly status?: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+            /** Format: uuid */
+            readonly requested_by?: string;
+            /** Format: uuid */
+            readonly decided_by?: string | null;
+            /** Format: date-time */
+            readonly decided_at?: string | null;
+            /** Format: date */
+            valid_until?: string | null;
+            /** Format: uuid */
+            readonly approval_request_id?: string | null;
+        };
+        /** @description قیمت اختصاصی مشتری — بالاترین اولویت در حل قیمت */
+        CustomerPrice: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            customer_id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            packaging_id?: string | null;
+            price: string;
+            min_qty?: string | null;
+            max_qty?: string | null;
+            max_discount_pct?: string | null;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            note?: string | null;
+            /** Format: uuid */
+            margin_exception_id?: string | null;
+            row_version?: number;
+            /** Format: uuid */
+            readonly approved_by?: string | null;
+        };
+        /** @description کوپن تشویق؛ اجرای تشویق‌های requires_coupon فقط با کوپن معتبر */
+        Coupon: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly promotion_id?: string;
+            code: string;
+            /** Format: uuid */
+            customer_id?: string | null;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            max_uses?: number | null;
+            max_uses_per_customer?: number | null;
+            is_active?: boolean;
+        };
+        /** @description ردیف دفتر تغییر قیمت (append-only؛ UPDATE/DELETE در DB مسدود است) */
+        PriceChangeLog: {
+            id?: number;
+            entity_type?: string;
+            /** Format: uuid */
+            entity_id?: string | null;
+            action?: string;
+            before_data?: {
+                [key: string]: unknown;
+            } | null;
+            after_data?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: uuid */
+            actor_user_id?: string | null;
+            /** Format: date-time */
+            at?: string;
+        };
+        /** @description سیاست پایدار قیمت‌گذاری شرکت (TASK-24F) */
+        PricingSettings: {
+            /** @description اعمال خودکار تشویق‌ها روی سفارش (پیش‌فرض false) */
+            apply_promotions_on_orders?: boolean;
+            /** @description سقف کل تخفیف سند؛ null = بدون سقف */
+            max_total_discount_pct?: number | null;
+            /** @description سقف پیش‌فرض تخفیف هر قلم وقتی منبع قیمت سقف ندارد */
+            max_line_discount_pct?: number | null;
+            /** @description اجازه فروش زیر بهای تمام‌شده (پیش‌فرض false) */
+            allow_loss_making_sales?: boolean;
+            /** @description حداکثر عقب‌گرد مجاز تاریخ سفارش؛ null = فقط با مجوز pricing.backdate.apply */
+            min_order_date_lookback_days?: number | null;
+            /** @description الزام دلیل برای قیمت دستی/عبور از سقف/تاریخ گذشته */
+            require_override_reason?: boolean;
+        };
+        /** @description همه فیلدها اختیاری‌اند؛ فقط موارد ارسالی تغییر می‌کند. */
+        PricingSettingsUpdate: {
+            apply_promotions_on_orders?: boolean;
+            max_total_discount_pct?: number | null;
+            max_line_discount_pct?: number | null;
+            allow_loss_making_sales?: boolean;
+            min_order_date_lookback_days?: number | null;
+            require_override_reason?: boolean;
+        };
+        /**
+         * @description درخواست استعلام/شبیه‌سازی قیمت. سقف کل تخفیف دیگر پارامتر درخواست نیست و از
+         *     سیاست پایدار شرکت (`GET/PATCH /pricing/settings`) خوانده می‌شود (TASK-24F · HIGH-2).
+         *     پرچم‌های allow_manual_price / allow_discount_override در قرارداد وجود ندارند و
+         *     فقط از مجوزهای نشست تعیین می‌شوند (TASK-24F · HIGH-3).
+         */
+        PriceQuoteRequest: {
+            /** Format: uuid */
+            customer_id?: string | null;
+            /**
+             * Format: date
+             * @description پیش‌فرض: تاریخ امروز
+             */
+            pricing_date?: string | null;
+            /** Format: uuid */
+            price_list_id?: string | null;
+            coupon_codes?: string[];
+            /** @description دلیل استفاده از لیست قیمت قلمروی دیگر؛ فقط همراه مجوز pricing.price_list.cross_domain اثر دارد و ممیزی می‌شود */
+            cross_domain_reason?: string | null;
+            /** @description کلید تکرارناپذیری؛ تکرار با همان بدنه نتیجه ذخیره‌شده را بازمی‌گرداند */
+            idempotency_key?: string | null;
+            /** @description فقط در simulate — پیش‌فرض true */
+            persist_audit?: boolean;
+            lines: {
+                /** Format: uuid */
+                product_id: string;
+                /** Format: uuid */
+                packaging_id?: string | null;
+                qty: number;
+                /** @description قیمت دستی (نیازمند مجوز pricing.manual_price.apply) */
+                unit_price?: string | null;
+                /** @description تخفیف دستی قلم (فراتر از سقف نیازمند مجوز pricing.discount.override) */
+                discount_amount?: string | null;
+            }[];
+        };
+        /**
+         * @description بدنهٔ اختیاریِ تبدیلِ درخواست به سفارش (TASK-24W). هیچ فیلدِ مجوزی وجود ندارد؛
+         *     فیلدهای ناشناختهٔ بدنه توسط ValidationPipe حذف می‌شوند.
+         */
+        ConvertRequest: {
+            /** @description دلیلِ الزامی وقتی قیمتِ درخواستی از قیمتِ سیستمی واگراست */
+            price_override_reason?: string;
+            /** @description یادداشتِ اختیاریِ سفارش (جایگزینِ یادداشتِ درخواست) */
+            note?: string;
+        };
+        /** @description نتیجه ارزیابی موتور قیمت — همه مبالغ رشته اعشاری دو رقم اعشار */
+        QuoteResult: {
+            /** Format: date */
+            pricing_date?: string;
+            currency?: string;
+            /** Format: uuid */
+            customer_id?: string | null;
+            domain_ids?: string[];
+            lines?: components["schemas"]["QuoteLineResult"][];
+            subtotal?: string;
+            manual_discount_total?: string;
+            discount_total?: string;
+            tax_total?: string;
+            grand_total?: string;
+            cost_total?: string;
+            /** @description حاشیه سود درصدی؛ در نبود درآمد تهی است */
+            margin_pct?: number | null;
+            applied_promotions?: components["schemas"]["AppliedPromotion"][];
+            skipped_promotions?: {
+                /** Format: uuid */
+                promotion_id?: string;
+                code?: string;
+                /**
+                 * @description منبعِ حقیقت: SKIP_REASONS در pricing-engine.ts
+                 * @enum {string}
+                 */
+                reason?: "not_applicable" | "condition_unmatched" | "unsupported_condition" | "unsupported_benefit" | "not_stackable" | "exclusive_group_conflict" | "blocked_by_non_stackable" | "daily_cap_exceeded" | "total_cap_exceeded" | "customer_cap_exceeded" | "coupon_required" | "coupon_invalid" | "zero_benefit";
+                message_fa?: string;
+            }[];
+            gift_lines?: {
+                /** Format: uuid */
+                promotion_id?: string;
+                promotion_code?: string;
+                /** Format: uuid */
+                product_id?: string;
+                qty?: number;
+                unit_price?: string;
+                value?: string;
+                /** @enum {string} */
+                valuation_source?: "basket" | "reference_price" | "unknown";
+                /** @description خطوط سبدی که هدیه به آن‌ها تخصیص یافته است */
+                line_nos?: number[];
+                /** @description ارزش نظری پیش از محدودشدن به مانده سبد */
+                requested_value?: string | null;
+            }[];
+            margin_violations?: {
+                /** Format: uuid */
+                product_id?: string;
+                margin_pct?: number | null;
+                required_margin_pct?: number | null;
+                /** Format: uuid */
+                policy_id?: string | null;
+                /**
+                 * @description منبعِ حقیقت: MARGIN_VIOLATION_CODES در pricing-engine.ts
+                 * @enum {string}
+                 */
+                code?: "margin_floor_violation" | "margin_cost_unknown" | "margin_loss_making";
+                message_fa?: string;
+            }[];
+            warnings?: string[];
+            approval_required?: {
+                required?: boolean;
+                reasons?: string[];
+            };
+            explanation?: string[];
+            /** @description true یعنی پاسخ از کش idempotency بازپخش شده است */
+            replayed?: boolean;
+            idempotency_key?: string | null;
+        };
+        QuoteLineResult: {
+            line_no?: number;
+            /** Format: uuid */
+            product_id?: string;
+            product_code?: string;
+            product_name?: string;
+            /** Format: uuid */
+            packaging_id?: string | null;
+            packaging_title?: string | null;
+            packaging_factor?: number;
+            qty?: number;
+            qty_base?: number;
+            unit_price?: string;
+            gross?: string;
+            manual_discount?: string;
+            manual_discount_pct?: number;
+            pricing?: {
+                unit_price?: string;
+                unit_price_base?: string;
+                /** @enum {string} */
+                source?: "customer" | "price_list" | "manual";
+                /**
+                 * @description منبع قیمت حل‌شده (TASK-24F: explicit_list جای requested_list)؛ منبعِ حقیقت: PRICE_SCOPES در pricing-engine.ts
+                 * @enum {string}
+                 */
+                scope?: "customer" | "explicit_list" | "domain" | "company" | "manual";
+                /** Format: uuid */
+                price_list_id?: string | null;
+                price_list_code?: string | null;
+                /** Format: uuid */
+                price_item_id?: string | null;
+                /** Format: uuid */
+                customer_price_id?: string | null;
+                /** Format: uuid */
+                packaging_id?: string | null;
+                max_discount_pct?: number | null;
+                explanation_fa?: string;
+            };
+            promotions?: components["schemas"]["AppliedPromotion"][];
+            discount_total?: string;
+            net_ex_tax?: string;
+            tax_rate_pct?: number;
+            tax_amount?: string;
+            line_total?: string;
+            margin?: {
+                /** @enum {string} */
+                cost_basis?: "avg_cost" | "standard_cost" | "last_purchase_cost" | "none";
+                cost_unit?: string | null;
+                cost_total?: string | null;
+                net_revenue?: string;
+                margin_pct?: number | null;
+                /** Format: uuid */
+                policy_id?: string | null;
+                required_margin_pct?: number | null;
+                /**
+                 * @description منبعِ حقیقت: MARGIN_STATUSES در pricing-engine.ts (TASK-24F · MEDIUM-3)
+                 * @enum {string}
+                 */
+                status?: "ok" | "violation" | "cost_unknown" | "exception_applied" | "no_policy";
+                /** Format: uuid */
+                exception_id?: string | null;
+                /** @description سقفِ واقعیِ تخفیفِ اعطاشده در استثنای اعمال‌شده (TASK-24F · MEDIUM-1) */
+                exception_granted_margin_pct?: number | null;
+                message_fa?: string | null;
+            };
+            gift_lines?: {
+                [key: string]: unknown;
+            }[];
+        };
+        AppliedPromotion: {
+            /** Format: uuid */
+            promotion_id?: string;
+            code?: string;
+            title?: string;
+            /** @enum {string} */
+            kind?: "percent_line" | "amount_line" | "bundle" | "buy_x_get_y" | "gift_item" | "cash_discount" | "repeat_order" | "coupon" | "volume_tier";
+            priority?: number;
+            amount?: string;
+            base_amount?: string;
+            allow_stacking?: boolean;
+            exclusive_group?: string | null;
+            coupon_code?: string | null;
+            /** Format: uuid */
+            coupon_id?: string | null;
+            explanation_fa?: string;
+        };
         /** @description انبار مرکزی، شعبه یا خودرو (انبار سیار) */
         Warehouse: {
             /** Format: uuid */
@@ -10010,7 +11267,11 @@ export interface components {
             /** Format: uuid */
             client_uuid?: string;
         };
-        /** @description سفارش فروش — قیمت‌گذاری لحظه‌ای، اعتبارسنجی اعتبار و قوانین */
+        /**
+         * @description سفارش فروش — قیمت‌گذاری همیشه از موتور قیمت و با کنترل‌های سرور-محور انجام می‌شود
+         *     (TASK-24F): کف سود، سقف تخفیف، مجوز قیمت دستی و تاریخ گذشته قابل خاموش‌شدن با
+         *     بدنه درخواست نیستند.
+         */
         SalesOrder: {
             /** Format: uuid */
             readonly id?: string;
@@ -10045,6 +11306,8 @@ export interface components {
             /** Format: uuid */
             readonly approval_request_id?: string | null;
             note?: string | null;
+            /** @description دلیل قیمت دستی/عبور از سقف/تاریخ گذشته؛ در دفتر تغییر قیمت با actor و قیمت سیستمی ثبت می‌شود */
+            price_override_reason?: string | null;
             /** Format: uuid */
             client_uuid?: string | null;
             /** @description نسخه قفل خوش‌بینانه — مغایرت با سرور در PATCH برابر است با 409 version_conflict */

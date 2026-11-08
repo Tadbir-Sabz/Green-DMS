@@ -15,6 +15,22 @@ import type { RulesEngineService } from '../rules-engine/rules-engine.service';
 import type { RuleContext, RuleEvaluation } from '../rules-engine/rules-engine.service';
 import { DOC_NUMBER_SERVICE, persianYear } from '../../common/doc-number.service';
 import type { DocNumberService } from '../../common/doc-number.service';
+import { PRICING_ENGINE_SERVICE } from '../pricing/pricing.tokens';
+import { OrderCreationLock } from './order-creation-lock';
+import type { PricingEngineService } from '../pricing/pricing-engine.service';
+import type { QuoteResult } from '../pricing/pricing-engine';
+import type {
+  OrderPricingPermissions,
+  OrderQuoteResult,
+} from '../pricing/pricing-engine.service';
+
+/** پیش‌فرضِ امن: اگر کنترلر مجوزها را پاس نکند، هیچ عبوری مجاز نیست */
+const DENY_ALL_PRICING: OrderPricingPermissions = {
+  manual_price: false,
+  discount_override: false,
+  cross_domain_price_list: false,
+  backdate: false,
+};
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -22,7 +38,8 @@ const badRequest = (code: string, message_fa: string): BadRequestException =>
 const notFound = (): NotFoundException =>
   new NotFoundException({ code: 'not_found', message_fa: 'سفارش یافت نشد' });
 
-const money = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
+// منبعِ واحدِ گرد‌کردنِ مالی (TASK-24) — رفتارِ پیشین عیناً حفظ شده است
+import { money } from '../../common/financial';
 
 export interface OrderView extends OrderRow {
   lines?: {
@@ -62,6 +79,17 @@ export class OrderService {
     @Inject(ORDER_REPOSITORY) private readonly repo: OrderRepository,
     @Inject(RULES_ENGINE_SERVICE) private readonly rules: RulesEngineService,
     @Inject(DOC_NUMBER_SERVICE) private readonly docNumbers: DocNumberService,
+    /**
+     * موتورِ قیمت — TASK-24F: مسیرِ یگانهٔ قیمت‌گذاریِ سفارش. هیچ پرچمِ کلاینتی
+     * نمی‌تواند کنترل‌های کفِ سود/سقفِ تخفیف/مجوزِ قیمتِ دستی را خاموش کند.
+     */
+    @Inject(PRICING_ENGINE_SERVICE) private readonly pricing: PricingEngineService,
+    /**
+     * TASK-24X · A-1 — قفلِ مشترکِ ساختِ سفارش. هر مسیری که سفارشِ متصل به یک
+     * درخواست می‌سازد (تبدیل یا `POST /orders` با `request_id`) باید از همین
+     * سازوکار عبور کند تا «یک درخواست ⇒ یک سفارش» در همهٔ مسیرها تضمین شود.
+     */
+    private readonly creationLock: OrderCreationLock,
   ) {}
 
   private assertId(id: string): void {
@@ -81,13 +109,51 @@ export class OrderService {
     return { ...row, lines };
   }
 
-  async create(companyId: string, dto: CreateOrderDto): Promise<OrderView> {
+  async create(
+    companyId: string,
+    dto: CreateOrderDto,
+    actorUserId: string | null = null,
+    permissions: OrderPricingPermissions = DENY_ALL_PRICING,
+  ): Promise<OrderView> {
+    // TASK-24X · A-1 — شرطیِ‌سازیِ ساختِ سفارشِ متصل به درخواست.
+    //
+    // اگر `request_id` دارد، کلِ توالیِ ساخت (اعتبارسنجی، قیمت‌گذاری، شمارهٔ سند،
+    // درج، مصرفِ تشویق، ممیزی) زیرِ قفلِ همان درخواست اجرا می‌شود. پیش از این،
+    // این مسیر اصلاً قفل نداشت و می‌توانست در موازاتِ `convert()` سفارشِ دومی برای
+    // همان درخواست بسازد. بدونِ `request_id` قفل لازم نیست (هیچ هویتِ مشترکی نیست).
+    if (!dto.request_id) return this.createLocked(companyId, dto, actorUserId, permissions);
+    return this.creationLock.withRequestLock(dto.request_id, () =>
+      this.createLocked(companyId, dto, actorUserId, permissions),
+    );
+  }
+
+  private async createLocked(
+    companyId: string,
+    dto: CreateOrderDto,
+    actorUserId: string | null,
+    permissions: OrderPricingPermissions,
+  ): Promise<OrderView> {
+    // TASK-24X · A-1 — نگهبانِ idempotency: اگر این درخواست **پیش‌تر** به سفارش
+    // تبدیل شده باشد، ساختِ سفارشِ دوم مجاز نیست. این بررسی داخلِ قفل انجام
+    // می‌شود، پس هیچ پنجرهٔ مسابقه‌ای باقی نمی‌ماند.
+    if (dto.request_id) {
+      const existingOrderId = await this.repo.findOrderIdByRequestId(companyId, dto.request_id);
+      if (existingOrderId) {
+        throw new ConflictException({
+          code: 'request_already_converted',
+          message_fa:
+            'این درخواست پیش‌تر به سفارش تبدیل شده است؛ ساختِ سفارشِ دوباره برای یک درخواست مجاز نیست.',
+          details: { request_id: dto.request_id, sales_order_id: existingOrderId },
+        });
+      }
+    }
     const pricing = await this.repo.getCustomerPricing(companyId, dto.customer_id);
     if (!pricing) throw badRequest('customer_not_found', 'مشتری انتخاب‌شده در این شرکت یافت نشد.');
     await this.validateReferences(companyId, dto);
-    // ابتدا اقلام/جمع‌ها محاسبه می‌شود تا زمینهٔ ارزیابی قاعده و بررسی اعتبار/موجودی
-    // مقادیر واقعی (subtotal/discount/grand_total) را داشته باشد.
-    const { lines, totals } = await this.computeLines(companyId, dto, pricing.price_list_id);
+
+    // TASK-24F: مسیرِ یگانه — هر سفارش از موتورِ قیمت با کنترل‌های سرور-محور عبور می‌کند.
+    const priced = await this.quoteViaEngine(companyId, dto, actorUserId, permissions);
+    const { lines, totals } = this.mapEngineQuote(priced.quote);
 
     // ارزیابی واقعی موتور قوانین (before_save) روی زمینهٔ سفارش
     await this.evaluateOrderRules(companyId, dto, lines, totals);
@@ -112,7 +178,140 @@ export class OrderService {
     } catch (err) {
       throw this.mapOrderError(err);
     }
+    // مصرفِ تشویق‌ها idempotent است: تکرارِ همان کلید ردیفِ تکراری نمی‌سازد.
+    await this.pricing.commitUsage(companyId, {
+      actor_user_id: actorUserId,
+      entity_type: 'order',
+      entity_id: id,
+      customer_id: dto.customer_id,
+      idempotency_key: dto.pricing_idempotency_key ?? `order:${id}`,
+      quote: priced.quote,
+    });
+    // ممیزیِ قیمتِ دستی/عبور از سقف — با actor، قیمتِ سیستمی، دلیل و سیاستِ مؤثر
+    await this.auditPriceOverrides(companyId, id, dto, priced, actorUserId);
     return this.get(companyId, id);
+  }
+
+  /**
+   * TASK-24F · HIGH-1/HIGH-2/HIGH-3 — قیمت‌گذاریِ اجباریِ سفارش.
+   *
+   * کنترل‌ها همه از سرویس/سیاستِ پایدار/مجوزهای نشست می‌آیند:
+   *   • قیمتِ دستی بدونِ `pricing.manual_price.apply` ⇒ 403
+   *   • تخفیفِ فراتر از سقف بدونِ `pricing.discount.override` ⇒ 403
+   *   • لیستِ قیمتِ قلمرویِ دیگر بدونِ مجوز/دلیل ⇒ 403/400
+   *   • تاریخِ گذشته بدونِ `pricing.backdate.apply` + دلیل ⇒ 403/400
+   *   • نقضِ کفِ سود یا فروشِ زیرِ بهای تمام‌شده ⇒ 409
+   */
+  private async quoteViaEngine(
+    companyId: string,
+    dto: CreateOrderDto,
+    actorUserId: string | null,
+    permissions: OrderPricingPermissions,
+  ): Promise<OrderQuoteResult> {
+    const priced = await this.pricing.quoteForOrder(
+      companyId,
+      {
+        customer_id: dto.customer_id,
+        order_date: dto.order_date,
+        price_list_id: dto.price_list_id ?? null,
+        coupon_codes: dto.coupon_codes ?? [],
+        idempotency_key: dto.pricing_idempotency_key ?? null,
+        override_reason: dto.price_override_reason ?? null,
+        lines: (dto.lines ?? []).map((l) => ({
+          product_id: l.product_id,
+          packaging_id: l.packaging_id ?? null,
+          qty: l.qty,
+          unit_price: l.unit_price ?? null,
+          discount_amount: l.discount_amount ?? null,
+        })),
+      },
+      permissions,
+      actorUserId,
+    );
+    if (priced.quote.margin_violations.length > 0) {
+      const first = priced.quote.margin_violations[0];
+      throw new ConflictException({
+        code: first.code === 'margin_loss_making' ? 'margin_loss_making' : 'margin_floor_violation',
+        message_fa: first.message_fa,
+        details: { violations: priced.quote.margin_violations },
+      });
+    }
+    return priced;
+  }
+
+  /**
+   * TASK-24F · HIGH-3 — دفترِ تغییرِ قیمت: actor، action، قیمتِ سیستمی، قیمتِ درخواستی،
+   * دلیل، سیاستِ مؤثر و مقادیرِ نهایی. برای هر قلمِ دارای قیمتِ دستی یا تخفیفِ بیش از سقف.
+   */
+  private async auditPriceOverrides(
+    companyId: string,
+    orderId: string,
+    dto: CreateOrderDto,
+    priced: OrderQuoteResult,
+    actorUserId: string | null,
+    action: 'create' | 'update' = 'create',
+  ): Promise<void> {
+    const reason = (dto.price_override_reason ?? '').trim() || null;
+    const dtoLines = dto.lines ?? [];
+    for (const [idx, line] of priced.quote.lines.entries()) {
+      const input = dtoLines[idx];
+      const manual = input?.unit_price != null;
+      const capped = Boolean(input?.discount_amount) && priced.quote.warnings.some((w) => w.startsWith(`قلم ${line.line_no}:`));
+      if (!manual && !capped) continue;
+      await this.pricing.logPriceChange({
+        companyId,
+        actorUserId,
+        entityType: 'sales_order_line',
+        entityId: orderId,
+        action: manual ? `manual_price_${action}` : `discount_override_${action}`,
+        before: {
+          system_unit_price: manual ? (priced.system_unit_prices[idx] ?? null) : line.unit_price,
+          max_discount_pct: line.pricing.max_discount_pct,
+          line_no: line.line_no,
+          product_id: line.product_id,
+        },
+        after: {
+          unit_price: line.unit_price,
+          discount_amount: line.discount_total,
+          discount_pct: line.manual_discount_pct,
+          reason,
+          order_date: dto.order_date,
+          pricing_date: priced.pricing_date,
+          backdated: priced.backdated,
+          policy: {
+            max_total_discount_pct: priced.settings.max_total_discount_pct,
+            max_line_discount_pct: priced.settings.max_line_discount_pct,
+            allow_loss_making_sales: priced.settings.allow_loss_making_sales,
+            apply_promotions_on_orders: priced.settings.apply_promotions_on_orders,
+          },
+          actor_user_id: actorUserId,
+        },
+      });
+    }
+  }
+
+  /** نگاشتِ خروجیِ موتور به ساختارِ خطوط/جمع‌های سفارش (بدونِ تغییرِ قراردادِ API) */
+  private mapEngineQuote(quote: QuoteResult): { lines: OrderLineValues[]; totals: ComputedTotals } {
+    const lines: OrderLineValues[] = quote.lines.map((l) => ({
+      line_no: l.line_no,
+      product_id: l.product_id,
+      packaging_id: l.packaging_id,
+      qty: l.qty,
+      qty_base: l.qty_base,
+      unit_price: l.unit_price,
+      discount_amount: l.discount_total,
+      tax_rate_pct: l.tax_rate_pct,
+      tax_amount: l.tax_amount,
+    }));
+    return {
+      lines,
+      totals: {
+        subtotal: quote.subtotal,
+        discount_total: quote.discount_total,
+        tax_total: quote.tax_total,
+        grand_total: quote.grand_total,
+      },
+    };
   }
 
   /**
@@ -218,7 +417,13 @@ export class OrderService {
     }
   }
 
-  async update(companyId: string, id: string, dto: UpdateOrderDto): Promise<OrderView> {
+  async update(
+    companyId: string,
+    id: string,
+    dto: UpdateOrderDto,
+    actorUserId: string | null = null,
+    permissions: OrderPricingPermissions = DENY_ALL_PRICING,
+  ): Promise<OrderView> {
     this.assertId(id);
     const existing = await this.repo.findById(companyId, id);
     if (!existing) throw notFound();
@@ -236,21 +441,20 @@ export class OrderService {
 
     let lines: OrderLineValues[] = [];
     let totals: ComputedTotals;
+    let priced: OrderQuoteResult | null = null;
     if (dto.lines) {
-      const computed = await this.computeLines(
-        companyId,
-        { ...dto, customer_id: customerId } as CreateOrderDto,
-        dto.price_list_id ?? pricing.price_list_id,
-      );
+      // TASK-24F: ویرایشِ اقلام هم از همان مسیرِ کنترل‌شدهٔ قیمت‌گذاری می‌گذرد
+      const effective = {
+        ...dto,
+        customer_id: customerId,
+        order_date: (dto.order_date ?? String(existing.order_date ?? '')).slice(0, 10),
+      } as CreateOrderDto;
+      priced = await this.quoteViaEngine(companyId, effective, actorUserId, permissions);
+      const computed = this.mapEngineQuote(priced.quote);
       lines = computed.lines;
       totals = computed.totals;
       // اقلام تغییر کرده‌اند → ارزیابی قاعده و بررسی اعتبار/موجودی دوباره انجام می‌شود
-      await this.evaluateOrderRules(
-        companyId,
-        { ...dto, customer_id: customerId } as CreateOrderDto,
-        lines,
-        totals,
-      );
+      await this.evaluateOrderRules(companyId, effective, lines, totals);
       await this.enforceCreditLimit(companyId, customerId, Number(totals.grand_total));
       await this.enforceStock(companyId, lines);
     } else {
@@ -280,6 +484,20 @@ export class OrderService {
     } catch (err) {
       if (err instanceof ConflictException) throw err;
       throw this.mapOrderError(err);
+    }
+    if (priced && dto.lines) {
+      await this.auditPriceOverrides(
+        companyId,
+        id,
+        {
+          ...(dto as unknown as CreateOrderDto),
+          customer_id: customerId,
+          order_date: (dto.order_date ?? String(existing.order_date ?? '')).slice(0, 10),
+        },
+        priced,
+        actorUserId,
+        'update',
+      );
     }
     return this.get(companyId, id);
   }
@@ -322,91 +540,8 @@ export class OrderService {
     }
   }
 
-  private async computeLines(
-    companyId: string,
-    dto: CreateOrderDto,
-    priceListFallback: string | null,
-  ): Promise<{ lines: OrderLineValues[]; totals: ComputedTotals }> {
-    const lines: OrderLineValues[] = [];
-    let subtotal = 0;
-    let discountTotal = 0;
-    let taxTotal = 0;
-    let lineNo = 1;
-
-    const dtoLines = dto.lines ?? [];
-    const priceListId = dto.price_list_id ?? priceListFallback;
-    // یک‌بار حل دسته‌ای همه ورودی‌ها (به‌جای ۲–۳ کوئری به‌ازای هر خط)
-    const { existingProducts, packagingFactors, prices, taxRates, vatEnabled } =
-      await this.repo.resolveLineInputs(
-        companyId,
-        priceListId,
-        dtoLines.map((l) => l.product_id),
-        dtoLines
-          .filter((l) => l.packaging_id)
-          .map((l) => [l.product_id, l.packaging_id as string] as const),
-      );
-
-    for (const line of dtoLines) {
-      if (!existingProducts.has(line.product_id)) {
-        throw badRequest('product_not_found', 'یکی از کالاهای انتخاب‌شده در این شرکت یافت نشد.');
-      }
-      let qtyBase = line.qty;
-      if (line.packaging_id) {
-        const factor = packagingFactors.get(`${line.product_id}\u0000${line.packaging_id}`);
-        if (factor == null) {
-          throw badRequest('packaging_not_found', 'بسته‌بندی انتخاب‌شده برای این کالا یافت نشد.');
-        }
-        qtyBase = line.qty * Number(factor);
-      }
-
-      let unitPrice: string;
-      if (line.unit_price != null) {
-        unitPrice = line.unit_price;
-      } else {
-        const priced = priceListId ? (prices.get(line.product_id) ?? null) : null;
-        if (priced == null) {
-          if (priceListId) {
-            throw badRequest('price_missing', 'برای این کالا قیمت فعالی در لیست قیمت یافت نشد.');
-          }
-          unitPrice = '0';
-        } else {
-          unitPrice = priced;
-        }
-      }
-
-      const discount = line.discount_amount ?? '0';
-      if (Number(discount) < 0) {
-        throw badRequest('invalid_discount', 'مبلغ تخفیف نمی‌تواند منفی باشد.');
-      }
-      // مالیات بر مبنای نرخ tax_code کالا، پس از کسر تخفیف، و فقط اگر vat شرکت فعال باشد
-      const taxRate = vatEnabled ? (taxRates.get(line.product_id) ?? 0) : 0;
-      const lineGross = line.qty * Number(unitPrice) - Number(discount);
-      const lineTax = taxRate > 0 ? Math.round(lineGross * taxRate) / 100 : 0;
-      subtotal += line.qty * Number(unitPrice);
-      discountTotal += Number(discount);
-      taxTotal += lineTax;
-      lines.push({
-        line_no: lineNo,
-        product_id: line.product_id,
-        packaging_id: line.packaging_id ?? null,
-        qty: line.qty,
-        qty_base: qtyBase,
-        unit_price: unitPrice,
-        discount_amount: discount,
-        tax_rate_pct: taxRate,
-        tax_amount: money(lineTax),
-      });
-      lineNo += 1;
-    }
-
-    const totals: ComputedTotals = {
-      subtotal: money(subtotal),
-      discount_total: money(discountTotal),
-      tax_total: money(taxTotal),
-      grand_total: money(subtotal - discountTotal + taxTotal),
-    };
-    return { lines, totals };
-  }
+  // TASK-24F · HIGH-1: مسیرِ قدیمیِ محاسبهٔ قیمت (`computeLines`) حذف شد؛ هیچ سفارشی
+  // بدونِ کنترلِ کفِ سود/سقفِ تخفیف/مجوزِ قیمتِ دستی ثبت نمی‌شود.
 
   private mapOrderError(err: unknown): Error {
     const e = err as { code?: string; constraint?: string };

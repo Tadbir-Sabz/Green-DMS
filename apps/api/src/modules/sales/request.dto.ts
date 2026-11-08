@@ -125,3 +125,26 @@ export class UpdateRequestDto {
   @MaxLength(500)
   note?: string;
 }
+
+/**
+ * TASK-24W · POST /requests/{id}/convert
+ *
+ * تنها ورودیِ قابلِ‌قبول «دلیل» است. هیچ فیلدِ مجوز/پرچمی پذیرفته نمی‌شود:
+ * کلیدهای ناشناخته با `whitelist: true` حذف می‌شوند و `forbidNonWhitelisted` در
+ * قرارداد نیست، پس بدنهٔ دارای `permissions` مانندِ بدنهٔ بدونِ آن رفتار می‌کند.
+ *
+ * `price_override_reason` فقط وقتی لازم است که قیمتِ درخواستیِ مشتری از قیمتِ
+ * سیستمی واگرا باشد (یا سقفِ تخفیف رد شود)؛ در آن حالت وجودش اجباری و حداقل
+ * ۳ نویسهٔ معنادار است. متنِ دلیل همیشه در دفترِ تغییرِ قیمت ثبت می‌شود.
+ */
+export class ConvertRequestDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  price_override_reason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
