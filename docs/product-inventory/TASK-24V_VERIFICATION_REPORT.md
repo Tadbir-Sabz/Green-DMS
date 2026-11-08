@@ -265,3 +265,26 @@ Init credential hygiene ✅ · **Integration (Postgres) ❌ (۱ شکست)**.
 تصمیم‌های بازِ کسب‌وکاری (Q-24-01..05، Q-24-07..12) مستقل از merge قابلِ پیگیری‌اند.
 
 **هیچ merge، deploy یا تغییرِ تنظیماتِ شاخه انجام نشد؛ منتظرِ مجوزِ مالک.**
+
+---
+
+## ۱۰) پیوست — وضعیتِ دو یافتهٔ باز پس از TASK-24W
+
+| یافتهٔ این گزارش | وضعیتِ TASK-24V | وضعیتِ فعلی (TASK-24W @`f5c89b6`) |
+|---|---|---|
+| **§۵-ب `HIGH-1-R1`** — تبدیلِ درخواست با `requested_price` ⇒ `403` | OPEN (غیرِ مسدودکننده) | **CLOSED** — actor/مجوز/دلیل/ممیزی + ضدِ هم‌زمانی؛ ۱۱ سناریوی آزمونِ DB-محور |
+| **§۵-ج `HIGH-2-R1`** — `quote`/`simulate` سیاستِ پایدار را نمی‌خوانند | OPEN (`it.fails` مستند) | **CLOSED** — `pricedPolicyRun` مسیرِ واحد؛ `it.fails` به آزمونِ واقعی تبدیل شد |
+| §۵-الف `G-23` | RESOLVED @`090c78b` | RESOLVED (بدونِ تغییر) |
+| `G-03` | PARTIAL / VERIFIED=(a),(c),(d) | **بدونِ تغییر — عمداً کامل اعلام نشد** (جدولِ سطحِ قابلیت در `TASK-24_PRICING_ENGINE.md` §۱۰-۴) |
+| e2e | BLOCKED (MinIO) | BLOCKED (پیش‌موجود روی `main`) |
+| Kotlin | UNVERIFIED (Maven) | UNVERIFIED (بدونِ تغییر) |
+
+**شواهدِ اجرا (TASK-24W):** CI `42458240290` @`f5c89b6` — هر ۵ job سبز؛ مهاجرت‌ها `42458240314` سبز؛
+release-image `42458240295` سبز؛ e2e `42458240364` BLOCKED.
+آزمون‌های محلی روی DB ایزوله: `task24w` ۲۱/۲۱ · `pricing-engine.api` ۴۷/۴۷ ·
+`rules-engine-behavior` ۲۷/۲۷ · واحدها ۶۹/۶۹ · وب ۵۲/۵۲ · `openapi:check` ۱۷۳/۲۵۱/۱۲۷/۳ · drift = ۰.
+
+**حسابرسیِ مستقلِ Agent-2:** انجام نشده — درخواست در
+`docs/product-inventory/TASK-24W_INDEPENDENT_AUDIT_REQUEST.md` ثبت شده و وضعیت
+`AWAITING INDEPENDENT AUDIT` است. **Agent-1 کارِ خود را تأیید نمی‌کند.**
+
