@@ -553,6 +553,65 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
     const badId = await api().get('/api/v1/rules-engine/approvals/not-a-uuid').expect(404);
     expect(badId.body.code).toBe('not_found');
   });
+
+  // TASK-24V · G-23 — رگرسیونِ «قفل‌شدنِ زنجیرهٔ چندمرحله‌ای»:
+  // پیش‌تر در هر تصمیم، گام از روی باندِ مبلغ بازمحاسبه می‌شد و چون findCurrentStep همیشه
+  // نخستین گامِ سازگار را برمی‌گرداند، گامِ ۲ در زنجیرهٔ بی‌باند هرگز قابلِ تصمیم نبود (۴۰۹ دائمی).
+  it('زنجیرهٔ بی‌باندِ دو‌مرحله‌ای تا انتها پیش می‌رود و گام‌ها به‌ترتیب مصرف می‌شوند', async () => {
+    const chainId = await seedChain('CH-NOBAND', 'sales_order', [{ step_no: 1 }, { step_no: 2 }]);
+    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999901', 777).expect(201);
+    const first = await api(admin2Token)
+      .post(`/api/v1/approvals/${req.body.id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
+    expect(first.body.current_step).toBe(2);
+    expect(first.body.status).toBe('pending');
+    const second = await api(admin2Token)
+      .post(`/api/v1/approvals/${req.body.id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
+    expect(second.body.status).toBe('approved');
+    // ناسازگاریِ باند نباید به‌عنوان ۴۰۹ در گام‌های بعدی برگردد
+    expect(second.body.code).toBeUndefined();
+  });
+
+  it('زنجیرهٔ تشدیدِ باندی (۰..۱۰۰۰ / ۱۰۰۰..۵۰۰۰ / ۵۰۰۰..∞) با مبلغِ ۲۵۰۰ در همهٔ گام‌ها کامل می‌شود', async () => {
+    const chainId = await seedChain('CH-LADDER', 'sales_order', [
+      { step_no: 1, min: 0, max: 1000 },
+      { step_no: 2, min: 1000, max: 5000 },
+      { step_no: 3, min: 5000, max: null },
+    ]);
+    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999902', 2500).expect(201);
+    // گامِ ورود برای ۲۵۰۰ گامِ ۲ است
+    expect(req.body.current_step).toBe(2);
+    const d1 = await api(admin2Token)
+      .post(`/api/v1/approvals/${req.body.id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
+    expect(d1.body.current_step).toBe(3);
+    const d2 = await api(admin2Token)
+      .post(`/api/v1/approvals/${req.body.id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(201);
+    expect(d2.body.status).toBe('approved');
+  });
+
+  it('مبلغِ دستکاری‌شده پس از ثبت (در نخستین تصمیم) با ۴۰۹ amount_band_mismatch رد می‌شود', async () => {
+    const chainId = await seedChain('CH-TAMPER', 'sales_order', [
+      { step_no: 1, min: 0, max: 1000 },
+      { step_no: 2, min: 1000, max: null },
+    ]);
+    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999903', 100).expect(201);
+    expect(req.body.current_step).toBe(1);
+    // افزایشِ مبلغ به باندِ گامِ ۲ ⇒ گامِ جاری (۱) دیگر پاسخِ باند نیست ⇒ fail-closed
+    await pool.query(`update approval_request set amount = 9000 where id = $1`, [req.body.id]);
+    const res = await api(admin2Token)
+      .post(`/api/v1/approvals/${req.body.id}/decision`)
+      .send({ decision: 'approve' })
+      .expect(409);
+    expect(res.body.code).toBe('amount_band_mismatch');
+    expect(res.body.details?.expected_step).toBe(2);
+  });
 });
 
 // ---------------------------------------------------------------

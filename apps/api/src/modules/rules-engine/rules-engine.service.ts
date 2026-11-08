@@ -603,14 +603,27 @@ export class RulesEngineService {
         details: { step_no: stepNo },
       });
     }
+    // TASK-24V · G-23: بازمحاسبهٔ گام از باند در لحظهٔ تصمیم نادرست بود.
+    // `findCurrentStep` «نخستین گامِ سازگار با مبلغ» را برمی‌گرداند؛ پس در هر زنجیرهٔ ≥۲ مرحله‌ای که
+    // گامِ ۱ بی‌باند است (یا مبلغ در باندِ گامِ ۱ می‌افتد) خروجی همیشه ۱ است و تصمیمِ گامِ ۲ با
+    // `amount_band_mismatch` برای همیشه قفل می‌شد (CI run 42450239559).
+    // کنترلِ درست: باند فقط «گامِ ورود» را در لحظهٔ ثبتِ درخواست تعیین می‌کند؛ در زمانِ تصمیم فقط
+    // یک بار — پیش از نخستین تصمیم — بررسی می‌کنیم که گامِ جاری هنوز همان گامِ متناظر با مبلغ است
+    // (ضدِ دستکاریِ مبلغ پس از ثبت). پیشرویِ گام‌ها با `stepNo = req.current_step` (بالا) و
+    // به‌روزرسانیِ شرطی (`expected: {status:'pending', currentStep: stepNo}`) تضمین می‌شود.
     const amount = req.amount == null ? null : Number(req.amount);
-    const expectedStep = findCurrentStep(steps, amount);
-    if (expectedStep !== stepNo) {
-      throw new ConflictException({
-        code: 'amount_band_mismatch',
-        message_fa: 'مبلغِ درخواست با باندِ این مرحله نمی‌خواند؛ مرحلهٔ مجاز دوباره محاسبه شد.',
-        details: { step_no: stepNo, expected_step: expectedStep, amount },
-      });
+    if (amount != null) {
+      const previousDecisions = await this.repo.listApprovalDecisions(requestId);
+      if (previousDecisions.length === 0) {
+        const entryStep = findCurrentStep(steps, amount);
+        if (entryStep !== stepNo) {
+          throw new ConflictException({
+            code: 'amount_band_mismatch',
+            message_fa: 'مبلغِ درخواست با باندِ گامِ جاری نمی‌خواند؛ درخواست را دوباره ثبت کنید.',
+            details: { step_no: stepNo, expected_step: entryStep, amount },
+          });
+        }
+      }
     }
     if (req.requested_by === decidedBy) {
       throw new ForbiddenException({
