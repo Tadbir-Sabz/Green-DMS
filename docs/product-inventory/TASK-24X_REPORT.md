@@ -142,7 +142,16 @@ packages/contracts/openapi.yaml
 هر ۳۶ خطا روی `d12dc2e` (baseline) **همان‌طور** شکست می‌خورند ⇒ محیطی
 (PostGIS/نقش/GRANT)، نه رگرسیون. **این‌ها را «سبز» گزارش نمی‌کنم.**
 
-### CI (PostGISِ واقعی) — run `42492130097` و همکاران
+### CI (PostGISِ واقعی) — روی HEAD نهایی `cdd2ef7`
+
+| Workflow | Run ID | نتیجه |
+| --- | --- | --- |
+| CI (static, unit, integration, hygiene) | `42492535499` | ✅ success |
+| مهاجرت‌های پایگاه‌داده (up→down→up) | `42492535531` | ✅ success |
+| release-image (boot smoke) | `42492535535` | ✅ success |
+| e2e (Playwright) | `42492535505` | ❌ failure — قفلِ MinIO، پیش‌موجود |
+
+جزئیاتِ jobها:
 
 | Job | نتیجه |
 | --- | --- |
