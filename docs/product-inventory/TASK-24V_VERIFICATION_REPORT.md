@@ -16,7 +16,7 @@
 | نسخهٔ حسابرسی‌شده (TASK-24F) | `00f7f12ca655a90e0e3ff043ae89e0bed19366de` · tree `e102b2b1aa056ce5493f799df0341bbeac0da4b0` · `protected:false` · `2026-11-07T18:39:31Z` |
 | نسخهٔ پیاده‌سازیِ TASK-24F | `1e361085ae89bbd1ba42c625073b2adf5dd36168` (parent `5203d3f`) |
 | commitهای دروازهٔ راستی‌آزمایی (TASK-24V) | `c1c9a3e` (ترمیمِ نحوی/هم‌ترازیِ آزمون‌های قیمت) · `75728e8` (هم‌ترازیِ آزمون‌های G-03/مهاجرت + آزمونِ RLS) |
-| HEAD فعلیِ شاخه | `75728e8` (فقط روی همین شاخه push شد) |
+| HEAD فعلیِ شاخه | `7e9bdbf` (مستندات؛ فقط روی همین شاخه push شد) — پیش از آن `75728e8` و `c1c9a3e` |
 | PR | **#13 (draft)** — فقط برای اجرای workflowهای موجود روی PR؛ **merge نشده** |
 | وضعیتِ worktree | پاک (پیش از commitهای مستندات) |
 
@@ -67,6 +67,10 @@
 | e2e (Playwright) | `42450239526` | `75728e8` | ⛔ **BLOCKED** — `quay.io/minio/minio` 401 و `minio/minio` pull access denied ⇒ **صفر آزمونِ مرورگری اجرا نشد** (محدودیتِ زیرساخت، نه محصول) |
 | CI @ `c1c9a3e` | `42404284138` | `c1c9a3e` | ❌ failure — integration-db: **۱۳ fail / ۸۷۴ pass / ۱ expected-fail (۸۸۸)** در ۴۱ فایل |
 | **CI @ `75728e8`** | `42450239559` | `75728e8` | ❌ failure — integration-db: **۱ fail / ۸۸۷ pass / ۱ expected-fail (۸۸۹)**، ۴۰/۴۱ فایل سبز |
+| **CI @ `7e9bdbf` (HEAD نهایی)** | `42450639729` | `7e9bdbf` | ❌ failure — **همان یک شکست، بدونِ تغییر**: ۱ fail / ۸۸۷ pass / ۱ expected-fail (۸۸۹)، ۴۰/۴۱ فایل سبز |
+| مهاجرت‌های پایگاه‌داده @ HEAD | `42450639851` | `7e9bdbf` | ✅ success |
+| release-image @ HEAD | `42450639778` | `7e9bdbf` | ✅ success |
+| e2e @ HEAD | `42450639653` | `7e9bdbf` | ⛔ BLOCKED (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری) |
 
 **تفکیکِ jobهای CI @ `75728e8`:** static ✅ · unit (DB-free) ✅ · Integration (MinIO) ✅ ·
 Init credential hygiene ✅ · **Integration (Postgres) ❌ (۱ شکست)**.
@@ -154,7 +158,7 @@ Init credential hygiene ✅ · **Integration (Postgres) ❌ (۱ شکست)**.
   در حالی که `findCurrentStep` (L133-143) **نخستین** گامِ سازگار را برمی‌گرداند؛ برای هر زنجیره‌ای که
   گامِ ۱ بی‌باند است (یا مبلغ در باندِ گامِ ۱ می‌افتد) همیشه `1` می‌دهد. در نتیجه هر زنجیرهٔ ≥۲ مرحله‌ای
   در گامِ ۲ با `409` متوقف می‌شود.
-- **شاهدِ اجرایی:** CI run `42450239559` — `Test Files 1 failed | 40 passed (41)`,
+- **شاهدِ اجرایی:** CI run `42450239559` — و بازتولیدِ عینِ همان در `42450639729` روی `7e9bdbf` — `Test Files 1 failed | 40 passed (41)`,
   `Tests 1 failed | 887 passed | 1 expected fail (889)` و پیامِ
   `expected 201 "Created", got 409 "Conflict"` در `rules-engine-behavior.test.ts:495`.
 - **اثرِ کسب‌وکاری:** هیچ زنجیرهٔ تأییدِ دومرحله‌ای کامل نمی‌شود ⇒ `require_approval` سفارش‌ها و
@@ -168,6 +172,11 @@ Init credential hygiene ✅ · **Integration (Postgres) ❌ (۱ شکست)**.
   // پیشرویِ متوالیِ گام‌ها نباید دوباره با باند سنجیده شود.
   ```
   آزمونِ مقتضی: همان `G03-13..19 > تأییدِ دومرحله‌ای` که اکنون قرمز است، بدونِ تغییر باید سبز شود.
+- **تشخیصِ کدِ خطا (استنتاجِ قطعی):** پیش از `amount_band_mismatch` در `decideApproval` تنها این‌ها
+  می‌توانند ۴۰۹ بدهند: `not_pending` (وضعیت `pending` است ⇒ منتفی)، `invalid_step` (گامِ ۲ وجود دارد ⇒
+  منتفی)، `duplicate_decision` (برای گامِ ۲ تصمیمی ثبت نشده ⇒ منتفی) ⇒ ۴۰۹ مشاهده‌شده همان
+  `amount_band_mismatch` است. با `findCurrentStep` روی زنجیرهٔ `[{1, بی‌باند}, {2, بی‌باند}]` و
+  `amount=500` همیشه `1` برمی‌گردد و `1 ≠ 2`.
 
 ### ۵-ب) 🟠 `HIGH-1-R1` — تبدیلِ درخواستِ مشتری به سفارش با `requested_price` می‌شکند
 
@@ -248,5 +257,9 @@ Init credential hygiene ✅ · **Integration (Postgres) ❌ (۱ شکست)**.
 3. اجرای دوبارهٔ CI روی همان PR؛ انتظار: ۸۸۹/۸۸۹ (۱ expected-fail).
 4. تصمیم‌های Q-24-01..05 و Q-24-07..12 (حداقل Q-24-04/05/09/11 که رفتارِ جاری را تعیین می‌کنند).
 5. سپس تأییدِ مالک برای merge (توسطِ انسان؛ این دروازه هیچ merge/deploy انجام نمی‌دهد).
+
+**وضعیتِ نهاییِ این دروازه:** HEAD `7e9bdbf` روی `arena/1246108f-green-dms`؛ CI (`42450639729`)
+همان **یک** شکستِ محصولی را نشان می‌دهد که در `42450239559` شناسایی شد؛ مهاجرت‌ها و release-image در
+همان HEAD سبز؛ e2e به‌دلیلِ نبودِ ایمیج BLOCKED.
 
 **هیچ merge، deploy یا تغییرِ تنظیماتِ شاخه انجام نشد؛ منتظرِ مجوزِ مالک.**

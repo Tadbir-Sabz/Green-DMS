@@ -159,6 +159,7 @@
 | نسخهٔ حسابرسی‌شده | `00f7f12ca655a90e0e3ff043ae89e0bed19366de` · tree `e102b2b1aa056ce5493f799df0341bbeac0da4b0` (شاخهٔ `arena/1246108f-green-dms`) |
 | commitهای دروازه | `c1c9a3e` (ترمیمِ نحوی + هم‌ترازیِ آزمون‌های قیمت) · `75728e8` (هم‌ترازیِ G-03/مهاجرت + آزمونِ RLS) · HEAD شاخه = `75728e8` |
 | PR | **#13 (draft)** فقط برای اجرای workflowهای موجود روی PR — **merge نشده**، هیچ push به شاخهٔ دیگر |
+| HEAD نهاییِ شاخه | `7e9bdbf` (مستندات) · CI `42450639729` @HEAD: همان ۱ شکست (۸۸۷ pass) · migrations `42450639851` ✅ · release-image `42450639778` ✅ · e2e `42450639653` ⛔ |
 | CI — مهاجرت‌ها (up→down→up + مقایسهٔ اشیا، PostGIS واقعی) | `42402374930` @`00f7f12` ✅ · `42450239490` @`75728e8` ✅ |
 | CI — release-image (build+boot+migrate+health+login+proxy+secret-scan+fail-closed) | `42450239575` @`75728e8` ✅ |
 | CI — e2e | `42450239526` ⛔ **BLOCKED** (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری) |
