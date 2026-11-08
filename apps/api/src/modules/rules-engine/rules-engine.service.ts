@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -8,6 +9,12 @@ import {
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
 import { RULE_ENTITIES, RULE_EVENTS, RULE_EFFECTS } from './rules-engine.dto';
+import {
+  resolveApprovalPolicy,
+  validatePolicyInput,
+  type ApprovalContext,
+  type ApprovalPolicyScope,
+} from './approval-policy';
 import type {
   ApprovalRequestRow,
   CreateApprovalChainDto,
@@ -284,13 +291,29 @@ export class RulesEngineService {
     if (!RULE_EFFECTS.includes(dto.effect as any)) {
       throw badRequest('invalid_effect', 'اقدام قاعده معتبر نیست.');
     }
-    const id = await this.repo.createRule(
-      companyId,
-      dto,
-      dto.conditions ?? [],
-      dto.actions ?? [],
-      dto.scopes ?? [],
-    );
+    let id: string;
+    try {
+      id = await this.repo.createRule(
+        companyId,
+        dto,
+        dto.conditions ?? [],
+        dto.actions ?? [],
+        dto.scopes ?? [],
+      );
+    } catch (err) {
+      // TASK-24 (G-03): کدِ تکراری قاعده نباید 500 شود — خطای دامنه‌ایِ صریح
+      const e = err as { code?: string; constraint?: string };
+      if (e.code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_code',
+          message_fa: 'کدِ قاعده برای این شرکت قبلاً ثبت شده است.',
+        });
+      }
+      if (e.code === '23503') {
+        throw badRequest('reference_invalid', 'یکی از ارجاع‌های قاعده معتبر نیست.');
+      }
+      throw err;
+    }
     return this.getRule(companyId, id);
   }
 
@@ -515,17 +538,28 @@ export class RulesEngineService {
     return this.shapeApproval(updated);
   }
 
-  async createApprovalRequest(companyId: string, dto: CreateApprovalRequestDto) {
+  async createApprovalRequest(companyId: string, dto: CreateApprovalRequestDto, actorUserId?: string) {
     // بررسی وجود زنجیره تأیید
     const chain = await this.repo.getApprovalChain(companyId, dto.approval_chain_id);
     if (!chain) throw notFound('زنجیره تأیید یافت نشد');
 
-    const id = await this.repo.createApprovalRequest(dto);
+    // TASK-24F · G-03: زنجیرهٔ بدونِ مرحله نباید درخواستِ «قابلِ تأییدِ خودکار» بسازد.
+    const steps = await this.repo.getApprovalChainSteps(dto.approval_chain_id);
+    if (steps.length === 0) {
+      throw new ConflictException({
+        code: 'approval_chain_empty',
+        message_fa: 'زنجیرهٔ تأیید هیچ مرحله‌ای ندارد؛ امکانِ ثبتِ درخواست وجود ندارد.',
+        details: { approval_chain_id: dto.approval_chain_id },
+      });
+    }
+
+    // G-03: درخواست‌دهنده از نشست گرفته می‌شود، نه از بدنه (جلوگیری از جعلِ «شخصِ اول»).
+    const requestedBy = actorUserId ?? dto.requested_by;
+    const id = await this.repo.createApprovalRequest({ ...dto, requested_by: requestedBy });
     const req = await this.repo.getApprovalRequest(companyId, id);
     if (!req) throw badRequest('create_failed', 'ایجاد درخواست تأیید ناموفق بود.');
 
     // تعیین مرحله فعلی بر اساس مبلغ
-    const steps = await this.repo.getApprovalChainSteps(dto.approval_chain_id);
     const currentStep = findCurrentStep(steps, dto.amount ?? null);
     await this.repo.updateApprovalRequestStatus(id, 'pending', currentStep, null);
 
@@ -552,57 +586,124 @@ export class RulesEngineService {
     if (req.status !== 'pending') {
       throw badRequest('not_pending', 'درخواست تأیید در وضعیت منتظر نیست.');
     }
+    // G-03: مرحلهٔ تصمیم از وضعیتِ خودِ درخواست گرفته می‌شود، نه از بدنهٔ درخواست.
+    stepNo = Number(req.current_step);
 
-    await this.repo.createApprovalDecision(
-      requestId,
-      stepNo,
-      decidedBy,
-      decision,
-      comment,
-    );
+    // TASK-24F · G-03 — کنترل‌های پیش از ثبتِ تصمیم:
+    //   ۱) زنجیرهٔ بدونِ مرحله ⇒ fail-closed (پیش‌تر Math.max([]) = -Infinity ⇒ تأییدِ فوری)
+    //   ۲) مرحله باید همان مرحلهٔ جاری/باندِ مبلغ باشد (بازاعتبارسنجی در زمانِ تصمیم)
+    //   ۳) خودتأییدی ممنوع
+    //   ۴) تصمیم‌گیرنده باید با نقش/کارمندِ همان مرحله مجاز باشد
+    const steps = await this.repo.getApprovalChainSteps(req.approval_chain_id);
+    if (steps.length === 0) {
+      throw new ConflictException({
+        code: 'approval_chain_empty',
+        message_fa: 'زنجیرهٔ تأیید هیچ مرحله‌ای ندارد؛ تأیید ممکن نیست (fail-closed).',
+      });
+    }
+    const step = steps.find((s) => s.step_no === stepNo);
+    if (!step) {
+      throw new ConflictException({
+        code: 'invalid_step',
+        message_fa: 'مرحلهٔ اعلام‌شده در این زنجیره وجود ندارد.',
+        details: { step_no: stepNo },
+      });
+    }
+    // TASK-24V · G-23: بازمحاسبهٔ گام از باند در لحظهٔ تصمیم نادرست بود.
+    // `findCurrentStep` «نخستین گامِ سازگار با مبلغ» را برمی‌گرداند؛ پس در هر زنجیرهٔ ≥۲ مرحله‌ای که
+    // گامِ ۱ بی‌باند است (یا مبلغ در باندِ گامِ ۱ می‌افتد) خروجی همیشه ۱ است و تصمیمِ گامِ ۲ با
+    // `amount_band_mismatch` برای همیشه قفل می‌شد (CI run 42450239559).
+    // کنترلِ درست: باند فقط «گامِ ورود» را در لحظهٔ ثبتِ درخواست تعیین می‌کند؛ در زمانِ تصمیم فقط
+    // یک بار — پیش از نخستین تصمیم — بررسی می‌کنیم که گامِ جاری هنوز همان گامِ متناظر با مبلغ است
+    // (ضدِ دستکاریِ مبلغ پس از ثبت). پیشرویِ گام‌ها با `stepNo = req.current_step` (بالا) و
+    // به‌روزرسانیِ شرطی (`expected: {status:'pending', currentStep: stepNo}`) تضمین می‌شود.
+    const amount = req.amount == null ? null : Number(req.amount);
+    if (amount != null) {
+      const previousDecisions = await this.repo.listApprovalDecisions(requestId);
+      if (previousDecisions.length === 0) {
+        const entryStep = findCurrentStep(steps, amount);
+        if (entryStep !== stepNo) {
+          throw new ConflictException({
+            code: 'amount_band_mismatch',
+            message_fa: 'مبلغِ درخواست با باندِ گامِ جاری نمی‌خواند؛ درخواست را دوباره ثبت کنید.',
+            details: { step_no: stepNo, expected_step: entryStep, amount },
+          });
+        }
+      }
+    }
+    if (req.requested_by === decidedBy) {
+      throw new ForbiddenException({
+        code: 'self_approval_forbidden',
+        message_fa: 'تأییدِ درخواستِ خود (self-approval) مجاز نیست؛ تأییدکننده باید شخصِ دیگری باشد.',
+      });
+    }
+    const canApprove = await this.repo.userCanApproveStep(companyId, decidedBy, step);
+    if (!canApprove) {
+      throw new ForbiddenException({
+        code: 'approver_not_authorized',
+        message_fa: 'شما برای این مرحلهٔ تأیید مجاز نیستید (نقش/کارمندِ مرحله).',
+        details: { step_no: stepNo },
+      });
+    }
 
+    try {
+      await this.repo.createApprovalDecision(requestId, stepNo, decidedBy, decision, comment);
+    } catch (err) {
+      // G-03: ایندکسِ یکتای (approval_request_id, step_no) — مهاجرت 0051
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_decision',
+          message_fa: 'برای این مرحله قبلاً تصمیم ثبت شده است.',
+          details: { step_no: stepNo },
+        });
+      }
+      throw err;
+    }
+
+    const expected = { status: 'pending', currentStep: stepNo };
     if (decision === 'rejected') {
-      await this.repo.updateApprovalRequestStatus(
+      const ok = await this.repo.updateApprovalRequestStatus(
         requestId,
         'rejected',
         stepNo,
         new Date().toISOString(),
+        expected,
       );
+      if (!ok) throw this.concurrentDecision();
       return this.repo.getApprovalRequest(companyId, requestId);
     }
 
     if (decision === 'returned') {
-      await this.repo.updateApprovalRequestStatus(
+      const ok = await this.repo.updateApprovalRequestStatus(
         requestId,
         'cancelled',
         stepNo,
         new Date().toISOString(),
+        expected,
       );
+      if (!ok) throw this.concurrentDecision();
       return this.repo.getApprovalRequest(companyId, requestId);
     }
 
-    // approved → پیش رفتن به مرحله بعدی یا بسته شدن
-    // مرحله از خود درخواست گرفته می‌شود؛ approval_request ستون company_id ندارد
-    const steps = await this.repo.getApprovalChainSteps(req.approval_chain_id);
-    const maxStep = Math.max(...steps.map((s) => s.step_no));
-
-    if (stepNo >= maxStep) {
-      await this.repo.updateApprovalRequestStatus(
-        requestId,
-        'approved',
-        stepNo,
-        new Date().toISOString(),
-      );
-    } else {
-      await this.repo.updateApprovalRequestStatus(
-        requestId,
-        'pending',
-        stepNo + 1,
-        null,
-      );
-    }
-
+    // approved → پیش رفتن به مرحله بعدی یا بسته شدن (انتقالِ اتمیک)
+    const maxStep = steps.reduce((max, s) => Math.max(max, s.step_no), 0);
+    const done = stepNo >= maxStep;
+    const ok = await this.repo.updateApprovalRequestStatus(
+      requestId,
+      done ? 'approved' : 'pending',
+      done ? stepNo : stepNo + 1,
+      done ? new Date().toISOString() : null,
+      expected,
+    );
+    if (!ok) throw this.concurrentDecision();
     return this.repo.getApprovalRequest(companyId, requestId);
+  }
+
+  private concurrentDecision(): ConflictException {
+    return new ConflictException({
+      code: 'decision_conflict',
+      message_fa: 'درخواست هم‌زمان توسط کاربرِ دیگری تغییر کرده است؛ وضعیت را دوباره بارگیری کنید.',
+    });
   }
 
   // ---------------- استثنا ----------------
@@ -655,5 +756,336 @@ export class RulesEngineService {
     return this.repo.listExceptionItems(input.branch_id).then((items) =>
       items.find((i) => i.id === id),
     );
+  }
+  // ===================================================================
+  // TASK-24Y — سیاستِ تأیید، اتصال به عملیات، تفکیل، انقضا
+  // ===================================================================
+
+  /**
+   * حلِ سیاست برای یک عملیات و ساختِ درخواستِ تأیید با مهلت.
+   *
+   * **fail-closed**: اگر هیچ سیاستی منطبق نباشد `409 approval_policy_missing`
+   * می‌دهیم — نه یک گردشِ بی‌مسیر و نه تأییدِ خودکار.
+   */
+  async startApproval(
+    companyId: string,
+    input: {
+      operation: string;
+      entityType: string;
+      entityId: string;
+      requestedBy: string;
+      amount: number | null;
+      riskScore?: number | null;
+      domainId?: string | null;
+      /** اثرانگشتِ وضعیتِ موجودیت — در لحظهٔ اجرا بازاعتبارسنجی می‌شود */
+      fingerprint?: string | null;
+    },
+  ): Promise<{ approvalRequestId: string; chainId: string; currentStep: number; expiresAt: string | null }> {
+    const policies = await this.repo.listPoliciesForOperation(companyId, input.operation);
+    const ctx: ApprovalContext = {
+      operation: input.operation,
+      amount: input.amount,
+      riskScore: input.riskScore ?? null,
+      domainId: input.domainId ?? null,
+    };
+    const resolved = resolveApprovalPolicy(policies, ctx);
+    if (!resolved) {
+      throw new ConflictException({
+        code: 'approval_policy_missing',
+        message_fa:
+          'هیچ سیاستِ تأییدِ معتبری برای این عملیات تعریف نشده است؛ عملیات بدونِ گردشِ تأیید اجرا نمی‌شود (fail-closed).',
+        details: { operation: input.operation, company_id: companyId },
+      });
+    }
+
+    const steps = await this.repo.getApprovalChainSteps(resolved.chainId);
+    if (steps.length === 0) {
+      throw new ConflictException({
+        code: 'approval_chain_empty',
+        message_fa: 'زنجیرهٔ تأییدِ این سیاست هیچ مرحله‌ای ندارد؛ پیکربندیِ ناقص است (fail-closed).',
+        details: { approval_chain_id: resolved.chainId, policy_id: resolved.decidingPolicyId },
+      });
+    }
+
+    const currentStep = findCurrentStep(steps, input.amount);
+    const expiresAt =
+      resolved.expiresInHours == null
+        ? null
+        : new Date(Date.now() + resolved.expiresInHours * 3_600_000).toISOString();
+
+    const approvalRequestId = await this.repo.createApprovalRequestWithMeta({
+      approval_chain_id: resolved.chainId,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      requested_by: input.requestedBy,
+      amount: input.amount,
+      current_step: currentStep,
+      expires_at: expiresAt,
+      entity_domain_id: input.domainId ?? null,
+      risk_score: input.riskScore ?? null,
+      policy_id: resolved.decidingPolicyId,
+    });
+
+    await this.repo.createBinding({
+      company_id: companyId,
+      approval_request_id: approvalRequestId,
+      operation: input.operation,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      entity_fingerprint: input.fingerprint ?? null,
+    });
+
+    // اعلانِ «به شما ارجاع شد» در همان مسیرِ نوشتن
+    const firstApprover = await this.resolveStepApprovers(resolved.chainId, currentStep);
+    for (const userId of firstApprover) {
+      await this.repo.enqueueNotification({
+        company_id: companyId,
+        approval_request_id: approvalRequestId,
+        kind: 'assigned',
+        recipient_user_id: userId,
+        payload: { operation: input.operation, entity_type: input.entityType },
+      });
+    }
+
+    return { approvalRequestId, chainId: resolved.chainId, currentStep, expiresAt };
+  }
+
+  /** کاربرانِ مجازِ یک مرحله (برای اعلان) — خطا نمی‌دهد. */
+  private async resolveStepApprovers(chainId: string, stepNo: number): Promise<string[]> {
+    const steps = await this.repo.getApprovalChainSteps(chainId);
+    const step = steps.find((s) => s.step_no === stepNo);
+    if (!step) return [];
+    if (step.approver_staff_id) {
+      const rows = await this.repo.userIdsForStaff(step.approver_staff_id);
+      return rows;
+    }
+    if (step.approver_role_id) {
+      return this.repo.userIdsForRole(step.approver_role_id);
+    }
+    return [];
+  }
+
+  /**
+   * دروازهٔ عملیاتِ محافظت‌شده.
+   *
+   * عملیاتِ حساس **نباید** مستقیماً وضعیت را عوض کند؛ باید ابتدا این را صدا بزند:
+   *   • اگر برای این موجودیت تأییدِ معتبر و مصرف‌نشده وجود دارد ⇒ مصرف و اجازه
+   *   • وگرنه ⇒ `409 approval_required`
+   *
+   * مصرف اتمیک است (‏`consumed_at`)، پس یک تأیید دو عملیات را باز نمی‌کند.
+   */
+  async requireApproved(
+    companyId: string,
+    input: { operation: string; entityType: string; entityId: string },
+  ): Promise<{ approvalRequestId: string }> {
+    const binding = await this.repo.findConsumedBinding(
+      companyId, input.operation, input.entityType, input.entityId,
+    );
+    if (!binding) {
+      throw new ConflictException({
+        code: 'approval_required',
+        message_fa:
+          'این عملیات نیازمندِ تأیید است و هیچ گردشِ تأییدی برای آن ثبت نشده؛ ابتدا درخواستِ تأیید ثبت کنید.',
+        details: { operation: input.operation, entity_type: input.entityType },
+      });
+    }
+    const ok = await this.repo.consumeBinding(companyId, binding.id);
+    if (!ok) {
+      throw new ConflictException({
+        code: 'approval_not_granted',
+        message_fa: 'گردشِ تأییدِ این عملیات هنوز تأیید نشده یا قبلاً مصرف شده است.',
+        details: { approval_request_id: binding.approval_request_id, operation: input.operation },
+      });
+    }
+    return { approvalRequestId: binding.approval_request_id };
+  }
+
+  /**
+   * اعتبارسنجی و ثبتِ سیاست.
+   * سیاستِ مرکزی اجباری است و نمی‌تواند غیرفعال شود؛ قلمرو فقط برای scope=domain.
+   */
+  async createPolicy(
+    companyId: string,
+    dto: {
+      operation: string;
+      scope: ApprovalPolicyScope;
+      domain_id?: string | null;
+      min_amount?: number | null;
+      max_amount?: number | null;
+      min_risk_score?: number | null;
+      approval_chain_id: string;
+      expires_in_hours?: number | null;
+      on_expiry?: 'escalate' | 'auto_reject';
+      priority?: number;
+    },
+  ): Promise<{ id: string }> {
+    const invalid = validatePolicyInput({
+      operation: dto.operation,
+      scope: dto.scope,
+      domainId: dto.domain_id ?? null,
+      minAmount: dto.min_amount ?? null,
+      maxAmount: dto.max_amount ?? null,
+      minRiskScore: dto.min_risk_score ?? null,
+      expiresInHours: dto.expires_in_hours ?? null,
+    });
+    if (invalid) {
+      throw new BadRequestException({
+        code: invalid,
+        message_fa: 'پیکربندیِ سیاستِ تأیید معتبر نیست.',
+      });
+    }
+    const chain = await this.repo.getApprovalChain(companyId, dto.approval_chain_id);
+    if (!chain) throw new NotFoundException({ code: 'chain_not_found', message_fa: 'زنجیرهٔ تأیید یافت نشد.' });
+
+    try {
+      const id = await this.repo.createPolicy({
+        company_id: companyId,
+        operation: dto.operation,
+        scope: dto.scope,
+        domain_id: dto.domain_id ?? null,
+        min_amount: dto.min_amount ?? null,
+        max_amount: dto.max_amount ?? null,
+        min_risk_score: dto.min_risk_score ?? null,
+        approval_chain_id: dto.approval_chain_id,
+        expires_in_hours: dto.expires_in_hours ?? null,
+        on_expiry: dto.on_expiry ?? 'escalate',
+        priority: dto.priority ?? 100,
+      });
+      return { id };
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'policy_conflict',
+          message_fa: 'برای این عملیات/دامنه سیاستِ فعالی وجود دارد؛ ابتدا آن را غیرفعال کنید.',
+        });
+      }
+      throw err;
+    }
+  }
+
+  async listPolicies(companyId: string, operation?: string | null) {
+    return this.repo.listPolicies(companyId, operation ?? null);
+  }
+
+  /**
+   * سیاست‌های فعالِ یک عملیات — برای عملیاتی که می‌خواهد بداند
+   * «آیا من اصلاً حاکمیتِ تأیید دارم یا نه؟» پیش از صدا زدنِ دروازه.
+   */
+  async listPoliciesForOperation(companyId: string, operation: string) {
+    return this.repo.listPoliciesForOperation(companyId, operation);
+  }
+
+  async setPolicyActive(companyId: string, id: string, active: boolean) {
+    const ok = await this.repo.setPolicyActive(companyId, id, active);
+    if (!ok) {
+      throw new ConflictException({
+        code: 'policy_not_deactivatable',
+        message_fa: 'سیاست یافت نشد یا سیاستِ مرکزی است (سیاستِ مرکزی قابلِ غیرفعال‌سازی نیست).',
+      });
+    }
+    return { id, is_active: active };
+  }
+
+  // ---------------- تفکیل ----------------
+
+  async createDelegation(
+    companyId: string,
+    actorUserId: string,
+    dto: { delegate_id: string; operation?: string | null; domain_id?: string | null; valid_from?: string | null; valid_to: string; reason: string },
+  ) {
+    if (dto.delegate_id === actorUserId) {
+      throw new BadRequestException({
+        code: 'delegation_to_self',
+        message_fa: 'واگذاریِ تأیید به خودتان مجاز نیست.',
+      });
+    }
+    const to = new Date(dto.valid_to);
+    if (Number.isNaN(to.getTime())) {
+      throw new BadRequestException({ code: 'invalid_valid_to', message_fa: 'تاریخِ پایانِ واگذاری معتبر نیست.' });
+    }
+    if (to.getTime() <= Date.now()) {
+      throw new BadRequestException({
+        code: 'delegation_in_the_past',
+        message_fa: 'پایانِ واگذاری باید در آینده باشد.',
+      });
+    }
+    const id = await this.repo.createDelegation({
+      company_id: companyId,
+      delegator_id: actorUserId,
+      delegate_id: dto.delegate_id,
+      operation: dto.operation ?? null,
+      domain_id: dto.domain_id ?? null,
+      valid_from: dto.valid_from ?? null,
+      valid_to: dto.valid_to,
+      reason: dto.reason,
+      created_by: actorUserId,
+    });
+    return { id };
+  }
+
+  async listDelegations(companyId: string, userId: string) {
+    return this.repo.listDelegations(companyId, userId);
+  }
+
+  async revokeDelegation(companyId: string, id: string) {
+    const ok = await this.repo.revokeDelegation(companyId, id);
+    if (!ok) throw new NotFoundException({ code: 'delegation_not_found', message_fa: 'واگذاری یافت نشد یا قبلاً لغو شده.' });
+    return { id, is_active: false };
+  }
+
+  async listNotifications(companyId: string, userId: string, status?: string | null) {
+    return this.repo.listNotifications(companyId, userId, status ?? null);
+  }
+
+  /**
+   * انقضا/ارتقای درخواست‌های گذشته از مهلت.
+   * برای هر درخواست: اگر سیاست `escalate` بود، درخواستِ ارتقایافته ساخته می‌شود؛
+   * وگرنه `expired` بسته می‌شود. هر دو حالت اعلان می‌گیرند.
+   */
+  async processExpired(companyId: string, limit = 100): Promise<{ expired: number; escalated: number }> {
+    const rows = await this.repo.findExpiredRequests(companyId, limit);
+    let expired = 0;
+    let escalated = 0;
+    for (const r of rows as { id: string; approval_chain_id: string; entity_type: string; entity_id: string; current_step: number; policy_id: string | null }[]) {
+      const policy = r.policy_id ? await this.repo.getPolicy(companyId, r.policy_id) : null;
+      const onExpiry = policy?.on_expiry ?? 'auto_reject';
+      const closed = await this.repo.expireRequest(r.id, 'expired');
+      if (!closed) continue;
+      if (onExpiry === 'escalate') {
+        await this.repo.markEscalated(r.id);
+        escalated += 1;
+      } else {
+        expired += 1;
+      }
+      await this.repo.enqueueNotification({
+        company_id: companyId,
+        approval_request_id: r.id,
+        kind: onExpiry === 'escalate' ? 'escalated' : 'expired',
+        recipient_user_id: null,
+        payload: { entity_type: r.entity_type, entity_id: r.entity_id },
+      });
+    }
+    return { expired, escalated };
+  }
+  // ---------------- کارتابل (TASK-24Y) ----------------
+
+  /**
+   * کارتابلِ من: درخواست‌های `pending` که مرحلهٔ جاری‌شان با نقش/کارمندِ من
+   * منطبق است، به‌علاوهٔ درخواست‌هایی که از طرفِ من به کسی واگذار شده (تفکیل).
+   *
+   * این متد **نقشِ واقعی** را از DB می‌خواند، نه از بدنهٔ درخواست.
+   */
+  async myInbox(companyId: string, userId: string) {
+    return this.repo.listInbox(companyId, userId);
+  }
+
+  /** درخواست‌هایی که خودم ثبت کرده‌ام. */
+  async mySubmitted(companyId: string, userId: string) {
+    return this.repo.listSubmitted(companyId, userId);
+  }
+
+  /** درخواست‌های منقضی/ارتقایافته. */
+  async expiredRequests(companyId: string) {
+    return this.repo.listExpired(companyId);
   }
 }

@@ -3,7 +3,8 @@ import type { Page } from '@dms/contracts';
 import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
-import { CurrentUser } from '../identity-rbac/auth-context.decorator';
+import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.decorator';
+import { pricingPermissionsFromSession } from '../pricing/pricing-permissions';
 import { CreateOrderDto, ListOrdersQueryDto, UpdateOrderDto } from './order.dto';
 import type { OrderRow } from './order.repository';
 import type { OrderService, OrderView } from './order.service';
@@ -19,6 +20,15 @@ import { ORDER_SERVICE } from './tokens';
 export class OrderController {
   constructor(@Inject(ORDER_SERVICE) private readonly service: OrderService) {}
 
+  /**
+   * TASK-24F · HIGH-3 / TASK-24W: مجوزهای مؤثر بر قیمت فقط از نشست خوانده می‌شوند.
+   * ساختِ مجموعه اکنون در `pricing-permissions.ts` است تا هر سه مسیر
+   * (`/orders`, `/pricing/quote|simulate`, `/requests/{id}/convert`) یک قاعده داشته باشند.
+   */
+  private pricingPermissions(user: AuthContext) {
+    return pricingPermissionsFromSession(user);
+  }
+
   @Get()
   @RequirePermissions('sales.order.view')
   list(
@@ -33,8 +43,10 @@ export class OrderController {
   create(
     @Body() dto: CreateOrderDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthContext,
   ): Promise<OrderView> {
-    return this.service.create(companyId, dto);
+    return this.service.create(companyId, dto, userId, this.pricingPermissions(user));
   }
 
   @Get(':id')
@@ -52,8 +64,10 @@ export class OrderController {
     @Param('id') id: string,
     @Body() dto: UpdateOrderDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthContext,
   ): Promise<OrderView> {
-    return this.service.update(companyId, id, dto);
+    return this.service.update(companyId, id, dto, userId, this.pricingPermissions(user));
   }
 
   @Post(':id/approve')
@@ -62,7 +76,9 @@ export class OrderController {
   approve(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<OrderView> {
-    return this.service.approve(companyId, id);
+    // TASK-24Y: تأیید نیازمندِ هویتِ تأییدکننده است (جداسازیِ وظایف + ممیزی)
+    return this.service.approve(companyId, id, userId);
   }
 }

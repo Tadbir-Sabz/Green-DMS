@@ -11,7 +11,6 @@
 device-rls.test.ts
 geofence-rls.test.ts
 migrations-security.test.ts
-view-isolation.test.ts
 product-master-attributes.test.ts
 product-master-barcode.test.ts
 product-master-bundle.test.ts
@@ -20,3 +19,5 @@ product-master-import.test.ts
 product-master-rls.test.ts
 product-master-security.test.ts
 product-master-snapshots.test.ts
+rules-engine-behavior.test.ts
+view-isolation.test.ts

@@ -58,6 +58,8 @@ const VIEWER_PASSWORD = 'View!pass1';
 
 let adminToken = '';
 let viewerToken = '';
+/** TASK-24Y — تأییدکنندهٔ مستقل (نه سازنده) */
+let approverToken = '';
 let companyId = '';
 let customerId = '';
 let priceListId = '';
@@ -330,6 +332,8 @@ describe('OD — /orders', () => {
       .send({
         customer_id: customerId,
         order_date: '2024-05-01',
+        // TASK-24F · HIGH-3: دلیلِ قیمتِ دستیِ متفاوت از قیمتِ سیستمی الزامی است
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
         lines: [{ product_id: productId, qty: 3, unit_price: '1000', discount_amount: '200' }],
       })
       .expect(201);
@@ -353,6 +357,8 @@ describe('OD — /orders', () => {
       .send({
         customer_id: customerId,
         order_date: '2024-05-02',
+        // TASK-24F: تاریخِ گذشته بدونِ دلیل و مجوز پذیرفته نمی‌شود
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
         lines: [{ product_id: productId, qty: 2 }],
       })
       .expect(201);
@@ -383,6 +389,7 @@ describe('OD — /orders', () => {
       .send({
         customer_id: customerId,
         order_date: '2024-05-01',
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
         lines: [{ product_id: MISSING, qty: 1, unit_price: '100' }],
       })
       .expect(400);
@@ -395,6 +402,7 @@ describe('OD — /orders', () => {
       customer_id: customerId,
       order_date: '2024-05-03',
       client_uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      price_override_reason: 'قیمتِ توافقیِ آزمون',
       lines: [{ product_id: productId, qty: 1, unit_price: '1000' }],
     };
     await api().post('/api/v1/orders').send(body).expect(201);
@@ -435,7 +443,11 @@ describe('OD — /orders', () => {
   it('ویرایش در draft 200 ← مبالغ تازه محاسبه می‌شود؛ خراب 400 و ناموجود 404', async () => {
     const patched = await api()
       .patch(`/api/v1/orders/${orderId}`)
-      .send({ note: 'سفارش آزمایشی', lines: [{ product_id: productId, qty: 5, unit_price: '2000' }] })
+      .send({
+        note: 'سفارش آزمایشی',
+        price_override_reason: 'قیمتِ توافقیِ آزمون',
+        lines: [{ product_id: productId, qty: 5, unit_price: '2000' }],
+      })
       .expect(200);
     expectBodyMatchesSchema('patch', '/orders/{id}', 200, patched.body);
     expect(patched.body.note).toBe('سفارش آزمایشی');
@@ -450,7 +462,33 @@ describe('OD — /orders', () => {
   });
 
   it('تأیید 200 ← status=approved؛ شناسه خراب 400 و ناموجود 404', async () => {
-    const res = await api().post(`/api/v1/orders/${orderId}/approve`).expect(200);
+    // TASK-24Y — جداسازیِ وظایف: سازنده نمی‌تواند سفارشِ خودش را تأیید کند.
+    // این آزمون پیش‌تر با همان کاربرِ سازنده تأیید می‌کرد، یعنی خودِ آزمون
+    // الگویِ ناامن را تثبیت می‌کرد. اکنون تأییدکنندهٔ جداگانه لازم است.
+    const self = await api().post(`/api/v1/orders/${orderId}/approve`);
+    expect(self.status).toBe(403);
+    expect(self.body.code).toBe('self_approval_forbidden');
+
+    const approver = await pool.query<{ id: string }>(
+      `select id from app_user where username = $1`,
+      [VIEWER_USER],
+    );
+    // نقشِ تأییدکنندهٔ مستقل با مجوزِ تأیید
+    const role = await pool.query<{ id: string }>(
+      `insert into role (company_id, code, name) values ($1, 'od_approver', 'تأییدکننده') returning id`,
+      [companyId],
+    );
+    await pool.query(
+      `insert into role_permission (role_id, permission_code) values ($1, 'sales.order.approve')`,
+      [role.rows[0].id],
+    );
+    await pool.query(`insert into user_role (app_user_id, role_id) values ($1, $2)`, [
+      approver.rows[0].id,
+      role.rows[0].id,
+    ]);
+    approverToken = await login(VIEWER_USER, VIEWER_PASSWORD);
+
+    const res = await api(approverToken).post(`/api/v1/orders/${orderId}/approve`).expect(200);
     expectBodyMatchesSchema('post', '/orders/{id}/approve', 200, res.body);
     expect(res.body.status).toBe('approved');
 
@@ -462,7 +500,7 @@ describe('OD — /orders', () => {
   });
 
   it('تأیید مجدد 409 ← not_approvable', async () => {
-    const res = await api().post(`/api/v1/orders/${orderId}/approve`).expect(409);
+    const res = await api(approverToken).post(`/api/v1/orders/${orderId}/approve`).expect(409);
     expectBodyMatchesSchema('post', '/orders/{id}/approve', 409, res.body);
     expect(res.body.code).toBe('not_approvable');
   });

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
+import { RulesEngineModule } from '../rules-engine/rules-engine.module';
 import { PurchasingRepository } from './purchasing.repository';
 import {
   PaymentVoucherService,
@@ -36,7 +37,7 @@ import {
  * در یک تراکنش اعمال می‌کند.
  */
 @Module({
-  imports: [IdentityRbacModule],
+  imports: [IdentityRbacModule, RulesEngineModule],
   controllers: [
     PurchaseOrderController,
     SupplierInvoiceController,

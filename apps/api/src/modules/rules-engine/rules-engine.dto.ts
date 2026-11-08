@@ -9,8 +9,12 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
+  IsIn,
+  IsInt,
+  IsISO8601,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -319,4 +323,95 @@ export class ExceptionItemDto {
   entity_id: string | null;
   status: string;
   created_at: string;
+}
+
+
+// =====================================================================
+// TASK-24Y — سیاستِ تأیید، تفکیل
+// =====================================================================
+
+/** سیاستِ تأیید: دامنهٔ central اجباری است؛ domain می‌تواند سخت‌گیرانه‌تر باشد. */
+export class CreateApprovalPolicyDto {
+  @IsDefined()
+  @IsString()
+  @MaxLength(120)
+  operation!: string;
+
+  @IsDefined()
+  @IsIn(['central', 'domain', 'operation'])
+  scope!: 'central' | 'domain' | 'operation';
+
+  @IsOptional()
+  @IsUUID()
+  domain_id?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  min_amount?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  max_amount?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  min_risk_score?: number | null;
+
+  @IsDefined()
+  @IsUUID()
+  approval_chain_id!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expires_in_hours?: number | null;
+
+  @IsOptional()
+  @IsIn(['escalate', 'auto_reject'])
+  on_expiry?: 'escalate' | 'auto_reject';
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  priority?: number;
+}
+
+export class SetPolicyActiveDto {
+  @IsDefined()
+  @IsBoolean()
+  is_active!: boolean;
+}
+
+/** تفکیلِ تأیید با دامنهٔ صریح و انقضای الزامی. */
+export class CreateDelegationDto {
+  @IsDefined()
+  @IsUUID()
+  delegate_id!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  operation?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  domain_id?: string | null;
+
+  @IsOptional()
+  @IsISO8601()
+  valid_from?: string | null;
+
+  @IsDefined()
+  @IsISO8601()
+  valid_to!: string;
+
+  @IsDefined()
+  @IsString()
+  @MaxLength(500)
+  reason!: string;
 }

@@ -68,6 +68,8 @@ const VIEWER_PASSWORD = 'View!pass1';
 
 let adminToken = '';
 let viewerToken = '';
+/** TASK-24Y — تأییدکنندهٔ مستقل (نه سازندهٔ سفارش) */
+let poApproverToken = '';
 let companyId = '';
 let branchId = '';
 let warehouseId = '';
@@ -423,14 +425,34 @@ describe('Purchasing — سفارش خرید', () => {
   });
 
   it('POST /purchase-orders/{id}/approve 200 ← draft به approved', async () => {
-    const res = await api().post(`/api/v1/purchase-orders/${approvedPoId}/approve`).expect(200);
+    // TASK-24Y — جداسازیِ وظایف: سازنده نمی‌تواند تأیید کند. این آزمون پیش‌تر با
+    // همان کاربرِ سازنده تأیید می‌کرد، یعنی خود الگویِ ناامن را تثبیت می‌کرد.
+    const self = await api().post(`/api/v1/purchase-orders/${approvedPoId}/approve`);
+    expect(self.status).toBe(403);
+    expect(self.body.code).toBe('self_approval_forbidden');
+
+    const viewer = await pool.query<{ id: string }>(`select id from app_user where username = $1`, [VIEWER_USER]);
+    const role = await pool.query<{ id: string }>(
+      `insert into role (company_id, code, name) values ($1, 'pur_approver', 'تأییدکنندهٔ خرید') returning id`,
+      [companyId],
+    );
+    await pool.query(`insert into role_permission (role_id, permission_code) values ($1, 'ap.purchase.approve')`, [
+      role.rows[0].id,
+    ]);
+    await pool.query(`insert into user_role (app_user_id, role_id) values ($1, $2)`, [
+      viewer.rows[0].id,
+      role.rows[0].id,
+    ]);
+    poApproverToken = await login(VIEWER_USER, VIEWER_PASSWORD);
+
+    const res = await api(poApproverToken).post(`/api/v1/purchase-orders/${approvedPoId}/approve`).expect(200);
     expectBodyMatchesSchema('post', '/purchase-orders/{id}/approve', 200, res.body);
     expect(res.body.status).toBe('approved');
     expect(res.body.lines).toHaveLength(1);
   });
 
   it('تأیید دوباره 409 ← po_not_draft؛ ناموجود 404 و خراب 400', async () => {
-    const again = await api().post(`/api/v1/purchase-orders/${approvedPoId}/approve`).expect(409);
+    const again = await api(poApproverToken).post(`/api/v1/purchase-orders/${approvedPoId}/approve`).expect(409);
     expectBodyMatchesSchema('post', '/purchase-orders/{id}/approve', 409, again.body);
     expect(again.body.code).toBe('po_not_draft');
 

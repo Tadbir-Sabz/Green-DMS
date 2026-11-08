@@ -97,7 +97,7 @@ export interface SupplierInvoiceBalance {
 const PO_COLUMNS = `po.id, po.branch_id, po.doc_number, po.fiscal_year, po.supplier_id, po.warehouse_id,
   po.order_date::text as order_date, po.expected_date::text as expected_date, po.currency,
   po.subtotal::text as subtotal, po.discount_total::text as discount_total,
-  po.tax_total::text as tax_total, po.grand_total::text as grand_total, po.status`;
+  po.tax_total::text as tax_total, po.grand_total::text as grand_total, po.status, po.created_by`;
 
 const SINV_COLUMNS = `si.id, si.branch_id, si.doc_number, si.internal_no, si.supplier_id,
   si.purchase_order_id, si.invoice_date::text as invoice_date, si.due_date::text as due_date,
@@ -289,7 +289,10 @@ export class PurchasingRepository {
   }
 
   /** ثبت سفارش خرید پیش‌نویس + اقلام؛ جمع‌ها از اقلام محاسبه می‌شود (تراکنشی) */
-  async insertPurchaseOrder(dto: CreatePurchaseOrderDto): Promise<string> {
+  async insertPurchaseOrder(
+    dto: CreatePurchaseOrderDto,
+    createdBy: string | null = null,
+  ): Promise<string> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -327,9 +330,10 @@ export class PurchasingRepository {
       await client.query(
         `insert into purchase_order
            (id, branch_id, doc_number, fiscal_year, supplier_id, warehouse_id, order_date,
-            expected_date, currency, subtotal, discount_total, tax_total, grand_total, status)
+            expected_date, currency, subtotal, discount_total, tax_total, grand_total, status,
+            created_by)
          values ($1,$2,$3,$4,$5,$6, coalesce($7::date, current_date), $8::date,
-                 coalesce($9,'IRR'), $10,$11,$12,$13, 'draft')`,
+                 coalesce($9,'IRR'), $10,$11,$12,$13, 'draft', $14)`,
         [
           id,
           dto.branch_id,
@@ -344,6 +348,7 @@ export class PurchasingRepository {
           discountR,
           taxR,
           grandR,
+          createdBy,
         ],
       );
 

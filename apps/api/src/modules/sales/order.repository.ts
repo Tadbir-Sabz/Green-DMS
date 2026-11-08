@@ -27,6 +27,8 @@ export interface OrderRow extends QueryResultRow {
   note: string | null;
   client_uuid: string | null;
   row_version: number;
+  /** TASK-24Y — سازندهٔ سفارش؛ مبنای جلوگیری از خودتأییدی */
+  created_by: string | null;
 }
 
 export interface OrderLineValues {
@@ -57,7 +59,8 @@ const COLUMNS = `o.id as id, o.branch_id, o.doc_number, o.fiscal_year, o.custome
   o.tour_id, o.channel, o.order_date::text as order_date, o.delivery_date::text as delivery_date,
   o.price_list_id, o.subtotal::text as subtotal, o.discount_total::text as discount_total,
   o.tax_total::text as tax_total, o.grand_total::text as grand_total,
-  o.settlement_term_id, o.status, o.approval_request_id, o.note, o.client_uuid, o.row_version`;
+  o.settlement_term_id, o.status, o.approval_request_id, o.note, o.client_uuid, o.row_version,
+  o.created_by`;
 
 const encodeCursor = (id: string): string => Buffer.from(id, 'utf8').toString('base64url');
 const decodeCursor = (cursor: string): string => Buffer.from(cursor, 'base64url').toString('utf8');
@@ -318,6 +321,31 @@ export class OrderRepository {
     return rows.length > 0;
   }
 
+  /**
+   * TASK-24X · A-1 — آیا برای این درخواست سفارشی وجود دارد؟
+   *
+   * دامنهٔ شرکت با join روی `customer_request → branch.company_id` اعمال می‌شود
+   * (همان الگوی `requestExists`)، نه با یک `where` سراسری؛ بنابراین یک شناسهٔ
+   * درخواستِ شرکتِ دیگر نمی‌تواند نتیجهٔ «یافت‌شد» جعلی بسازد.
+   *
+   * سفارش‌های **لغوشده** نادیده گرفته می‌شوند: لغو یک سند تجاری، درخواست را
+   * برای تبدیلِ دوباره آزاد می‌کند (شمارهٔ سند و تاریخچه حفظ می‌شود).
+   */
+  async findOrderIdByRequestId(companyId: string, requestId: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `select o.id
+         from sales_order o
+         join customer_request r on r.id = o.request_id
+         join branch b on b.id = r.branch_id
+        where o.request_id = $1 and b.company_id = $2
+          and o.status not in ('cancelled', 'rejected')
+        order by o.created_at
+        limit 1`,
+      [requestId, companyId],
+    );
+    return rows[0]?.id ?? null;
+  }
+
   /** D5 — کدام‌یک از این SKUها بسته‌اند؟ (ممنوعیتِ سفارش/فروش تا P5) */
   async findBundleProductIds(productIds: string[]): Promise<string[]> {
     if (productIds.length === 0) return [];
@@ -395,6 +423,12 @@ export class OrderRepository {
       docNumber: string;
       totals: ComputedTotals;
       lines: OrderLineValues[];
+      /**
+       * TASK-24Y — سازندهٔ سفارش. پیش از این ستونِ `created_by` در جدول وجود
+       * داشت ولی **هرگز پر نمی‌شد**؛ در نتیجه «جداسازیِ وظایف» قابلِ اعمال
+       * نبود چون سازنده قابلِ شناسایی نبود. ستونِ بی‌مقدار = کنترلِ ناموجود.
+       */
+      createdBy: string | null;
     },
   ): Promise<string> {
     const client = await this.pool.connect();
@@ -407,11 +441,11 @@ export class OrderRepository {
            (id, branch_id, doc_number, fiscal_year, customer_id, request_id, salesperson_id,
             tour_id, channel, order_date, delivery_date, price_list_id,
             subtotal, discount_total, tax_total, grand_total,
-            settlement_term_id, note, client_uuid)
+            settlement_term_id, note, client_uuid, created_by)
          values ($1, $2, $3, $4, $5, $6, $7,
                  $8, coalesce($9,'field'), $10::date, $11::date, $12,
                  $13, $14, $15, $16,
-                 $17, $18, $19)`,
+                 $17, $18, $19, $20)`,
         [
           id,
           opts.branchId,
@@ -432,6 +466,7 @@ export class OrderRepository {
           dto.settlement_term_id ?? null,
           dto.note ?? null,
           dto.client_uuid ?? null,
+          opts.createdBy,
         ],
       );
       await this.insertLines(client, id, opts.lines);

@@ -9,6 +9,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { IdentityRbacModule } from './modules/identity-rbac/identity-rbac.module';
 import { MasterDataModule } from './modules/master-data/master-data.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { RulesEngineModule } from './modules/rules-engine/rules-engine.module';
 import { SalesModule } from './modules/sales/sales.module';
@@ -49,6 +50,7 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     HealthModule,
     IdentityRbacModule,
     MasterDataModule,
+    PricingModule,
     InventoryModule,
     RulesEngineModule,
     SalesModule,

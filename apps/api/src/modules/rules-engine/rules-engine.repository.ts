@@ -10,6 +10,7 @@ import {
   RuleScopeDto,
   ApprovalStepDefDto,
 } from './rules-engine.dto';
+import type { ApprovalPolicyRow } from './approval-policy';
 
 export type {
   CreateApprovalChainDto,
@@ -114,6 +115,9 @@ export interface ExceptionItemRow extends QueryResultRow {
   created_at: string;
 }
 
+/** شناسهٔ UUID — پیش‌اعتبارسنجیِ پارامترهای مسیر پیش از رفتن به Postgres */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class RulesEngineRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -133,6 +137,7 @@ export class RulesEngineRepository {
   }
 
   async getRule(companyId: string, ruleId: string): Promise<RuleRow | null> {
+    if (!UUID_RE.test(ruleId)) return null;
     const { rows } = await this.pool.query<RuleRow>(
       `select id, company_id, code, title, entity, event, effect, priority,
               message_fa, valid, is_active, created_at, updated_at
@@ -360,6 +365,7 @@ export class RulesEngineRepository {
   }
 
   async getApprovalChain(companyId: string, chainId: string): Promise<ApprovalChainRow | null> {
+    if (!UUID_RE.test(chainId)) return null;
     const { rows } = await this.pool.query<ApprovalChainRow>(
       `select id, company_id, code, entity, is_active
          from approval_chain
@@ -452,6 +458,8 @@ export class RulesEngineRepository {
   }
 
   async getApprovalRequest(companyId: string, requestId: string): Promise<ApprovalRequestRow | null> {
+    // TASK-24 (G-03): شناسهٔ غیر-UUID نباید 500 بدهد — «یافت‌نشد» پاسخِ درست است
+    if (!UUID_RE.test(requestId)) return null;
     const { rows } = await this.pool.query<ApprovalRequestRow>(
       `select a.id, a.approval_chain_id, a.entity_type, a.entity_id, a.requested_by,
               a.amount, a.status, a.current_step, a.created_at, a.closed_at
@@ -508,19 +516,58 @@ export class RulesEngineRepository {
     return rows[0].id;
   }
 
+  /**
+   * TASK-24F · G-03: انتقالِ وضعیتِ شرطی (compare-and-set) تا دو تأییدِ هم‌زمان
+   * نتوانند از وضعیتِ `pending`/مرحلهٔ جاری عبور کنند.
+   */
   async updateApprovalRequestStatus(
     requestId: string,
     status: string,
     currentStep: number,
     closedAt: string | null,
+    expected?: { status: string; currentStep: number },
   ): Promise<boolean> {
     const { rowCount } = await this.pool.query(
       `update approval_request
           set status = $2, current_step = $3, closed_at = $4
-        where id = $1`,
-      [requestId, status, currentStep, closedAt ?? null],
+        where id = $1
+          and ($5::text is null or status = $5)
+          and ($6::int is null or current_step = $6)`,
+      [
+        requestId,
+        status,
+        currentStep,
+        closedAt ?? null,
+        expected?.status ?? null,
+        expected?.currentStep ?? null,
+      ],
     );
     return (rowCount ?? 0) > 0;
+  }
+
+  /** TASK-24F · G-03: مجاز بودنِ تصمیم‌گیرنده برای مرحله (نقش/کارمند) */
+  async userCanApproveStep(
+    companyId: string,
+    userId: string,
+    step: ApprovalStepDefRow,
+  ): Promise<boolean> {
+    if (step.approver_staff_id == null && step.approver_role_id == null) return true;
+    const { rows } = await this.pool.query<{ ok: boolean }>(
+      `select (
+         ($3::uuid is not null and exists (
+            select 1 from app_user u
+              join staff st on st.person_id = u.person_id
+             where u.id = $2 and st.id = $3))
+         or ($4::uuid is not null and exists (
+            select 1 from user_role ur
+             where ur.app_user_id = $2 and ur.role_id = $4))
+       ) as ok
+       from app_user u
+       join person p on p.id = u.person_id
+      where u.id = $2 and p.company_id = $1`,
+      [companyId, userId, step.approver_staff_id, step.approver_role_id],
+    );
+    return rows[0]?.ok === true;
   }
 
   // ---------------- استثنا ----------------
@@ -573,5 +620,389 @@ export class RulesEngineRepository {
       ],
     );
     return rows[0].id;
+  }
+  // ===================================================================
+  // TASK-24Y — سیاست، اتصال، تفکیل، اعلان
+  // ===================================================================
+
+  /** همهٔ سیاست‌هایِ فعالِ یک عملیات در یک شرکت (شاملِ مرکزی و قلمرو). */
+  async listPoliciesForOperation(
+    companyId: string,
+    operation: string,
+  ): Promise<ApprovalPolicyRow[]> {
+    const { rows } = await this.pool.query<ApprovalPolicyRow>(
+      `select id, company_id, operation, scope, domain_id,
+              min_amount::text as min_amount, max_amount::text as max_amount,
+              min_risk_score, approval_chain_id, expires_in_hours, on_expiry,
+              is_active, priority
+         from approval_policy
+        where company_id = $1 and operation = $2 and is_active
+        order by priority asc`,
+      [companyId, operation],
+    );
+    return rows;
+  }
+
+  async listPolicies(companyId: string, operation?: string | null): Promise<ApprovalPolicyRow[]> {
+    const { rows } = await this.pool.query<ApprovalPolicyRow>(
+      `select id, company_id, operation, scope, domain_id,
+              min_amount::text as min_amount, max_amount::text as max_amount,
+              min_risk_score, approval_chain_id, expires_in_hours, on_expiry,
+              is_active, priority
+         from approval_policy
+        where company_id = $1 and ($2::text is null or operation = $2)
+        order by operation, scope, priority`,
+      [companyId, operation ?? null],
+    );
+    return rows;
+  }
+
+  async createPolicy(input: {
+    company_id: string;
+    operation: string;
+    scope: string;
+    domain_id: string | null;
+    min_amount: number | null;
+    max_amount: number | null;
+    min_risk_score: number | null;
+    approval_chain_id: string;
+    expires_in_hours: number | null;
+    on_expiry: string;
+    priority: number;
+  }): Promise<string> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `insert into approval_policy
+         (company_id, operation, scope, domain_id, min_amount, max_amount, min_risk_score,
+          approval_chain_id, expires_in_hours, on_expiry, priority)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       returning id`,
+      [
+        input.company_id, input.operation, input.scope, input.domain_id,
+        input.min_amount, input.max_amount, input.min_risk_score,
+        input.approval_chain_id, input.expires_in_hours, input.on_expiry, input.priority,
+      ],
+    );
+    return rows[0].id;
+  }
+
+  async setPolicyActive(companyId: string, id: string, active: boolean): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update approval_policy set is_active = $3, updated_at = now(), row_version = row_version + 1
+        where id = $1 and company_id = $2 and scope <> 'central'`,
+      [id, companyId, active],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  /** اتصالِ درخواستِ تأیید به موجودیتِ محافظت‌شده. */
+  async createBinding(input: {
+    company_id: string;
+    approval_request_id: string;
+    operation: string;
+    entity_type: string;
+    entity_id: string;
+    entity_fingerprint: string | null;
+  }): Promise<string> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `insert into approval_binding
+         (company_id, approval_request_id, operation, entity_type, entity_id, entity_fingerprint)
+       values ($1,$2,$3,$4,$5,$6)
+       returning id`,
+      [
+        input.company_id, input.approval_request_id, input.operation,
+        input.entity_type, input.entity_id, input.entity_fingerprint,
+      ],
+    );
+    return rows[0].id;
+  }
+
+  /** آیا برای این موجودیت/عملیات یک تأییدِ **معتبر** وجود دارد؟ */
+  async findConsumedBinding(companyId: string, operation: string, entityType: string, entityId: string) {
+    const { rows } = await this.pool.query<{
+      id: string; approval_request_id: string; consumed_at: string | null; entity_fingerprint: string | null;
+    }>(
+      `select b.id, b.approval_request_id, b.consumed_at, b.entity_fingerprint
+         from approval_binding b
+         join approval_request a on a.id = b.approval_request_id
+        where b.company_id = $1 and b.operation = $2
+          and b.entity_type = $3 and b.entity_id = $4`,
+      [companyId, operation, entityType, entityId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /**
+   * مصرفِ اتمیکِ اتصال: فقط یک بار و فقط اگر تأیید واقعاً `approved` باشد.
+   * `consumed_at` دوباره‌مصرف را می‌بندد.
+   */
+  async consumeBinding(companyId: string, bindingId: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update approval_binding b
+          set consumed_at = now()
+        where b.id = $1 and b.company_id = $2 and b.consumed_at is null
+          and exists (select 1 from approval_request a
+                       where a.id = b.approval_request_id and a.status = 'approved')`,
+      [bindingId, companyId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  /** تفکیلِ معتبرِ این کاربر در این لحظه (برای همان عملیات). */
+  async findActiveDelegation(
+    companyId: string,
+    delegatorId: string,
+    operation: string,
+  ): Promise<{ delegate_id: string } | null> {
+    const { rows } = await this.pool.query<{ delegate_id: string }>(
+      `select delegate_id
+         from approval_delegation
+        where company_id = $1 and delegator_id = $2 and is_active
+          and (operation is null or operation = $3)
+          and now() between valid_from and valid_to
+        order by valid_to asc
+        limit 1`,
+      [companyId, delegatorId, operation],
+    );
+    return rows[0] ?? null;
+  }
+
+  async listDelegations(companyId: string, userId: string) {
+    const { rows } = await this.pool.query(
+      `select id, delegator_id, delegate_id, operation, domain_id,
+              valid_from, valid_to, reason, is_active, created_at
+         from approval_delegation
+        where company_id = $1 and (delegator_id = $2 or delegate_id = $2)
+        order by created_at desc`,
+      [companyId, userId],
+    );
+    return rows;
+  }
+
+  async createDelegation(input: {
+    company_id: string;
+    delegator_id: string;
+    delegate_id: string;
+    operation: string | null;
+    domain_id: string | null;
+    valid_from: string | null;
+    valid_to: string;
+    reason: string;
+    created_by: string;
+  }): Promise<string> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `insert into approval_delegation
+         (company_id, delegator_id, delegate_id, operation, domain_id, valid_from, valid_to, reason, created_by)
+       values ($1,$2,$3,$4,$5,coalesce($6::timestamptz, now()),$7,$8,$9)
+       returning id`,
+      [
+        input.company_id, input.delegator_id, input.delegate_id, input.operation,
+        input.domain_id, input.valid_from, input.valid_to, input.reason, input.created_by,
+      ],
+    );
+    return rows[0].id;
+  }
+
+  async revokeDelegation(companyId: string, id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update approval_delegation set is_active = false, row_version = row_version + 1
+        where id = $1 and company_id = $2 and is_active`,
+      [id, companyId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  /** نوشتنِ اعلان در همان تراکنشِ کسب‌وکار (outbox). */
+  async enqueueNotification(input: {
+    company_id: string;
+    approval_request_id: string | null;
+    kind: string;
+    recipient_user_id: string | null;
+    payload: Record<string, unknown>;
+  }): Promise<void> {
+    await this.pool.query(
+      `insert into approval_notification
+         (company_id, approval_request_id, kind, recipient_user_id, payload)
+       values ($1,$2,$3,$4,$5::jsonb)`,
+      [
+        input.company_id, input.approval_request_id, input.kind,
+        input.recipient_user_id, JSON.stringify(input.payload ?? {}),
+      ],
+    );
+  }
+
+  async listNotifications(companyId: string, userId: string, status?: string | null) {
+    const { rows } = await this.pool.query(
+      `select id, approval_request_id, kind, payload, status, created_at, sent_at
+         from approval_notification
+        where company_id = $1 and recipient_user_id = $2
+          and ($3::text is null or status = $3)
+        order by created_at desc
+        limit 200`,
+      [companyId, userId, status ?? null],
+    );
+    return rows;
+  }
+
+  /**
+   * درخواست‌های `pending` که مهلتشان گذشته است.
+   * برای jobِ انقضا/ارتقا — نه برای مسیرِ درخواستِ HTTP.
+   */
+  async findExpiredRequests(companyId: string, limit = 100) {
+    const { rows } = await this.pool.query(
+      `select a.id, a.approval_chain_id, a.entity_type, a.entity_id, a.current_step,
+              a.expires_at, a.policy_id
+         from approval_request a
+         join approval_chain ac on ac.id = a.approval_chain_id
+        where ac.company_id = $1 and a.status = 'pending'
+          and a.expires_at is not null and a.expires_at < now()
+        order by a.expires_at asc
+        limit $2`,
+      [companyId, limit],
+    );
+    return rows;
+  }
+
+  async getPolicy(companyId: string, policyId: string) {
+    const { rows } = await this.pool.query<ApprovalPolicyRow & { on_expiry: string }>(
+      `select id, company_id, operation, scope, domain_id,
+              min_amount::text as min_amount, max_amount::text as max_amount,
+              min_risk_score, approval_chain_id, expires_in_hours, on_expiry,
+              is_active, priority
+         from approval_policy where id = $1 and company_id = $2`,
+      [policyId, companyId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** بستنِ اتمیکِ درخواست با انقضا (فقط اگر هنوز pending است). */
+  async expireRequest(requestId: string, status: 'expired' | 'cancelled'): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update approval_request
+          set status = $2, closed_at = now()
+        where id = $1 and status = 'pending'`,
+      [requestId, status],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+  /** ساختِ درخواستِ تأیید با مهلت، قلمرو و سیاست (TASK-24Y). */
+  async createApprovalRequestWithMeta(input: {
+    approval_chain_id: string;
+    entity_type: string;
+    entity_id: string;
+    requested_by: string;
+    amount: number | null;
+    current_step: number;
+    expires_at: string | null;
+    entity_domain_id: string | null;
+    risk_score: number | null;
+    policy_id: string | null;
+  }): Promise<string> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `insert into approval_request
+         (approval_chain_id, entity_type, entity_id, requested_by, amount, current_step,
+          status, expires_at, entity_domain_id, risk_score, policy_id)
+       values ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10)
+       returning id`,
+      [
+        input.approval_chain_id, input.entity_type, input.entity_id, input.requested_by,
+        input.amount, input.current_step, input.expires_at, input.entity_domain_id,
+        input.risk_score, input.policy_id,
+      ],
+    );
+    return rows[0].id;
+  }
+
+  /** کاربرانِ متصل به یک کارمند (برای اعلان به تأییدکنندهٔ مرحله). */
+  async userIdsForStaff(staffId: string): Promise<string[]> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `select u.id from app_user u join staff st on st.person_id = u.person_id where st.id = $1`,
+      [staffId],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /** کاربرانِ دارای یک نقش. */
+  async userIdsForRole(roleId: string): Promise<string[]> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `select ur.app_user_id as id from user_role ur where ur.role_id = $1`,
+      [roleId],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /** علامت‌گذاریِ ارتقا (پس از بسته‌شدن با انقضا). */
+  async markEscalated(requestId: string): Promise<void> {
+    await this.pool.query(
+      `update approval_request set escalated_at = now() where id = $1`,
+      [requestId],
+    );
+  }
+  /**
+   * کارتابل: درخواست‌های pending که مرحلهٔ جاری‌شان به نقش/کارمندِ این کاربر
+   * می‌خورد — یا کاربر از طریقِ تفکیلِ معتبر نمایندهٔ تأییدکنندهٔ آن مرحله است.
+   * همه‌چیز در سطحِ شرکت محدود می‌شود.
+   */
+  async listInbox(companyId: string, userId: string) {
+    const { rows } = await this.pool.query(
+      `select a.id, a.entity_type, a.entity_id, a.status, a.current_step,
+              a.amount::text as amount, a.created_at, a.expires_at, a.escalated_at,
+              ac.code as chain_code, ac.entity as chain_entity
+         from approval_request a
+         join approval_chain ac on ac.id = a.approval_chain_id
+         join approval_step_def s
+           on s.approval_chain_id = a.approval_chain_id and s.step_no = a.current_step
+        where ac.company_id = $1 and a.status = 'pending'
+          and (
+            -- کارمندِ مرحله
+            (s.approver_staff_id is not null and exists (
+               select 1 from app_user u join staff st on st.person_id = u.person_id
+                where u.id = $2 and st.id = s.approver_staff_id))
+            -- نقشِ مرحله
+            or (s.approver_role_id is not null and exists (
+               select 1 from user_role ur where ur.app_user_id = $2 and ur.role_id = s.approver_role_id))
+            -- مرحلهٔ بی‌قید: هر کسی با مجوزِ تصمیم (کنترلِ مجوز در گاردِ مسیر است)
+            or (s.approver_staff_id is null and s.approver_role_id is null)
+            -- نمایندگیِ معتبر
+            or exists (
+               select 1 from approval_delegation d
+                where d.company_id = $1 and d.delegate_id = $2 and d.is_active
+                  and now() between d.valid_from and d.valid_to
+                  and (d.operation is null or d.operation = ac.entity))
+          )
+        order by a.created_at asc
+        limit 200`,
+      [companyId, userId],
+    );
+    return rows;
+  }
+
+  async listSubmitted(companyId: string, userId: string) {
+    const { rows } = await this.pool.query(
+      `select a.id, a.entity_type, a.entity_id, a.status, a.current_step,
+              a.amount::text as amount, a.created_at, a.closed_at, a.expires_at
+         from approval_request a
+         join approval_chain ac on ac.id = a.approval_chain_id
+        where ac.company_id = $1 and a.requested_by = $2
+        order by a.created_at desc
+        limit 200`,
+      [companyId, userId],
+    );
+    return rows;
+  }
+
+  async listExpired(companyId: string) {
+    const { rows } = await this.pool.query(
+      `select a.id, a.entity_type, a.entity_id, a.status, a.current_step,
+              a.amount::text as amount, a.created_at, a.closed_at,
+              a.expires_at, a.escalated_at
+         from approval_request a
+         join approval_chain ac on ac.id = a.approval_chain_id
+        where ac.company_id = $1
+          and (a.status = 'expired' or a.escalated_at is not null)
+        order by a.closed_at desc nulls last
+        limit 200`,
+      [companyId],
+    );
+    return rows;
   }
 }

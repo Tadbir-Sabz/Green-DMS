@@ -2,6 +2,7 @@ import { PartialType } from '@nestjs/mapped-types';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsDefined,
   IsIn,
@@ -34,6 +35,12 @@ export const ORDER_STATUSES = [
 export const ORDER_CHANNELS = ['field', 'telesale', 'portal', 'walk_in'] as const;
 
 /** فیلدهای مبلغی قرارداد از نوع string هستند؛ عددِ احتمالی کلاینت به رشته تبدیل می‌شود */
+const toBoolean = ({ value }: { value: unknown }): unknown => {
+  if (value === 'true' || value === true) return true;
+  if (value === 'false' || value === false) return false;
+  return value;
+};
+
 const toNumericString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
 
@@ -116,6 +123,34 @@ export class CreateOrderDto {
   @IsOptional()
   @IsUUID('4')
   client_uuid?: string;
+
+  /**
+   * TASK-24F · HIGH-1: پرچمِ کلاینتیِ `apply_pricing_engine` حذف شد. قیمت‌گذاریِ سفارش
+   * همیشه از موتور و با کنترل‌های سرور-محور (کفِ سود/سقفِ تخفیف/مجوزِ قیمتِ دستی)
+   * انجام می‌شود؛ بدنهٔ درخواست دیگر نمی‌تواند کنترل‌ها را خاموش کند.
+   */
+
+  /**
+   * دلیلِ قیمتِ دستی/عبور از سقف/تاریخِ گذشته (TASK-24F · HIGH-3).
+   * در دفترِ تغییرِ قیمت با actor و قیمتِ سیستمی ثبت می‌شود.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  price_override_reason?: string;
+
+  /** کوپن‌های ارائه‌شده (فقط با موتورِ قیمت معنا دارد) */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  coupon_codes?: string[];
+
+  /** کلیدِ idempotency برای ارزیابی/مصرفِ تشویق — تکرار بی‌اثر است */
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  pricing_idempotency_key?: string;
 
   @IsOptional()
   @IsArray()

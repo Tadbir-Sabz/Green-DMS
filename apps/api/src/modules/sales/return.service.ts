@@ -1,9 +1,18 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
 import type { CreateReturnDto, ListReturnsQueryDto, ReceiveReturnDto } from './return.dto';
 import type { ReturnLineRow, ReturnRepository, ReturnRow } from './return.repository';
 import { RETURN_REPOSITORY } from './tokens';
+import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
+import type { RulesEngineService } from '../rules-engine/rules-engine.service';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -39,7 +48,11 @@ const mapLine = (l: ReturnLineRow) => ({
 
 @Injectable()
 export class ReturnService {
-  constructor(@Inject(RETURN_REPOSITORY) private readonly repo: ReturnRepository) {}
+  constructor(
+    @Inject(RETURN_REPOSITORY) private readonly repo: ReturnRepository,
+    /** TASK-24Y — همان دروازهٔ تأییدِ قابلِ استفادهٔ مجدد (بدونِ تکرارِ منطق) */
+    @Inject(RULES_ENGINE_SERVICE) private readonly rules: RulesEngineService,
+  ) {}
 
   private assertId(id: string): void {
     if (!isUUID(id, '4')) throw badRequest('invalid_id', 'شناسه ارسال‌شده معتبر نیست.');
@@ -58,20 +71,31 @@ export class ReturnService {
     return { ...row, lines: lines.map(mapLine) };
   }
 
-  async create(companyId: string, dto: CreateReturnDto): Promise<ReturnView> {
+  async create(
+    companyId: string,
+    dto: CreateReturnDto,
+    actorUserId: string | null = null,
+  ): Promise<ReturnView> {
     if (!dto.lines?.length) {
       throw badRequest('lines_required', 'درخواست مرجوعی باید حداقل یک قلم کالا داشته باشد.');
     }
     let id: string;
     try {
-      id = await this.repo.insert(companyId, dto);
+      id = await this.repo.insert(companyId, dto, actorUserId);
     } catch (err) {
       throw this.mapDbError(err);
     }
     return this.get(companyId, id);
   }
 
-  async approve(companyId: string, id: string): Promise<ReturnView> {
+  /**
+   * TASK-24Y — تأییدِ مرجوعی از همان دروازهٔ قابلِ استفادهٔ مجدد.
+   *
+   * پیش از این فقط `status` بررسی می‌شد: یک نفر با مجوز می‌توانست مرجوعیِ
+   * خودش را تأیید کند و هیچ زنجیره/تصمیمی ثبت نمی‌شد. `requested_by` از قبل
+   * در جدول بود ولی خوانده نمی‌شد — ستونِ بی‌استفاده یعنی کنترلِ ناموجود.
+   */
+  async approve(companyId: string, id: string, actorUserId: string): Promise<ReturnView> {
     this.assertId(id);
     const row = await this.repo.findById(companyId, id);
     if (!row) throw new NotFoundException({ code: 'not_found', message_fa: 'درخواست مرجوعی یافت نشد' });
@@ -82,6 +106,25 @@ export class ReturnService {
         details: { status: row.status },
       });
     }
+
+    // جداسازیِ وظایف
+    if (row.requested_by && row.requested_by === actorUserId) {
+      throw new ForbiddenException({
+        code: 'self_approval_forbidden',
+        message_fa: 'تأییدِ مرجوعی‌ای که خودتان ثبت کرده‌اید مجاز نیست؛ تأییدکننده باید شخصِ دیگری باشد.',
+      });
+    }
+
+    // دروازهٔ سیاست — فقط اگر سیاستی برای این عملیات تعریف شده باشد
+    const policies = await this.rules.listPoliciesForOperation(companyId, 'sales.return.approve');
+    if (policies.length > 0) {
+      await this.rules.requireApproved(companyId, {
+        operation: 'sales.return.approve',
+        entityType: 'return_request',
+        entityId: id,
+      });
+    }
+
     const ok = await this.repo.approve(companyId, id);
     if (!ok) {
       throw new ConflictException({ code: 'invalid_transition', message_fa: 'وضعیت درخواست هم‌زمان تغییر کرده است.' });

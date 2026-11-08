@@ -36,8 +36,9 @@ export class PriceListController {
   create(
     @Body() dto: CreatePriceListDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<PriceListView> {
-    return this.service.createPriceList(companyId, dto);
+    return this.service.createPriceList(companyId, dto, userId);
   }
 
   @Get(':id')
@@ -55,7 +56,8 @@ export class PriceListController {
     @Param('id') id: string,
     @Body() dto: UpdatePriceListDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<PriceListView> {
-    return this.service.updatePriceList(companyId, id, dto);
+    return this.service.updatePriceList(companyId, id, dto, userId);
   }
 }

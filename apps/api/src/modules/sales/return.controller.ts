@@ -32,8 +32,10 @@ export class ReturnController {
   create(
     @Body() dto: CreateReturnDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<ReturnView> {
-    return this.service.create(companyId, dto);
+    // TASK-24Y: ثبتِ درخواست‌دهنده برای جداسازیِ وظایف
+    return this.service.create(companyId, dto, userId);
   }
 
   @Get(':id')
@@ -51,8 +53,10 @@ export class ReturnController {
   approve(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<ReturnView> {
-    return this.service.approve(companyId, id);
+    // TASK-24Y: هویتِ تأییدکننده لازم است (منعِ خودتأییدی + ممیزی)
+    return this.service.approve(companyId, id, userId);
   }
 
   @Post(':id/receive')

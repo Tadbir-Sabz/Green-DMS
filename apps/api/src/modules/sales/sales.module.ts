@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import type { ModuleInfo } from '../../common/module-info';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { RulesEngineModule } from '../rules-engine/rules-engine.module';
+import { PricingModule } from '../pricing/pricing.module';
 import { AreaController } from './area.controller';
 import { CustomerController } from './customer.controller';
 import { CustomerRepository } from './customer.repository';
@@ -15,6 +16,7 @@ import { WaybillController } from './waybill.controller';
 import { WaybillRepository } from './waybill.repository';
 import { WaybillService } from './waybill.service';
 import { OrderRepository } from './order.repository';
+import { OrderCreationLock } from './order-creation-lock';
 import { OrderService } from './order.service';
 import { RouteController } from './route.controller';
 import { StructureRepository } from './structure.repository';
@@ -77,7 +79,7 @@ export class SalesController {
  * (گاردهای کنترلر در همین ماژول نمونه‌سازی می‌شوند و به providerهای آن نیاز دارند).
  */
 @Module({
-  imports: [IdentityRbacModule, RulesEngineModule],
+  imports: [IdentityRbacModule, RulesEngineModule, PricingModule],
   controllers: [
     SalesController,
     AreaController,
@@ -102,6 +104,7 @@ export class SalesController {
     OrderRepository,
     { provide: ORDER_REPOSITORY, useExisting: OrderRepository },
     OrderService,
+    OrderCreationLock,
     { provide: ORDER_SERVICE, useExisting: OrderService },
     WaybillRepository,
     { provide: WAYBILL_REPOSITORY, useExisting: WaybillRepository },

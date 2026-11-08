@@ -3,14 +3,19 @@ import type { Page } from '@dms/contracts';
 import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
-import { CurrentUser } from '../identity-rbac/auth-context.decorator';
+import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.decorator';
 import type { OrderView } from './order.service';
 // این DTOها باید «value import» باشند نه `import type`: NestJS نوع پارامترِ
 // @Body/@Query را از metadata بازتاب‌شده می‌خواند و `import type` در زمان کامپایل
 // پاک می‌شود، پس ValidationPipe بی‌صدا برای این سه کنترلر (requests/invoices/
 // deliveries) نادیده گرفته می‌شد. Row/Service/Page فقط نوع‌اند و type می‌مانند.
 import { ListInvoicesQueryDto, CreateInvoiceDto } from './invoice.dto';
-import { CreateRequestDto, ListRequestsQueryDto, UpdateRequestDto } from './request.dto';
+import {
+  ConvertRequestDto,
+  CreateRequestDto,
+  ListRequestsQueryDto,
+  UpdateRequestDto,
+} from './request.dto';
 import { ListDeliveriesQueryDto, UpdateDeliveryDto } from './delivery.dto';
 import type {
   DeliveryRow,
@@ -23,6 +28,7 @@ import {
   INVOICE_SERVICE,
   REQUEST_SERVICE,
 } from './tokens';
+import { pricingPermissionsFromSession } from '../pricing/pricing-permissions';
 
 /**
  * درخواست‌های مشتری — /requests، /requests/{id}، /requests/{id}/convert.
@@ -71,14 +77,28 @@ export class RequestController {
     return this.service.update(companyId, id, dto) as Promise<RequestRow>;
   }
 
+  /**
+   * TASK-24W · HIGH-1-R1 — تبدیلِ درخواست به سفارش.
+   *
+   * دو مجوزِ مستقل بررسی می‌شوند:
+   *   • `sales.request.convert` (این مسیر) — از `@RequirePermissions`
+   *   • `pricing.manual_price.apply` — فقط اگر درخواست `requested_price` داشته باشد
+   *     (در سرویس، با مجوزهای ساخته‌شده از نشست؛ نه از بدنه)
+   *
+   * بدنهٔ قابلِ‌قبول فقط `price_override_reason`/`note` است؛ هیچ پرچمِ مجوزی از
+   * کلاینت پذیرفته نمی‌شود (`whitelist` فیلدهای ناشناخته را حذف می‌کند).
+   */
   @Post(':id/convert')
   @HttpCode(201)
   @RequirePermissions('sales.request.convert')
   convert(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthContext,
+    @Body() dto: ConvertRequestDto,
   ): Promise<OrderView> {
-    return this.service.convert(companyId, id);
+    return this.service.convert(companyId, id, userId, pricingPermissionsFromSession(user), dto);
   }
 }
 
