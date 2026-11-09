@@ -1,0 +1,162 @@
+Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+api-1  | [Nest] 1  - 11/09/2026, 8:34:24 AM     LOG [RoutesResolver] OnboardingController {/api/v1/onboarding}: +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:24 AM     LOG [RouterExplorer] Mapped {/api/v1/onboarding/register, POST} route +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:24 AM     LOG [RouterExplorer] Mapped {/api/v1/onboarding, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RoutesResolver] BillingController {/api/v1/billing}: +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/billing, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/billing/invoices, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/billing/invoices/:id, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RoutesResolver] SettingsController {/api/v1/settings}: +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/settings, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/settings, PATCH} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RoutesResolver] AttachmentsController {/api/v1/attachments}: +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/attachments, POST} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/attachments, GET} route +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [RouterExplorer] Mapped {/api/v1/attachments/:id/url, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:34:25 AM     LOG [NestApplication] Nest application successfully started +10ms
+api-1  | DMS API  →  http://localhost:4000/api
+api-1  | [Nest] 1  - 11/09/2026, 8:34:34 AM   ERROR [Api] GET /api/v1/bi/abc-customers → 500 internal_error { request_id: 'd66c9163-0002-40b3-b102-38fde6a95f67' }
+api-1  | error: column "p.legal_name" must appear in the GROUP BY clause or be used in an aggregate function
+api-1  |     at /app/node_modules/pg/lib/client.js:694:17
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+api-1  |     at async BiRepository.abcCustomers (/app/apps/api/dist/modules/bi/bi.repository.js:51:26)
+api-1  |     at async BiService.abcCustomers (/app/apps/api/dist/modules/bi/bi.service.js:88:22)
+api-1  | [Nest] 1  - 11/09/2026, 8:34:38 AM   ERROR [Api] POST /api/v1/portal/auth/login → 500 internal_error { request_id: '82c4afa7-f6bf-4e38-ae1e-48d06907759d' }
+api-1  | error: new row violates row-level security policy for table "portal_session"
+api-1  |     at /app/node_modules/pg-pool/index.js:45:11
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+api-1  |     at async PortalRepository.createSession (/app/apps/api/dist/modules/portal/portal.repository.js:70:26)
+api-1  |     at async PortalService.issueSession (/app/apps/api/dist/modules/portal/portal.service.js:64:27)
+api-1  | [Nest] 1  - 11/09/2026, 8:34:39 AM   ERROR [Api] POST /api/v1/portal/auth/login → 500 internal_error { request_id: '08d48138-5708-4e61-89c5-fdf74e33230d' }
+api-1  | error: new row violates row-level security policy for table "portal_session"
+api-1  |     at /app/node_modules/pg-pool/index.js:45:11
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+api-1  |     at async PortalRepository.createSession (/app/apps/api/dist/modules/portal/portal.repository.js:70:26)
+api-1  |     at async PortalService.issueSession (/app/apps/api/dist/modules/portal/portal.service.js:64:27)
+api-1  | [Nest] 1  - 11/09/2026, 8:34:40 AM   ERROR [Api] POST /api/v1/portal/auth/login → 500 internal_error { request_id: '6c2c7bc3-43fd-4895-a877-6141c3950e9a' }
+api-1  | error: new row violates row-level security policy for table "portal_session"
+api-1  |     at /app/node_modules/pg-pool/index.js:45:11
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+api-1  |     at async PortalRe
+      102 |     const portalLogin = async (email: string) => {
+      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });
+    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);
+          |                                                                     ^
+      105 |       return (await res.json()).access_token as string;
+      106 |     };
+      107 |     const portalAToken = await portalLogin(PORTAL_A_EMAIL);
+        at portalLogin (/home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:104:69)
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:107:26
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/error-context.md
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: ورودِ پورتال (cust_a_1794213280296_419s5e@e2e.local) باید ۲۰۰ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+      102 |     const portalLogin = async (email: string) => {
+      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });
+    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);
+          |                                                                     ^
+      105 |       return (await res.json()).access_token as string;
+      106 |     };
+      107 |     const portalAToken = await portalLogin(PORTAL_A_EMAIL);
+        at portalLogin (/home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:104:69)
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:107:26
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry2/error-context.md
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry2/error-context.md
+
+  1 failed
+    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+  8 did not run
+  4 passed (8.9s)
+::notice title=🎭 Playwright Run Summary::  1 failed%0A    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ %0A  8 did not run%0A  4 passed (8.9s)
+
+8:  ✓   1 [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI (1.4s)
+9:  ✓   2 [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود (2.7s)
+10:  ✓   3 [chromium] › e2e/tests/rtl-responsive.spec.ts:4:7 › ورود: راست‌به‌چپ و اعتبارسنجی فرم 1440 (831ms)
+11:  ✓   4 [chromium] › e2e/tests/rtl-responsive.spec.ts:4:7 › ورود: راست‌به‌چپ و اعتبارسنجی فرم 390 (364ms)
+12:  ✘   5 [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ (0ms)
+21:  ✘  14 [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ (retry #1) (0ms)
+30:  ✘  23 [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ (retry #2) (0ms)
+32:::error file=e2e/tests/tenant-portal-billing.spec.ts,title=[chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱,line=104,col=69::  1) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ %0A    Error: ورودِ پورتال (cust_a_1794213278504_ryypfy@e2e.local) باید ۲۰۰ بدهد%0A%0A    expect(received).toBe(expected) // Object.is equality%0A%0A    Expected: 200%0A    Received: 500%0A%0A      102 |     const portalLogin = async (email: string) => {%0A      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });%0A    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);%0A          |                                                                     ^%0A      105 |       return (await res.json()).access_token as string;%0A      106 |     };%0A      107 |     const portalAToken = await portalLogin(PORTAL_A_EMAIL);%0A        at portalLogin (/home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:104:69)%0A        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:107:26
+33:::error file=e2e/tests/tenant-portal-billing.spec.ts,title=[chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱,line=104,col=69::  1) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ %0A%0A    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────%0A    Error: ورودِ پورتال (cust_a_1794213279307_chkc8g@e2e.local) باید ۲۰۰ بدهد%0A%0A    expect(received).toBe(expected) // Object.is equality%0A%0A    Expected: 200%0A    Received: 500%0A%0A      102 |     const portalLogin = async (email: string) => {%0A      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });%0A    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);%0A          |              
+Process completed with exit code 1.
+  1 failed
+    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+  8 did not run
+  4 passed (8.9s)
+  1) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: ورودِ پورتال (cust_a_1794213280296_419s5e@e2e.local) باید ۲۰۰ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+      102 |     const portalLogin = async (email: string) => {
+      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });
+    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);
+          |                                                                     ^
+      105 |       return (await res.json()).access_token as string;
+      106 |     };
+      107 |     const portalAToken = await portalLogin(PORTAL_A_EMAIL);
+        at portalLogin (/home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:104:69)
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:107:26
+  1) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: ورودِ پورتال (cust_a_1794213279307_chkc8g@e2e.local) باید ۲۰۰ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+      102 |     const portalLogin = async (email: string) => {
+      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });
+    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);
+          |                                                                     ^
+      105 |       return (await res.json()).access_token as string;
+      106 |     };
+      107 |     const portalAToken = await portalLogin(PORTAL_A_EMAIL);
+        at portalLogin (/home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:104:69)
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:107:26
+  1) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+    Error: ورودِ پورتال (cust_a_1794213278504_ryypfy@e2e.local) باید ۲۰۰ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+      102 |     const portalLogin = async (email: string) => {
+      103 |       const res = await api.post(`${API}/portal/auth/login`, { data: { email, password: PORTAL_PASSWORD } });
+    > 104 |       expect(res.status(), `ورودِ پورتال (${email}) باید ۲۰۰ بدهد`).toBe(200);
+          |                                                                     ^
+      105 |       return (await res.json()).access_token as string;
+      106 |     };
+      107 |     const portalAToken = await portalLogin(PORTAL_A_EMAIL);
+        at portalLogin (/home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:104:69)
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:107:26
+Pinned S3-compatible test service, NOT a MinIO-server equivalence claim
+"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"

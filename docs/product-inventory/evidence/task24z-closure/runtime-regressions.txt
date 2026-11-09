@@ -1,0 +1,7 @@
+ ✓ test/db-privileges.api.test.ts (68 tests) 1625ms
+ ✓ test/portal-auth.test.ts (5 tests) 18ms
+ ✓ test/bi.test.ts (20 tests) 11ms
+ Test Files  3 passed (3)
+      Tests  93 passed (93)
+   Start at  08:37:11
+   Duration  2.60s (tests 73%, import 16%, transform 8%, setup 3%, worker 1%)

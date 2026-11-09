@@ -1,0 +1,25 @@
+ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/db-privileges.api.test.ts > احرازِ هویتِ پرتال — بدونِ دسترسیِ نامحدود به portal_user > portal session issuance and lookup work under RLS without broad table access
+error: invalid input syntax for type uuid: ""
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg/lib/client.js:694:17
+ ❯ PortalRepository.invoices src/modules/portal/portal.repository.ts:243:22
+    241|
+    242|   async invoices(companyId: string, customerId: string): Promise<Porta…
+    243|     const { rows } = await this.pool.query<QueryResultRow & PortalInvo…
+       |                      ^
+    244|       `select i.id,
+    245|               i.doc_number,
+ ❯ test/db-privileges.api.test.ts:563:16
+ ❯ runAsJobTenant src/database/job-context.ts:57:12
+ ❯ test/db-privileges.api.test.ts:562:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 67 skipped (68)
+   Start at  08:38:10
+   Duration  1.59s (tests 73%, transform 12%, import 11%, setup 3%, worker 1%)
+
+
