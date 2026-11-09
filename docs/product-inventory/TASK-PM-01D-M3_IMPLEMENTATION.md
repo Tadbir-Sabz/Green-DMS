@@ -188,3 +188,12 @@ PR ثبت میشود. محیط DB محلی: PostgreSQL 16.2 UTF8 ایزوله، 
   [`PRODUCT_MASTER_OPERATOR_GUIDE_FA.md`](./PRODUCT_MASTER_OPERATOR_GUIDE_FA.md).
 - درخواست تصمیم مالک:
   [`TASK-PM-01D-M3_WHOLE_FILE_ATOMICITY_OWNER_DECISION.md`](./TASK-PM-01D-M3_WHOLE_FILE_ATOMICITY_OWNER_DECISION.md).
+
+
+## پیوست continuation — TASK-PM-01D-M4 (حفظ ارزیابی M3)
+
+M4 مسیر نگهداشت گروهی محدود را بدون تغییر خروجی CSV، ارزیابی نُهقابلیتی،
+درخواست whole-file یا محدودهٔ import افزود. شواهد و یافتههای M3 بالا معتبر
+میمانند؛ `master.product.view` همچنان فقط خواندن/export را مجاز میکند و
+`master.product.update` برای نوشتن گروهی لازم است. جزئیات M4 در
+`TASK-PM-01D-M4_IMPLEMENTATION.md` است.

@@ -18,6 +18,16 @@ export type ScanResult = components['schemas']['ScanResult'];
 export type DuplicateCheckResult = components['schemas']['DuplicateCheckResult'];
 export type ImportValidationResult = components['schemas']['ImportValidationResult'];
 export type ImportResult = components['schemas']['ImportResult'];
+export type BulkMaintenanceFieldsResponse = components['schemas']['BulkMaintenanceFieldsResponse'];
+export type BulkMaintenancePreviewRequest = components['schemas']['BulkMaintenancePreviewRequest'];
+export type BulkMaintenancePreviewResponse = components['schemas']['BulkMaintenancePreviewResponse'];
+export type BulkMaintenanceExecuteRequest = components['schemas']['BulkMaintenanceExecuteRequest'];
+export type BulkMaintenanceOperationResult = components['schemas']['BulkMaintenanceOperationResult'];
+export type BulkMaintenanceField = components['schemas']['BulkMaintenanceField'];
+export type BulkMaintenanceDiff = components['schemas']['BulkMaintenanceDiff'];
+export type BulkMaintenancePreviewItem = components['schemas']['BulkMaintenancePreviewItem'];
+export type BulkMaintenanceOperationItem = components['schemas']['BulkMaintenanceOperationItem'];
+export type BulkMaintenanceChanges = components['schemas']['BulkMaintenanceChanges'];
 export type Category = components['schemas']['ProductCategory'];
 export type Unit = components['schemas']['Unit'];
 

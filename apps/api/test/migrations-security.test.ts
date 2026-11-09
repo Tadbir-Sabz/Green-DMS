@@ -169,9 +169,9 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-PM-01D-M2: 0061 (قابلیت اطمینانِ import) آخرین مهاجرت است. با افزودنِ
-    // مهاجرتِ تازه این خط عمداً باید به‌روزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0061_product_import_reliability.up.sql');
+    // TASK-PM-01D-M4: 0062 (نگهداشت گروهی کالا) آخرین مهاجرت است. با افزودنِ
+    // مهاجرتِ تازه این خط عمداً باید بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
+    expect(files[files.length - 1]).toBe('0062_product_bulk_maintenance.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -184,6 +184,22 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
 
     for (const f of files) runSqlFile(path.join(ROOT, 'migrations', f));
     await assert0048EndState(db);
+
+    // 0062: ledger is tenant-RLS protected and the runtime role cannot DELETE.
+    const { rows: ledger } = await db.query(`
+      select
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_operation') as rls_forced,
+        (select count(*)::int from pg_policy where polname='p_product_bulk_operation_tenant') as policies,
+        (select has_table_privilege('dms_app','product_bulk_operation','SELECT')) as app_select,
+        (select has_table_privilege('dms_app','product_bulk_operation','INSERT')) as app_insert,
+        (select has_table_privilege('dms_app','product_bulk_operation','UPDATE')) as app_update,
+        (select has_table_privilege('dms_app','product_bulk_operation','DELETE')) as app_delete`);
+    expect(ledger[0].rls_forced).toBe(true);
+    expect(ledger[0].policies).toBe(1);
+    expect(ledger[0].app_select).toBe(true);
+    expect(ledger[0].app_insert).toBe(true);
+    expect(ledger[0].app_update).toBe(true);
+    expect(ledger[0].app_delete).toBe(false);
   }, 300_000);
 
   it('down/up: داده می‌ماند، سیاست‌ها و گرانت‌ها بازگردانده می‌شوند', async () => {

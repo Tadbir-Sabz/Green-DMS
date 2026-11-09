@@ -5,6 +5,7 @@ import { type Runner, runner } from '../../common/transaction';
 import type { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from './product.dto';
 import type { ExportProductsQueryDto } from './product-export.dto';
 import type { ProductExportRow } from './product-export';
+import type { BulkProductSnapshot } from './product-bulk-maintenance.types';
 
 /**
  * ستون‌های پاسخ — دقیقاً مطابق اسکیمای Product در openapi.yaml
@@ -147,6 +148,42 @@ export class ProductRepository {
     return rows.length > 0;
   }
 
+  /** M4: company-scoped brand reference validation for bulk maintenance. */
+  async brandExists(companyId: string, brandId: string, client?: Runner): Promise<boolean> {
+    const { rows } = await runner(this.pool, client).query(
+      'select 1 from brand where id = $1 and company_id = $2',
+      [brandId, companyId],
+    );
+    return rows.length > 0;
+  }
+
+  async brandNames(companyId: string, ids: readonly string[], client?: Runner): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (ids.length === 0) return map;
+    const { rows } = await runner(this.pool, client).query<{ id: string; name: string }>(
+      'select id, name from brand where company_id = $1 and id = any($2::uuid[])',
+      [companyId, [...ids]],
+    );
+    for (const r of rows) map.set(r.id, r.name);
+    return map;
+  }
+
+  /** M4: one bounded read for preview, stale checks and reconciliation. */
+  async findByIdsForBulk(
+    companyId: string,
+    ids: readonly string[],
+    client?: Runner,
+  ): Promise<BulkProductSnapshot[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await runner(this.pool, client).query<BulkProductSnapshot>(
+      `select ${COLUMNS} from product
+        where company_id = $1 and deleted_at is null and id = any($2::uuid[])
+        order by code asc`,
+      [companyId, [...ids]],
+    );
+    return rows;
+  }
+
   /** آیا واحد اندازه‌گیری (داده مرجع سراسری) وجود دارد؟ */
   async uomExists(uomId: string): Promise<boolean> {
     const { rows } = await this.pool.query('select 1 from uom where id = $1', [uomId]);
@@ -199,6 +236,7 @@ export class ProductRepository {
     id: string,
     dto: UpdateProductDto,
     expectedRowVersion?: number,
+    client?: Runner,
   ): Promise<ProductRow | null> {
     const sets: string[] = [];
     const params: unknown[] = [id, companyId];
@@ -218,7 +256,7 @@ export class ProductRepository {
       where += ` and row_version = $${params.length}`;
     }
 
-    const { rows } = await this.pool.query<ProductRow>(
+    const { rows } = await runner(this.pool, client).query<ProductRow>(
       `update product set ${sets.join(', ')} where ${where} returning ${COLUMNS}`,
       params,
     );

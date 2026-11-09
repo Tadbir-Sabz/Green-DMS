@@ -17,6 +17,9 @@ import { ProductCatalogController } from './product-catalog.controller';
 import { ProductController } from './product.controller';
 import { ProductExportController } from './product-export.controller';
 import { ProductExportService } from './product-export.service';
+import { ProductBulkMaintenanceController } from './product-bulk-maintenance.controller';
+import { ProductBulkMaintenanceService } from './product-bulk-maintenance.service';
+import { ProductBulkMaintenanceRepository } from './product-bulk-maintenance.repository';
 import { ProductImportController } from './product-import.controller';
 import { ProductMasterRepository } from './product-master.repository';
 import { ProductMasterService } from './product-master.service';
@@ -62,6 +65,7 @@ import {
     ProductBarcodeController,
     ProductCatalogController,
     ProductExportController,
+    ProductBulkMaintenanceController,
     ProductController,
     PackagingController,
     PersonController,
@@ -83,6 +87,8 @@ import {
     ProductService,
     { provide: PRODUCT_SERVICE, useExisting: ProductService },
     ProductExportService,
+    ProductBulkMaintenanceService,
+    ProductBulkMaintenanceRepository,
     MasterDataRepository,
     { provide: MASTER_DATA_REPOSITORY, useExisting: MasterDataRepository },
     PersonRepository,

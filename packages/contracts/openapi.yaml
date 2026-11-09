@@ -825,6 +825,96 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /products/bulk-maintenance/fields:
+    get:
+      tags: [products]
+      summary: فهرست فیلدهای مجاز نگهداشت گروهی (TASK-PM-01D-M4)
+      description: >-
+        فهرست سفید و برچسبهای فارسی فیلدها از سرور؛ مرورگر هیچ فیلد محافظتشده،
+        دامنهای، انباری، قیمتی یا وضعیتی را پیشنهاد نمیدهد. این پاسخ فقط ابزار
+        ساخت فرم است و اعمال تغییری نمیکند. مجوز master.product.update لازم است.
+      responses:
+        '200':
+          description: فیلدهای مجاز، نوع مقدار و برچسب فارسی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceFieldsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/bulk-maintenance/preview:
+    post:
+      tags: [products]
+      summary: پیشنمایش فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
+      description: >-
+        پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر
+        ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف
+        product_catalog_history یا audit_log ساخته نمیشود و تنها یک ردیف دفتر
+        عملیات با نشانهٔ یکبارمصرف ذخیره میشود. مجوز master.product.update لازم
+        است؛ master.product.view یا خروجی CSV مجوز نوشتن گروهی نیست.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkMaintenancePreviewRequest' }
+      responses:
+        '200':
+          description: پیشنمایش سروری، تفاوت دقیق هر کالا و شمار واجد/ردشدهها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenancePreviewResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/bulk-maintenance/execute:
+    post:
+      tags: [products]
+      summary: اجرای همهیا هیچ نگهداشت گروهی با هویت بایدار (TASK-PM-01D-M4)
+      description: >-
+        اجرا فقط مقادیر ذخیرهشدهٔ همان پیشنمایش را میپذیرد؛ changes تازهای در
+        این مسیر ارسال نمیشود. تأیید صریح، نشانهٔ پیشنمایش، مجوز نوشتن، بررسی
+        تازگی نسخهها و قفل خوشبینانهٔ واقعی row_version الزامی است. همهٔ
+        بهروزرسانیها، ممیزی همبسته، تاریخچهای 0060 و وضعیت دفتر عملیات در یک
+        تراکنش commit میشوند. پخش مجدد همان شناسه/نشانه دوباره اعمال نمیشود؛
+        نتیجهٔ نامشخص تنها با تطبیق شواهد و بدون اجرای کور مجدد بررسی میشود.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkMaintenanceExecuteRequest' }
+      responses:
+        '200':
+          description: نتیجهٔ نهایی، پخش مجدد بیاثر، رد قطعی یا وضعیت نامشخص failclosed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/bulk-maintenance/operations/{operationId}:
+    get:
+      tags: [products]
+      summary: وضعیت بایدار و تطبیق نتیجهٔ یک عملیات نگهداشت گروهی
+      description: >-
+        وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده،
+        کهنه، منقضی، ثبتشده، ردشده یا نامشخص. وضعیتهای نامشخص/پذیرفتهشده تنها
+        با شواهد ممیزی و تاریخچهای تطبیق داده میشوند و هرگز نتیجهٔ ثبت نشده
+        موفق اعلام نمیشود.
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: وضعیت بایدار عملیات و نتیجهٔ تطبیق در صورت نیاز
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /products/{id}:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -8104,6 +8194,161 @@ components:
         errors:
           type: array
           items: { $ref: '#/components/schemas/ImportIssue' }
+
+    BulkMaintenanceFieldsResponse:
+      type: object
+      required: [supported_fields]
+      properties:
+        supported_fields:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceField' }
+    BulkMaintenanceChangeValue:
+      description: مقدارِ ساده و غیرشیئی یک فیلد مجاز نگهداشت گروهی
+      oneOf:
+        - { type: string }
+        - { type: number }
+        - { type: boolean }
+        - { type: 'null' }
+    BulkMaintenanceChanges:
+      type: object
+      description: فقط کلیدهای فهرست سفید سرور؛ فیلدهای محافظتشده حتی در درخواست دستساز رد میشوند.
+      minProperties: 1
+      maxProperties: 9
+      additionalProperties: { $ref: '#/components/schemas/BulkMaintenanceChangeValue' }
+    BulkMaintenancePreviewRequest:
+      type: object
+      required: [product_ids, changes]
+      properties:
+        product_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        changes: { $ref: '#/components/schemas/BulkMaintenanceChanges' }
+    BulkMaintenanceField:
+      type: object
+      required: [key, label_fa, kind, nullable]
+      properties:
+        key:
+          type: string
+          enum:
+            - name
+            - name_latin
+            - brand_id
+            - min_order_qty
+            - weight_gr
+            - volume_cm3
+            - distribution_kind
+            - is_returnable_container
+            - requires_permit
+        label_fa: { type: string }
+        kind:
+          type: string
+          enum: [text, nullable_text, uuid, number, nullable_integer, enum, boolean]
+        nullable: { type: boolean }
+        max_length: { type: [integer, 'null'] }
+        enum_values:
+          type: [array, 'null']
+          items: { type: string }
+    BulkMaintenanceDiff:
+      type: object
+      required: [field, label_fa, before, after, before_label, after_label, changed]
+      properties:
+        field: { type: string }
+        label_fa: { type: string }
+        before: { $ref: '#/components/schemas/BulkMaintenanceChangeValue' }
+        after: { $ref: '#/components/schemas/BulkMaintenanceChangeValue' }
+        before_label: { type: string }
+        after_label: { type: string }
+        changed: { type: boolean }
+    BulkMaintenancePreviewItem:
+      type: object
+      required: [product_id, code, name, row_version, status, changes]
+      properties:
+        product_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        row_version: { type: integer }
+        status: { type: string, enum: [eligible, rejected] }
+        reason_code: { type: [string, 'null'] }
+        message_fa: { type: [string, 'null'] }
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceDiff' }
+    BulkMaintenancePreviewResponse:
+      type: object
+      required: [operation_id, preview_token, expires_at, status, eligible_count, rejected_count, supported_fields, items]
+      properties:
+        operation_id: { type: string, format: uuid }
+        preview_token: { type: string, minLength: 64, maxLength: 64 }
+        expires_at: { type: string, format: date-time }
+        status: { type: string, enum: [preview_created] }
+        eligible_count: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        supported_fields:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceField' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenancePreviewItem' }
+    BulkMaintenanceExecuteRequest:
+      type: object
+      required: [operation_id, preview_token, confirm]
+      properties:
+        operation_id: { type: string, format: uuid }
+        preview_token: { type: string, minLength: 64, maxLength: 64 }
+        confirm: { type: boolean, enum: [true] }
+    BulkMaintenanceLifecycleEvent:
+      type: object
+      required: [state, at]
+      properties:
+        state:
+          type: string
+          enum: [preview_created, preview_stale, preview_expired, accepted, committed, rejected, unknown]
+        at: { type: string, format: date-time }
+    BulkMaintenanceOperationItem:
+      type: object
+      required: [product_id, code, name, status, product_url]
+      properties:
+        product_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [updated, rejected] }
+        row_version_before: { type: [integer, 'null'] }
+        row_version_after: { type: [integer, 'null'] }
+        message_fa: { type: [string, 'null'] }
+        product_url: { type: string }
+    BulkMaintenanceOperationResult:
+      type: object
+      required: [operation_id, status, outcome, lifecycle, eligible_count, updated_count, rejected_count, failure_category, items]
+      properties:
+        operation_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [preview_created, preview_stale, preview_expired, accepted, committed, rejected, unknown]
+        outcome:
+          type: string
+          enum: [not_started, committed, rolled_back, unknown]
+        lifecycle:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceLifecycleEvent' }
+        eligible_count: { type: integer, minimum: 0 }
+        updated_count: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        failure_category: { type: string }
+        reason_code: { type: [string, 'null'] }
+        message_fa: { type: [string, 'null'] }
+        accepted_at: { type: [string, 'null'], format: date-time }
+        committed_at: { type: [string, 'null'], format: date-time }
+        expires_at: { type: [string, 'null'], format: date-time }
+        idempotent_replay: { type: boolean }
+        reconciled: { type: boolean }
+        retryable: { type: boolean }
+        reconciliation_hint_fa: { type: [string, 'null'] }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceOperationItem' }
 
     ApprovalChain:
       type: object

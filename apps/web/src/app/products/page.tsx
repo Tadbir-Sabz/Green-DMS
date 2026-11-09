@@ -215,6 +215,9 @@ export default function ProductsPage(): React.JSX.Element {
         {auth.hasPermission('master.product.import') && <Link href="/products/import" className={btnGhost}>
           ورودِ گروهی (CSV)
         </Link>}
+        {auth.hasPermission('master.product.update') && <Link href="/products/bulk-maintenance" className={btnGhost}>
+          نگهداشت گروهی کالا
+        </Link>}
         {auth.hasPermission('master.product.view') && (
           <button type="button" onClick={() => void doExport()} disabled={exporting} className={btnGhost}>
             {exporting ? 'در حال ساخت خروجی…' : 'خروجی CSV'}

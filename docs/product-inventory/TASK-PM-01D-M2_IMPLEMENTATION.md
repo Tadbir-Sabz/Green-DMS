@@ -80,3 +80,13 @@ M3 از همان HEAD نهایی M2 آغاز شد و شواهد بالا را ح
 `TASK-PM-01D-M3_WHOLE_FILE_ATOMICITY_OWNER_DECISION.md` ثبت شد و همچنان
 **OPEN / NOT APPROVED** است. ارزیابی تازه، شواهد اعتبارسنجی M3 و برآورد باقیمانده در
 `TASK-PM-01D-M3_IMPLEMENTATION.md` آمده است.
+
+
+## پیوست continuation — TASK-PM-01D-M4 (بدون بازنویسی شواهد M2/M3)
+
+M4 از HEAD نهایی M3 آغاز شد و شواهد بالا و پیوست M3 را حفظ کرد. مسیر
+`products/bulk-maintenance` صرفاً یک عملیات محدود و مستقل برای گزینش جاری
+است؛ رفتار مصوب «همهیاهیچ در هر دسته import + ادامه»، `0061`، idempotency،
+نتیجهٔ `unknown` import و پروندهٔ whole-file بدون تغییر ماندند. دفتر تازهٔ
+`0062` جایگزین `product_import_batch` یا شواهد M2 نشد. جزئیات و مرزها در
+`TASK-PM-01D-M4_IMPLEMENTATION.md` ثبت شده است.

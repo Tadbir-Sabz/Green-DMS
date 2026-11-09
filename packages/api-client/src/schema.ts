@@ -1395,6 +1395,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/bulk-maintenance/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * فهرست فیلدهای مجاز نگهداشت گروهی (TASK-PM-01D-M4)
+         * @description فهرست سفید و برچسبهای فارسی فیلدها از سرور؛ مرورگر هیچ فیلد محافظتشده، دامنهای، انباری، قیمتی یا وضعیتی را پیشنهاد نمیدهد. این پاسخ فقط ابزار ساخت فرم است و اعمال تغییری نمیکند. مجوز master.product.update لازم است.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فیلدهای مجاز، نوع مقدار و برچسب فارسی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceFieldsResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * پیشنمایش فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
+         * @description پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف product_catalog_history یا audit_log ساخته نمیشود و تنها یک ردیف دفتر عملیات با نشانهٔ یکبارمصرف ذخیره میشود. مجوز master.product.update لازم است؛ master.product.view یا خروجی CSV مجوز نوشتن گروهی نیست.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BulkMaintenancePreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description پیشنمایش سروری، تفاوت دقیق هر کالا و شمار واجد/ردشدهها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenancePreviewResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * اجرای همهیا هیچ نگهداشت گروهی با هویت بایدار (TASK-PM-01D-M4)
+         * @description اجرا فقط مقادیر ذخیرهشدهٔ همان پیشنمایش را میپذیرد؛ changes تازهای در این مسیر ارسال نمیشود. تأیید صریح، نشانهٔ پیشنمایش، مجوز نوشتن، بررسی تازگی نسخهها و قفل خوشبینانهٔ واقعی row_version الزامی است. همهٔ بهروزرسانیها، ممیزی همبسته، تاریخچهای 0060 و وضعیت دفتر عملیات در یک تراکنش commit میشوند. پخش مجدد همان شناسه/نشانه دوباره اعمال نمیشود؛ نتیجهٔ نامشخص تنها با تطبیق شواهد و بدون اجرای کور مجدد بررسی میشود.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BulkMaintenanceExecuteRequest"];
+                };
+            };
+            responses: {
+                /** @description نتیجهٔ نهایی، پخش مجدد بیاثر، رد قطعی یا وضعیت نامشخص failclosed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceOperationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/operations/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * وضعیت بایدار و تطبیق نتیجهٔ یک عملیات نگهداشت گروهی
+         * @description وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده، کهنه، منقضی، ثبتشده، ردشده یا نامشخص. وضعیتهای نامشخص/پذیرفتهشده تنها با شواهد ممیزی و تاریخچهای تطبیق داده میشوند و هرگز نتیجهٔ ثبت نشده موفق اعلام نمیشود.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    operationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description وضعیت بایدار عملیات و نتیجهٔ تطبیق در صورت نیاز */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceOperationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products/{id}": {
         parameters: {
             query?: never;
@@ -13964,6 +14143,114 @@ export interface components {
             report?: components["schemas"]["ImportIssue"][];
             batches?: components["schemas"]["ImportBatchOutcome"][];
             errors: components["schemas"]["ImportIssue"][];
+        };
+        BulkMaintenanceFieldsResponse: {
+            supported_fields: components["schemas"]["BulkMaintenanceField"][];
+        };
+        /** @description مقدارِ ساده و غیرشیئی یک فیلد مجاز نگهداشت گروهی */
+        BulkMaintenanceChangeValue: string | number | boolean | null;
+        /** @description فقط کلیدهای فهرست سفید سرور؛ فیلدهای محافظتشده حتی در درخواست دستساز رد میشوند. */
+        BulkMaintenanceChanges: {
+            [key: string]: components["schemas"]["BulkMaintenanceChangeValue"];
+        };
+        BulkMaintenancePreviewRequest: {
+            product_ids: string[];
+            changes: components["schemas"]["BulkMaintenanceChanges"];
+        };
+        BulkMaintenanceField: {
+            /** @enum {string} */
+            key: "name" | "name_latin" | "brand_id" | "min_order_qty" | "weight_gr" | "volume_cm3" | "distribution_kind" | "is_returnable_container" | "requires_permit";
+            label_fa: string;
+            /** @enum {string} */
+            kind: "text" | "nullable_text" | "uuid" | "number" | "nullable_integer" | "enum" | "boolean";
+            nullable: boolean;
+            max_length?: number | null;
+            enum_values?: string[] | null;
+        };
+        BulkMaintenanceDiff: {
+            field: string;
+            label_fa: string;
+            before: components["schemas"]["BulkMaintenanceChangeValue"];
+            after: components["schemas"]["BulkMaintenanceChangeValue"];
+            before_label: string;
+            after_label: string;
+            changed: boolean;
+        };
+        BulkMaintenancePreviewItem: {
+            /** Format: uuid */
+            product_id: string;
+            code: string;
+            name: string;
+            row_version: number;
+            /** @enum {string} */
+            status: "eligible" | "rejected";
+            reason_code?: string | null;
+            message_fa?: string | null;
+            changes: components["schemas"]["BulkMaintenanceDiff"][];
+        };
+        BulkMaintenancePreviewResponse: {
+            /** Format: uuid */
+            operation_id: string;
+            preview_token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @enum {string} */
+            status: "preview_created";
+            eligible_count: number;
+            rejected_count: number;
+            supported_fields: components["schemas"]["BulkMaintenanceField"][];
+            items: components["schemas"]["BulkMaintenancePreviewItem"][];
+        };
+        BulkMaintenanceExecuteRequest: {
+            /** Format: uuid */
+            operation_id: string;
+            preview_token: string;
+            /** @enum {boolean} */
+            confirm: true;
+        };
+        BulkMaintenanceLifecycleEvent: {
+            /** @enum {string} */
+            state: "preview_created" | "preview_stale" | "preview_expired" | "accepted" | "committed" | "rejected" | "unknown";
+            /** Format: date-time */
+            at: string;
+        };
+        BulkMaintenanceOperationItem: {
+            /** Format: uuid */
+            product_id: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "updated" | "rejected";
+            row_version_before?: number | null;
+            row_version_after?: number | null;
+            message_fa?: string | null;
+            product_url: string;
+        };
+        BulkMaintenanceOperationResult: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            status: "preview_created" | "preview_stale" | "preview_expired" | "accepted" | "committed" | "rejected" | "unknown";
+            /** @enum {string} */
+            outcome: "not_started" | "committed" | "rolled_back" | "unknown";
+            lifecycle: components["schemas"]["BulkMaintenanceLifecycleEvent"][];
+            eligible_count: number;
+            updated_count: number;
+            rejected_count: number;
+            failure_category: string;
+            reason_code?: string | null;
+            message_fa?: string | null;
+            /** Format: date-time */
+            accepted_at?: string | null;
+            /** Format: date-time */
+            committed_at?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+            idempotent_replay?: boolean;
+            reconciled?: boolean;
+            retryable?: boolean;
+            reconciliation_hint_fa?: string | null;
+            items: components["schemas"]["BulkMaintenanceOperationItem"][];
         };
         /** @description زنجیره تأیید با گام‌های تعریف‌شده */
         ApprovalChain: {

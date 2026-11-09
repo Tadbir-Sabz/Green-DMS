@@ -39,12 +39,24 @@ export class CatalogAccess {
     return permissions;
   }
 
-  /** All pool.query based collaborators share this transaction and tenant GUCs. */
+  /**
+   * All pool.query based collaborators share this transaction and tenant GUCs.
+   *
+   * `options.isolation` is additive for TASK-PM-01D-M4: an explicit,
+   * server-chosen repeatable-read bulk operation may request it before any
+   * query runs. Existing callers keep the historical READ COMMITTED behavior.
+   * Timeout options bound a synchronous bulk operation without a queue.
+   */
   async write<T>(
     companyId: string,
     userId: string,
     required: string,
     work: () => Promise<T>,
+    options?: {
+      isolation?: 'repeatable read' | 'read committed';
+      statementTimeoutMs?: number;
+      lockTimeoutMs?: number;
+    },
   ): Promise<T> {
     await this.assert(companyId, userId, required);
     if (catalogTransaction.getStore()) {
@@ -58,6 +70,24 @@ export class CatalogAccess {
       return work();
     }
     return withTransaction(this.pool, async (client) => {
+      // SET TRANSACTION must be the first statement of the transaction.
+      if (options?.isolation === 'repeatable read') {
+        await client.query('set transaction isolation level repeatable read');
+      } else if (options?.isolation === 'read committed') {
+        await client.query('set transaction isolation level read committed');
+      }
+      if (options?.statementTimeoutMs != null) {
+        await client.query('select set_config($1, $2, true)', [
+          'statement_timeout',
+          String(Math.max(1, Math.floor(options.statementTimeoutMs))),
+        ]);
+      }
+      if (options?.lockTimeoutMs != null) {
+        await client.query('select set_config($1, $2, true)', [
+          'lock_timeout',
+          String(Math.max(1, Math.floor(options.lockTimeoutMs))),
+        ]);
+      }
       await client.query(
         `select set_config('app.company_id', $1, true), set_config('app.user_id', $2, true)`,
         [companyId, userId],
