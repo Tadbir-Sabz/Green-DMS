@@ -1,0 +1,15 @@
+# Test-only object store. Never include this override in a deployment.
+# Digest was independently recorded by the successful CI S3 client round-trip.
+services:
+  minio:
+    image: adobe/s3mock:3.9.1@sha256:7514ca2abb1fa85ee45fbefcede03632c822a8d96883a45b900c98fdeb21a48a
+    command: null
+    ports:
+      - "127.0.0.1:9090:9090"
+  api:
+    environment:
+      MINIO_ENDPOINT: minio:9090
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: greendms-browser-test
+      MINIO_USE_SSL: "false"

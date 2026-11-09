@@ -1,4 +1,5 @@
-import { test, expect, request } from '@playwright/test';
+import { request } from '@playwright/test';
+import { test, expect } from './browser-fixture';
 
 /**
  * جریانِ تجاریِ سرتاسری: خودخدمت‌دهیِ استقرارِ یک اجارهٔ تازه → ورودِ مدیر → پیمایش
