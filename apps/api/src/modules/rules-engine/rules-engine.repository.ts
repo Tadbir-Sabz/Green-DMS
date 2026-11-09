@@ -127,7 +127,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * مقدارِ `null` می‌دهد ⇒ اجرا رد می‌شود (fail-closed، نه «بدونِ کنترل»).
  */
 const ENTITY_STATE_SQL: Record<string, string> = {
-  'sales.order.approve': `select o.customer_id, o.branch_id, o.grand_total::text as grand_total,
+  'sales.order.approve': `select o.created_by as creator_id, o.customer_id, o.branch_id, o.grand_total::text as grand_total,
                                   o.order_date::text as order_date,
                                   (select coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.packaging_id,
                                     l.qty::text, l.qty_base::text, l.unit_price::text, l.discount_pct::text,
@@ -137,7 +137,7 @@ const ENTITY_STATE_SQL: Record<string, string> = {
                              from sales_order o
                              join branch b on b.id = o.branch_id
                             where o.id = $1 and b.company_id = $2`,
-  'sales.return.approve': `select r.customer_id, r.branch_id, r.invoice_id,
+  'sales.return.approve': `select r.requested_by as creator_id, r.customer_id, r.branch_id, r.invoice_id,
                                   count(l.id)::int as line_count,
                                   coalesce(sum(l.qty), 0)::text as qty_total,
                                   coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.batch_id,
@@ -148,7 +148,7 @@ const ENTITY_STATE_SQL: Record<string, string> = {
                              join branch b on b.id = r.branch_id
                             where r.id = $1 and b.company_id = $2
                             group by r.id, r.customer_id, r.branch_id, r.invoice_id`,
-  'ap.purchase.approve': `select p.supplier_id, p.branch_id, p.grand_total::text as grand_total,
+  'ap.purchase.approve': `select p.created_by as creator_id, p.supplier_id, p.branch_id, p.grand_total::text as grand_total,
                             (select coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.qty::text,
                               l.unit_price::text, l.discount_amount::text, l.tax_amount::text,
                               l.line_total::text) order by l.line_no), '[]'::jsonb)
@@ -1126,7 +1126,12 @@ export class RulesEngineRepository {
       `select u.id
          from app_user u
          join person p on p.id = u.person_id
-        where p.company_id = $1 and u.id = any($2::uuid[])`,
+        where p.company_id = $1 and u.id = any($2::uuid[])
+          and not u.is_locked and u.access_level <> 'none'
+          and exists (select 1 from user_role ur join role r on r.id = ur.role_id
+            join role_permission rp on rp.role_id = r.id
+            where ur.app_user_id = u.id and r.company_id = $1
+              and rp.permission_code in ('rules.approval.decide', '*'))`,
       [companyId, userIds],
     );
     return rows.map((r) => r.id);

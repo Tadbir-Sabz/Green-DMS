@@ -1,4 +1,5 @@
-import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test';
+import { request as pwRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect } from './browser-fixture';
 
 /**
  * جریان‌های تجاریِ چنداجاره‌ای: پورتال، صورتحساب، و کنترلِ دسترسیِ ضمیمه.
@@ -210,4 +211,20 @@ test.describe('tenant / portal / billing / attachments', () => {
     await page.goto('/bi');
     await expect(page.getByText('داشبورد BI').first()).toBeVisible({ timeout: 30_000 });
   });
+  test('کارتابل تأیید: RTL و نمای واکنش‌گرا پس از ورود واقعی', async ({ page }, info) => {
+    await page.goto('/login');
+    await page.fill('#username', ADMIN_EMAIL);
+    await page.fill('#password', ADMIN_PASSWORD);
+    await page.click('button[type=submit]');
+    await expect(page).toHaveURL(/\/(products|dashboard|bi)/, { timeout: 30_000 });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/approvals/inbox');
+      await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+      await expect(page.getByRole('heading', { name: 'کارتابل تأیید من', exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await info.attach(`approval-inbox-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    }
+  });
+
 });

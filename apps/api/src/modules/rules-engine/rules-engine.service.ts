@@ -720,6 +720,18 @@ export class RulesEngineService {
         details: { approval_request_id: requestId },
       });
     }
+    const businessOperation = OPERATION_FOR_ENTITY[req.entity_type];
+    if (businessOperation) {
+      const businessState = await this.repo.loadEntityState(companyId, businessOperation, req.entity_id);
+      if (!businessState?.creator_id) {
+        throw new ConflictException({ code: 'entity_creator_identity_missing',
+          message_fa: 'هویت سازندهٔ سند موجود نیست؛ تصمیم‌گیری تا رفع مشکل مجاز نیست.' });
+      }
+      if (businessState.creator_id === decidedBy) {
+        throw new ForbiddenException({ code: 'self_approval_forbidden',
+          message_fa: 'سازندهٔ سند نمی‌تواند آن را تأیید کند، حتی اگر شخص دیگری درخواست را ارسال کرده باشد.' });
+      }
+    }
     if (req.requested_by === decidedBy) {
       throw new ForbiddenException({
         code: 'self_approval_forbidden',
@@ -934,10 +946,9 @@ export class RulesEngineService {
         details: { operation: input.operation, entity_type: input.entityType, entity_id: input.entityId },
       });
     }
-    const amount =
-      input.amount !== undefined && input.amount !== null
-        ? input.amount
-        : amountOfState(input.operation, entityState);
+    // Policy thresholds must use persisted business data, never a caller's claim.
+    // Retain the optional input field for backwards-compatible callers only.
+    const amount = amountOfState(input.operation, entityState);
     const domainId = input.domainId ?? (entityState.domain_id as string | undefined) ?? null;
 
     // ۲) سیاست‌ها را حل و **ترکیب** کن (نه انتخابِ یک برنده).
@@ -1006,6 +1017,16 @@ export class RulesEngineService {
           'یکی از مراحلِ زنجیره هیچ تأییدکننده‌ای ندارد؛ چنین مرحله‌ای «همه‌کس مجاز» نیست و گردش ساخته نمی‌شود.',
         details: { step_no: unassigned.step_no },
       });
+    }
+
+    for (const stage of stages) {
+      if ((await this.eligibleApproversForStep(companyId, stage)).length === 0) {
+        throw new ConflictException({
+          code: 'approval_no_eligible_approver',
+          message_fa: 'برای یکی از مراحل هیچ تأییدکنندهٔ واجد شرایطی در این شرکت موجود نیست.',
+          details: { step_no: stage.step_no },
+        });
+      }
     }
 
     const currentStep = findCurrentStep(stages, amount);

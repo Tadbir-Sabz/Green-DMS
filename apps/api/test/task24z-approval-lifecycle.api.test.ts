@@ -751,6 +751,57 @@ describe('4 — کنترل‌های منفی', () => {
     await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(409);
   });
 
+  it('CLOSE-E2 · another submitter does not let the document creator approve their own document', async () => {
+    const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chain,
+    }).expect(201);
+    const orderId = await createOrder(checkerToken);
+    const sub = await api(adminToken).post('/api/v1/rules-engine/approvals').send({
+      approval_chain_id: chain, entity_type: 'sales_order', entity_id: orderId, requested_by: makerUserId,
+    }).expect(201);
+    const decision = await api(checkerToken).post(`/api/v1/rules-engine/approvals/${sub.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' });
+    expect(decision.status).toBe(403);
+    expect(decision.body.code).toBe('self_approval_forbidden');
+    expect(await countRows(`select count(*)::int as c from approval_decision where approval_request_id = $1`, [sub.body.id])).toBe(0);
+  });
+
+  it('CLOSE-E1 · assigned role without eligible users cannot create a dangling workflow', async () => {
+    const role = (await pool.query<{ id: string }>(`insert into role(company_id,code,name)
+      values ($1,'empty-role','بدون عضو') returning id`, [companyId])).rows[0].id;
+    const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: role }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chain,
+    }).expect(201);
+    const orderId = await createOrder(makerToken);
+    const result = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({});
+    expect(result.status).toBe(409);
+    expect(result.body.code).toBe('approval_no_eligible_approver');
+    expect(await countRows(`select count(*)::int as c from approval_binding where entity_id = $1`, [orderId])).toBe(0);
+  });
+
+  it('CLOSE-P1 · generic submission cannot lower the stored amount to evade a policy threshold', async () => {
+    const central = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
+    const extra = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: otherRoleId }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: central,
+    }).expect(201);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'operation', approval_chain_id: extra, min_amount: 500,
+    }).expect(201);
+    const orderId = await createOrder(makerToken);
+    const created = await api(adminToken).post('/api/v1/rules-engine/approvals').send({
+      approval_chain_id: central, entity_type: 'sales_order', entity_id: orderId,
+      requested_by: makerUserId, amount: 1,
+    }).expect(201);
+    expect(Number(created.body.amount)).toBeGreaterThanOrEqual(500);
+    const first = await api(checkerToken).post(`/api/v1/rules-engine/approvals/${created.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' }).expect(201);
+    expect(first.body.status).toBe('pending');
+    await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(409);
+  });
+
   it('R1 · rejected request is superseded, never reopened, with immutable decisions', async () => {
     const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
     await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
