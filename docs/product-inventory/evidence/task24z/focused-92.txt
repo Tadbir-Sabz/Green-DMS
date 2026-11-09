@@ -1,0 +1,8 @@
+ ✓ test/task24z-approval-lifecycle.api.test.ts (35 tests) 6384ms
+ ✓ test/task24y-approval-engine.api.test.ts (27 tests) 5442ms
+ ✓ test/task24z-migration-rollback.api.test.ts (3 tests) 4823ms
+ ✓ test/rules-engine-behavior.test.ts (27 tests) 2403ms
+ Test Files  4 passed (4)
+      Tests  92 passed (92)
+   Start at  06:31:43
+   Duration  23.66s (tests 82%, import 14%, transform 4%)

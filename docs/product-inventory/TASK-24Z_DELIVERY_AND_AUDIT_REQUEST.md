@@ -101,3 +101,8 @@ Before this checkpoint, remote branch HEAD equaled the baseline. `gh pr checks 1
 showed baseline Playwright E2E failing, other listed jobs passing. Those results
 **do not validate this implementation**. Final checkpoint CI must be read from
 its exact SHA after push; status currently UNVERIFIED.
+
+Checkpoint implementation SHA: `a74b8e199564c68b2061e1ab760fa160e3ba63f4`.
+Migration CI for this SHA was queued at observation:
+https://github.com/Tadbir-Sabz/Green-DMS/actions/runs/42574029038
+Evidence-only follow-up commits do not change the tested implementation.
