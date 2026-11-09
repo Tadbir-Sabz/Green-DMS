@@ -139,3 +139,11 @@ Only after that prerequisite:
 - Domain registry, IAM vocabulary, membership persistence, lifecycle workflow and consumer activation: **BLOCKED**.
 - Domain-specific DB/RLS/concurrency/history executable evidence: **UNVERIFIED**.
 - Overall Product Master business acceptance: **BLOCKED**.
+
+## 8. TASK-PM-01D reconciliation — independent delivery only
+
+TASK-PM-01D did not change the dependency graph or approve any PM-B decision. It added `TASK-PM-01D_OWNER_DECISION_CLOSURE.md` as a concise Persian owner brief and `TASK-PM-01D_IMPLEMENTATION.md` as the exact post-approval migration/authorization sequence. All eight decisions remain **OPEN / NOT APPROVED**; no registry, membership, assignment, lifecycle, permission vocabulary, provider or API/UI activation was added.
+
+The independent central milestone is a company-wide read-only catalog history explorer backed by existing `0060` evidence. It is **IMPLEMENTED** with `GET /product-catalog/history`, a Persian RTL page, OpenAPI/client updates and focused tests. The PM-01B fail-closed boundary remains **IMPLEMENTED / PRESERVED**.
+
+Consequently, PM-01C's formerly named TASK-PM-01D is now complete as decision-closure/readiness work. The exact next implementation task is **TASK-PM-01E — Owner-approved operational-domain authority implementation**, still blocked on the approval evidence and IAM/security sign-off at the head of the dependency graph. The ordered migration/provider/API/UI/test sequence for that task is in `TASK-PM-01D_IMPLEMENTATION.md` §6.

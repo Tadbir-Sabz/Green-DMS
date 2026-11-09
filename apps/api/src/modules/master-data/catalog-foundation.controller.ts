@@ -20,6 +20,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsIn,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -53,6 +55,38 @@ export class HistoryQueryDto {
     30;
 }
 
+/** Only central Product Master evidence from migration 0060; never domain membership. */
+export const CENTRAL_CATALOG_HISTORY_ENTITY_TYPES = [
+  "product",
+  "product_category",
+  "product_family",
+  "product_alias",
+  "product_attribute_def",
+  "product_attribute_enum_value",
+  "product_attribute_value",
+  "product_relation",
+  "product_bundle",
+  "product_barcode",
+  "product_packaging",
+] as const;
+
+export type CentralCatalogHistoryEntityType =
+  (typeof CENTRAL_CATALOG_HISTORY_ENTITY_TYPES)[number];
+
+export class CatalogHistoryQueryDto {
+  @IsOptional() @IsIn(CENTRAL_CATALOG_HISTORY_ENTITY_TYPES)
+  entity_type?: CentralCatalogHistoryEntityType;
+
+  @IsOptional() @IsUUID("4") product_id?: string;
+
+  @IsOptional() @IsString() @MaxLength(24) before?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit: number =
+    30;
+}
+
+type HistoryWindowQuery = { before?: string; limit?: number };
+
 @Injectable()
 export class CatalogFoundationService {
   constructor(
@@ -60,6 +94,18 @@ export class CatalogFoundationService {
     private readonly access: CatalogAccess,
     private readonly domainGate: DomainCatalogGate,
   ) {}
+
+  private historyWindow(q: HistoryWindowQuery) {
+    if (q.before && !/^[0-9]{1,20}$/.test(q.before))
+      throw new BadRequestException({
+        code: "invalid_cursor",
+        message_fa: "نشانگر تاریخچه معتبر نیست.",
+      });
+    return {
+      before: q.before ?? null,
+      limit: Math.min(100, Math.max(1, q.limit ?? 30)),
+    };
+  }
   async createCategory(user: AuthContext, dto: CatalogLabelDto) {
     return this.access.write(
       user.companyId,
@@ -128,12 +174,7 @@ export class CatalogFoundationService {
         code: "invalid_id",
         message_fa: "شناسه معتبر نیست.",
       });
-    if (q.before && !/^[0-9]{1,20}$/.test(q.before))
-      throw new BadRequestException({
-        code: "invalid_cursor",
-        message_fa: "نشانگر تاریخچه معتبر نیست.",
-      });
-    const limit = Math.min(100, Math.max(1, q.limit ?? 30));
+    const { before, limit } = this.historyWindow(q);
     const product = await this.pool.query(
       "select id from product where id=$1 and company_id=$2",
       [productId, companyId],
@@ -144,9 +185,9 @@ export class CatalogFoundationService {
         message_fa: "کالا یافت نشد.",
       });
     const r = await this.pool.query(
-      `select id::text,entity_type,entity_id,action,actor_user_id,at,before_data,after_data from product_catalog_history
+      `select id::text,product_id::text,entity_type,entity_id,action,actor_user_id,at,before_data,after_data from product_catalog_history
      where company_id=$1 and product_id=$2 and ($3::bigint is null or id<$3::bigint) order by id desc limit $4`,
-      [companyId, productId, q.before ?? null, limit + 1],
+      [companyId, productId, before, limit + 1],
     );
     const items = r.rows.slice(0, limit);
     return {
@@ -155,6 +196,62 @@ export class CatalogFoundationService {
       next_cursor: r.rows.length > limit ? items[items.length - 1]?.id : null,
     };
   }
+  /**
+   * Company-wide, read-only central catalog evidence. Allowlisting the entity
+   * types from migration 0060 keeps domain-specific history/behavior out of the
+   * global product identity. RLS and the explicit company predicate both apply;
+   * the service revalidates the existing view permission from the database.
+   */
+  async catalogHistory(user: AuthContext, q: CatalogHistoryQueryDto) {
+    const { before, limit } = this.historyWindow(q);
+    if (
+      q.entity_type &&
+      !(CENTRAL_CATALOG_HISTORY_ENTITY_TYPES as readonly string[]).includes(
+        q.entity_type,
+      )
+    )
+      throw new BadRequestException({
+        code: "invalid_entity_type",
+        message_fa: "نوع موجودیت تاریخچه معتبر نیست.",
+      });
+    if (q.product_id && !isUUID(q.product_id, "4"))
+      throw new BadRequestException({
+        code: "invalid_id",
+        message_fa: "شناسه معتبر نیست.",
+      });
+    await this.access.assert(
+      user.companyId,
+      user.userId,
+      "master.product.view",
+    );
+    const r = await this.pool.query(
+      `select id::text, product_id::text, entity_type, entity_id, action,
+              actor_user_id, at, before_data, after_data
+         from product_catalog_history
+        where company_id = $1
+          and entity_type = any($2::text[])
+          and ($3::text is null or entity_type = $3::text)
+          and ($4::uuid is null or product_id = $4::uuid)
+          and ($5::bigint is null or id < $5::bigint)
+        order by id desc
+        limit $6`,
+      [
+        user.companyId,
+        CENTRAL_CATALOG_HISTORY_ENTITY_TYPES,
+        q.entity_type ?? null,
+        q.product_id ?? null,
+        before,
+        limit + 1,
+      ],
+    );
+    const items = r.rows.slice(0, limit);
+    return {
+      items,
+      has_more: r.rows.length > limit,
+      next_cursor: r.rows.length > limit ? items[items.length - 1]?.id : null,
+    };
+  }
+
   domainContract() {
     return this.domainGate.status();
   }
@@ -262,6 +359,14 @@ export class CatalogFoundationController {
     @Body() dto: FamilyNameDto,
   ) {
     return this.service.renameFamily(user, id, dto);
+  }
+  @Get("product-catalog/history")
+  @RequirePermissions("master.product.view")
+  catalogHistory(
+    @CurrentUser() user: AuthContext,
+    @Query() q: CatalogHistoryQueryDto,
+  ) {
+    return this.service.catalogHistory(user, q);
   }
   @Get("products/:id/history")
   @RequirePermissions("master.product.view")

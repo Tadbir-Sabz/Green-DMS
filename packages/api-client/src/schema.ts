@@ -10714,6 +10714,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product-catalog/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * تاریخچه سراسری و فقط خواندنی کاتالوگ مرکزی
+         * @description رویدادهای تغییرناپذیر کاتالوگ مرکزی را در محدوده شرکت نشست و با صفحهبندی keyset نمایش میدهد. فقط انواع موجودیت مهاجرت 0060 مجازاند؛ تاریخچه عضویت دامنه، قیمت و موجودی در این مسیر وجود ندارد.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    entity_type?: "product" | "product_category" | "product_family" | "product_alias" | "product_attribute_def" | "product_attribute_enum_value" | "product_attribute_value" | "product_relation" | "product_bundle" | "product_barcode" | "product_packaging";
+                    product_id?: string;
+                    before?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از تاریخچه مرکزی شرکت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCatalogHistoryPage"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/product-domain-integration": {
         parameters: {
             query?: never;
@@ -13656,7 +13703,10 @@ export interface components {
             next_cursor: string | null;
             items: {
                 id: string;
-                entity_type: string;
+                /** @enum {string} */
+                entity_type: "product" | "product_category" | "product_family" | "product_alias" | "product_attribute_def" | "product_attribute_enum_value" | "product_attribute_value" | "product_relation" | "product_bundle" | "product_barcode" | "product_packaging";
+                /** Format: uuid */
+                product_id?: string | null;
                 /** Format: uuid */
                 entity_id?: string | null;
                 /** @enum {string} */

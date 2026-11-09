@@ -5329,6 +5329,33 @@ paths:
               schema: { $ref: '#/components/schemas/ProductCatalogHistoryPage' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /product-catalog/history:
+    get:
+      tags: [products]
+      summary: تاریخچه سراسری و فقط خواندنی کاتالوگ مرکزی
+      description: رویدادهای تغییرناپذیر کاتالوگ مرکزی را در محدوده شرکت نشست و با صفحهبندی keyset نمایش میدهد. فقط انواع موجودیت مهاجرت 0060 مجازاند؛ تاریخچه عضویت دامنه، قیمت و موجودی در این مسیر وجود ندارد.
+      parameters:
+        - name: entity_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [product, product_category, product_family, product_alias, product_attribute_def, product_attribute_enum_value, product_attribute_value, product_relation, product_bundle, product_barcode, product_packaging]
+        - name: product_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - { name: before, in: query, schema: { type: string, pattern: '^[0-9]{1,20}$' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        '200':
+          description: صفحهای از تاریخچه مرکزی شرکت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCatalogHistoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /product-domain-integration:
     get:
       tags: [products]
@@ -7816,7 +7843,10 @@ components:
             required: [id, entity_type, action, at]
             properties:
               id: { type: string }
-              entity_type: { type: string }
+              entity_type:
+                type: string
+                enum: [product, product_category, product_family, product_alias, product_attribute_def, product_attribute_enum_value, product_attribute_value, product_relation, product_bundle, product_barcode, product_packaging]
+              product_id: { type: [string, 'null'], format: uuid }
               entity_id: { type: [string, 'null'], format: uuid }
               action: { type: string, enum: [INSERT, UPDATE, DELETE] }
               actor_user_id: { type: [string, 'null'], format: uuid }

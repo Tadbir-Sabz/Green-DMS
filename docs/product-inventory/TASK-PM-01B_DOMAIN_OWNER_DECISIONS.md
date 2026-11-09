@@ -81,3 +81,13 @@ The detailed nine-element decision package is `docs/product-inventory/TASK-PM-01
 | PM-B8 | Decision package §PM-B8 | Role-based, field-filtered and audited cross-domain visibility | OPEN / NOT APPROVED |
 
 Related PM-01C evidence: `TASK-PM-01C_ARCHITECTURE.md`, `TASK-PM-01C_SECURITY_MODEL.md`, `TASK-PM-01C_DEPENDENCY_MATRIX.md`, `TASK-PM-01C_ROADMAP_ADDENDUM.md`, and four standalone Mermaid diagram files. These documents describe a target state only. No PM-01C migration, code, OpenAPI change, permission seed, RLS policy, registry row, domain identity, lifecycle workflow or functional domain UI was added. The exact next implementation task is TASK-PM-01D in the dependency matrix and remains blocked until explicit owner approval evidence exists.
+
+## 6. TASK-PM-01D decision-closure readiness — status unchanged
+
+> خلاصه فارسی: TASK-PM-01D بسته کوتاه و قابلتصمیمگیری `TASK-PM-01D_OWNER_DECISION_CLOSURE.md` را افزود، و یک قابلیت مستقل کاتالوگ مرکزی را پیادهسازی کرد؛ هیچ تصمیم دامنهای تأیید نشد.
+
+**Approval status preservation:** PM-B1, PM-B2, PM-B3, PM-B4, PM-B5, PM-B6, PM-B7 and PM-B8 all remain **OPEN / NOT APPROVED**. The concise owner document supplies a recommended choice, business implications, security/privacy consequences, dependencies, exact approval evidence and abstract behavior examples for each decision. It also identifies true implementation blockers and decisions that can be sequenced later for API/UI activation. It contains no named signatory, approval reference, domain ID, sample registry row, permission code or executed policy.
+
+The implemented independent milestone is a company-wide, read-only central catalog history explorer at `/products/catalog-history` and `GET /product-catalog/history`, based strictly on immutable `0060` evidence. It allowlists only central Product Master entity types, preserves existing `master.product.view`, company RLS and tenant GUCs, and does not expose domain membership. PM-01B `available:false`, 400/503 boundaries, unregistered `OPERATIONAL_DOMAIN_AUTHORITY`, blocked routes and the Persian RTL decision screen remain intact. No domain migration, provider, permission vocabulary, membership table, lifecycle or downstream cutover was added.
+
+Detailed delivery and the exact post-approval migration/authorization sequence are in `TASK-PM-01D_IMPLEMENTATION.md`. The next implementation task is **TASK-PM-01E — Owner-approved operational-domain authority implementation**, still gated on explicit approval evidence and IAM/security sign-off.
