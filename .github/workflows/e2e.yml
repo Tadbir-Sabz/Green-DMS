@@ -59,6 +59,12 @@ jobs:
           echo "POSTGRES_PASSWORD=${pgpw}" >> "$GITHUB_ENV"
           echo "APP_DB_PASSWORD=${apppw}" >> "$GITHUB_ENV"
           echo "SMS_ALLOW_LOG_PROVIDER=true" >> "$GITHUB_ENV"
+          s3access=$(openssl rand -hex 12)
+          s3secret=$(openssl rand -hex 24)
+          echo "::add-mask::${s3access}"
+          echo "::add-mask::${s3secret}"
+          echo "BROWSER_S3_ACCESS_KEY=${s3access}" >> "$GITHUB_ENV"
+          echo "BROWSER_S3_SECRET_KEY=${s3secret}" >> "$GITHUB_ENV"
           echo "stack secrets generated (values masked; never printed)"
 
       - name: install Playwright chromium
@@ -142,6 +148,7 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.prod.yml -f e2e/compose.browser.yml ps -a 2>&1 | tee /tmp/compose-ps.log
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
           if [ "$UP_RC" -ne 0 ]; then
+            echo "::error title=e2e-startup-api-log::$(docker compose -f docker-compose.yml -f docker-compose.prod.yml -f e2e/compose.browser.yml logs --no-color --tail 80 api 2>&1 | enc)"
             echo "::error title=BLOCKED-e2e-stack-up::docker compose up failed (rc=${UP_RC}); browser tests NOT executed"
             echo "::error title=e2e-up-log::$(tail -n 50 /tmp/compose-up.log | enc)"
             echo "::error title=e2e-compose-ps::$(cat /tmp/compose-ps.log | enc)"
