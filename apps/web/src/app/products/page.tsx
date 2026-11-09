@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, useRef, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
@@ -36,6 +37,8 @@ import {
 
 export default function ProductsPage(): React.JSX.Element {
   const router = useRouter();
+  const auth = useAuth();
+  const sort = useRef<'code_asc'|'code_desc'>('code_asc');
   const [ready, setReady] = useState(false);
 
   const [items, setItems] = useState<Product[]>([]);
@@ -63,7 +66,7 @@ export default function ProductsPage(): React.JSX.Element {
     setLoading(true);
     setListError(null);
     const { data, error } = await api.GET('/products', {
-      params: { query: { q: query || undefined, status: st || undefined, cursor: cursor ?? undefined, limit: 100 } },
+      params: { query: { sort: sort.current, q: query || undefined, status: st || undefined, cursor: cursor ?? undefined, limit: 100 } },
     });
     setLoading(false);
     if (error) {
@@ -145,6 +148,7 @@ export default function ProductsPage(): React.JSX.Element {
             <option value="discontinued">متوقف</option>
           </select>
         </label>
+        <label className="text-sm">ترتیب کد<select className={`${selectCls} mt-1 w-40`} defaultValue="code_asc" onChange={e=>{sort.current=e.target.value as 'code_asc'|'code_desc';void load(q,status);}}><option value="code_asc">صعودی</option><option value="code_desc">نزولی</option></select></label>
         <button type="submit" className={btnGhost}>
           جست‌وجو
         </button>
@@ -170,12 +174,12 @@ export default function ProductsPage(): React.JSX.Element {
 
       <div className="mb-4 flex flex-wrap gap-3">
         <Link href="/products/settings" className={btnGhost}>خانواده‌ها و گروه‌ها</Link>
-        <Link href="/products/new" className={btnPrimary}>
+        {auth.hasPermission('master.product.create') && <Link href="/products/new" className={btnPrimary}>
           ＋ کالای جدید
-        </Link>
-        <Link href="/products/import" className={btnGhost}>
+        </Link>}
+        {auth.hasPermission('master.product.import') && <Link href="/products/import" className={btnGhost}>
           ورودِ گروهی (CSV)
-        </Link>
+        </Link>}
       </div>
 
       {notice && <p className={`mb-4 ${okCls}`}>{notice}</p>}

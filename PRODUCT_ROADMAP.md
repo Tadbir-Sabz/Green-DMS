@@ -302,10 +302,12 @@ Update this roadmap when scope, priority, dependencies, or completion status mat
 
 ### Current program checkpoint
 
+- **TASK-PM-01A implementation checkpoint (PR #14, not merged):** existing central Product Master workflows are being integrated with canonical service authorization, shared transactions, immutable history and connected family/category settings. Whole-module acceptance remains **BLOCKED** on authoritative operational-domain identity/authorization; no pricing-domain/branch substitute is allowed. See `docs/product-inventory/TASK-PM-01A_IMPLEMENTATION.md` for the evidence ledger and remaining UX/review findings. This does not change the canonical module sequence or authorize downstream execution.
+
 - [x] TASK-18R merged to main (merge commit recorded in Section 3).
 - [x] TASK-19 runtime packaging/deployment validation: completed and merged via PR #6 (`d39ba068ed9dae1bcb9f6aac241ec9f5e2bffdf5`); QA PASS WITH FINDINGS — open deferrals recorded in Section 3.
 - [x] Product inventory and dependency map: produced by TASK-21 (`docs/product-inventory/`) — pending owner review.
-- [ ] Product Master: first planned business-domain focus; readiness assessed precisely by TASK-21R and reconciled after TASK-21Q/21S: **ready for architecture/design**, **conditional-ready for implementation** (no external blockers; owner decisions **D1–D5 approved and recorded** in `docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md` §0; remaining: final design sign-off and the G-03 approval-engine test pack before sensitive-change wiring; P1 bundles are catalog-only per D5) — see `PRODUCT_MASTER_TARGET_DESIGN.md` and `IMPLEMENTATION_SEQUENCE.md` §3. Not started.
+- [ ] Product Master: first planned business-domain focus; readiness assessed precisely by TASK-21R and reconciled after TASK-21Q/21S: **ready for architecture/design**, **conditional-ready for implementation** (no external blockers; owner decisions **D1–D5 approved and recorded** in `docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md` §0; remaining: final design sign-off and the G-03 approval-engine test pack before sensitive-change wiring; P1 bundles are catalog-only per D5) — see `PRODUCT_MASTER_TARGET_DESIGN.md` and `IMPLEMENTATION_SEQUENCE.md` §3. Historical readiness checkpoint; current implementation evidence is in TASK-PM-01A above.
 - [ ] Remaining modules: evidence-based sequence proposed in `docs/product-inventory/IMPLEMENTATION_SEQUENCE.md` (P1–P9) — pending owner approval.
 
 ## 14. Definition of overall product maturity

@@ -2,6 +2,9 @@
 
 **Status: PREPARED / DECISION-GATED, not implementation approval.** No source/schema change, new module rollout or production change in this task. Canonical scope: `PRODUCT_ROADMAP.md` §§5,8; approved Product Master decisions D1–D5 in `PRODUCT_MASTER_TARGET_DESIGN.md` §0 remain binding. That document's older implementation-status column is not a fresh inventory.
 
+
+**Implementation addendum:** TASK-PM-01A now implements independent central-module changes in PR #14; see [implementation/evidence ledger](TASK-PM-01A_IMPLEMENTATION.md). The original preparation status above is historical, not a stop instruction. Domain identity/authorization remains unresolved and explicitly fail closed; no membership completion or approved deferral is implied.
+
 ## 1. Existing foundations and architecture reconciliation
 
 Targeted source review, not a new full audit:

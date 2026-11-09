@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
@@ -37,6 +38,7 @@ SKU-1001,شیر پرچرب پگاه,DAIRY,pcs,6261000000001,1
 
 export default function ImportPage(): React.JSX.Element {
   const router = useRouter();
+  const auth = useAuth();
   const [ready, setReady] = useState(false);
 
   const [csv, setCsv] = useState('');
@@ -113,7 +115,8 @@ export default function ImportPage(): React.JSX.Element {
     setResult((data as ImportResult) ?? null);
   };
 
-  if (!ready) return <AppLoader />;
+  if (!ready || auth.isLoading) return <AppLoader />;
+  if (!auth.hasPermission('master.product.import')) return <section className={panelCls}><p role="alert">مجوز این عملیات را ندارید.</p><Link href="/products" className={btnGhost}>بازگشت به کاتالوگ</Link></section>;
 
   const rowIssues: RowIssue[] = validation ? [...validation.row_errors, ...validation.warnings] : [];
   const validationOk = validation != null && validation.row_errors.length === 0;

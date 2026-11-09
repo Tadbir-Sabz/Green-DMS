@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
@@ -48,6 +49,7 @@ const EMPTY_FORM = {
 
 export default function NewProductPage(): React.JSX.Element {
   const router = useRouter();
+  const auth = useAuth();
   const [ready, setReady] = useState(false);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -189,7 +191,8 @@ export default function NewProductPage(): React.JSX.Element {
     router.push(`/products/${created.id}`);
   };
 
-  if (!ready) return <AppLoader />;
+  if (!ready || auth.isLoading) return <AppLoader />;
+  if (!auth.hasPermission('master.product.create')) return <section className={panelCls}><p role="alert">مجوز این عملیات را ندارید.</p><Link href="/products" className={btnGhost}>بازگشت به کاتالوگ</Link></section>;
 
   const hasBlocking = dup != null && dup.blocking.length > 0;
 
