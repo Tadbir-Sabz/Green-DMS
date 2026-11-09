@@ -60,15 +60,16 @@ export class PortalAuthGuard implements CanActivate {
     } catch {
       throw unauthorized('unauthorized', 'توکن پورتال نامعتبر یا منقضی است؛ دوباره وارد شوید.');
     }
-    if (payload.typ !== 'portal_access' || !payload.sub || !payload.sid || !payload.cust) {
+    if (payload.typ !== 'portal_access' || !payload.sub || !payload.sid || !payload.cust || !payload.cid) {
       throw unauthorized('unauthorized', 'توکن پورتال نامعتبر است؛ دوباره وارد شوید.');
     }
 
-    const session = await this.repo.findSessionById(payload.sid);
+    const session = await this.repo.findSessionById(payload.sid, payload.cid);
     if (
       !session ||
       session.revoked_at ||
       session.portal_user_id !== payload.sub ||
+      session.company_id !== payload.cid || session.customer_id !== payload.cust ||
       new Date(session.expires_at) <= new Date()
     ) {
       throw unauthorized('session_revoked', 'نشست پورتال باطل یا منقضی شده است؛ دوباره وارد شوید.');

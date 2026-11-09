@@ -136,12 +136,12 @@ export class PortalService {
       const shouldLock = attempts >= cfg.maxFailedAttempts;
       await this.repo.recordLoginFailure(
         user.id,
-        shouldLock ? new Date(Date.now() + cfg.lockMinutes * 60_000) : null,
+        shouldLock ? new Date(Date.now() + cfg.lockMinutes * 60_000) : null, user.company_id,
       );
       throw unauthorized('invalid_credentials', 'ایمیل یا رمز عبور نادرست است.');
     }
 
-    await this.repo.recordLoginSuccess(user.id);
+    await this.repo.recordLoginSuccess(user.id, user.company_id);
     return this.issueSession(
       {
         id: user.id,
@@ -165,7 +165,7 @@ export class PortalService {
     if (new Date(row.expires_at) <= new Date()) {
       throw unauthorized('refresh_expired', 'نشست پورتال منقضی شده است؛ دوباره وارد شوید.');
     }
-    const user = await this.repo.findById(row.portal_user_id);
+    const user = await this.repo.findById(row.portal_user_id, row.company_id);
     if (!user || !user.is_active) {
       throw unauthorized('invalid_refresh_token', 'نشست پورتال معتبر نیست؛ دوباره وارد شوید.');
     }
@@ -175,7 +175,7 @@ export class PortalService {
     // اگر دو درخواست با یک توکن هم‌زمان برسند، هر دو revoked_at=null می‌بینند. بنابراین
     // نتیجهٔ خودِ UPDATE اتمی ملاک است: rowCount=۰ یعنی توکن در این فاصله توسط درخواستِ
     // دیگری مصرف شده → بدون صدور نشستِ دوم، همان خطای استفادهٔ مجدد برمی‌گردد.
-    const revoked = await this.repo.revokeSession(row.id);
+    const revoked = await this.repo.revokeSession(row.id, row.company_id);
     if (revoked === 0) {
       throw unauthorized('refresh_reused', 'این توکن پیش‌تر استفاده شده است؛ دوباره وارد شوید.');
     }

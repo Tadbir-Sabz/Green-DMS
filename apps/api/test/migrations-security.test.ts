@@ -171,7 +171,7 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     }
     // TASK-24Y: 0053 (معماریِ تأیید) آخرین مهاجرت است. با افزودنِ مهاجرتِ تازه
     // این خط عمداً باید به‌روزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0056_provision_conflict_targets.up.sql');
+    expect(files[files.length - 1]).toBe('0057_portal_refresh_lookup.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {

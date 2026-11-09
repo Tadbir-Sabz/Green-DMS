@@ -10,6 +10,8 @@ import pg from 'pg';
 import { IntegrationsQueue, type ClaimedJob } from '../src/modules/integrations/queue/integrations.queue';
 import { runAsJobTenant } from '../src/database/job-context';
 import { verifyRuntimeDatabaseIdentity } from '../src/database/runtime-identity';
+import { BiRepository } from '../src/modules/bi/bi.repository';
+import { PortalRepository } from '../src/modules/portal/portal.repository';
 import { TenantAwarePool } from '../src/database/tenant-pool';
 
 /**
@@ -539,6 +541,37 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
       ),
     );
     expect(rows[0].can).toBe(false);
+  });
+
+  it('portal session issuance and lookup work under RLS without broad table access', async () => {
+    const inner = new pg.Pool({ connectionString: appUrl.toString() });
+    const repo = new PortalRepository(new TenantAwarePool(inner) as unknown as pg.Pool);
+    const hash = crypto.randomBytes(32).toString('hex');
+    try {
+      const login = await repo.findByEmail(portalEmailA);
+      expect(login?.company_id).toBe(companyA);
+      const sid = await repo.createSession({ portalUserId: login!.id, companyId: companyA,
+        refreshHash: hash, expiresAt: new Date(Date.now() + 60000), ip: null, userAgent: null });
+      expect(await repo.findSessionById(sid)).toBeNull(); // no tenant: still fail-closed
+      expect((await repo.findSessionById(sid, companyA))?.portal_user_id).toBe(login!.id);
+      expect(await repo.findSessionById(sid, companyB)).toBeNull();
+      expect((await repo.findSessionByRefreshHash(hash))?.company_id).toBe(companyA);
+      expect(await repo.findSessionByRefreshHash('not-a-valid-token')).toBeNull();
+      await repo.revokeSession(sid, companyA);
+      expect((await repo.findSessionById(sid, companyA))?.revoked_at).toBeTruthy();
+    } finally {
+      await inner.end();
+      // Remove only this isolated fixture's session; preserve the original scope test.
+      await ownerPool.query('delete from portal_session where refresh_hash = $1', [hash]);
+    }
+  });
+
+  it('BI ABC customer aggregate is valid under runtime views and tenant RLS', async () => {
+    const rows = await asRuntime(companyA, async c => {
+      await c.query(`select set_config('app.user_id', $1, false)`, [appUserA]);
+      return new BiRepository(c as unknown as pg.Pool).abcCustomers(companyA);
+    });
+    expect(Array.isArray(rows)).toBe(true);
   });
 
   it('runtime role can actually provision a tenant without ambiguous output variables', async () => {

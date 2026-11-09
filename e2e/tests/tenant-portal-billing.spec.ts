@@ -201,6 +201,27 @@ test.describe('tenant / portal / billing / attachments', () => {
     expect(portalUrl.status(), 'توکنِ پورتال نباید به ضمیمهٔ کارکنان برسد').toBe(401);
   });
 
+  test('پورتال: چرخش refresh و خروج زیر هویت runtime واقعی', async () => {
+    const login = await ctx.api.post(`${API}/portal/auth/login`, {
+      data: { email: PORTAL_A_EMAIL, password: PORTAL_PASSWORD },
+    });
+    expect(login.status()).toBe(200);
+    const initial = await login.json();
+    const refreshed = await ctx.api.post(`${API}/portal/auth/refresh`, {
+      data: { refresh_token: initial.refresh_token },
+    });
+    expect(refreshed.status()).toBe(200);
+    const next = await refreshed.json();
+    const replay = await ctx.api.post(`${API}/portal/auth/refresh`, {
+      data: { refresh_token: initial.refresh_token },
+    });
+    expect(replay.status()).toBe(401);
+    const auth = { Authorization: `Bearer ${next.access_token}` };
+    expect((await ctx.api.get(`${API}/portal/me`, { headers: auth })).status()).toBe(200);
+    expect((await ctx.api.post(`${API}/portal/auth/logout`, { headers: auth })).status()).toBe(200);
+    expect((await ctx.api.get(`${API}/portal/me`, { headers: auth })).status()).toBe(401);
+  });
+
   test('رابطِ کاربری: ورودِ مدیر و رسیدن به داشبورد BI', async ({ page }) => {
     await page.goto('/login');
     await page.fill('#username', ADMIN_EMAIL);

@@ -20,9 +20,18 @@ export class TenantInterceptor implements NestInterceptor {
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
     if (context.getType() !== 'http') return next.handle();
 
-    const req = context.switchToHttp().getRequest<{ auth?: { userId?: string; companyId?: string } }>();
-    const tenant = req.auth;
-    if (!tenant?.companyId || !tenant.userId) return next.handle();
+    const req = context.switchToHttp().getRequest<{
+      auth?: { userId?: string; companyId?: string };
+      portal?: { portalUserId: string; companyId: string };
+    }>();
+    // Guards have already verified staff/portal signatures AND live sessions.
+    // Portal principals are not staff: never impersonate an app_user for scope.
+    const tenant = req.auth?.companyId && req.auth.userId
+      ? { companyId: req.auth.companyId, userId: req.auth.userId }
+      : req.portal?.companyId && req.portal.portalUserId
+        ? { companyId: req.portal.companyId, userId: '' }
+        : null;
+    if (!tenant) return next.handle();
 
     const client = await this.pool.connect();
     try {
