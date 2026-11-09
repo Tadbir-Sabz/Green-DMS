@@ -127,7 +127,9 @@ export const navGroups: NavGroup[] = [
       { href: "/tracking", label: "رهگیری زنده", icon: IconTracking, perm: "tracking.live.view", hint: "موقعیت لحظه‌ای نیروها" },
       { href: "/geofences", label: "محدوده‌های جغرافیایی", icon: IconGeofence, perm: "tracking.geofence.view", hint: "حریم مجاز بازدید" },
       { href: "/rules", label: "موتور قوانین", icon: IconRules, perm: "rules.view", hint: "سقف اعتبار و تخفیف" },
-      { href: "/approvals", label: "درخواست‌های تأیید", icon: IconApproval, perm: "rules.approval.decide", hint: "صف تصمیم‌گیری" },
+      { href: "/approvals", label: "درخواست‌های تأیید", icon: IconApproval, perm: "rules.view", hint: "پیگیری و سابقه گردش" },
+      // TASK-24Y — کارتابلِ شخصی و واگذاری‌ها (مجوزِ تصمیم لازم است، نه فقط مشاهده)
+      { href: "/approvals/inbox", label: "کارتابل من", icon: IconApproval, perm: "rules.approval.decide", hint: "نوبتِ تصمیمِ من" },
       { href: "/exceptions", label: "صف استثناها", icon: IconException, perm: "rules.exceptions.resolve", hint: "موارد نیازمند رسیدگی" },
     ],
   },

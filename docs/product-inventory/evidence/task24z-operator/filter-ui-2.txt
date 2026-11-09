@@ -1,0 +1,5 @@
+ ✓ src/components/approvals/ApprovalWorkspace.test.tsx (2 tests) 221ms
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  11:30:11
+   Duration  1.25s (environment 60%, tests 20%, import 12%, transform 8%)

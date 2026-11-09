@@ -59,6 +59,8 @@ const VIEWER_PASSWORD = 'View!pass1';
 
 let adminToken = '';
 let viewerToken = '';
+/** TASK-24Y — تأییدکنندهٔ مستقل (نه درخواست‌دهندهٔ مرجوعی) */
+let returnApproverToken = '';
 let companyId = '';
 let customerId = '';
 let productId = '';
@@ -405,11 +407,28 @@ describe('RT — جریان کامل /returns', () => {
   });
 
   it('approve 200 ← approved؛ دوباره 409 ← invalid_transition', async () => {
-    const ok = await api().post(`/api/v1/returns/${returnId}/approve`).expect(200);
+    // TASK-24Y — جداسازیِ وظایف: درخواست‌دهنده نمی‌تواند تأیید کند. این آزمون
+    // پیش‌تر با همان کاربر تأیید می‌کرد، یعنی الگویِ ناامن را تثبیت می‌کرد.
+    const self = await api().post(`/api/v1/returns/${returnId}/approve`);
+    expect(self.status).toBe(403);
+    expect(self.body.code).toBe('self_approval_forbidden');
+
+    const viewer = await pool.query<{ id: string }>(`select id from app_user where username = $1`, [VIEWER_USER]);
+    const role = await pool.query<{ id: string }>(
+      `insert into role (company_id, code, name) values ($1, 'rt_approver', 'تأییدکنندهٔ مرجوعی') returning id`,
+      [companyId],
+    );
+    await pool.query(`insert into role_permission (role_id, permission_code) values ($1, 'sales.return.approve')`, [
+      role.rows[0].id,
+    ]);
+    await pool.query(`insert into user_role (app_user_id, role_id) values ($1, $2)`, [viewer.rows[0].id, role.rows[0].id]);
+    returnApproverToken = await login(VIEWER_USER, VIEWER_PASSWORD);
+
+    const ok = await api(returnApproverToken).post(`/api/v1/returns/${returnId}/approve`).expect(200);
     expectBodyMatchesSchema('post', '/returns/{id}/approve', 200, ok.body);
     expect(ok.body.status).toBe('approved');
 
-    const again = await api().post(`/api/v1/returns/${returnId}/approve`).expect(409);
+    const again = await api(returnApproverToken).post(`/api/v1/returns/${returnId}/approve`).expect(409);
     expectBodyMatchesSchema('post', '/returns/{id}/approve', 409, again.body);
     expect(again.body.code).toBe('invalid_transition');
   });
@@ -456,7 +475,8 @@ describe('RT — جریان کامل /returns', () => {
         lines: [{ product_id: productId, qty: 1 }],
       })
       .expect(201);
-    const res = await api()
+    // TASK-24Y — تأییدکنندهٔ مستقل (درخواست‌دهنده = admin)
+    const res = await api(returnApproverToken)
       .post(`/api/v1/returns/${other.body.id}/approve`)
       .expect(200);
     expect(res.body.status).toBe('approved');

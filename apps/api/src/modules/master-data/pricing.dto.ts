@@ -69,6 +69,27 @@ export class PriceListItemDto {
   @Matches(DECIMAL_RE, DECIMAL)
   price: string;
 
+  /** سطحِ تعدادی: حداقلِ مقدار (پیش‌فرض ۰) — موتور «بالاترین min_qty واجدِ شرط» را برمی‌گزیند */
+  @IsOptional()
+  @Transform(toDecimalString)
+  @IsString()
+  @Matches(DECIMAL_RE, DECIMAL)
+  min_qty?: string;
+
+  /** سقفِ بازهٔ تعدادی؛ null = باز (رفتارِ legacy) */
+  @IsOptional()
+  @Transform(toDecimalString)
+  @IsString()
+  @Matches(DECIMAL_RE, DECIMAL)
+  max_qty?: string | null;
+
+  /** سقفِ درصدِ تخفیفِ همین قلم (مبنای ردِ تخفیفِ غیرمجاز) */
+  @IsOptional()
+  @Transform(toDecimalString)
+  @IsString()
+  @Matches(/^\d+(\.\d+)?$/, DECIMAL)
+  max_discount_pct?: string | null;
+
   @IsOptional()
   @IsDateString()
   valid_from?: string | null;
@@ -105,6 +126,24 @@ export class CreatePriceListDto {
   @IsBoolean()
   is_active?: boolean;
 
+  /** قلمروِ قیمت (مهاجرت 0049)؛ null = لیستِ سراسریِ شرکت */
+  @IsOptional()
+  @IsUUID('4')
+  domain_id?: string | null;
+
+  /** اولویت در انتخابِ لیست (عددِ بزرگ‌تر = اولویتِ بالاتر) */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(32767)
+  priority?: number;
+
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  is_default?: boolean;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -136,6 +175,29 @@ export class UpdatePriceListDto {
   @Transform(toBoolean)
   @IsBoolean()
   is_active?: boolean;
+
+  @IsOptional()
+  @IsUUID('4')
+  domain_id?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(32767)
+  priority?: number;
+
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  is_default?: boolean;
+
+  /** قفلِ خوش‌بینانه — نسخهٔ ردیف از GET قبلی */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  row_version?: number;
 
   @IsOptional()
   @IsArray()
@@ -221,6 +283,39 @@ export class CreatePromotionDto {
   @Transform(toBoolean)
   @IsBoolean()
   is_active?: boolean;
+
+  @IsOptional()
+  @IsUUID('4')
+  domain_id?: string | null;
+
+  /** گروهِ انحصار: حداکثر یک تشویق از هر گروه اعمال می‌شود */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  exclusive_group?: string | null;
+
+  @IsOptional()
+  @Transform(toDecimalString)
+  @IsString()
+  @Matches(/^\d+(\.\d+)?$/, DECIMAL)
+  max_discount_pct?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  max_uses_total?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  max_uses_per_customer?: number | null;
+
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  requires_coupon?: boolean;
 }
 
 export class UpdatePromotionDto {
@@ -282,6 +377,39 @@ export class UpdatePromotionDto {
   @Transform(toBoolean)
   @IsBoolean()
   is_active?: boolean;
+
+  @IsOptional()
+  @IsUUID('4')
+  domain_id?: string | null;
+
+  /** گروهِ انحصار: حداکثر یک تشویق از هر گروه اعمال می‌شود */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  exclusive_group?: string | null;
+
+  @IsOptional()
+  @Transform(toDecimalString)
+  @IsString()
+  @Matches(/^\d+(\.\d+)?$/, DECIMAL)
+  max_discount_pct?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  max_uses_total?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  max_uses_per_customer?: number | null;
+
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  requires_coupon?: boolean;
 }
 
 export class ListPromotionsQueryDto {

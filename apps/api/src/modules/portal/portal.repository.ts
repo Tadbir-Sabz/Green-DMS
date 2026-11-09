@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { runAsJobTenant } from '../../database/job-context';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
 import type {
@@ -84,7 +85,8 @@ export class PortalRepository {
     return rows[0] ?? null;
   }
 
-  async findById(id: string): Promise<PortalUserRow | null> {
+  async findById(id: string, companyId?: string): Promise<PortalUserRow | null> {
+    if (companyId) return runAsJobTenant(this.pool, companyId, () => this.findById(id));
     const { rows } = await this.pool.query<PortalUserRow>(
       `select id, company_id, customer_id, email, password_hash, display_name,
               is_active, failed_attempts, locked_until
@@ -145,16 +147,17 @@ export class PortalRepository {
     userAgent: string | null;
     ip: string | null;
   }): Promise<string> {
-    const { rows } = await this.pool.query<{ id: string }>(
+    const { rows } = await runAsJobTenant(this.pool, p.companyId, () => this.pool.query<{ id: string }>(
       `insert into portal_session (portal_user_id, company_id, refresh_hash, expires_at, user_agent, ip)
        values ($1, $2, $3, $4, $5, $6)
        returning id`,
       [p.portalUserId, p.companyId, p.refreshHash, p.expiresAt, p.userAgent, p.ip],
-    );
+    ));
     return rows[0].id;
   }
 
-  async findSessionById(sid: string): Promise<PortalSessionJoinRow | null> {
+  async findSessionById(sid: string, companyId?: string): Promise<PortalSessionJoinRow | null> {
+    if (companyId) return runAsJobTenant(this.pool, companyId, () => this.findSessionById(sid));
     const { rows } = await this.pool.query<PortalSessionJoinRow>(
       `select s.id, s.portal_user_id, s.company_id, u.customer_id,
               s.expires_at, s.revoked_at, u.is_active, u.locked_until
@@ -169,14 +172,7 @@ export class PortalRepository {
 
   async findSessionByRefreshHash(refreshHash: string): Promise<PortalRefreshRow | null> {
     const { rows } = await this.pool.query<PortalRefreshRow>(
-      `select s.id, s.portal_user_id, s.company_id, u.customer_id, u.email,
-              s.revoked_at, s.expires_at
-         from portal_session s
-         join portal_user u on u.id = s.portal_user_id
-        where s.refresh_hash = $1
-        limit 1`,
-      [refreshHash],
-    );
+      `select * from fn_portal_find_refresh($1)`, [refreshHash]);
     return rows[0] ?? null;
   }
 
@@ -186,7 +182,8 @@ export class PortalRepository {
    * بقیه ۰ — همان سیگنالی که سرویس برای تشخیصِ استفادهٔ مجدد لازم دارد.
    * @returns تعداد سطرِ واقعاً باطل‌شده (۰ یا ۱)
    */
-  async revokeSession(sid: string): Promise<number> {
+  async revokeSession(sid: string, companyId?: string): Promise<number> {
+    if (companyId) return runAsJobTenant(this.pool, companyId, () => this.revokeSession(sid));
     const result = await this.pool.query(
       `update portal_session set revoked_at = now() where id = $1 and revoked_at is null`,
       [sid],
@@ -194,7 +191,8 @@ export class PortalRepository {
     return result.rowCount ?? 0;
   }
 
-  async recordLoginSuccess(id: string): Promise<void> {
+  async recordLoginSuccess(id: string, companyId?: string): Promise<void> {
+    if (companyId) return runAsJobTenant(this.pool, companyId, () => this.recordLoginSuccess(id));
     await this.pool.query(
       `update portal_user
           set failed_attempts = 0, locked_until = null, last_login_at = now(), updated_at = now()
@@ -203,7 +201,8 @@ export class PortalRepository {
     );
   }
 
-  async recordLoginFailure(id: string, lockedUntil: Date | null): Promise<void> {
+  async recordLoginFailure(id: string, lockedUntil: Date | null, companyId?: string): Promise<void> {
+    if (companyId) return runAsJobTenant(this.pool, companyId, () => this.recordLoginFailure(id, lockedUntil));
     await this.pool.query(
       `update portal_user
           set failed_attempts = failed_attempts + 1,

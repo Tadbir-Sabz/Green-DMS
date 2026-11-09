@@ -1,11 +1,18 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
 import type { OrderService, OrderView } from './order.service';
 import { ORDER_SERVICE } from './tokens';
 import type { CreateOrderDto } from './order.dto';
 import type { CreateInvoiceDto, ListInvoicesQueryDto } from './invoice.dto';
-import type { CreateRequestDto, ListRequestsQueryDto, UpdateRequestDto } from './request.dto';
+import type { ConvertRequestDto, CreateRequestDto, ListRequestsQueryDto, UpdateRequestDto } from './request.dto';
 import type { ListDeliveriesQueryDto, UpdateDeliveryDto } from './delivery.dto';
 import type {
   DeliveryRow,
@@ -20,6 +27,11 @@ import {
   INVOICE_REPOSITORY,
   REQUEST_REPOSITORY,
 } from './tokens';
+import { PRICING_ENGINE_SERVICE } from '../pricing/pricing.tokens';
+import { businessToday } from '../../common/business-date';
+import { OrderCreationLock } from './order-creation-lock';
+import type { PricingEngineService, OrderPricingPermissions } from '../pricing/pricing-engine.service';
+import { pricingContextUnavailable } from '../pricing/pricing-permissions';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -45,6 +57,14 @@ export class RequestService {
   constructor(
     @Inject(REQUEST_REPOSITORY) private readonly repo: SalesChainRepository,
     @Inject(ORDER_SERVICE) private readonly orders: OrderService,
+    /** TASK-24W: ممیزیِ منبعِ تبدیل در همان دفترِ تغییرِ قیمت */
+    @Inject(PRICING_ENGINE_SERVICE) private readonly pricing: PricingEngineService,
+    /**
+     * TASK-24X · A-1 — همان سازوکارِ قفلی که `POST /orders` استفاده می‌کند.
+     * قبلاً قفل داخلِ `SalesChainRepository` بود و فقط این مسیر از آن عبور
+     * می‌کرد؛ اکنون یک پیاده‌سازی وجود دارد و هر دو مسیر از آن استفاده می‌کنند.
+     */
+    private readonly creationLock: OrderCreationLock,
   ) {}
 
   private assertId(id: string): void {
@@ -97,9 +117,51 @@ export class RequestService {
     return this.get(companyId, id);
   }
 
-  /** تبدیل درخواست به سفارش فروش — اقلام درخواست → اقلام سفارش */
-  async convert(companyId: string, id: string): Promise<OrderView> {
+  /**
+   * TASK-24W · HIGH-1-R1 — تبدیلِ درخواست به سفارش با زمینهٔ کاملِ احراز هویت.
+   *
+   * پیش از این دور، `convert()` سفارش را با `orders.create(companyId, dto)` می‌ساخت؛
+   * یعنی **بدونِ actor، بدونِ مجوز و بدونِ دلیل**. پیامدش این بود که هر درخواستِ
+   * دارایِ `requested_price` (حتی برابر با قیمتِ سیستمی) با
+   * `403 manual_price_not_authorized` رد می‌شد و رکوردِ ممیزی هم actor نداشت.
+   *
+   * رفتارِ فعلی (همه سرور-محور):
+   *   ۱) actor از نشست می‌آید (`actorUserId`)، نه از بدنه؛ نبودش ⇒ fail-closed.
+   *   ۲) مجوزها از `pricingPermissionsFromSession` می‌آیند؛ بدنهٔ درخواست هرگز.
+   *   ۳) اگر قلمی `requested_price` دارد ⇒ `pricing.manual_price.apply` الزامی است.
+   *   ۴) واگراییِ قیمتِ درخواستی از قیمتِ سیستمی (یا عبور از سقفِ تخفیف) ⇒ دلیلِ
+   *      معنادار الزامی است (همان قاعدهٔ `POST /orders`، بدونِ مسیرِ جایگزین).
+   *   ۵) سفارش از همان `orders.create` با همان کنترل‌های کفِ سود/سقف/قواعد/
+   *      اعتبار/موجودی ساخته می‌شود (بدونِ تکرارِ منطق).
+   *   ۶) دفترِ تغییرِ قیمت علاوه بر ردیف‌های سفارش، یک ردیفِ «منبعِ تبدیل» با
+   *      `request_id`/`order_id`/actor/قیمتِ سیستمی/قیمتِ درخواستی/دلیل ثبت می‌کند.
+   *   ۷) تبدیل اتمیک است: اگر در همین لحظه کسِ دیگری تبدیل کرده باشد، سفارشِ
+   *      ساخته‌شده لغو نمی‌شود ولی درخواست «converted» نمی‌شود و خطای ۴۰۹ برمی‌گردد
+   *      (بدونِ رکوردِ ممیزیِ تکراری برای تبدیلِ دوم).
+   */
+  async convert(
+    companyId: string,
+    id: string,
+    actorUserId: string | null,
+    permissions: OrderPricingPermissions,
+    dto: ConvertRequestDto = {},
+  ): Promise<OrderView> {
     this.assertId(id);
+    if (!actorUserId) throw pricingContextUnavailable();
+    // TASK-24W: تبدیلِ هم‌زمانِ یک درخواست سریال می‌شود؛ بازنده پیش از ساختِ
+    // سفارش، وضعیتِ «converted» را می‌بیند ⇒ هیچ سفارشِ یتیمی ساخته نمی‌شود.
+    return this.creationLock.withRequestLock(id, () =>
+      this.convertLocked(companyId, id, actorUserId, permissions, dto),
+    );
+  }
+
+  private async convertLocked(
+    companyId: string,
+    id: string,
+    actorUserId: string,
+    permissions: OrderPricingPermissions,
+    dto: ConvertRequestDto,
+  ): Promise<OrderView> {
     const req = await this.repo.findRequest(companyId, id);
     if (!req) throw new NotFoundException({ code: 'not_found', message_fa: 'درخواست یافت نشد' });
     if (req.status === 'converted') {
@@ -112,14 +174,34 @@ export class RequestService {
     if (lines.length === 0) {
       throw badRequest('no_lines', 'درخواست بدون قلم کالا قابل تبدیل به سفارش نیست.');
     }
+
+    // ۳) قیمتِ دستی همیشه نیازمندِ مجوزِ سرور-محور است
+    const hasRequestedPrice = lines.some((l) => l.requested_price != null);
+    if (hasRequestedPrice && !permissions.manual_price) {
+      throw new ForbiddenException({
+        code: 'manual_price_not_authorized',
+        message_fa:
+          'این درخواست قیمتِ درخواستیِ مشتری دارد؛ تبدیلِ آن نیازمندِ مجوزِ pricing.manual_price.apply است.',
+        details: {
+          request_id: id,
+          lines_with_requested_price: lines.filter((l) => l.requested_price != null).length,
+        },
+      });
+    }
+
+    const reason = (dto.price_override_reason ?? '').trim() || null;
     const orderDto: CreateOrderDto = {
       customer_id: req.customer_id,
-      order_date: new Date().toISOString().slice(0, 10),
+      // TASK-24X · MEDIUM — تاریخِ سند از انتزاعِ واحدِ تاریخِ کسب‌وکار (Tehran)،
+      // نه UTC. پیش از این در بازهٔ ۲۰:۳۰–۲۴:۰۰ UTC تاریخِ UTC یک روز عقب‌تر بود
+      // و موتورِ قیمت آن را «عقب‌گرد» می‌دید ⇒ تبدیلِ درخواستِ «امروز» رد می‌شد.
+      order_date: businessToday(),
       request_id: req.id,
       tour_id: req.tour_id ?? null,
       channel: req.channel,
       delivery_date: req.requested_delivery_date ?? null,
-      note: req.note ?? undefined,
+      note: dto.note ?? req.note ?? undefined,
+      price_override_reason: reason ?? undefined,
       lines: lines.map((l) => ({
         product_id: l.product_id,
         qty: l.qty,
@@ -127,8 +209,53 @@ export class RequestService {
         unit_price: l.requested_price ?? null,
       })),
     };
-    const order = await this.orders.create(companyId, orderDto);
-    await this.repo.markRequestConverted(req.id, order.id as string);
+
+    // ۵) همان مسیرِ یگانهٔ سفارش؛ actor و مجوزها منتقل می‌شوند (بدونِ کاهشِ کنترل)
+    const order = await this.orders.create(companyId, orderDto, actorUserId, permissions);
+
+    // ۷) اتمیک: فقط اگر هنوز submitted است
+    const marked = await this.repo.markRequestConverted(req.id, order.id as string);
+    if (!marked) {
+      // مسابقهٔ هم‌زمان: سفارشِ دوم ساخته شد ولی درخواست قبلاً تبدیل شده بود.
+      // سفارش را باطل نمی‌کنیم (سند ثبت شده)، ولی ممیزیِ منبع و پیوند را ثبت
+      // نمی‌کنیم و خطای روشن برمی‌گردانیم تا کلاینت بداند تبدیل تکراری بوده است.
+      throw conflict(
+        'already_converted',
+        'این درخواست هم‌زمان توسط کاربرِ دیگری تبدیل شد؛ سفارشِ ساخته‌شده را بررسی و در صورتِ نیاز لغو کنید.',
+      );
+    }
+
+    // ۶) ممیزیِ منبعِ تبدیل (جدا از ممیزیِ قلم‌های سفارش در OrderService)
+    await this.pricing.logPriceChange({
+      companyId,
+      actorUserId,
+      entityType: 'customer_request',
+      entityId: req.id,
+      action: 'convert_to_order',
+      before: {
+        request_id: req.id,
+        request_status: 'submitted',
+        requested_by: req.requested_by,
+        requested_prices: lines.map((l) => ({
+          product_id: l.product_id,
+          requested_price: l.requested_price ?? null,
+        })),
+      },
+      after: {
+        request_id: req.id,
+        order_id: order.id,
+        actor_user_id: actorUserId,
+        reason,
+        manual_price_used: hasRequestedPrice,
+        permissions,
+        priced_lines: (order.lines ?? []).map((l) => ({
+          product_id: l.product_id,
+          unit_price: l.unit_price,
+          discount_amount: l.discount_amount,
+        })),
+      },
+    });
+
     return order;
   }
 

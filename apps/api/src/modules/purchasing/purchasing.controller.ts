@@ -57,8 +57,22 @@ export class PurchaseOrderController {
   create(
     @Body() dto: CreatePurchaseOrderDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<PurchaseOrderRow> {
-    return this.service.create(companyId, dto);
+    // TASK-24Y: ثبتِ سازنده برای جداسازیِ وظایف
+    return this.service.create(companyId, dto, userId);
+  }
+
+  /** TASK-24Z — ارسال به گردشِ تأیید (ساختِ اتصال؛ پیش‌نیازِ تأیید). */
+  @Post(':id/request-approval')
+  @HttpCode(201)
+  @RequirePermissions('ap.purchase.request')
+  requestApproval(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.requestApproval(companyId, id, userId);
   }
 
   @Post(':id/approve')
@@ -67,8 +81,11 @@ export class PurchaseOrderController {
   approve(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<PurchaseOrderRow> {
-    return this.service.approve(companyId, id);
+    // TASK-24Y: هویتِ تأییدکننده (منعِ خودتأییدی + ممیزی)
+    void userId;
+    return this.service.approve(companyId, id, userId);
   }
 }
 

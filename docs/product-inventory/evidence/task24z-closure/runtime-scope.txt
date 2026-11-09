@@ -1,0 +1,5 @@
+ ✓ test/db-privileges.api.test.ts (68 tests) 1711ms
+ Test Files  1 passed (1)
+      Tests  68 passed (68)
+   Start at  08:38:27
+   Duration  2.17s (tests 84%, import 9%, transform 6%, setup 1%)

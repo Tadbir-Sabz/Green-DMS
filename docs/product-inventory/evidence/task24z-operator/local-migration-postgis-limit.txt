@@ -1,0 +1,21 @@
+Local PostgreSQL shim, exit 1; 2 passed, 1 failed, no skipped.
+ FAIL  test/migrations-security.test.ts > مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048 > down/up: داده می‌ماند، سیاست‌ها و گرانت‌ها بازگردانده می‌شوند
+error: function st_geomfromtext(unknown, integer) does not exist
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg-pool/index.js:45:11
+ ❯ seedAndCount test/migrations-security.test.ts:70:3
+     68|     [appUser, `md-${u}`, `mtok-${u}`],
+     69|   );
+     70|   await q.query(
+       |   ^
+     71|     `insert into geofence (branch_id, name, kind, area) values ($1,$2,…
+     72|     [branch, `حوزهٔ مهاجرت ${u}`, `POLYGON((1 1,2 1,2 2,1 2,1 1))`],
+ ❯ test/migrations-security.test.ts:190:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  11:18:16
+   Duration  4.78s (tests 98%, transform 1%)
+

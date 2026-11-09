@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
+import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import type { CreateReturnDto, ReceiveReturnDto } from './return.dto';
 
@@ -16,6 +17,8 @@ export interface ReturnRow extends QueryResultRow {
   requested_at: string;
   approved_at: string | null;
   note: string | null;
+  /** TASK-24Y — درخواست‌دهنده؛ مبنای جلوگیری از خودتأییدی */
+  requested_by: string | null;
 }
 
 export interface ReturnLineRow extends QueryResultRow {
@@ -31,7 +34,7 @@ const encodeCursor = (id: string): string => Buffer.from(id, 'utf8').toString('b
 const decodeCursor = (cursor: string): string => Buffer.from(cursor, 'base64url').toString('utf8');
 
 const COLUMNS =
-  'r.id, r.doc_number, r.customer_id, r.invoice_id, r.tour_id, r.reason_code, r.status, r.credit_note_id, r.requested_at, r.approved_at, r.note';
+  'r.id, r.doc_number, r.customer_id, r.invoice_id, r.tour_id, r.reason_code, r.status, r.credit_note_id, r.requested_at, r.approved_at, r.note, r.requested_by';
 
 @Injectable()
 export class ReturnRepository {
@@ -93,7 +96,16 @@ export class ReturnRepository {
   }
 
   /** ثبت درخواست با وضعیت submitted (header + خطوط در یک تراکنش) */
-  async insert(companyId: string, dto: CreateReturnDto): Promise<string> {
+  async insert(
+    companyId: string,
+    dto: CreateReturnDto,
+    /**
+     * TASK-24Y — درخواست‌دهنده. `return_request.requested_by` از ابتدا در جدول
+     * بود ولی **هرگز پر نمی‌شد**؛ یعنی «تأییدکننده نباید درخواست‌دهنده باشد»
+     * قابلِ اجرا نبود. ستونِ همیشه-null = کنترلِ ناموجود.
+     */
+    requestedBy: string | null = null,
+  ): Promise<string> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -118,8 +130,9 @@ export class ReturnRepository {
       const docNumber = `RT-${id.slice(0, 8).toUpperCase()}`;
       await client.query(
         `insert into return_request
-           (id, branch_id, doc_number, customer_id, invoice_id, tour_id, reason_code, status, note)
-         values ($1, $2, $3, $4, $5, $6, $7, 'submitted', $8)`,
+           (id, branch_id, doc_number, customer_id, invoice_id, tour_id, reason_code, status, note,
+            requested_by)
+         values ($1, $2, $3, $4, $5, $6, $7, 'submitted', $8, $9)`,
         [
           id,
           branch.rows[0].branch_id,
@@ -129,6 +142,7 @@ export class ReturnRepository {
           dto.tour_id ?? null,
           dto.reason_code,
           dto.note ?? null,
+          requestedBy,
         ],
       );
       for (const line of dto.lines ?? []) {
@@ -149,8 +163,8 @@ export class ReturnRepository {
   }
 
   /** تأیید: submitted → approved (به‌روزرسانی اتمیک با شرط وضعیت؛ false یعنی transition نامعتبر) */
-  async approve(companyId: string, id: string): Promise<boolean> {
-    const { rowCount } = await this.pool.query(
+  async approve(companyId: string, id: string, client?: Runner): Promise<boolean> {
+    const { rowCount } = await (client ?? this.pool).query(
       `update return_request set status = 'approved', approved_at = now()
         where id = $1
           and status = 'submitted'

@@ -1,0 +1,5 @@
+ ✓ test/task24z-approval-lifecycle.api.test.ts (45 tests | 43 skipped) 6112ms
+ Test Files  1 passed (1)
+      Tests  2 passed | 43 skipped (45)
+   Start at  11:22:16
+   Duration  7.96s (tests 79%, import 14%, transform 7%)

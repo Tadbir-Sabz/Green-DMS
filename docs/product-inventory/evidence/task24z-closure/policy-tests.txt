@@ -1,0 +1,8 @@
+ ✓ test/task24z-approval-lifecycle.api.test.ts (44 tests) 6963ms
+ ✓ test/task24y-approval-engine.api.test.ts (27 tests) 5785ms
+ ✓ test/pricing-engine.api.test.ts (48 tests) 3657ms
+ ✓ test/rules-engine-behavior.test.ts (27 tests) 2590ms
+ Test Files  4 passed (4)
+      Tests  146 passed (146)
+   Start at  08:24:09
+   Duration  24.78s (tests 78%, import 18%, transform 4%)

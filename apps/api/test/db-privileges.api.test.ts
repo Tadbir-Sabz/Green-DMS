@@ -10,6 +10,9 @@ import pg from 'pg';
 import { IntegrationsQueue, type ClaimedJob } from '../src/modules/integrations/queue/integrations.queue';
 import { runAsJobTenant } from '../src/database/job-context';
 import { verifyRuntimeDatabaseIdentity } from '../src/database/runtime-identity';
+import { runAsJobTenant as withPortalCompany } from '../src/database/job-context';
+import { BiRepository } from '../src/modules/bi/bi.repository';
+import { PortalRepository } from '../src/modules/portal/portal.repository';
 import { TenantAwarePool } from '../src/database/tenant-pool';
 
 /**
@@ -539,6 +542,64 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
       ),
     );
     expect(rows[0].can).toBe(false);
+  });
+
+  it('portal session issuance and lookup work under RLS without broad table access', async () => {
+    const inner = new pg.Pool({ connectionString: appUrl.toString() });
+    const scopedPool = new TenantAwarePool(inner) as unknown as pg.Pool;
+    const repo = new PortalRepository(scopedPool);
+    const hash = crypto.randomBytes(32).toString('hex');
+    try {
+      const login = await repo.findByEmail(portalEmailA);
+      expect(login?.company_id).toBe(companyA);
+      const sid = await repo.createSession({ portalUserId: login!.id, companyId: companyA,
+        refreshHash: hash, expiresAt: new Date(Date.now() + 60000), ip: null, userAgent: null });
+      expect(await repo.findSessionById(sid)).toBeNull(); // no tenant: still fail-closed
+      expect((await repo.findSessionById(sid, companyA))?.portal_user_id).toBe(login!.id);
+      expect(await repo.findSessionById(sid, companyB)).toBeNull();
+      expect((await repo.findSessionByRefreshHash(hash))?.company_id).toBe(companyA);
+      expect(await repo.findSessionByRefreshHash('not-a-valid-token')).toBeNull();
+      const capability = await inner.query(`select prosecdef, proconfig,
+        has_function_privilege('dms_readonly', 'fn_portal_find_refresh(text)', 'execute') as readonly_allowed
+        from pg_proc where proname = 'fn_portal_find_refresh'`);
+      expect(capability.rows[0].prosecdef).toBe(true);
+      expect(capability.rows[0].proconfig).toContain('search_path=public, pg_temp');
+      expect(capability.rows[0].readonly_allowed).toBe(false);
+
+      await withPortalCompany(scopedPool, companyA, async () => {
+        expect(await repo.invoices(companyA, customerA)).toEqual([]);
+      });
+      await repo.revokeSession(sid, companyA);
+      expect((await repo.findSessionById(sid, companyA))?.revoked_at).toBeTruthy();
+    } finally {
+      await inner.end();
+      // Remove only this isolated fixture's session; preserve the original scope test.
+      await ownerPool.query('delete from portal_session where refresh_hash = $1', [hash]);
+    }
+  });
+
+  it('BI ABC customer aggregate is valid under runtime views and tenant RLS', async () => {
+    const rows = await asRuntime(companyA, async c => {
+      await c.query(`select set_config('app.user_id', $1, false)`, [appUserA]);
+      return new BiRepository(c as unknown as pg.Pool).abcCustomers(companyA);
+    });
+    expect(Array.isArray(rows)).toBe(true);
+  });
+
+  it('runtime role can actually provision a tenant without ambiguous output variables', async () => {
+    const suffix = crypto.randomBytes(6).toString('hex');
+    const result = await asRuntime('none', c => c.query<{
+      company_id: string; branch_id: string; person_id: string; app_user_id: string;
+    }>(`select * from fn_provision_company($1,$2,$3,$4,$5,$6)`,
+      [`CLOSE-${suffix}`, 'شرکت مرورگر', `closure-${suffix}@example.test`, 'test-hash', 'مدیر', 'تست']));
+    const row = result.rows[0];
+    expect(row.company_id).toBeTruthy();
+    expect(row.branch_id).toBeTruthy();
+    expect(row.person_id).toBeTruthy();
+    expect(row.app_user_id).toBeTruthy();
+    const roles = await ownerPool.query(`select r.code from user_role ur join role r on r.id = ur.role_id
+      where ur.app_user_id = $1 and r.company_id = $2`, [row.app_user_id, row.company_id]);
+    expect(roles.rows.map(r => r.code)).toContain('ceo');
   });
 
   it('fn_provision_company هم SECURITY DEFINER با search_path پین‌شده و بدونِ EXECUTE عمومی است', async () => {

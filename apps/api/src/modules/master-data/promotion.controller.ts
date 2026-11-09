@@ -35,8 +35,9 @@ export class PromotionController {
   create(
     @Body() dto: CreatePromotionDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<PromotionView> {
-    return this.service.createPromotion(companyId, dto);
+    return this.service.createPromotion(companyId, dto, userId);
   }
 
   @Get(':id')
@@ -54,7 +55,8 @@ export class PromotionController {
     @Param('id') id: string,
     @Body() dto: UpdatePromotionDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<PromotionView> {
-    return this.service.updatePromotion(companyId, id, dto);
+    return this.service.updatePromotion(companyId, id, dto, userId);
   }
 }

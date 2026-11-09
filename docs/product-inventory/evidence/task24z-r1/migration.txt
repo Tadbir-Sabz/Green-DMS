@@ -1,0 +1,5 @@
+ ✓ test/task24z-migration-rollback.api.test.ts (4 tests) 4747ms
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  06:53:48
+   Duration  4.95s (tests 98%, transform 1%)

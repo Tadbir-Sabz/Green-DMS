@@ -11,7 +11,7 @@ import pg from 'pg';
 /**
  * آزمون‌های مهاجرتِ امنیتی — TASK-23 (مجموعهٔ E).
  *
- * پوشش: نصبِ تازه (fresh) با همهٔ ۴۸ مهاجرت؛ چرخهٔ up/down/up فقطِ 0048 با
+ * پوشش: نصبِ تازه (fresh) با همهٔ ۴۹ مهاجرت؛ چرخهٔ up/down/up فقطِ 0048 با
  * راستی‌آزماییِ «داده» (ردیف‌های واقعیِ device/geofence و منبعِ matview)، نه
  * «برابریِ شمارِ اشیاء»؛ بازگردانیِ سیاست‌ها (p_device_tenant/p_geofence_tenant،
  * enabled+forced) و گرانت‌ها (matview src بدونِ گرانتِ برنامه، نمایِ سایه با SELECT).
@@ -154,11 +154,34 @@ afterAll(async () => {
 });
 
 describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
-  it('fresh: همهٔ مهاجرت‌ها (۰۰۰۱..۰۰۴۸) بدونِ خطا اعمال می‌شوند', async () => {
+  it('fresh: همهٔ مهاجرت‌ها (۰۰۰۱..آخرین) بدونِ خطا اعمال می‌شوند', async () => {
     const files = readdirSync(path.join(ROOT, 'migrations'))
       .filter((f) => f.endsWith('.up.sql'))
       .sort();
-    expect(files.length).toBe(48);
+
+    // پیش‌تر این‌جا شمارِ مهاجرت‌ها به‌صورتِ literal (۵۲) سنجیده می‌شد. هر افزودنِ
+    // مهاجرتِ تازه — هرچند کاملاً سالم — این آزمون را می‌شکست، و شکست دربارهٔ
+    // موضوعِ آزمون (سالم‌بودنِ زنجیره) چیزی نمی‌گفت. اکنون:
+    //   ۱) پیوستگیِ شماره‌ها از ۰۰۰۱ تا آخرین، بدونِ شکاف — این خودش یک کنترل است
+    //   ۲) آخرین مهاجرت باید همان چیزی باشد که انتظار داریم
+    const numbers = files.map((f) => Number(f.slice(0, 4)));
+    expect(numbers[0]).toBe(1);
+    for (let i = 1; i < numbers.length; i += 1) {
+      expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
+    }
+    // TASK-24Y: 0053 (معماریِ تأیید) آخرین مهاجرت است. با افزودنِ مهاجرتِ تازه
+    // این خط عمداً باید به‌روزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
+    expect(files[files.length - 1]).toBe('0059_approval_provenance.up.sql');
+
+    // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
+    for (const f of files) {
+      const down = f.replace(/\.up\.sql$/, '.down.sql');
+      expect(
+        readdirSync(path.join(ROOT, 'migrations')).includes(down),
+        `مهاجرتِ ${f} فایلِ down ندارد`,
+      ).toBe(true);
+    }
+
     for (const f of files) runSqlFile(path.join(ROOT, 'migrations', f));
     await assert0048EndState(db);
   }, 300_000);

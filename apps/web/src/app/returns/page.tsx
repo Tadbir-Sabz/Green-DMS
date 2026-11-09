@@ -121,6 +121,23 @@ export default function ReturnsPage() {
     onError: (e: Error) => setFormError(e.message),
   });
 
+  /**
+   * TASK-24Z — ارسال به گردشِ تأیید. بدونِ آن `approve` همیشه ۴۰۹
+   * (`approval_required`) می‌دهد و پیام به کاربر نشان داده می‌شود.
+   */
+  const requestApproval = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.POST("/returns/{id}/request-approval", { params: { path: { id } } });
+      if (res.error) throw new Error(errorMessage(res.error));
+      return res.data;
+    },
+    onSuccess: () => {
+      setDecisionError(null);
+      invalidate();
+    },
+    onError: (e: Error) => setDecisionError(e.message),
+  });
+
   const approve = useMutation({
     mutationFn: async (id: string) => {
       const res = await api.POST("/returns/{id}/approve", { params: { path: { id } } });
@@ -331,6 +348,16 @@ export default function ReturnsPage() {
                 <span className="text-ink-muted">وضعیت</span>
                 <span>{STATUS_FA[current.status] ?? current.status}</span>
               </div>
+
+              {(current.status === "draft" || current.status === "submitted") && (
+                <button
+                  disabled={requestApproval.isPending}
+                  onClick={() => requestApproval.mutate(current.id)}
+                  className="w-full px-4 py-2 rounded-xl bg-surface-alt border border-line text-ink hover:bg-surface disabled:opacity-50 focus-ring"
+                >
+                  {requestApproval.isPending ? "در حال ارسال..." : "ارسال به گردش تأیید"}
+                </button>
+              )}
 
               {current.status === "submitted" && (
                 <button

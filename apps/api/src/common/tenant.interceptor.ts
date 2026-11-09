@@ -3,7 +3,7 @@ import { Observable, finalize } from 'rxjs';
 import type { PoolClient } from 'pg';
 import { PG_POOL } from '../database/database.module';
 import type { TenantAwarePool } from '../database/tenant-pool';
-import { applyTenant, clearTenant, tenantStorage } from '../database/tenant-context';
+import { applyTenant, releaseTenantClient, tenantStorage } from '../database/tenant-context';
 
 /**
  * اجارهٔ connection به ازای هر درخواست احراز‌شده — پیش‌نیاز فعال‌شدن RLS.
@@ -20,24 +20,33 @@ export class TenantInterceptor implements NestInterceptor {
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
     if (context.getType() !== 'http') return next.handle();
 
-    const req = context.switchToHttp().getRequest<{ auth?: { userId?: string; companyId?: string } }>();
-    const tenant = req.auth;
-    if (!tenant?.companyId || !tenant.userId) return next.handle();
+    const req = context.switchToHttp().getRequest<{
+      auth?: { userId?: string; companyId?: string };
+      portal?: { portalUserId: string; companyId: string };
+    }>();
+    // Guards have already verified staff/portal signatures AND live sessions.
+    // Portal principals are not staff: never impersonate an app_user for scope.
+    const tenant = req.auth?.companyId && req.auth.userId
+      ? { companyId: req.auth.companyId, userId: req.auth.userId }
+      : req.portal?.companyId && req.portal.portalUserId
+        ? { companyId: req.portal.companyId, userId: '' }
+        : null;
+    if (!tenant) return next.handle();
 
     const client = await this.pool.connect();
     try {
       await applyTenant(client, { companyId: tenant.companyId, userId: tenant.userId });
     } catch (err) {
-      client.release();
+      await releaseTenantClient(client, client.release.bind(client), err instanceof Error ? err : new Error(String(err)));
       throw err;
     }
 
     return tenantStorage.run({ client, tenant: { companyId: tenant.companyId, userId: tenant.userId } }, () =>
       next.handle().pipe(
         finalize(() => {
-          void clearTenant(client)
-            .catch(() => undefined)
-            .finally(() => client.release());
+          void releaseTenantClient(client, client.release.bind(client)).then(outcome => {
+            if (!outcome.clean) console.error('[TenantInterceptor] tenant cleanup failed; connection discarded');
+          });
         }),
       ),
     );

@@ -1,0 +1,3 @@
+/** توکن‌های DI ماژولِ قیمت/تخفیف (TASK-24) */
+export const PRICING_ENGINE_REPOSITORY = 'PRICING_ENGINE_REPOSITORY';
+export const PRICING_ENGINE_SERVICE = 'PRICING_ENGINE_SERVICE';

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -15,6 +16,8 @@ import type {
   SupplierInvoiceRow,
 } from './purchasing.repository';
 import { PURCHASING_REPOSITORY } from './tokens';
+import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
+import type { RulesEngineService } from '../rules-engine/rules-engine.service';
 import type {
   CreatePaymentVoucherDto,
   CreatePurchaseOrderDto,
@@ -54,7 +57,11 @@ const isMoney = (v: string | undefined): boolean => v == null || v === '' || Num
 
 @Injectable()
 export class PurchaseOrderService {
-  constructor(@Inject(PURCHASING_REPOSITORY) private readonly repo: PurchasingRepository) {}
+  constructor(
+    @Inject(PURCHASING_REPOSITORY) private readonly repo: PurchasingRepository,
+    /** TASK-24Y — همان دروازهٔ تأییدِ قابلِ استفادهٔ مجدد */
+    @Inject(RULES_ENGINE_SERVICE) private readonly rules: RulesEngineService,
+  ) {}
 
   async list(companyId: string, query: ListPurchaseOrdersQueryDto): Promise<Page<PurchaseOrderRow>> {
     const { items, nextCursor, hasMore } = await this.repo.listPurchaseOrders(companyId, query);
@@ -68,7 +75,11 @@ export class PurchaseOrderService {
     return row;
   }
 
-  async create(companyId: string, dto: CreatePurchaseOrderDto): Promise<PurchaseOrderRow> {
+  async create(
+    companyId: string,
+    dto: CreatePurchaseOrderDto,
+    actorUserId: string | null = null,
+  ): Promise<PurchaseOrderRow> {
     if (!(await this.repo.branchInCompany(companyId, dto.branch_id))) {
       throw badRequest('branch_invalid', 'شعبهٔ سفارش خرید یافت نشد.');
     }
@@ -92,23 +103,87 @@ export class PurchaseOrderService {
     }
     let id: string;
     try {
-      id = await this.repo.insertPurchaseOrder(dto);
+      // TASK-24Y: ثبتِ سازنده — پیش‌نیازِ جداسازیِ وظایف
+      id = await this.repo.insertPurchaseOrder(dto, actorUserId);
     } catch (err) {
       throw this.mapDbError(err);
     }
     return this.get(companyId, id);
   }
 
-  async approve(companyId: string, id: string): Promise<PurchaseOrderRow> {
+  /**
+   * TASK-24Y — تأییدِ سفارشِ خرید از همان دروازهٔ قابلِ استفادهٔ مجدد.
+   *
+   * پیش از این فقط `status='draft'` بررسی می‌شد: نه جداسازیِ وظایفی، نه زنجیره،
+   * نه ثبتِ تصمیم. `purchase_order` ستونِ سازنده هم نداشت (در 0053 §7 افزوده شد).
+   */
+  /**
+   * TASK-24Z · Phase A — ارسالِ سفارشِ خرید به گردشِ تأیید (ساختِ اتصال).
+   */
+  async requestApproval(
+    companyId: string,
+    id: string,
+    actorUserId: string,
+  ): Promise<{ approval_request_id: string; current_step: number; expires_at: string | null; stages: number }> {
     assertId(id, 'سفارش خرید');
-    const approved = await this.repo.approvePurchaseOrder(companyId, id);
-    if (approved) {
-      approved.lines = (await this.repo.findPurchaseOrder(companyId, id))?.lines ?? [];
-      return approved;
+    const po = await this.repo.findPurchaseOrder(companyId, id);
+    if (!po) throw notFound('سفارش خرید یافت نشد');
+    const status = (po as { status?: string }).status;
+    if (status !== 'draft' && status !== 'pending_approval') {
+      throw conflict('po_not_draft', 'فقط سفارشِ پیش‌نویس یا در انتظارِ تأیید قابلِ ارسال است.');
     }
-    const existing = await this.repo.findPurchaseOrder(companyId, id);
-    if (!existing) throw notFound('سفارش خرید یافت نشد');
-    throw conflict('po_not_draft', 'فقط سفارش پیش‌نویس قابل تأیید است.');
+    const started = await this.rules.submitForApproval(companyId, {
+      operation: 'ap.purchase.approve',
+      entityType: 'purchase_order',
+      entityId: id,
+      requestedBy: (po as { created_by?: string | null }).created_by ?? actorUserId,
+    });
+    return {
+      approval_request_id: started.approvalRequestId,
+      current_step: started.currentStep,
+      expires_at: started.expiresAt,
+      stages: started.stages,
+    };
+  }
+
+  async approve(companyId: string, id: string, actorUserId: string): Promise<PurchaseOrderRow> {
+    assertId(id, 'سفارش خرید');
+    const existingPo = await this.repo.findPurchaseOrder(companyId, id);
+    if (existingPo && (existingPo as { created_by?: string | null }).created_by === actorUserId) {
+      throw new ForbiddenException({
+        code: 'self_approval_forbidden',
+        message_fa: 'تأییدِ سفارشِ خریدی که خودتان ثبت کرده‌اید مجاز نیست؛ تأییدکننده باید شخصِ دیگری باشد.',
+      });
+    }
+    const policies = await this.rules.listPoliciesForOperation(companyId, 'ap.purchase.approve');
+
+    if (policies.length === 0) {
+      const approved = await this.repo.approvePurchaseOrder(companyId, id);
+      if (approved) {
+        approved.lines = (await this.repo.findPurchaseOrder(companyId, id))?.lines ?? [];
+        return approved;
+      }
+      const existing = await this.repo.findPurchaseOrder(companyId, id);
+      if (!existing) throw notFound('سفارش خرید یافت نشد');
+      throw conflict('po_not_draft', 'فقط سفارش پیش‌نویس قابل تأیید است.');
+    }
+
+    // TASK-24Z · Phase B — مصرف + گذار در یک تراکنش (یافتهٔ D-1).
+    const approved = await this.rules.consumeApprovedBinding(
+      companyId,
+      { operation: 'ap.purchase.approve', entityType: 'purchase_order', entityId: id },
+      async (client) => {
+        const row = await this.repo.approvePurchaseOrder(companyId, id, client);
+        if (!row) {
+          const existing = await this.repo.findPurchaseOrder(companyId, id);
+          if (!existing) throw notFound('سفارش خرید یافت نشد');
+          throw conflict('po_not_draft', 'فقط سفارش پیش‌نویس قابل تأیید است.');
+        }
+        return row;
+      },
+    );
+    approved.lines = (await this.repo.findPurchaseOrder(companyId, id))?.lines ?? [];
+    return approved;
   }
 
   private mapDbError(err: unknown): Error {

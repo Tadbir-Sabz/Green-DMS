@@ -1,0 +1,8 @@
+ ✓ test/task24z-approval-lifecycle.api.test.ts (41 tests) 7187ms
+ ✓ test/task24z-migration-rollback.api.test.ts (4 tests) 4880ms
+   ✓ F-1 · rollback هویتِ سازنده را نابود نمی‌کند (4)
+     ✓ up → داده → down → up ⇒ created_by حفظ می‌شود 340ms
+ Test Files  2 passed (2)
+      Tests  45 passed (45)
+   Start at  06:55:34
+   Duration  14.25s (tests 86%, import 9%, transform 4%)

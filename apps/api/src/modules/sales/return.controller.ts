@@ -32,8 +32,10 @@ export class ReturnController {
   create(
     @Body() dto: CreateReturnDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<ReturnView> {
-    return this.service.create(companyId, dto);
+    // TASK-24Y: ثبتِ درخواست‌دهنده برای جداسازیِ وظایف
+    return this.service.create(companyId, dto, userId);
   }
 
   @Get(':id')
@@ -45,14 +47,28 @@ export class ReturnController {
     return this.service.get(companyId, id);
   }
 
+  /** TASK-24Z — ارسال به گردشِ تأیید (ساختِ اتصال). */
+  @Post(':id/request-approval')
+  @HttpCode(201)
+  @RequirePermissions('sales.return.request')
+  requestApproval(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.requestApproval(companyId, id, userId);
+  }
+
   @Post(':id/approve')
   @HttpCode(200)
   @RequirePermissions('sales.return.approve')
   approve(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<ReturnView> {
-    return this.service.approve(companyId, id);
+    // TASK-24Y: هویتِ تأییدکننده لازم است (منعِ خودتأییدی + ممیزی)
+    return this.service.approve(companyId, id, userId);
   }
 
   @Post(':id/receive')

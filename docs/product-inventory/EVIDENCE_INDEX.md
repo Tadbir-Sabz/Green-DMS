@@ -113,3 +113,131 @@
 | باگِ ازپیش‌موجود رفع‌شده | `PackagingController` + `MasterDataRepository` در `MasterDataModule` ثبت نشده بودند ⇒ مسیرهای `/packaging/*` پیش از TASK-22 عملاً 404 بودند (کدِ مرده) |
 | تغییرِ قراردادِ مستندشده | D4: `PATCH /products/{id}` برای تغییرِ وضعیت اکنون `confirm_sensitive:true` می‌خواهد (تستِ `products.api.test.ts` متناسب به‌روزرسانی شد) |
 | محیطِ تست (بازسازی‌شده) | PG18.6 محلی (embedded) + PostGIS 3.6/pgcrypto با shim/patch سازگاریِ glibc · s3rver :9000 · DBهای تست موقت/ایزوله · هیچ اتصالی به DB اشتراکی/تولید |
+
+---
+
+## ۸) TASK-24 — موتورِ قیمت/تخفیف (P2)
+
+| شاهد | مقدار |
+|---|---|
+| HEAD مبنا | `d12dc2e04a128775481e9e42c3b48fb339ca4432` (شاخهٔ `arena/1246108f-green-dms`) |
+| commit تحویلِ TASK-24 | `1a65d3c78740f357a996ac8fbe3facc165d8f171` (push‌شده به `arena/1246108f-green-dms`؛ بدون merge/deploy) |
+| مهاجرت | `migrations/0049_pricing_promotion_engine.{up,down}.sql` — چرخهٔ up→down→up در DB ایزوله: `tables 7→0→7`، `pricing_perms 7→0→7`، `price_list_cols 3→0→3`، `triggers 4→0→4`، `forced_rls_tables 8→0→8` |
+| قرارداد | `packages/contracts/openapi.yaml`: مسیرها ۱۷۲ · عملیات ۲۴۹ · schema ۱۲۴ (**drift = ۰**)؛ `npm run openapi:check` سبز؛ `packages/api-client/src/schema.ts` بازتولید شد (کلاینتِ Kotlin در این محیط تولید نشد — نیازِ شبکهٔ Maven) |
+| تست‌های تازه (۱۱۲) | `pricing-engine.unit.test.ts` **۴۲ PASS** · `financial-rounding.test.ts` **۱۱ PASS** · `pricing-engine.api.test.ts` **۳۵ PASS** · `rules-engine-behavior.test.ts` **۲۴ PASS** |
+| رگرسیونِ هدفمند | `pricing.api.test.ts` + `orders.api.test.ts` = **۳۱ PASS / ۰ FAIL** |
+| مجموعهٔ کاملِ API | **۱۰۷۳ PASS / ۳۴ FAIL / ۶۶ SKIP** (مبنا: ۹۶۱/۳۴/۶۶)؛ ۳۴ شکست = محدودیتِ محیط (PostGIS/MinIO/Redis/psql/init-role) |
+| typecheck | API ✅ · Web ✅ · `packages/api-client` ✅ |
+| UI | `apps/web/src/app/prices/page.tsx` — شبیه‌سازی + تجزیه + هشدارِ کفِ سود + سیاست‌ها + تاریخچه؛ اجرای مرورگری `UNVERIFIED` (G-01) |
+| داوری | A/B/C/D **PASS** · E **PASS با گیتِ G-03** · F **BLOCKED (تصمیمِ مالک)** |
+
+جزئیاتِ کامل: `docs/product-inventory/TASK-24_PRICING_ENGINE.md`.
+
+---
+
+## ۹) TASK-24F — اصلاحِ هدفمندِ یافته‌های حسابرسیِ مستقلِ TASK-24R
+
+| شاهد | مقدار |
+|---|---|
+| مبنای حسابرسی‌شده | `5203d3fb8d7957e7ec7095f24f0c83b301eec8e1` (tree `05075982318ab6387bf4e99c79522f0feb7c5ff2`) روی شاخهٔ `arena/1246108f-green-dms` |
+| commit اصلاح (نتیجه) | `1e36108` — روی همان شاخهٔ `arena/1246108f-green-dms` (بدونِ merge/deploy؛ هیچ push به شاخهٔ دیگر) |
+| حفظِ کارِ پیشین | پیش از هر تغییری وضعیتِ بازیابی‌پذیر ساخته شد: `/home/user/task24f-backup/tracked-changes.patch` (sha256 `afa65edd…`) + `untracked-files.tgz` (sha256 `b57af493…`)؛ هویتِ تحویلِ حسابرسی‌شده با مقایسهٔ ۲۶۱۳ blob تأیید شد (۲۶۱۳/۲۶۱۳ یکسان، ۰ تفاوت) و بازیابی با `git reset --mixed 5203d3f` (فقط index) انجام شد — بدونِ `checkout -f`/`clean`/`force-push` |
+| مهاجرت‌ها | `0050_pricing_remediation.{up,down}.sql` (append-only ledger + `pricing_settings` + ۵ مجوز) · `0051_g03_approval_hardening.{up,down}.sql` (G-03، مستقل) — **چرخهٔ up→down→up در این محیط اجرا نشد: `UNVERIFIED`** |
+| قرارداد | ۱۷۳ مسیر · ۲۵۱ عملیات · ۱۲۶ schema · ۳ webhook · `openapi:check` سبز · `contract-drift` = ۰ (شاملِ ۴ enum و فیلدهای الزامیِ DTO، با کنترلِ منفیِ اثبات‌شده) |
+| کلاینتِ TS | `packages/api-client/src/schema.ts` بازتولید شد · **Kotlin: `UNVERIFIED`** (نیازِ شبکهٔ Maven) |
+| آزمونِ DB-free | `pricing-remediation.unit.test.ts` **۱۶ PASS** (HIGH-4 ×۵، MEDIUM-1 ×۸، HIGH-2 ×۲، MEDIUM-3 ×۱) · کلِ مجموعهٔ DB-free **۳۰۳/۳۰۳ در ۱۹ فایل** |
+| آزمونِ DB-محورِ تازه (نوشته‌شده) | `pricing-engine.api.test.ts`: PE-10 (سفارش/مجوز/ممیزی ×۵)، PE-11 (هم‌خوانیِ دفتر + فقط-افزودنی + idempotency)، PE-9 (بین‌قلمرویی ×۳)، بازنویسیِ آزمونِ سقف روی `pricing_settings` · `orders.api.test.ts` به‌روزرسانی شد — **اجرا نشده در این محیط: `UNVERIFIED`** |
+| typecheck | `tsc -p apps/api` → ۰ خطا (src) |
+| مرزِ صداقت | هیچ DB اشتراکی/تولیدی استفاده نشد؛ هر ادعای DB-محور که اجرا نشده، صریحاً `UNVERIFIED` است |
+
+---
+
+## ۱۰) TASK-24V — دروازهٔ راستی‌آزماییِ نهایی و حسابرسیِ مستقل (read-only audit)
+
+| شاهد | مقدار |
+|---|---|
+| نسخهٔ حسابرسی‌شده | `00f7f12ca655a90e0e3ff043ae89e0bed19366de` · tree `e102b2b1aa056ce5493f799df0341bbeac0da4b0` (شاخهٔ `arena/1246108f-green-dms`) |
+| commitهای دروازه | `c1c9a3e` (ترمیمِ نحوی + هم‌ترازیِ آزمون‌های قیمت) · `75728e8` (هم‌ترازیِ G-03/مهاجرت + آزمونِ RLS) · HEAD شاخه = `75728e8` |
+| PR | **#13 (draft)** فقط برای اجرای workflowهای موجود روی PR — **merge نشده**، هیچ push به شاخهٔ دیگر |
+| HEAD نهاییِ شاخه | `7e9bdbf` (مستندات) · CI `42450639729` @HEAD: همان ۱ شکست (۸۸۷ pass) · migrations `42450639851` ✅ · release-image `42450639778` ✅ · e2e `42450639653` ⛔ |
+| CI — مهاجرت‌ها (up→down→up + مقایسهٔ اشیا، PostGIS واقعی) | `42402374930` @`00f7f12` ✅ · `42450239490` @`75728e8` ✅ · `42452625679` @`9b8bf87` ✅ |
+| CI — release-image (build+boot+migrate+health+login+proxy+secret-scan+fail-closed) | `42450239575` @`75728e8` ✅ · `42452625677` @`9b8bf87` ✅ |
+| CI — e2e | `42450239526` ⛔ **BLOCKED** (بدونِ ایمیجِ MinIO؛ صفر آزمونِ مرورگری) |
+| CI — Integration (Postgres) | `42404284138` @`c1c9a3e`: ۱۳ fail/۸۷۴ pass · `42450239559` @`75728e8`: ۱ fail/۸۸۷ pass · **`42452304238` @`090c78b` و `42452625662` @`9b8bf87`: ✅ success — هر ۵ job سبز** |
+| نقصِ کشف‌شده و رفع‌شده (G-23) | `rules-engine-behavior.test.ts > تأییدِ دومرحله‌ای` ⇒ `409 amount_band_mismatch` (پس‌رفتِ `1e36108`) — **رفع در `090c78b`**: باند فقط گامِ ورود را تعیین می‌کند و تنها پیش از نخستین تصمیم بازسنجی می‌شود؛ ۳ آزمونِ رگرسیونِ تازه (زنجیرهٔ بی‌باند، زنجیرهٔ تشدید، ردِ مبلغِ دستکاری‌شده) |
+| آزمون‌های قیمت در CI | `pricing-engine.api.test.ts` ۴۵ pass + ۱ expected-fail (شاملِ PE-12 RLS تازه) · `orders`+`pricing` ۳۱/۳۱ · `pricing-remediation.unit` ۱۶/۱۶ · `rules-engine-behavior` (۲۷ سناریو شاملِ ۳ رگرسیونِ G-23) سبز |
+| DB ایزوله (پیش از بازنشانیِ سندباکس؛ شاهدِ مکمل — نسخهٔ معتبر CI با PostGIS است) | PG 17.6 · `127.0.0.1:55432` · `data=/tmp/pgdata24` · بدونِ PostGIS/DB اشتراکی؛ `mig_probe`: همهٔ upها در یک تراکنش exit 0 · چرخهٔ 0051 و 0050 down→up پاک · RLSِ `pricing_settings` با `dms_app`: ۱ ردیف، درجِ بین‌شرکتی `42501`، بدونِ زمینه ۰ |
+| static | `typecheck` (API+Web) ۰ · `openapi:check` ۱۷۳/۲۵۱/۱۲۶/۳ · `contract-drift` ۰ · `check-test-partition` OK (schema.ts بدونِ diff) |
+| Kotlin | **UNVERIFIED** — `npm run clients:generate` ⇒ `fetch failed` به `repo1.maven.org` |
+| داوریِ کلی | **PASS برای merge** — هر ۵ jobِ CI + مهاجرت‌ها + release-image سبز · دو یافتهٔ غیرِ‌مسدودکنندهٔ `HIGH-1-R1`/`HIGH-2-R1` و پرسش‌های مالک باز · e2e `BLOCKED` (MinIO) · Kotlin `UNVERIFIED` |
+| گزارشِ کامل | `docs/product-inventory/TASK-24V_VERIFICATION_REPORT.md` (بخش‌های ۱–۹) |
+
+---
+
+## ۱۱) TASK-24W — بستنِ HIGH-1-R1 و HIGH-2-R1
+
+| شاهد | مقدار |
+|---|---|
+| مبنای کار | `1c849bc` (HEAD پیش از این دور، PR #13 draft) |
+| شاخه | `arena/1246108f-green-dms` (بدونِ merge/deploy/force-push) |
+| HIGH-1-R1 | **CLOSED** — `convert()` actor/مجوز/دلیل/ممیزی + قفلِ ضدِ هم‌زمانی |
+| HIGH-2-R1 | **CLOSED** — `pricedPolicyRun()` مسیرِ واحدِ quote/simulate/order |
+| فایل‌های کد | `pricing-permissions.ts` (تازه) · `pricing-engine.service.ts` · `pricing-quote.controller.ts` · `order.controller.ts` · `sales-chain.{service,controller,repository}.ts` · `request.dto.ts` |
+| قرارداد | `openapi.yaml`: اسکیمای `ConvertRequest`، تفاوت‌های مستندِ `quote`/`simulate` — **۱۷۳ مسیر · ۲۵۱ عملیات · ۱۲۷ اسکیما · ۳ وب‌هوک**، drift = ۰ |
+| آزمونِ تازه | `task24w-conversion-and-parity.api.test.ts` — **۲۱/۲۱ PASS** روی DB ایزوله |
+| آزمونِ هم‌ترازی | `pricing-engine.api.test.ts` **۴۷/۴۷ PASS** (شاملِ `it.fails` که اکنون آزمونِ واقعی است) |
+| آزمون‌های واحد | `pricing-engine.unit` + `pricing-remediation.unit` + `financial-rounding` = **۶۹/۶۹** |
+| `rules-engine-behavior` (G-23) | **۲۷/۲۷** (پس از اصلاحِ هم‌ترازی؛ مجموعه سبز) |
+| وب | typecheck ✅ · ۵۲/۵۲ آزمون ✅ |
+| پارتیشنِ تست | `check-test-partition`: OK (۶۲ فایل) |
+| نوع‌شناسی | `tsc -p apps/api` ✅ · `tsc -p apps/web` ✅ |
+| DB ایزوله (این محیط) | PostgreSQL 17.6 · `127.0.0.1:55432` · بدونِ PostGIS (کپیِ harness با پچِ PostGIS) |
+| CI | پس از push بررسی می‌شود — run ID در گزارشِ نهایی |
+
+**محدودیت‌های محیطیِ همان اجرا (نه رگرسیون):** `geofences`، `customers`، `postgres-init-role`،
+`view-isolation`، `tours`، `migrations-security` (چرخهٔ ST_GeomFromText) و یک آزمونِ fuzzy-search در
+`product-master-core` به PostGIS/نقشِ init/افزونهٔ جست‌وجو نیاز دارند که در این سندباکس نیست؛ این
+فایل‌ها در CI با `postgis/postgis:16-3.4` اجرا می‌شوند.
+
+
+## TASK-24Z-FINAL-GATE — evidence reconciliation (documentation only)
+
+- `TASK-24Z_FINAL_GATE_REPORT.md`: freshly verified PR HEAD d285850, exact-head
+  five CI jobs and 14/14 browser results; both console occurrences UNVERIFIED;
+  independent review still pending, no clean-console/approval claim.
+- `TASK-24Z_OWNER_DECISION_REGISTER.md`: D01–D07 questions, alternatives,
+  consequences, recommendations and role owners; all OPEN, not invented rules.
+- `TASK-24Z_MODULE_COMPLETION_MATRIX.md`: current/next/shared/future boundaries,
+  canonical roadmap dependencies and bounded operator-closure next task.
+- `evidence/task24z-final-gate/`: PR-head/check, CI-job, browser-annotation and
+  artifact metadata snapshots. Actual artifact download failed with EOF;
+  metadata is not a locally inspected screenshot/event payload.
+
+## TASK-24Z-OPERATOR-CLOSURE
+
+- `TASK-24Z_OPERATOR_CLOSURE_REPORT.md`: source commits8951720/bffdc4c/5cbf3cf/
+  b451d2b, exact-head15/15browser and all5nativeCI PASS, immutable provenance0059,
+  historic failures and remaining NOT READY gates.
+- `TASK-24Z_OPERATOR_POLICY_DEPENDENCIES.md`: D01–D07 implementation boundaries;
+  module matrix updated without roadmap reorder/implicit deferrals.
+- `../APPROVAL_OPERATOR_GUIDE_FA.md`: Persian lifecycle/provenance/delegation help.
+- `evidence/task24z-operator/SCREENSHOT_MANIFEST.md`: actual major-screen browser
+  attachment names and artifact13669457924; manual visual review UNVERIFIED.
+- `evidence/task24z-operator/`: local44lifecycle/10UI/2filter/targetedrollback
+  results, preserved local missing-PostGIS failure, first/filtered/final browser
+  annotations and exact-head native CI/artifact metadata. Current two console
+  occurrences classified from actual text/path notices, not guessed from counts.
+
+## TASK-24Z-EXIT-GATE (no test reruns / no runtime changes)
+
+- `TASK-24Z_EXIT_GATE.md`: definitive STILL BLOCKED full-module boundary,
+  mandatory/optional/owner-gated/approved-future/shared matrix, D01–D07 owner
+  choices and exact start conditions; no implicit scope waiver.
+- `TASK-PM-01_PRODUCT_MASTER_SPEC.md`: actionable decision-gated design for
+  central SKU plus per-domain availability, existing0046/0047 reuse, APIs/RLS,
+  audit, governance/autonomy and acceptance; no new business-module implementation.
+- `evidence/task24z-exit-gate/`:55f3548 exact-head five-job CI snapshot,
+ 15/15browser14.5s annotations and artifact13670730844 metadata. Supported
+ download again fails signedblob EOF; manual visual review UNVERIFIED.
+- Existing target design has a continuity appendix clarifying per-domain
+ availability without changing approved D1–D5 or asserting phase reorder approval.

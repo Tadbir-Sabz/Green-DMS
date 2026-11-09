@@ -1,4 +1,6 @@
-import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+import { request as pwRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect } from './browser-fixture';
 
 /**
  * جریان‌های تجاریِ چنداجاره‌ای: پورتال، صورتحساب، و کنترلِ دسترسیِ ضمیمه.
@@ -200,6 +202,27 @@ test.describe('tenant / portal / billing / attachments', () => {
     expect(portalUrl.status(), 'توکنِ پورتال نباید به ضمیمهٔ کارکنان برسد').toBe(401);
   });
 
+  test('پورتال: چرخش refresh و خروج زیر هویت runtime واقعی', async () => {
+    const login = await ctx.api.post(`${API}/portal/auth/login`, {
+      data: { email: PORTAL_A_EMAIL, password: PORTAL_PASSWORD },
+    });
+    expect(login.status()).toBe(200);
+    const initial = await login.json();
+    const refreshed = await ctx.api.post(`${API}/portal/auth/refresh`, {
+      data: { refresh_token: initial.refresh_token },
+    });
+    expect(refreshed.status()).toBe(200);
+    const next = await refreshed.json();
+    const replay = await ctx.api.post(`${API}/portal/auth/refresh`, {
+      data: { refresh_token: initial.refresh_token },
+    });
+    expect(replay.status()).toBe(401);
+    const auth = { Authorization: `Bearer ${next.access_token}` };
+    expect((await ctx.api.get(`${API}/portal/me`, { headers: auth })).status()).toBe(200);
+    expect((await ctx.api.post(`${API}/portal/auth/logout`, { headers: auth })).status()).toBe(200);
+    expect((await ctx.api.get(`${API}/portal/me`, { headers: auth })).status()).toBe(401);
+  });
+
   test('رابطِ کاربری: ورودِ مدیر و رسیدن به داشبورد BI', async ({ page }) => {
     await page.goto('/login');
     await page.fill('#username', ADMIN_EMAIL);
@@ -210,4 +233,107 @@ test.describe('tenant / portal / billing / attachments', () => {
     await page.goto('/bi');
     await expect(page.getByText('داشبورد BI').first()).toBeVisible({ timeout: 30_000 });
   });
+  test('گردش اپراتور: بازگردانی، ارسال تازه، منشأ و تاریخچه در موبایل و دسکتاپ', async ({ page }, info) => {
+    const auth = { Authorization: `Bearer ${ctx.staffToken}` };
+    const rolesResponse = await ctx.api.get(`${API}/roles`, { headers: auth });
+    expect(rolesResponse.status()).toBe(200);
+    const rolesBody = await rolesResponse.json();
+    const role = (rolesBody.items ?? rolesBody).find((r: { code: string }) => r.code.toLowerCase() === 'ceo');
+    expect(role).toBeTruthy();
+    const checkerName = `checker_${stamp}_${rnd}`;
+    const checker = await ctx.api.post(`${API}/users`, { headers: auth, data: {
+      username: checkerName, password: ADMIN_PASSWORD, person_code: `CHK-${rnd}`,
+      first_name: 'تأییدکننده', last_name: 'آزمون', role_ids: [role.id], access_level: 'web',
+    } });
+    expect(checker.status()).toBe(201);
+    const chain = await ctx.api.post(`${API}/rules-engine/approval-chains`, { headers: auth, data: {
+      code: `OP-${rnd}`, entity: 'sales_order', steps: [{ step_no: 1, approver_role_id: role.id }],
+    } });
+    expect(chain.status()).toBe(201);
+    const chainId = (await chain.json()).id;
+    const policy = await ctx.api.post(`${API}/rules-engine/approval-policies`, { headers: auth, data: {
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chainId,
+    } });
+    expect(policy.status()).toBe(201);
+    // Reference fixture only: category creation has no public endpoint. Never
+    // fabricate requests, bindings, decisions, prices or business transitions.
+    // Refuse to touch any stack other than the workflow's disposable project.
+    expect(process.env.COMPOSE_PROJECT_NAME).toMatch(/^browser-[0-9]+-[0-9]+$/);
+    expect(ctx.companyId).toMatch(/^[0-9a-f-]{36}$/i);
+    const categoryId = execFileSync('docker', ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.prod.yml', '-f', 'e2e/compose.browser.yml', 'exec', '-T', 'postgres', 'sh', '-c',
+      'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atq -v ON_ERROR_STOP=1',
+    ], { input: `insert into product_category (company_id, code, name) values ('${ctx.companyId}', 'OP-${rnd}', 'گروه آزمون گردش') returning id;`, encoding: 'utf8' }).trim();
+    const units = await ctx.api.get(`${API}/units`, { headers: auth });
+    expect(units.status()).toBe(200);
+    const unitId = (await units.json()).items[0].id;
+    const product = await ctx.api.post(`${API}/products`, { headers: auth, data: {
+      code: `OP-${rnd}`, name: 'کالای آزمون گردش', category_id: categoryId, base_uom_id: unitId,
+    } });
+    expect(product.status(), await product.text()).toBe(201);
+    const productId = (await product.json()).id;
+    const order = await ctx.api.post(`${API}/orders`, { headers: auth, data: {
+      customer_id: ctx.customerA, order_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }),
+      price_override_reason: 'قیمت دستی آزمون با مجوز موجود', lines: [{ product_id: productId, qty: 1, unit_price: '100' }],
+    } });
+    expect(order.status(), await order.text()).toBe(201);
+    const orderId = (await order.json()).id;
+    const submit = async () => {
+      const result = await ctx.api.post(`${API}/orders/${orderId}/request-approval`, { headers: auth, data: {} });
+      expect(result.status()).toBe(201);
+      return (await result.json()).approval_request_id as string;
+    };
+    const firstId = await submit();
+    await page.goto('/login');
+    await page.fill('#username', checkerName); await page.fill('#password', ADMIN_PASSWORD);
+    await page.click('button[type=submit]');
+    await expect(page).toHaveURL(/\/(products|dashboard|bi)/, { timeout: 30_000 });
+    await page.goto('/approvals/inbox');
+    await page.getByRole('button', { name: 'سفارش فروش', exact: true }).click();
+    await page.selectOption('#decision', 'returned'); await page.fill('#comment', 'نیاز به اصلاح و ارسال تازه');
+    await page.getByRole('button', { name: 'ثبت تصمیم', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('تصمیم ثبت شد');
+    const nextId = await submit();
+    expect(nextId).not.toBe(firstId);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`/approvals/${firstId}`);
+      await expect(page.getByText('جایگزین شده', { exact: true })).toBeVisible();
+      await expect(page.getByText('نیاز به اصلاح و ارسال تازه', { exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'منشأ ترکیب سیاست‌ها' })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await info.attach(`operator-history-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    }
+    await page.goto('/approvals/inbox');
+    await page.getByRole('button', { name: 'سفارش فروش', exact: true }).click();
+    await page.getByRole('button', { name: 'ثبت تصمیم', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('تصمیم ثبت شد');
+    await page.goto(`/approvals/${nextId}`);
+    await expect(page.getByText('تأیید شده', { exact: true })).toBeVisible();
+    await page.goto('/approvals');
+    await page.getByLabel('وضعیت', { exact: true }).selectOption('superseded');
+    await page.getByRole('button').filter({ hasText: firstId }).click();
+    await expect(page.getByRole('heading', { name: 'تاریخچه تغییرناپذیر تصمیم‌ها' })).toBeVisible();
+    await info.attach('operator-register-superseded', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    await page.goto('/approvals/administration');
+    await expect(page.getByRole('heading', { name: 'نظارت بر تنظیمات تأیید' })).toBeVisible();
+    await expect(page.getByText('سیاست‌های ثبت‌شده', { exact: true })).toBeVisible();
+    await info.attach('operator-administration', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+  });
+
+  test('کارتابل تأیید: RTL و نمای واکنش‌گرا پس از ورود واقعی', async ({ page }, info) => {
+    await page.goto('/login');
+    await page.fill('#username', ADMIN_EMAIL);
+    await page.fill('#password', ADMIN_PASSWORD);
+    await page.click('button[type=submit]');
+    await expect(page).toHaveURL(/\/(products|dashboard|bi)/, { timeout: 30_000 });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/approvals/inbox');
+      await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+      await expect(page.getByRole('heading', { name: 'کارتابل تأیید من', exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await info.attach(`approval-inbox-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    }
+  });
+
 });

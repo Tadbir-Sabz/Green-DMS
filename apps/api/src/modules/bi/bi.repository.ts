@@ -91,7 +91,7 @@ export class BiRepository {
          left join person p on p.id = c.person_id
         where b.company_id = $1
           and i.status in ${POSTED}
-        group by c.id, c.code, name
+        group by c.id, c.code, p.legal_name
         order by sum(i.grand_total) desc`,
       [companyId],
     );

@@ -1,0 +1,289 @@
+Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/portal/me, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/portal/invoices, GET} route +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/portal/orders, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/portal/balance, GET} route +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/portal/users, POST} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/portal, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RoutesResolver] OnboardingController {/api/v1/onboarding}: +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/onboarding/register, POST} route +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/onboarding, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RoutesResolver] BillingController {/api/v1/billing}: +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/billing, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/billing/invoices, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/billing/invoices/:id, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RoutesResolver] SettingsController {/api/v1/settings}: +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/settings, GET} route +1ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/settings, PATCH} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RoutesResolver] AttachmentsController {/api/v1/attachments}: +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/attachments, POST} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/attachments, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [RouterExplorer] Mapped {/api/v1/attachments/:id/url, GET} route +0ms
+api-1  | [Nest] 1  - 11/09/2026, 8:29:09 AM     LOG [NestApplication] Nest application successfully started +8ms
+api-1  | DMS API  →  http://localhost:4000/api
+api-1  | [Nest] 1  - 11/09/2026, 8:29:24 AM   ERROR [Api] POST /api/v1/onboarding/register → 500 internal_error { request_id: '38f6aebb-f9da-4152-b43f-485c8d46b884' }
+api-1  | error: column reference "company_id" is ambiguous
+api-1  |     at /app/node_modules/pg-pool/index.js:45:11
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+api-1  |     at async OnboardingRepository.provisionCompany (/app/apps/api/dist/modules/onboarding/onboarding.repository.js:28:26)
+api-1  |     at async OnboardingService.register (/app/apps/api/dist/modules/onboarding/onboarding.service.js:75:25)
+api-1  | [Nest] 1  - 11/09/2026, 8:29:24 AM   ERROR [Api] POST /api/v1/onboarding/register → 500 internal_error { request_id: '12d2fa39-9ea1-49cd-a328-3e3132612257' }
+api-1  | error: column reference "company_id" is ambiguous
+api-1  |     at /app/node_modules/pg-pool/index.js:45:11
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+api-1  |     at async OnboardingRepository.provisionCompany (/app/apps/api/dist/modules/onboarding/onboarding.repository.js:28:26)
+api-1  |     at async OnboardingService.register (/app/apps/api/dist/modules/onboarding/onboarding.service.js:75:25)
+api-1  | [Nest] 1  - 11/09/2026, 8:29:25 AM   ERROR [Api] POST /api/v1/onboarding/register → 500 internal_error { request_id: '30c30b0d-62b0-424e-97d1-c355e72a1ba5' }
+api-1  | error: column reference "company_id" is ambiguous
+api-1  |     at /app/node_modules/pg-pool/index.js:45:11
+api-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103
+      54 |       },
+      55 |     });
+    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+         |                                                               ^
+      57 |     const regBody = await reg.json();
+      58 |     expect(regBody.company_id).toBeTruthy();
+      59 |
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:56:63
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/error-context.md
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: onboarding/register باید ۲۰۱ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 500
+
+      54 |       },
+      55 |     });
+    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+         |                                                               ^
+      57 |     const regBody = await reg.json();
+      58 |     expect(regBody.company_id).toBeTruthy();
+      59 |
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:56:63
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry2/error-context.md
+
+    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry2/error-context.md
+
+  3 failed
+    [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ─────
+    [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ────────────
+    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+  8 did not run
+  2 passed (8.4s)
+::notice title=🎭 Playwright Run Summary::  3 failed%0A    [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ─────%0A    [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ────────────%0A    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ %0A  8 did not run%0A  2 passed (8.4s)
+
+123:    Error: onboarding must create the tenant (201)
+125:    expect(received).toBe(expected) // Object.is equality
+132:    > 33 |   expect(reg.status(), 'onboarding must create the tenant (201)').toBe(201);
+135:      35 |   expect(body.company_id, 'company_id returned').toBeTruthy();
+136:      36 |   expect(body.app_user_id, 'app_user_id returned').toBeTruthy();
+140:    test-results/onboarding-auth-استقرارِ-خودخدمت-→-ورود-→-داشبورد-BI-chromium-retry2/test-failed-1.png
+147:    Error Context: test-results/onboarding-auth-استقرارِ-خودخدمت-→-ورود-→-داشبورد-BI-chromium-retry2/error-context.md
+151:    Error: expect(received).toBe(expected) // Object.is equality
+158:    > 74 |   expect(reg.status()).toBe(201);
+166:    test-results/onboarding-auth-ورود-با-رمزِ-نادرست-رد-می‌شود-chromium/test-failed-1.png
+173:    Error Context: test-results/onboarding-auth-ورود-با-رمزِ-نادرست-رد-می‌شود-chromium/error-context.md
+177:    Error: expect(received).toBe(expected) // Object.is equality
+184:    > 74 |   expect(reg.status()).toBe(201);
+192:    test-results/onboarding-auth-ورود-با-رمزِ-نادرست-رد-می‌شود-chromium-retry1/test-failed-1.png
+199:    Error Context: test-results/onboarding-auth-ورود-با-رمزِ-نادرست-رد-می‌شود-chromium-retry1/error-context.md
+211:    Error: expect(received).toBe(expected) // Object.is equality
+218:    > 74 |   expect(reg.status()).toBe(201);
+226:    test-results/onboarding-auth-ورود-با-رمزِ-نادرست-رد-می‌شود-chromium-retry2/test-failed-1.png
+233:    Error Context: test-results/onboarding-auth-ورود-با-رمزِ-نادرست-رد-می‌شود-chromium-retry2/error-context.md
+237:    Error: onboarding/register باید ۲۰۱ بدهد
+239:    expect(received).toBe(expected) // Object.is equality
+246:    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+249:      58 |     expect(regBody.company_id).toBeTruthy();
+253:    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium/error-context.md
+255:    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium/error-context.md
+259:    Error: onboarding/register باید ۲۰۱ بدهد
+261:    expect(received).toBe(expected) // Object.is equality
+268:    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+271:      58 |     expect(regBody.company_id).toBeTruthy();
+275:    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/error-context.md
+277:    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry1/error-context.md
+289:    Error: onboarding/register باید ۲۰۱ بدهد
+291:    expect(received).toBe(expected) // Object.is equality
+298:    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+301:      58 |     expect(regBody.company_id).toBeTruthy();
+305:    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry2/error-context.md
+307:    Error Context: test-results/tenant-portal-billing-tena-cfa43-رها-را-می‌بیند؛-بی‌توکن-۴۰۱-chromium-retry2/error-context.md
+309:  3 failed
+314:  2 passed (8.4s)
+315:::notice title=🎭 Playwright Run Summary::  3 failed%0A    [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ─────%0A    [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ────────────%0A    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر �
+Process completed with exit code 1.
+  3 failed
+    [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ─────
+    [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ────────────
+    [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+  8 did not run
+  2 passed (8.4s)
+  3) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: onboarding/register باید ۲۰۱ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 500
+
+      54 |       },
+      55 |     });
+    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+         |                                                               ^
+      57 |     const regBody = await reg.json();
+      58 |     expect(regBody.company_id).toBeTruthy();
+      59 |
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:56:63
+  3) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: onboarding/register باید ۲۰۱ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 500
+
+      54 |       },
+      55 |     });
+    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+         |                                                               ^
+      57 |     const regBody = await reg.json();
+      58 |     expect(regBody.company_id).toBeTruthy();
+      59 |
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:56:63
+  3) [chromium] › e2e/tests/tenant-portal-billing.spec.ts:117:7 › tenant / portal / billing / attachments › صورتحساب: مدیر فهرستِ فاکتورها را می‌بیند؛ بی‌توکن ۴۰۱ 
+    Error: onboarding/register باید ۲۰۱ بدهد
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 500
+
+      54 |       },
+      55 |     });
+    > 56 |     expect(reg.status(), 'onboarding/register باید ۲۰۱ بدهد').toBe(201);
+         |                                                               ^
+      57 |     const regBody = await reg.json();
+      58 |     expect(regBody.company_id).toBeTruthy();
+      59 |
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/tenant-portal-billing.spec.ts:56:63
+  2) [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ───────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      72 |     },
+      73 |   });
+    > 74 |   expect(reg.status()).toBe(201);
+         |                        ^
+      75 |   await ctx.dispose();
+      76 |
+      77 |   await page.goto('/login');
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/onboarding-auth.spec.ts:74:24
+  2) [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ───────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      72 |     },
+      73 |   });
+    > 74 |   expect(reg.status()).toBe(201);
+         |                        ^
+      75 |   await ctx.dispose();
+      76 |
+      77 |   await page.goto('/login');
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/onboarding-auth.spec.ts:74:24
+  2) [chromium] › e2e/tests/onboarding-auth.spec.ts:61:5 › ورود با رمزِ نادرست رد می‌شود ───────────
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      72 |     },
+      73 |   });
+    > 74 |   expect(reg.status()).toBe(201);
+         |                        ^
+      75 |   await ctx.dispose();
+      76 |
+      77 |   await page.goto('/login');
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/onboarding-auth.spec.ts:74:24
+  1) [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: onboarding must create the tenant (201)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      31 |     },
+      32 |   });
+    > 33 |   expect(reg.status(), 'onboarding must create the tenant (201)').toBe(201);
+         |                                                                   ^
+      34 |   const body = await reg.json();
+      35 |   expect(body.company_id, 'company_id returned').toBeTruthy();
+      36 |   expect(body.app_user_id, 'app_user_id returned').toBeTruthy();
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/onboarding-auth.spec.ts:33:67
+  1) [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+    Error: onboarding must create the tenant (201)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      31 |     },
+      32 |   });
+    > 33 |   expect(reg.status(), 'onboarding must create the tenant (201)').toBe(201);
+         |                                                                   ^
+      34 |   const body = await reg.json();
+      35 |   expect(body.company_id, 'company_id returned').toBeTruthy();
+      36 |   expect(body.app_user_id, 'app_user_id returned').toBeTruthy();
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/onboarding-auth.spec.ts:33:67
+  1) [chromium] › e2e/tests/onboarding-auth.spec.ts:16:5 › استقرارِ خودخدمت → ورود → داشبورد BI ────
+    Error: onboarding must create the tenant (201)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 404
+
+      31 |     },
+      32 |   });
+    > 33 |   expect(reg.status(), 'onboarding must create the tenant (201)').toBe(201);
+         |                                                                   ^
+      34 |   const body = await reg.json();
+      35 |   expect(body.company_id, 'company_id returned').toBeTruthy();
+      36 |   expect(body.app_user_id, 'app_user_id returned').toBeTruthy();
+        at /home/runner/work/Green-DMS/Green-DMS/e2e/tests/onboarding-auth.spec.ts:33:67
+Pinned S3-compatible test service, NOT a MinIO-server equivalence claim
+"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"

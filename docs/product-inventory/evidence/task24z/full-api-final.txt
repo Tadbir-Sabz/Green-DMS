@@ -1,0 +1,688 @@
+ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/geofence-rls.test.ts [ test/geofence-rls.test.ts ]
+error: function st_geomfromtext(unknown, integer) does not exist
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg-pool/index.js:45:11
+ ❯ seedKit test/geofence-rls.test.ts:84:25
+     82|   const warehouse = (await q.query(`insert into warehouse (branch_id, …
+     83|   const poly = `POLYGON((51 35, 51.1 35, 51.1 35.1, 51 35.1, 51 35))`;
+     84|   const geofenceFull = (await q.query(
+       |                         ^
+     85|     `insert into geofence (branch_id, name, kind, area, customer_id, w…
+     86|      values ($1,$2,'customer', ST_GeomFromText($3,4326), $4, $5) retur…
+ ❯ test/geofence-rls.test.ts:119:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/40]⎯
+
+ FAIL  test/tours.api.test.ts [ test/tours.api.test.ts ]
+error: function st_makepoint(unknown, unknown) does not exist
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg-pool/index.js:45:11
+ ❯ test/tours.api.test.ts:204:20
+    202|     [companyId],
+    203|   );
+    204|   const customer = await pool.query<{ id: string }>(
+       |                    ^
+    205|     `insert into customer (person_id, branch_id, code, channel, geo, g…
+    206|      select p.id, $2, 'C-1', 'retail',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/40]⎯
+
+ FAIL  test/view-isolation.test.ts [ test/view-isolation.test.ts ]
+error: function st_makepoint(numeric, numeric) does not exist
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg-pool/index.js:45:11
+ ❯ seedKit test/view-isolation.test.ts:139:3
+    137|   const jobPos = (await q.query(`insert into job_position (company_id,…
+    138|   const staff = (await q.query(`insert into staff (person_id, branch_i…
+    139|   await q.query(`insert into location_sample (staff_id, geo, is_mocked…
+       |   ^
+    140|
+    141|   // v_trial_balance: یک سندِ حسابداریِ posted
+ ❯ test/view-isolation.test.ts:188:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/40]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 37 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/attachments.api.test.ts > ATT — round-trip آپلود و دانلود > ۲۰۱ آپلود PNG → Attachment، ذخیرهٔ واقعی در MinIO و ثبت در DB
+AssertionError: کد 500 برای POST /attachments در قرارداد نیست: expected [ '201', '400', '401', '403', …(2) ] to include '500'
+ ❯ expectBodyMatchesSchema test/attachments.api.test.ts:131:5
+    129|     Object.keys(responses),
+    130|     `کد ${status} برای ${method.toUpperCase()} ${contractPath} در قرار…
+    131|   ).toContain(String(status));
+       |     ^
+    132|
+    133|   const responseNode = responses[String(status)];
+ ❯ test/attachments.api.test.ts:373:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/40]⎯
+
+ FAIL  test/attachments.api.test.ts > ATT — round-trip آپلود و دانلود > ۲۰۰ GET /attachments/{id}/url → AttachmentUrl و لینکِ کارآمد
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ test/attachments.api.test.ts:411:22
+    409|       .set('Authorization', `Bearer ${adminToken}`);
+    410|     expectBodyMatchesSchema('get', '/attachments/{id}/url', r.status, …
+    411|     expect(r.status).toBe(200);
+       |                      ^
+    412|     expect(typeof r.body.url).toBe('string');
+    413|     expect(r.body.expires_in).toBeGreaterThan(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/40]⎯
+
+ FAIL  test/customers.api.test.ts > C — PUT /customers/{id}/location (موقعیت روی نقشه) > ثبت موقعیت 200 ← Customer با geo و منبع
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ test/customers.api.test.ts:530:8
+    528|         source: 'gps',
+    529|       })
+    530|       .expect(200);
+       |        ^
+    531|     expectBodyMatchesSchema('put', '/customers/{id}/location', 200, re…
+    532|     expect(res.body.geo?.coordinates).toEqual([51.389, 35.689]);
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/40]⎯
+
+ FAIL  test/customers.api.test.ts > C — PUT /customers/{id}/location (موقعیت روی نقشه) > مشتری ناموجود 404 ← Error و شناسه خراب 400 ← Error
+Error: expected 404 "Not Found", got 500 "Internal Server Error"
+ ❯ test/customers.api.test.ts:558:8
+    556|       .put('/api/v1/customers/11111111-1111-4111-8111-111111111111/loc…
+    557|       .send({ geo: { type: 'Point', coordinates: [51.39, 35.69] }, sou…
+    558|       .expect(404);
+       |        ^
+    559|     expectBodyMatchesSchema('put', '/customers/{id}/location', 404, mi…
+    560|
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/40]⎯
+
+ FAIL  test/customers.api.test.ts > C — PUT /customers/{id}/location (موقعیت روی نقشه) > فیلتر has_location بعد از ثبت موقعیت
+AssertionError: expected [] to include 'CUST-01'
+ ❯ test/customers.api.test.ts:575:65
+    573|       .expect(200);
+    574|     expectBodyMatchesSchema('get', '/customers', 200, withGeo.body);
+    575|     expect(withGeo.body.items.map((c: CustomerBody) => c.code)).toCont…
+       |                                                                 ^
+    576|     expect(withGeo.body.items.every((c: CustomerBody) => c.geo != null…
+    577|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/40]⎯
+
+ FAIL  test/customers.api.test.ts > C — پوشش خطاهای مستندشدهٔ /customers > همه خطاهای مستندشده در همین فایل آزموده شده‌اند
+AssertionError: این خطاهای مستندشدهٔ /customers هنوز آزموده نشده‌اند:
+  PUT /customers/{id}/location 404: expected [ 'PUT /customers/{id}/location 404' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "PUT /customers/{id}/location 404",
++ ]
+
+ ❯ test/customers.api.test.ts:607:7
+    605|       missed,
+    606|       `این خطاهای مستندشدهٔ /customers هنوز آزموده نشده‌اند:\n  ${miss…
+    607|     ).toEqual([]);
+       |       ^
+    608|
+    609|     const stray = [...exercisedErrors].filter(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > ساخت 201 ← Geofence با polygon
+Error: expected 201 "Created", got 400 "Bad Request"
+ ❯ test/geofences.api.test.ts:332:8
+    330|       .post('/api/v1/geofences')
+    331|       .send({ name: 'حوزه مرکزی', kind: 'work_area', area: POLYGON })
+    332|       .expect(201);
+       |        ^
+    333|     expectBodyMatchesSchema('post', '/geofences', 201, res.body);
+    334|     geofenceId = res.body.id;
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > جزئیات 200 ← Geofence؛ شناسه خراب 400 و ناموجود 404
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ test/geofences.api.test.ts:381:71
+    379|
+    380|   it('جزئیات 200 ← Geofence؛ شناسه خراب 400 و ناموجود 404', async () =…
+    381|     const detail = await api().get(`/api/v1/geofences/${geofenceId}`).…
+       |                                                                       ^
+    382|     expectBodyMatchesSchema('get', '/geofences/{id}', 200, detail.body…
+    383|     expect(detail.body.id).toBe(geofenceId);
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > ویرایش 200 ← Geofence (name و is_active)
+Error: expected 200 "OK", got 404 "Not Found"
+ ❯ test/geofences.api.test.ts:398:8
+    396|       .patch(`/api/v1/geofences/${geofenceId}`)
+    397|       .send({ name: 'حوزه مرکزی (به‌روز)', is_active: false })
+    398|       .expect(200);
+       |        ^
+    399|     expectBodyMatchesSchema('patch', '/geofences/{id}', 200, res.body);
+    400|     expect(res.body.name).toBe('حوزه مرکزی (به‌روز)');
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > ویرایش با polygon نامعتبر 400 ← invalid_geo
+Error: expected 400 "Bad Request", got 404 "Not Found"
+ ❯ test/geofences.api.test.ts:408:8
+    406|       .patch(`/api/v1/geofences/${geofenceId}`)
+    407|       .send({ area: { type: 'Polygon', coordinates: [[[0, 0]]] } })
+    408|       .expect(400);
+       |        ^
+    409|     expectBodyMatchesSchema('patch', '/geofences/{id}', 400, res.body);
+    410|     expect(res.body.code).toBe('invalid_geo');
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > ویرایش شناسه خراب 400 و ناموجود 404
+Error: expected 404 "Not Found", got 500 "Internal Server Error"
+ ❯ test/geofences.api.test.ts:417:88
+    415|     expectBodyMatchesSchema('patch', '/geofences/{id}', 400, bad.body);
+    416|
+    417|     const miss = await api().patch(`/api/v1/geofences/${MISSING}`).sen…
+       |                                                                                        ^
+    418|     expectBodyMatchesSchema('patch', '/geofences/{id}', 404, miss.body…
+    419|   });
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > فیلتر is_active لیست
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ ❯ test/geofences.api.test.ts:422:54
+    420|
+    421|   it('فیلتر is_active لیست', async () => {
+    422|     const all = await api().get('/api/v1/geofences').expect(200);
+       |                                                      ^
+    423|     expectBodyMatchesSchema('get', '/geofences', 200, all.body);
+    424|     expect(all.body.items.length).toBeGreaterThan(0);
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — جریان /geofences > حذف 204 ← بدون بدنه؛ دوباره 404
+Error: expected 204 "No Content", got 404 "Not Found"
+ ❯ test/geofences.api.test.ts:431:59
+    429|
+    430|   it('حذف 204 ← بدون بدنه؛ دوباره 404', async () => {
+    431|     await api().delete(`/api/v1/geofences/${geofenceId}`).expect(204);
+       |                                                           ^
+    432|     const again = await api().delete(`/api/v1/geofences/${geofenceId}`…
+    433|     expectBodyMatchesSchema('delete', '/geofences/{id}', 404, again.bo…
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/40]⎯
+
+ FAIL  test/geofences.api.test.ts > GF — پوشش خطاهای مستندشدهٔ /geofences > همه خطاهای مستندشده در همین فایل آزموده شده‌اند
+AssertionError: این خطاهای مستندشده هنوز آزموده نشده‌اند:
+  GET /geofences/{id} 400
+  GET /geofences/{id} 404
+  PATCH /geofences/{id} 404
+  DELETE /geofences/{id} 404: expected [ 'GET /geofences/{id} 400', …(3) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "GET /geofences/{id} 400",
++   "GET /geofences/{id} 404",
++   "PATCH /geofences/{id} 404",
++   "DELETE /geofences/{id} 404",
++ ]
+
+ ❯ test/geofences.api.test.ts:465:91
+    463|
+    464|     const missed = [...documented].filter((key) => !exercisedErrors.ha…
+    465|     expect(missed, `این خطاهای مستندشده هنوز آزموده نشده‌اند:\n  ${mis…
+       |                                                                                           ^
+    466|
+    467|     const stray = [...exercisedErrors].filter(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/40]⎯
+
+ FAIL  test/migrations-security.test.ts > مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048 > down/up: داده می‌ماند، سیاست‌ها و گرانت‌ها بازگردانده می‌شوند
+error: function st_geomfromtext(unknown, integer) does not exist
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg-pool/index.js:45:11
+ ❯ seedAndCount test/migrations-security.test.ts:70:3
+     68|     [appUser, `md-${u}`, `mtok-${u}`],
+     69|   );
+     70|   await q.query(
+       |   ^
+     71|     `insert into geofence (branch_id, name, kind, area) values ($1,$2,…
+     72|     [branch, `حوزهٔ مهاجرت ${u}`, `POLYGON((1 1,2 1,2 2,1 2,1 1))`],
+ ❯ test/migrations-security.test.ts:190:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > A/B) بوتِ تازه: نقش ساخته می‌شود، LOGIN دارد و هیچ امتیازِ ممتازی نمی‌گیرد
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:424:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > C) نقشِ از پیش موجودِ NOLOGIN (سناریویِ واقعیِ dms_app در 0041): LOGIN می‌گیرد، تکراری ساخته نمی‌شود و امتیازی اضافه نمی‌شود
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:447:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > D) رمزِ بدقلق با نقلِقول، فاصله، $ و بک‌اسلش دقیقاً درست ذخیره می‌شود
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/postgres-init-role.api.test.ts:465:85
+    463|   it('D) رمزِ بدقلق با نقلِقول، فاصله، $ و بک‌اسلش دقیقاً درست ذخیره م…
+    464|     expect(PW_NEW).toMatch(/['"\\ $]/); // خودِ آزمون هم بررسی می‌کند …
+    465|     expect(storedPasswordMatches(await storedPassword(ROLE_NEW), PW_NE…
+       |                                                                                     ^
+    466|     const wrong = storedPasswordMatches(await storedPassword(ROLE_NEW)…
+    467|     expect(wrong).toBe(false); // تابعِ اثبات، تشخیصِ درست دارد (نه هم…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > F) رمز هرگز در آرگومانِ خطِ فرمانِ psql نیست و در محیطِ فرآیندِ فرزند هم export نمی‌شود
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:501:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > G) متنِ SQLِ ارسال‌شده به سرور هیچ رمزی ندارد (ECHO all) — با کنترلِ منفی
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:552:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > H) مسیرِ شکست: خطایِ واقعیِ سمتِ سرور ⇒ خروجِ غیرصفر، بدونِ نقش، و بدونِ هیچ رمزی در تشخیصِ خطا
+AssertionError: expected 'ERROR: syntax error at or near "\"\nC…' to match /read-only transaction|25006/
+
+- Expected:
+/read-only transaction|25006/
+
++ Received:
+"ERROR: syntax error at or near \"\\\"
+Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near \"\\\"
+"
+
+ ❯ test/postgres-init-role.api.test.ts:624:22
+    622|     expect(status, `باید با خطا خارج شود؛ خروجی سرکوب شد (${combined.l…
+    623|     expect(await roleCount(ROLE_FAIL)).toBe(0); // موفقِ کاذب نداریم
+    624|     expect(combined).toMatch(/read-only transaction|25006/);
+       |                      ^
+    625|     expectNoPasswordSpelling(combined, PW_SQL, 'تشخیصِ خطا');
+    626|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > J) محیطِ ارثیِ همهٔ فرآیندهایِ فرزند: هیچ متغیری با مقدارِ رمز وجود ندارد
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:658:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > K) نام‌هایِ مستعارِ خصمانه و برخوردِ تصادفیِ مقدار: ایزولاسیون حفظ می‌شود و حالتِ بی‌ربط نابود نمی‌شود
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:717:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > L) ماتریسِ PGPASSWORD/PGPASSFILE (QA-B1): مقدارِ غیرهم‌مقدار حفظ می‌شود، مقدارِ هم‌مقدار هرگز به فرزند نمی‌رسد
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:843:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/40]⎯
+
+ FAIL  test/postgres-init-role.api.test.ts > TASK-15/16/17 · اسکریپتِ نخستین بوتِ نقشِ زمانِ اجرا > M) ردِ رمزِ نادرست با SQLSTATE ساختاریافتهٔ 28P01 از libpq (نه متنِ محلی‌پذیر) + احرازِ موفق با رمزِ دقیق
+Error: Command failed: bash /tmp/audit24y/docker/postgres-init/10-runtime-role.sh
+ERROR: syntax error at or near "\"
+
+ ❯ runScript test/postgres-init-role.api.test.ts:212:10
+    210|     PATH: extraPath ? `${extraPath}:${basePath}` : basePath,
+    211|   };
+    212|   return execFileSync('bash', [script], { env, encoding: 'utf8', stdio…
+       |          ^
+    213| }
+    214|
+ ❯ test/postgres-init-role.api.test.ts:908:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ دوم > استثنا فقط با تأییدِ شخصِ دوم معتبر می‌شود؛ خودتأییدی ۴۰۳ است
+Error: expected 201 "Created", got 404 "Not Found"
+ ❯ test/pricing-engine.api.test.ts:944:8
+    942|       .post(`/api/v1/approvals/${chainReq}/decision`)
+    943|       .send({ decision: 'approve', note: 'تأییدِ گردش' })
+    944|       .expect(201);
+       |        ^
+    945|
+    946|     // شخصِ دوم با مجوزِ override تأیید می‌کند
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ دوم > پس از تأییدِ استثنا، همان قیمت نقضِ کفِ سود ندارد
+AssertionError: expected [ { …(6) } ] to have a length of +0 but got 1
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ test/pricing-engine.api.test.ts:957:40
+    955|   it('پس از تأییدِ استثنا، همان قیمت نقضِ کفِ سود ندارد', async () => {
+    956|     const res = await api().post('/api/v1/pricing/quote').send(quoteBo…
+    957|     expect(res.body.margin_violations).toHaveLength(0);
+       |                                        ^
+    958|     expect(num(res.body.lines[0].unit_price)).toBe(850);
+    959|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ دوم > تصمیمِ دوباره روی استثنای بسته ⇒ 409 و بیننده بدونِ مجوز ⇒ 403
+AssertionError: expected 'approval_pending' to be 'not_pending' // Object.is equality
+
+Expected: "not_pending"
+Received: "approval_pending"
+
+ ❯ test/pricing-engine.api.test.ts:966:29
+    964|       .send({ decision: 'reject' });
+    965|     expect(again.status).toBe(409);
+    966|     expect(again.body.code).toBe('not_pending');
+       |                             ^
+    967|
+    968|     const viewer = await api(viewerToken)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-6 — سندِ تاریخی تغییر نمی‌کند > سفارشِ ثبت‌شده با موتور، پس از تغییرِ لیستِ قیمت دست‌نخورده می‌ماند
+Error: expected 201 "Created", got 409 "Conflict"
+ ❯ test/pricing-engine.api.test.ts:1050:8
+    1048|         lines: [{ product_id: productId, qty: 2 }],
+    1049|       })
+    1050|       .expect(201);
+       |        ^
+    1051|
+    1052|     const orderId = order.body.id;
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-7 — درخواستِ تکراری/بازپخش‌شده > سفارشِ تکراری با همان کلید، مصرفِ تشویق را دوباره ثبت نمی‌کند
+Error: expected 201 "Created", got 409 "Conflict"
+ ❯ test/pricing-engine.api.test.ts:1140:70
+    1138|         lines: [{ product_id: productId, qty: 1 }],
+    1139|       };
+    1140|       const first = await api().post('/api/v1/orders').send(payload).e…
+       |                                                                      ^
+    1141|       const second = await api().post('/api/v1/orders').send(payload).…
+    1142|       expect(second.body.id).not.toBe(first.body.id);
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-10 — سفارش: مجوز از نشست، ممیزی از دفترِ تغییرِ قیمت > قیمتِ دستیِ مجاز با دلیل ⇒ 201 و ثبتِ actor/قیمتِ سیستمی/قیمتِ درخواستی/دلیل در price_change_log
+Error: expected 201 "Created", got 409 "Conflict"
+ ❯ test/pricing-engine.api.test.ts:1374:8
+    1372|         lines: [{ product_id: productId, qty: 1, unit_price: '900' }],
+    1373|       })
+    1374|       .expect(201);
+       |        ^
+    1375|     expect(num(created.body.lines[0].unit_price)).toBe(900);
+    1376|
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-10 — سفارش: مجوز از نشست، ممیزی از دفترِ تغییرِ قیمت > سندِ عقب‌گرد، تشویقِ منقضی را دوباره فعال نمی‌کند (قیمت‌گذاری با «امروز»)
+Error: expected 201 "Created", got 409 "Conflict"
+ ❯ test/pricing-engine.api.test.ts:1434:8
+    1432|         lines: [{ product_id: productId, qty: 1 }],
+    1433|       })
+    1434|       .expect(201);
+       |        ^
+    1435|     await api().patch('/api/v1/pricing/settings').send({ apply_promoti…
+    1436|     try {
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-11 — promotion_redemption: هم‌خوانی با سند و فقط-افزودنی > مبلغِ مصرف = تخفیفِ واقعیِ سند (HIGH-4) و ردیفِ دفتر قابلِ UPDATE/DELETE نیست (MEDIUM-4)
+Error: expected 201 "Created", got 409 "Conflict"
+ ❯ test/pricing-engine.api.test.ts:1478:10
+    1476|           lines: [{ product_id: productId, qty: 2 }],
+    1477|         })
+    1478|         .expect(201);
+       |          ^
+    1479|
+    1480|       const redemption = await pool.query<{ discount_amount: string; e…
+ ❯ Test._assertStatus ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:404:14
+ ❯ ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:460:13
+ ❯ Test._assertFunction ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:437:13
+ ❯ Test.assert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:302:23
+ ❯ localAssert ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:220:38
+ ❯ Server.<anonymous> ../../../../home/user/Green-DMS/node_modules/supertest/lib/test.js:227:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/40]⎯
+
+ FAIL  test/pricing-engine.api.test.ts > PE-11 — promotion_redemption: هم‌خوانی با سند و فقط-افزودنی > تکرارِ همان کلیدِ idempotency ردیفِ دفتر را دوباره نمی‌سازد (MEDIUM-5)
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ test/pricing-engine.api.test.ts:1518:29
+    1516|       [companyId],
+    1517|     );
+    1518|     expect(count.rows[0].c).toBe(1);
+       |                             ^
+    1519|   });
+    1520| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/40]⎯
+
+ FAIL  test/product-master-core.test.ts > D2 — تشخیصِ تکرار: کد/بارکد مانع، نامِ مشابه هشدار > duplicate-check برای نامِ مشابه هشدار می‌دهد ولی مانع نیست
+AssertionError: expected 0 to be greater than 0
+ ❯ test/product-master-core.test.ts:54:38
+     52|       .get(`/api/v1/products/duplicate-check?name=${encodeURIComponent…
+     53|       .expect(200);
+     54|     expect(res.body.warnings.length).toBeGreaterThan(0);
+       |                                      ^
+     55|     expect(res.body.blocking.length).toBe(0);
+     56|     expect(res.body.warnings[0].kind).toBe('similar_name');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/40]⎯
+
+ FAIL  test/product-master-rls.test.ts > ستون‌های جدیدِ 0046 — اتصال به والدِ اجارهٔ دیگر مسدود است > سناریوی مرزی: بسته‌بندیِ NULL (قیمت/بارکدِ پایه) همچنان مجاز است
+error: duplicate key value violates unique constraint "ex_price_list_item"
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg/lib/client.js:694:17
+ ❯ asRuntime test/product-master-rls.test.ts:78:12
+     76|       ]);
+     77|     }
+     78|     return await fn(client);
+       |            ^
+     79|   } finally {
+     80|     await client.end();
+ ❯ test/product-master-rls.test.ts:579:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/40]⎯
+
+ FAIL  test/product-master-security.test.ts > M-2 — قیمتِ سطحِ بسته‌بندی > قیمتِ packaging متفاوت با NULL (پایه) هم‌پوشانی ندارد → آزاد
+error: duplicate key value violates unique constraint "ex_price_list_item"
+ ❯ ../../../../home/user/Green-DMS/node_modules/pg-pool/index.js:45:11
+ ❯ test/product-master-security.test.ts:259:5
+    257|     );
+    258|     // قیمتِ سطحِ packaging متفاوت → آزاد (M-2: آزادسازیِ قیمتِ packag…
+    259|     await fx.pool.query(
+       |     ^
+    260|       `insert into price_list_item (price_list_id, product_id, packagi…
+    261|        values ($1, $2, $3, 11000, 0, daterange(null, null))`,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/40]⎯
+
+
+ Test Files  12 failed | 54 passed (66)
+      Tests  37 failed | 1214 passed | 66 skipped (1317)
+   Start at  06:32:37
+   Duration  161.98s (tests 67%, import 29%, transform 3%, setup 1%)
+
+     Import  347 modules were evaluated 10204 times · 44.36s total, 29% of tracked time
+             ~42.85s faster with isolate: false — shared modules are evaluated once per worker instead of once per file
+             learn more: https://vitest.dev/guide/improving-performance#test-isolation
+

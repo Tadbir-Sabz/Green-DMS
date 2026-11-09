@@ -19,7 +19,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: process.env.CI
-    ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }], ['github']]
+    ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }], ['github'], ['json', { outputFile: 'browser-results.json' }]]
     : [['list']],
   use: {
     baseURL: BASE_URL,
