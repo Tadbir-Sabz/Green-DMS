@@ -2,6 +2,7 @@ import { CatalogFoundationController, CatalogFoundationService } from './catalog
 import { ProductPackagingService } from './product-packaging.service';
 import { CatalogAccess } from './catalog-access.service';
 import { DomainCatalogGate } from './domain-catalog.contract';
+import { OrderCreationLock } from '../sales/order-creation-lock';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { PricingModule } from '../pricing/pricing.module';
@@ -68,6 +69,7 @@ import {
   ],
   providers: [
     CatalogAccess,
+    OrderCreationLock,
     DomainCatalogGate,
     CatalogFoundationService,
     ProductPackagingService,

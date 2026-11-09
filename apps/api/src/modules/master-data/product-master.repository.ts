@@ -2,6 +2,9 @@ import { catalogTransaction } from './catalog-access.service';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import type { ImportBatchOutcome, ImportRecord } from './product-import-reliability';
+
+type ImportRecordRow = ImportRecord & QueryResultRow;
 
 /**
  * دسترسیِ دادهٔ Product Master (P1) — SQL خام روی جدول‌های مهاجرت 0046
@@ -508,50 +511,175 @@ export class ProductMasterRepository {
     return rows.length > 0;
   }
 
-  // ---------- import ----------
-  async insertImport(r: {
+  // ---------- import (§E + TASK-PM-01D-M2) ----------
+  /**
+   * Atomic idempotency claim. Product mutations may start only after this row
+   * exists with status=processing. ON CONFLICT DO NOTHING is the race boundary;
+   * the caller holds a per-key advisory lock to serialize same-key requests.
+   */
+  async claimImport(r: {
     companyId: string;
     idempotencyKey: string;
     mode: string;
     totalRows: number;
-    createdRows: number;
-    updatedRows: number;
-    failedRows: number;
-    report: unknown;
     createdBy: string | null;
-  }): Promise<{ id: string }> {
-    const { rows } = await this.pool.query<{ id: string }>(
+  }): Promise<ImportRecord | null> {
+    const { rows } = await this.pool.query<ImportRecordRow>(
       `insert into product_import
-         (company_id, idempotency_key, mode, total_rows, created_rows, updated_rows, failed_rows, report, created_by)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       on conflict (company_id, idempotency_key) do update
-         set total_rows = excluded.total_rows, created_rows = excluded.created_rows,
-             updated_rows = excluded.updated_rows, failed_rows = excluded.failed_rows,
-             report = excluded.report
-       returning id`,
-      [r.companyId, r.idempotencyKey, r.mode, r.totalRows, r.createdRows, r.updatedRows, r.failedRows, JSON.stringify(r.report), r.createdBy],
+         (company_id, idempotency_key, mode, total_rows, created_rows, updated_rows,
+          failed_rows, report, created_by, status, failure_category, retryable,
+          transaction_outcome, last_batch_no, attempts)
+       values ($1, $2, $3, $4, 0, 0, 0, '[]'::jsonb, $5,
+               'processing', 'none', false, 'not_started', 0, 1)
+       on conflict (company_id, idempotency_key) do nothing
+       returning id, status, total_rows, created_rows, updated_rows, failed_rows,
+                 report, failure_category, retryable, transaction_outcome,
+                 last_batch_no, completed_at`,
+      [r.companyId, r.idempotencyKey, r.mode, r.totalRows, r.createdBy],
     );
-    return rows[0];
+    return rows[0] ?? null;
   }
 
-  async findImportByIdempotencyKey(companyId: string, key: string): Promise<
-    { id: string; total_rows: number; created_rows: number; updated_rows: number; failed_rows: number } | null
-  > {
-    const { rows } = await this.pool.query(
-      `select id, total_rows, created_rows, updated_rows, failed_rows
+  async findImportByIdempotencyKey(companyId: string, key: string): Promise<ImportRecord | null> {
+    const { rows } = await this.pool.query<ImportRecordRow>(
+      `select id, status, total_rows, created_rows, updated_rows, failed_rows, report,
+              failure_category, retryable, transaction_outcome, last_batch_no, completed_at
          from product_import where company_id = $1 and idempotency_key = $2`,
       [companyId, key],
     );
     return rows[0] ?? null;
   }
 
-  async getImport(companyId: string, id: string): Promise<(QueryResultRow & { report: unknown }) | null> {
-    const { rows } = await this.pool.query(
-      `select id, mode, total_rows, created_rows, updated_rows, failed_rows, report, created_at
+  async resumeImport(companyId: string, importId: string): Promise<void> {
+    await this.pool.query(
+      `update product_import
+          set status = 'processing', attempts = attempts + 1,
+              completed_at = null, updated_at = now()
+        where id = $1 and company_id = $2`,
+      [importId, companyId],
+    );
+  }
+
+  async getImport(companyId: string, id: string): Promise<ImportRecord | null> {
+    const { rows } = await this.pool.query<ImportRecordRow>(
+      `select id, status, total_rows, created_rows, updated_rows, failed_rows, report,
+              failure_category, retryable, transaction_outcome, last_batch_no, completed_at
          from product_import where id = $1 and company_id = $2`,
       [id, companyId],
     );
     return rows[0] ?? null;
+  }
+
+  async listImportBatches(companyId: string, importId: string): Promise<unknown[]> {
+    const { rows } = await this.pool.query(
+      `select batch_no, status, transaction_outcome, failure_category, retryable,
+              reason_code, message_fa, total_rows, created_rows, updated_rows,
+              failed_rows, report, attempts
+         from product_import_batch
+        where company_id = $1 and import_id = $2
+        order by batch_no`,
+      [companyId, importId],
+    );
+    return rows;
+  }
+
+  /**
+   * Upsert an outcome in the caller's current transaction. A committed marker is
+   * authoritative and is never overwritten by a later ambiguous failure report;
+   * this preserves the product/batch all-or-nothing evidence after a lost commit
+   * acknowledgement. Returns the persisted row so the caller can replay truth.
+   */
+  async recordImportBatch(r: {
+    companyId: string;
+    importId: string;
+    batch: ImportBatchOutcome;
+  }): Promise<unknown | null> {
+    const b = r.batch;
+    const params = [
+      r.companyId, r.importId, b.batch_no, b.status, b.transaction_outcome,
+      b.failure_category, b.retryable, b.reason_code ?? null, b.message_fa ?? null,
+      b.total_rows, b.created_rows, b.updated_rows, b.failed_rows,
+      JSON.stringify(b.report), b.attempts,
+    ];
+    const columns = `batch_no, status, transaction_outcome, failure_category, retryable,
+              reason_code, message_fa, total_rows, created_rows, updated_rows,
+              failed_rows, report, attempts`;
+    const { rows } = await this.pool.query(
+      `insert into product_import_batch
+         (company_id, import_id, batch_no, status, transaction_outcome,
+          failure_category, retryable, reason_code, message_fa, total_rows,
+          created_rows, updated_rows, failed_rows, report, attempts)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15)
+       on conflict (import_id, batch_no) do update
+         set status = excluded.status,
+             transaction_outcome = excluded.transaction_outcome,
+             failure_category = excluded.failure_category,
+             retryable = excluded.retryable,
+             reason_code = excluded.reason_code,
+             message_fa = excluded.message_fa,
+             total_rows = excluded.total_rows,
+             created_rows = excluded.created_rows,
+             updated_rows = excluded.updated_rows,
+             failed_rows = excluded.failed_rows,
+             report = excluded.report,
+             attempts = product_import_batch.attempts + excluded.attempts,
+             updated_at = now()
+         where product_import_batch.status <> 'committed'
+       returning ${columns.replace('batch_no', 'batch_no')}`,
+      params,
+    );
+    if (rows[0]) return rows[0];
+    const existing = await this.pool.query(
+      `select ${columns}
+         from product_import_batch
+        where company_id = $1 and import_id = $2 and batch_no = $3`,
+      [r.companyId, r.importId, b.batch_no],
+    );
+    return existing.rows[0] ?? null;
+  }
+
+  async finalizeImport(r: {
+    companyId: string;
+    importId: string;
+    totalRows: number;
+    createdRows: number;
+    updatedRows: number;
+    failedRows: number;
+    report: unknown;
+    failureCategory: string;
+    retryable: boolean;
+    transactionOutcome: string;
+    lastBatchNo: number;
+  }): Promise<void> {
+    await this.pool.query(
+      `update product_import
+          set status = 'completed', total_rows = $3, created_rows = $4,
+              updated_rows = $5, failed_rows = $6, report = $7::jsonb,
+              failure_category = $8, retryable = $9, transaction_outcome = $10,
+              last_batch_no = $11, completed_at = now(), updated_at = now()
+        where id = $1 and company_id = $2`,
+      [
+        r.importId, r.companyId, r.totalRows, r.createdRows, r.updatedRows,
+        r.failedRows, JSON.stringify(r.report), r.failureCategory, r.retryable,
+        r.transactionOutcome, r.lastBatchNo,
+      ],
+    );
+  }
+
+  async markImportFailed(r: {
+    companyId: string;
+    importId: string;
+    failureCategory: string;
+    retryable: boolean;
+    transactionOutcome: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `update product_import
+          set status = 'failed', failure_category = $3, retryable = $4,
+              transaction_outcome = $5, completed_at = now(), updated_at = now()
+        where id = $1 and company_id = $2`,
+      [r.importId, r.companyId, r.failureCategory, r.retryable, r.transactionOutcome],
+    );
   }
 
   // ---------- کمکی ----------
@@ -614,22 +742,25 @@ export class ProductMasterRepository {
     return rows[0];
   }
 
-  /** بروزرسانیِ ردیفِ import (mode=update/upsert) */
+  /** بروزرسانیِ ردیفِ import؛ false یعنی ردیف همزمان حذف شده است. */
   async updateProductRow(
     id: string,
     companyId: string,
     sets: { col: string; value: unknown }[],
-  ): Promise<void> {
-    if (sets.length === 0) return;
+  ): Promise<boolean> {
+    if (sets.length === 0) return true;
     const params: unknown[] = [id, companyId];
     const clauses = sets.map((s) => {
       params.push(s.value);
       return `${s.col} = $${params.length}`;
     });
-    await this.pool.query(
-      `update product set ${clauses.join(', ')} where id = $1 and company_id = $2 and deleted_at is null`,
+    const { rows } = await this.pool.query(
+      `update product set ${clauses.join(', ')}
+        where id = $1 and company_id = $2 and deleted_at is null
+        returning id`,
       params,
     );
+    return rows.length > 0;
   }
 
   async productCodeExists(companyId: string, code: string): Promise<boolean> {
@@ -640,11 +771,28 @@ export class ProductMasterRepository {
     return rows.length > 0;
   }
 
+  /** Pre-transaction lookup; no row lock is claimed here. */
   async getProductsForImport(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
     const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
     if (codes.length === 0) return map;
     const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
       'select id, code, status, base_uom_id, tax_code_id from product where company_id = $1 and deleted_at is null and code = any($2::text[])',
+      [companyId, codes],
+    );
+    for (const r of rows) map.set(r.code, r);
+    return map;
+  }
+
+  /** Transaction-local recheck with deterministic row locks for conflicting imports. */
+  async getProductsForImportTx(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
+    const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
+    if (codes.length === 0) return map;
+    const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
+      `select id, code, status, base_uom_id, tax_code_id
+         from product
+        where company_id = $1 and deleted_at is null and code = any($2::text[])
+        order by code
+        for update`,
       [companyId, codes],
     );
     for (const r of rows) map.set(r.code, r);

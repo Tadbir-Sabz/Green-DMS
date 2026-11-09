@@ -241,3 +241,10 @@
  download again fails signedblob EOF; manual visual review UNVERIFIED.
 - Existing target design has a continuity appendix clarifying per-domain
  availability without changing approved D1–D5 or asserting phase reorder approval.
+
+## TASK-PM-01D-M2 — import reliability, concurrency and atomicity
+
+- `TASK-PM-01D-M2_IMPLEMENTATION.md`: source‌truth for the additive `0061` migration, atomic idempotency claim, per‌key advisory lock, transaction‌local batch outcome, deterministic retry boundary, safe replay of unknown outcomes, contract/client/UI changes and the 13‌item acceptance matrix.
+- Native disposable PostgreSQL: strict 61‌migration up/down/up cycle, fresh `dms_app` grant probe, 2 focused import files / 22 tests, 10 Product Master DB‌backed files / 151 tests and 44 selected DB‌backed files / 957 tests PASS. Four spatial/password‌auth files were excluded locally because the sandbox uses a non‌spatial PostGIS replacement and trust auth; exact‌final‌SHA CI uses real `postgis/postgis:16-3.4`.
+- DB‌free API unit 24 files / 332 tests; web 14 files / 79 tests; partition 73 files; OpenAPI 195 paths / 278 operations / 141 schemas / 3 webhooks; contract drift zero; root typecheck/build (55 pages) and `git diff --check` PASS.
+- §E per‌batch all‌or‌nothing plus continuation is preserved. Whole‌file rollback remains an isolated owner decision. PM‌B1..PM‌B8 remain OPEN / NOT APPROVED; no domain membership, RBAC vocabulary, protected branch, deployment or merge action was added.

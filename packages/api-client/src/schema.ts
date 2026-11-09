@@ -13842,6 +13842,51 @@ export interface components {
             }[];
             headers: string[];
         };
+        /** @description ردیفِ عادی‌شدهٔ گزارشِ import؛ خطاهای خام SQL یا فیلدهای بینشرکتی ندارد. */
+        ImportIssue: {
+            row: number;
+            code: string;
+            message_fa: string;
+            batch_no?: number;
+            /** Format: uuid */
+            import_id?: string;
+            product_code?: string;
+            /** Format: uuid */
+            product_id?: string;
+            /** @enum {string} */
+            status?: "created" | "updated" | "failed" | "rejected" | "rolled_back";
+            failure_category: components["schemas"]["ImportFailureCategory"];
+            retryable: boolean;
+            transaction_outcome: components["schemas"]["ImportTransactionOutcome"];
+        };
+        /**
+         * @description دستهٔ فنی و پایدار خطا؛ قواعد کسب‌وکار D1–D5/M-5 را تغییر نمی‌دهد.
+         * @enum {string}
+         */
+        ImportFailureCategory: "none" | "validation" | "business" | "permission" | "concurrency" | "infrastructure";
+        /**
+         * @description نتیجهٔ تراکنش یک دسته؛ unknown هرگز موفقیت فرض نمی‌شود.
+         * @enum {string}
+         */
+        ImportTransactionOutcome: "committed" | "rolled_back" | "not_started" | "unknown";
+        /** @description نتیجهٔ یک دستهٔ ۱۰۰ردیفی؛ دسته‌های commit‌شده در همان تراکنش محصول ثبت می‌شوند. */
+        ImportBatchOutcome: {
+            batch_no: number;
+            /** @enum {string} */
+            status: "committed" | "rolled_back" | "rejected" | "failed";
+            transaction_outcome: components["schemas"]["ImportTransactionOutcome"];
+            failure_category: components["schemas"]["ImportFailureCategory"];
+            retryable: boolean;
+            reason_code?: string;
+            message_fa?: string;
+            total_rows: number;
+            created_rows: number;
+            updated_rows: number;
+            failed_rows: number;
+            attempts: number;
+            report: components["schemas"]["ImportIssue"][];
+        };
+        /** @description نتیجهٔ اجرا یا پخش مجدد import؛ قرارداد §E (همه‌یا‌هیچ در هر دسته و ادامهٔ دسته‌های بعدی) حفظ می‌شود. */
         ImportResult: {
             /** Format: uuid */
             import_id: string;
@@ -13850,11 +13895,20 @@ export interface components {
             updated_rows: number;
             failed_rows: number;
             idempotent_replay?: boolean;
-            errors: {
-                row?: number;
-                code?: string;
-                message_fa?: string;
-            }[];
+            /** @enum {string} */
+            status?: "processing" | "completed" | "failed";
+            /**
+             * @description نتیجهٔ تجمیعی؛ partial یعنی برخی دسته‌ها commit و برخی قطعاً برگشت خورده‌اند.
+             * @enum {string}
+             */
+            transaction_outcome?: "committed" | "partial" | "rolled_back" | "not_started" | "unknown";
+            failure_category?: components["schemas"]["ImportFailureCategory"];
+            /** @description فقط تلاش‌مجدد داخلیِ نتیجهٔ قطعی rolled_back؛ unknown نیاز به بررسی اپراتور دارد. */
+            retryable?: boolean;
+            last_batch_no?: number;
+            report?: components["schemas"]["ImportIssue"][];
+            batches?: components["schemas"]["ImportBatchOutcome"][];
+            errors: components["schemas"]["ImportIssue"][];
         };
         /** @description زنجیره تأیید با گام‌های تعریف‌شده */
         ApprovalChain: {

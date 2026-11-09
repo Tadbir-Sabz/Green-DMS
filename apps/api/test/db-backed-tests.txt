@@ -16,6 +16,7 @@ product-master-barcode.test.ts
 product-master-bundle.test.ts
 product-master-core.test.ts
 product-master-import.test.ts
+product-master-import-reliability.test.ts
 product-master-rls.test.ts
 product-master-security.test.ts
 product-master-snapshots.test.ts

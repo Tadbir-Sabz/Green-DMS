@@ -54,6 +54,48 @@ export const DIST_LABEL: Record<string, string> = {
   both: 'سرد و گرم',
 };
 
+export const IMPORT_STATUS_LABEL: Record<string, string> = {
+  processing: 'در حال پردازش',
+  completed: 'پایان‌یافته',
+  failed: 'ناموفق',
+};
+
+export const IMPORT_OUTCOME_LABEL: Record<string, string> = {
+  committed: 'همهٔ دسته‌ها ثبت شدند',
+  partial: 'برخی دسته‌ها ثبت و برخی برگشت خوردند',
+  rolled_back: 'دسته‌ها برگشت خوردند',
+  not_started: 'تراکنشی آغاز نشد',
+  unknown: 'نتیجهٔ تراکنش نامشخص — بررسی اپراتور',
+};
+
+export const IMPORT_CATEGORY_LABEL: Record<string, string> = {
+  none: 'بدون خطا',
+  validation: 'اعتبارسنجی',
+  business: 'قواعد کسب‌وکار',
+  permission: 'مجوز',
+  concurrency: 'همزمانی',
+  infrastructure: 'زیرساخت',
+};
+
+export const IMPORT_BATCH_STATUS_LABEL: Record<string, string> = {
+  committed: 'ثبت‌شده',
+  rolled_back: 'برگشت‌خورده',
+  rejected: 'پیش از تراکنش رد شد',
+  failed: 'ناموفق',
+};
+
+export function importLabel(map: Record<string, string>, key?: string | null): string {
+  if (!key) return '—';
+  return map[key] ?? key;
+}
+
+export function importToneCls(value?: string | null): string {
+  if (value === 'committed' || value === 'completed') return 'text-success-ink';
+  if (value === 'partial' || value === 'processing') return 'text-warning-ink';
+  if (value === 'unknown' || value === 'failed' || value === 'rolled_back') return 'text-danger-ink';
+  return 'text-info-ink';
+}
+
 export const ALIAS_KIND_LABEL: Record<string, string> = {
   brand_slang: 'نامِ عامیانه/برند',
   latin: 'لاتین',

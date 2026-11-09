@@ -7991,8 +7991,55 @@ components:
               message_fa: { type: string }
         headers: { type: array, items: { type: string } }
 
+    ImportIssue:
+      type: object
+      description: ردیفِ عادی‌شدهٔ گزارشِ import؛ خطاهای خام SQL یا فیلدهای بینشرکتی ندارد.
+      required: [row, code, message_fa, failure_category, retryable, transaction_outcome]
+      properties:
+        row: { type: integer, minimum: 1 }
+        code: { type: string }
+        message_fa: { type: string }
+        batch_no: { type: integer, minimum: 1 }
+        import_id: { type: string, format: uuid }
+        product_code: { type: string }
+        product_id: { type: string, format: uuid }
+        status: { type: string, enum: [created, updated, failed, rejected, rolled_back] }
+        failure_category: { $ref: '#/components/schemas/ImportFailureCategory' }
+        retryable: { type: boolean }
+        transaction_outcome: { $ref: '#/components/schemas/ImportTransactionOutcome' }
+
+    ImportFailureCategory:
+      type: string
+      description: دستهٔ فنی و پایدار خطا؛ قواعد کسب‌وکار D1–D5/M-5 را تغییر نمی‌دهد.
+      enum: [none, validation, business, permission, concurrency, infrastructure]
+
+    ImportTransactionOutcome:
+      type: string
+      description: نتیجهٔ تراکنش یک دسته؛ unknown هرگز موفقیت فرض نمی‌شود.
+      enum: [committed, rolled_back, not_started, unknown]
+
+    ImportBatchOutcome:
+      type: object
+      description: نتیجهٔ یک دستهٔ ۱۰۰ردیفی؛ دسته‌های commit‌شده در همان تراکنش محصول ثبت می‌شوند.
+      required: [batch_no, status, transaction_outcome, failure_category, retryable, total_rows, created_rows, updated_rows, failed_rows, attempts, report]
+      properties:
+        batch_no: { type: integer, minimum: 1 }
+        status: { type: string, enum: [committed, rolled_back, rejected, failed] }
+        transaction_outcome: { $ref: '#/components/schemas/ImportTransactionOutcome' }
+        failure_category: { $ref: '#/components/schemas/ImportFailureCategory' }
+        retryable: { type: boolean }
+        reason_code: { type: string }
+        message_fa: { type: string }
+        total_rows: { type: integer, minimum: 0 }
+        created_rows: { type: integer, minimum: 0 }
+        updated_rows: { type: integer, minimum: 0 }
+        failed_rows: { type: integer, minimum: 0 }
+        attempts: { type: integer, minimum: 1 }
+        report: { type: array, items: { $ref: '#/components/schemas/ImportIssue' } }
+
     ImportResult:
       type: object
+      description: نتیجهٔ اجرا یا پخش مجدد import؛ قرارداد §E (همه‌یا‌هیچ در هر دسته و ادامهٔ دسته‌های بعدی) حفظ می‌شود.
       required: [import_id, total_rows, created_rows, updated_rows, failed_rows, errors]
       properties:
         import_id: { type: string, format: uuid }
@@ -8001,14 +8048,21 @@ components:
         updated_rows: { type: integer }
         failed_rows: { type: integer }
         idempotent_replay: { type: boolean }
+        status: { type: string, enum: [processing, completed, failed] }
+        transaction_outcome:
+          type: string
+          description: نتیجهٔ تجمیعی؛ partial یعنی برخی دسته‌ها commit و برخی قطعاً برگشت خورده‌اند.
+          enum: [committed, partial, rolled_back, not_started, unknown]
+        failure_category: { $ref: '#/components/schemas/ImportFailureCategory' }
+        retryable:
+          type: boolean
+          description: فقط تلاش‌مجدد داخلیِ نتیجهٔ قطعی rolled_back؛ unknown نیاز به بررسی اپراتور دارد.
+        last_batch_no: { type: integer, minimum: 0 }
+        report: { type: array, items: { $ref: '#/components/schemas/ImportIssue' } }
+        batches: { type: array, items: { $ref: '#/components/schemas/ImportBatchOutcome' } }
         errors:
           type: array
-          items:
-            type: object
-            properties:
-              row: { type: integer }
-              code: { type: string }
-              message_fa: { type: string }
+          items: { $ref: '#/components/schemas/ImportIssue' }
 
     ApprovalChain:
       type: object

@@ -11,7 +11,7 @@ import pg from 'pg';
 /**
  * آزمون‌های مهاجرتِ امنیتی — TASK-23 (مجموعهٔ E).
  *
- * پوشش: نصبِ تازه (fresh) با همهٔ ۴۹ مهاجرت؛ چرخهٔ up/down/up فقطِ 0048 با
+ * پوشش: نصبِ تازه (fresh) با همهٔ مهاجرت‌های زنجیره؛ چرخهٔ up/down/up فقطِ 0048 با
  * راستی‌آزماییِ «داده» (ردیف‌های واقعیِ device/geofence و منبعِ matview)، نه
  * «برابریِ شمارِ اشیاء»؛ بازگردانیِ سیاست‌ها (p_device_tenant/p_geofence_tenant،
  * enabled+forced) و گرانت‌ها (matview src بدونِ گرانتِ برنامه، نمایِ سایه با SELECT).
@@ -169,9 +169,9 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-24Y: 0053 (معماریِ تأیید) آخرین مهاجرت است. با افزودنِ مهاجرتِ تازه
-    // این خط عمداً باید به‌روزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0060_product_catalog_history.up.sql');
+    // TASK-PM-01D-M2: 0061 (قابلیت اطمینانِ import) آخرین مهاجرت است. با افزودنِ
+    // مهاجرتِ تازه این خط عمداً باید به‌روزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
+    expect(files[files.length - 1]).toBe('0061_product_import_reliability.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {

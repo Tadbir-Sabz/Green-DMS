@@ -33,6 +33,57 @@ import type {
 } from './product-master.repository';
 import { ProductMasterRepository } from './product-master.repository';
 import type { RequestMeta } from '../../common/request-meta';
+import { OrderCreationLock } from '../sales/order-creation-lock';
+import {
+  buildImportResult,
+  classifyDomainCode,
+  classifyImportError,
+  importIssue,
+  normalizeBatchOutcome,
+  summarizeImportBatches,
+  type ImportBatchOutcome,
+  type ImportFailure,
+  type ImportIssue,
+  type ImportRecord,
+  type ImportResult,
+} from './product-import-reliability';
+
+const IMPORT_BATCH_SIZE = 100;
+type ImportRowError = { row: number; code: string; message_fa: string };
+type ProductImportLookup = Awaited<ReturnType<ProductMasterRepository['getProductsForImport']>>;
+type ImportCommitRequest = {
+  csv: string;
+  mode: 'create' | 'update' | 'upsert';
+  idempotency_key: string;
+  confirm_sensitive?: boolean;
+};
+type PreparedImportRow = {
+  rowNo: number;
+  row: Record<string, string>;
+  existingId: string | null;
+  categoryId: string;
+  uomId: string;
+  taxId: string | null;
+};
+interface RunImportBatchArgs {
+  companyId: string;
+  importId: string;
+  actorUserId: string;
+  meta: RequestMeta;
+  dto: ImportCommitRequest;
+  batchNo: number;
+  start: number;
+  batch: Record<string, string>[];
+  categories: Map<string, string>;
+  uoms: Map<string, string>;
+  taxes: Map<string, string>;
+  existingByCode: ProductImportLookup;
+  validationErrorsByRow: Map<number, ImportRowError[]>;
+}
+const sortIssues = (a: ImportIssue, b: ImportIssue): number =>
+  a.row - b.row || a.code.localeCompare(b.code);
+const countFailedRows = (issues: ImportIssue[]): number =>
+  new Set(issues.filter((i) => i.status !== 'created' && i.status !== 'updated').map((i) => i.row)).size;
 
 /**
  * سرویسِ Product Master (P1) — قواعدِ کسب‌وکارِ طرحِ هدف و مصوبات D1–D5.
@@ -51,6 +102,7 @@ export class ProductMasterService {
     private readonly access: CatalogAccess,
     private readonly repo: ProductMasterRepository,
     @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
+    private readonly creationLock: OrderCreationLock,
   ) {}
 
   // =================================================================
@@ -807,157 +859,356 @@ export class ProductMasterService {
    * اجرای import (§E): همه‌یاهیچ در هر دسته؛ idempotency_key؛ audit؛
    * M-5: ردیفِ دارایِ فیلدِ حساس **بدونِ** confirm_sensitive پذیرفته نمی‌شود
    * (هرگز با فقط مجوزِ import از کنترلِ D4 عبور نمی‌کند).
+   *
+   * TASK-PM-01D-M2: قفل advisory فقط روی (شرکت + کلید idempotency) گرفته می‌شود؛
+   * ادعای اتمیک ردیف product_import پیش از هر نوشتن محصول؛ نتیجه هر دسته در همان
+   * تراکنش محصول ثبت می‌شود؛ تکرار همان کلید یا پخش مجدد ناقص، batch های commit‌شده
+   * را دوباره اجرا نمی‌کند. قرارداد §E (ادامه دسته‌های بعدی پس از خطا) حفظ می‌شود.
    */
   async commitImport(
     companyId: string,
-    dto: { csv: string; mode: 'create' | 'update' | 'upsert'; idempotency_key: string; confirm_sensitive?: boolean },
+    dto: ImportCommitRequest,
     meta: RequestMeta,
     actorUserId: string,
-  ): Promise<{
-    import_id: string;
-    total_rows: number;
-    created_rows: number;
-    updated_rows: number;
-    failed_rows: number;
-    errors: { row: number; code: string; message_fa: string }[];
-    idempotent_replay: boolean;
-  }> {
+  ): Promise<ImportResult> {
     await this.access.assert(companyId, actorUserId, 'master.product.import');
 
     const idemKey = createHash('sha256')
       .update(`${dto.mode}\u0000${dto.idempotency_key}\u0000${dto.csv}`)
       .digest('hex');
 
-    const existing = await this.repo.findImportByIdempotencyKey(companyId, idemKey);
-    if (existing) {
-      return {
-        import_id: existing.id,
-        total_rows: existing.total_rows,
-        created_rows: existing.created_rows,
-        updated_rows: existing.updated_rows,
-        failed_rows: existing.failed_rows,
-        errors: [],
-        idempotent_replay: true,
-      };
+    // همان درخواستِ همزمان پشت این قفل منتظر میماند و سپس همان گزارش را پخش
+    // میکند. import های با کلید متفاوت روی این قفل مسدود نمیشوند.
+    return this.creationLock.withKey(`product-import:${companyId}:${idemKey}`, async () => {
+      const existing = await this.repo.findImportByIdempotencyKey(companyId, idemKey);
+      // A terminal record is always replayed verbatim. Automatic same-key replay of
+      // a failed import is never allowed; only an interrupted `processing` record
+      // can resume, and only batches with a definitive rolled-back outcome.
+      if (existing?.status === 'completed' || existing?.status === 'failed') {
+        return this.replayImport(companyId, existing, true);
+      }
+
+      const validated = this.validateImport(companyId, dto.csv);
+      const totalRows = validated.rows.length;
+      const totalBatches = Math.ceil(totalRows / IMPORT_BATCH_SIZE);
+      const validationErrorsByRow = new Map<number, ImportRowError[]>();
+      for (const error of validated.row_errors) {
+        const list = validationErrorsByRow.get(error.row) ?? [];
+        list.push(error);
+        validationErrorsByRow.set(error.row, list);
+      }
+
+      let importId = '';
+      if (!existing) {
+        const claimed = await this.repo.claimImport({
+          companyId,
+          idempotencyKey: idemKey,
+          mode: dto.mode,
+          totalRows,
+          createdBy: actorUserId,
+        });
+        if (!claimed) {
+          const raced = await this.repo.findImportByIdempotencyKey(companyId, idemKey);
+          if (raced?.status === 'completed' || raced?.status === 'failed') {
+            return this.replayImport(companyId, raced, true);
+          }
+          throw new ConflictException({
+            code: 'import_in_progress',
+            message_fa: 'اجرای دیگری با همین کلید idempotency در حال پردازش است؛ بعداً تلاش کنید.',
+            retryable: true,
+            transaction_outcome: 'not_started',
+            import_id: raced?.id,
+            status: 'processing',
+          });
+        }
+        importId = claimed.id;
+      } else {
+        importId = existing.id;
+        await this.repo.resumeImport(companyId, importId);
+      }
+
+      try {
+        const codes = validated.rows.map((r) => r.code).filter(Boolean);
+        const categoryCodes = [...new Set(validated.rows.map((r) => r.category_code).filter(Boolean))];
+        const uomCodes = [...new Set(validated.rows.map((r) => r.base_uom_code).filter(Boolean))];
+        const taxCodes = [...new Set(validated.rows.map((r) => r.tax_code).filter(Boolean))];
+        const [categories, uoms, taxes, existingByCode, storedBatchesRaw] = await Promise.all([
+          this.repo.resolveCategoryCodes(companyId, categoryCodes),
+          this.repo.resolveUomCodes(uomCodes),
+          this.repo.resolveTaxCodes(companyId, taxCodes),
+          this.repo.getProductsForImport(companyId, codes),
+          this.repo.listImportBatches(companyId, importId),
+        ]);
+        const storedBatches = Array.isArray(storedBatchesRaw)
+          ? storedBatchesRaw
+            .map((raw) => normalizeBatchOutcome(raw, importId))
+            .filter((batch): batch is ImportBatchOutcome => batch !== null)
+            .sort((a, b) => a.batch_no - b.batch_no)
+          : [];
+        const byBatchNo = new Map(storedBatches.map((batch) => [batch.batch_no, batch]));
+        const outcomes: ImportBatchOutcome[] = [];
+
+        // An unknown transaction outcome is a terminal, operator-review state.
+        // Replaying it could duplicate product/history effects if COMMIT had
+        // succeeded but its acknowledgement was lost.
+        if (storedBatches.some((batch) => batch.transaction_outcome === 'unknown')) {
+          await this.repo.markImportFailed({
+            companyId,
+            importId,
+            failureCategory: 'infrastructure',
+            retryable: false,
+            transactionOutcome: 'unknown',
+          }).catch(() => undefined);
+          const terminal = await this.repo.getImport(companyId, importId);
+          if (!terminal) throw new Error('import_terminal_read_failed');
+          return this.replayImport(companyId, terminal, false);
+        }
+
+        for (let batchNo = 1; batchNo <= totalBatches; batchNo += 1) {
+          const persisted = byBatchNo.get(batchNo);
+          const safeToRetry = persisted?.status === 'rolled_back'
+            && persisted.transaction_outcome === 'rolled_back'
+            && persisted.retryable;
+          if (persisted && !safeToRetry) {
+            outcomes.push(persisted);
+            continue;
+          }
+          const start = (batchNo - 1) * IMPORT_BATCH_SIZE;
+          const outcome = await this.runImportBatch({
+            companyId,
+            importId,
+            actorUserId,
+            meta,
+            dto,
+            batchNo,
+            start,
+            batch: validated.rows.slice(start, start + IMPORT_BATCH_SIZE),
+            categories,
+            uoms,
+            taxes,
+            existingByCode,
+            validationErrorsByRow,
+          });
+          outcomes.push(outcome);
+          if (outcome.transaction_outcome === 'unknown') {
+            throw new ConflictException({
+              code: 'infrastructure_error',
+              message_fa: 'نتیجهٔ تراکنش نامشخص است؛ پخش خودکار متوقف شد و نیاز به بررسی اپراتور دارد.',
+              retryable: false,
+              transaction_outcome: 'unknown',
+              import_id: importId,
+              status: 'failed',
+            });
+          }
+        }
+
+        outcomes.sort((a, b) => a.batch_no - b.batch_no);
+        return await this.finalizeImportRecord({
+          companyId,
+          importId,
+          actorUserId,
+          meta,
+          totalRows,
+          outcomes,
+        });
+      } catch (err) {
+        const failure = classifyImportError(err);
+        const current = await this.repo.getImport(companyId, importId).catch(() => null);
+        if (current && current.status !== 'completed') {
+          await this.repo.markImportFailed({
+            companyId,
+            importId,
+            failureCategory: failure.failure_category,
+            retryable: false,
+            transactionOutcome: failure.transaction_outcome === 'unknown' ? 'unknown' : 'rolled_back',
+          }).catch(() => undefined);
+        }
+        throw new ConflictException({
+          code: failure.code,
+          message_fa: failure.message_fa,
+          retryable: false,
+          transaction_outcome: failure.transaction_outcome,
+          import_id: importId,
+          status: 'failed',
+        });
+      }
+    });
+  }
+
+  private async replayImport(
+    companyId: string,
+    record: ImportRecord,
+    idempotentReplay: boolean,
+  ): Promise<ImportResult> {
+    const batches = await this.repo.listImportBatches(companyId, record.id);
+    return buildImportResult(record, batches, idempotentReplay);
+  }
+
+  private async persistBatchOutcome(
+    companyId: string,
+    actorUserId: string,
+    importId: string,
+    batch: ImportBatchOutcome,
+  ): Promise<ImportBatchOutcome> {
+    const persisted = await this.access.write(
+      companyId,
+      actorUserId,
+      'master.product.import',
+      async () => this.repo.recordImportBatch({ companyId, importId, batch }),
+    );
+    // If COMMIT had succeeded but its acknowledgement was lost, the committed
+    // marker wins over this ambiguous failure report.
+    return normalizeBatchOutcome(persisted, importId) ?? batch;
+  }
+
+  private async runImportBatch(args: RunImportBatchArgs): Promise<ImportBatchOutcome> {
+    const {
+      companyId, importId, actorUserId, meta, dto, batchNo, start, batch,
+      categories, uoms, taxes, existingByCode, validationErrorsByRow,
+    } = args;
+    const batchRows = new Map<number, Record<string, string>>();
+    for (let i = 0; i < batch.length; i += 1) batchRows.set(start + i + 2, batch[i]);
+    const productContext = (row: Record<string, string>): { product_code?: string; product_id?: string } => ({
+      ...(row.code ? { product_code: row.code } : {}),
+      ...(existingByCode.get(row.code ?? '')?.id
+        ? { product_id: existingByCode.get(row.code ?? '')!.id } : {}),
+    });
+
+    const validationIssues: ImportIssue[] = [];
+    const validationFailedRows = new Set<number>();
+    for (const [rowNo, row] of batchRows) {
+      for (const error of validationErrorsByRow.get(rowNo) ?? []) {
+        validationIssues.push(importIssue(rowNo, error.code, error.message_fa, {
+          batch_no: batchNo,
+          import_id: importId,
+          status: 'rejected',
+          failure_category: 'validation',
+          retryable: false,
+          transaction_outcome: 'not_started',
+          ...productContext(row),
+        }));
+        validationFailedRows.add(rowNo);
+      }
+    }
+    validationIssues.sort(sortIssues);
+
+    const prepared: PreparedImportRow[] = [];
+    let batchError: ImportRowError | null = null;
+    for (let i = 0; i < batch.length; i += 1) {
+      const row = batch[i];
+      const rowNo = start + i + 2;
+      if (validationErrorsByRow.has(rowNo)) continue;
+
+      const categoryId = categories.get(row.category_code ?? '');
+      if (!categoryId) {
+        batchError = { row: rowNo, code: 'unknown_category', message_fa: `گروهِ «${row.category_code}» یافت نشد.` };
+        break;
+      }
+      const uomId = uoms.get(row.base_uom_code ?? '');
+      if (!uomId) {
+        batchError = { row: rowNo, code: 'unknown_uom', message_fa: `واحدِ «${row.base_uom_code}» یافت نشد.` };
+        break;
+      }
+      const taxId = row.tax_code ? taxes.get(row.tax_code) ?? null : null;
+      if (row.tax_code && !taxId) {
+        batchError = { row: rowNo, code: 'unknown_tax_code', message_fa: `کدِ مالیاتیِ «${row.tax_code}» یافت نشد.` };
+        break;
+      }
+      const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
+      if (dto.mode === 'create' && existingId) {
+        batchError = { row: rowNo, code: 'duplicate_code', message_fa: `کدِ «${row.code}» قبلاً ثبت شده است (mode=create).` };
+        break;
+      }
+      if (dto.mode === 'update' && !existingId) {
+        batchError = { row: rowNo, code: 'not_found', message_fa: `کدِ «${row.code}» برای بروزرسانی یافت نشد (mode=update).` };
+        break;
+      }
+      const sensitiveOnUpdate = existingId && (Boolean(row.tax_code) || Boolean(row.status));
+      if (sensitiveOnUpdate && !dto.confirm_sensitive) {
+        batchError = {
+          row: rowNo,
+          code: 'sensitive_change_requires_confirmation',
+          message_fa: 'این ردیف فیلدِ حساس (مالیات/وضعیت) را تغییر می‌دهد؛ برای پذیرش باید confirm_sensitive ارسال شود یا ردیف حذف شود.',
+        };
+        break;
+      }
+      prepared.push({ rowNo, row, existingId, categoryId, uomId, taxId });
     }
 
-    const validated = this.validateImport(companyId, dto.csv);
-    const errors: { row: number; code: string; message_fa: string }[] = [...validated.row_errors];
-    const report: { row: number; status: string; code: string; message_fa: string; product_code?: string }[] =
-      validated.row_errors.map((e) => ({ row: e.row, status: 'failed', code: e.code, message_fa: e.message_fa }));
-
-    // حلِ FK با code + تشخیصِ تکرارِ بانک (D2)
-    const codes = validated.rows.map((r) => r.code).filter(Boolean);
-    const existingByCode = await this.repo.getProductsForImport(companyId, codes);
-
-    const categoryCodes = [...new Set(validated.rows.map((r) => r.category_code).filter(Boolean))];
-    const uomCodes = [...new Set(validated.rows.map((r) => r.base_uom_code).filter(Boolean))];
-    const taxCodes = [...new Set(validated.rows.map((r) => r.tax_code).filter(Boolean))];
-    const [categories, uoms, taxes] = await Promise.all([
-      this.repo.resolveCategoryCodes(companyId, categoryCodes),
-      this.repo.resolveUomCodes(uomCodes),
-      this.repo.resolveTaxCodes(companyId, taxCodes),
-    ]);
-
-    let created = 0;
-    let updated = 0;
-    const BATCH = 100;
-
-    for (let start = 0; start < validated.rows.length; start += BATCH) {
-      const batch = validated.rows.slice(start, start + BATCH);
-      const batchNo = start / BATCH + 1;
-      // همه‌یاهیچ در هر دسته: اگر هر ردیفِ قابلِ قبولی در دسته شکست خورد، کلِ دسته rollback می‌شود
-      const prepared: {
-        rowNo: number;
-        row: Record<string, string>;
-        existingId: string | null;
-        categoryId: string;
-        uomId: string;
-        taxId: string | null;
-        sensitive: boolean;
-      }[] = [];
-      let batchError: { row: number; code: string; message_fa: string } | null = null;
-
-      for (let i = 0; i < batch.length; i++) {
-        const row = batch[i];
-        const rowNo = start + i + 2;
-        if (errors.some((e) => e.row === rowNo)) continue; // خطای اعتبارسنجیِ اولیه
-
-        const categoryId = categories.get(row.category_code ?? '');
-        if (!categoryId) {
-          batchError = { row: rowNo, code: 'unknown_category', message_fa: `گروهِ «${row.category_code}» یافت نشد.` };
-          break;
-        }
-        const uomId = uoms.get(row.base_uom_code ?? '');
-        if (!uomId) {
-          batchError = { row: rowNo, code: 'unknown_uom', message_fa: `واحدِ «${row.base_uom_code}» یافت نشد.` };
-          break;
-        }
-        const taxId = row.tax_code ? taxes.get(row.tax_code) ?? null : null;
-        if (row.tax_code && !taxId) {
-          batchError = { row: rowNo, code: 'unknown_tax_code', message_fa: `کدِ مالیاتیِ «${row.tax_code}» یافت نشد.` };
-          break;
-        }
-
-        const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
-        if (dto.mode === 'create' && existingId) {
-          batchError = { row: rowNo, code: 'duplicate_code', message_fa: `کدِ «${row.code}» قبلاً ثبت شده است (mode=create).` };
-          break;
-        }
-        if (dto.mode === 'update' && !existingId) {
-          batchError = { row: rowNo, code: 'not_found', message_fa: `کدِ «${row.code}» برای بروزرسانی یافت نشد (mode=update).` };
-          break;
-        }
-
-        // M-5: فیلدِ حساس در ردیفِ import
-        const sensitive =
-          Boolean(row.tax_code) || Boolean(row.status) || Boolean(row.base_uom_code);
-        // base_uom برای create جزئی از تعریف است؛ حساسیت برای «تغییر» است (D4)
-        const sensitiveOnUpdate = existingId && (Boolean(row.tax_code) || Boolean(row.status));
-        if (sensitiveOnUpdate && !dto.confirm_sensitive) {
-          batchError = {
-            row: rowNo,
-            code: 'sensitive_change_requires_confirmation',
-            message_fa:
-              'این ردیف فیلدِ حساس (مالیات/وضعیت) را تغییر می‌دهد؛ برای پذیرش باید confirm_sensitive ارسال شود یا ردیف حذف شود.',
-          };
-          break;
-        }
-
-        prepared.push({ rowNo, row, existingId, categoryId, uomId, taxId, sensitive });
+    if (batchError) {
+      const classified = classifyDomainCode(batchError.code);
+      const rejectedIssues: ImportIssue[] = [];
+      for (const [rowNo, row] of batchRows) {
+        if (validationFailedRows.has(rowNo)) continue;
+        rejectedIssues.push(importIssue(rowNo, batchError.code, `دستهٔ ${batchNo} رد شد: ${batchError.message_fa}`, {
+          batch_no: batchNo,
+          import_id: importId,
+          status: 'rejected',
+          failure_category: classified.failure_category,
+          retryable: false,
+          transaction_outcome: 'not_started',
+          ...productContext(row),
+        }));
       }
+      const report = [...validationIssues, ...rejectedIssues].sort(sortIssues);
+      const outcome: ImportBatchOutcome = {
+        batch_no: batchNo,
+        status: 'rejected',
+        transaction_outcome: 'not_started',
+        failure_category: classified.failure_category,
+        retryable: false,
+        reason_code: batchError.code,
+        message_fa: `دستهٔ ${batchNo} پیش از تراکنش رد شد: ${batchError.message_fa}`,
+        total_rows: batch.length,
+        created_rows: 0,
+        updated_rows: 0,
+        failed_rows: countFailedRows(report),
+        attempts: 1,
+        report,
+      };
+      return this.persistBatchOutcome(companyId, actorUserId, importId, outcome);
+    }
 
-      if (batchError) {
-        // خرابیِ جزئی ⇒ گزارشِ خطا برای همهٔ ردیف‌های دسته + ادامهٔ دسته‌های بعدی (§E-4)
-        const failedRowNos = new Set<number>([batchError.row]);
-        for (let i = 0; i < batch.length; i++) {
-          const rowNo = start + i + 2;
-          if (errors.some((e) => e.row === rowNo)) continue;
-          failedRowNos.add(rowNo);
-        }
-        for (const rowNo of failedRowNos) {
-          const e = { row: rowNo, code: batchError.code, message_fa: batchError.message_fa };
-          errors.push(e);
-          report.push({ row: rowNo, status: 'failed', code: e.code, message_fa: e.message_fa });
-        }
-        continue;
-      }
+    if (prepared.length === 0) {
+      const reason = validationIssues[0]?.code ?? 'empty_batch';
+      const outcome: ImportBatchOutcome = {
+        batch_no: batchNo,
+        status: 'rejected',
+        transaction_outcome: 'not_started',
+        failure_category: validationIssues.length > 0 ? 'validation' : 'business',
+        retryable: false,
+        reason_code: reason,
+        message_fa: validationIssues.length > 0
+          ? `دستهٔ ${batchNo} به دلیل خطاهای اعتبارسنجی رد شد.`
+          : `دستهٔ ${batchNo} ردیف قابل اجرا نداشت.`,
+        total_rows: batch.length,
+        created_rows: 0,
+        updated_rows: 0,
+        failed_rows: countFailedRows(validationIssues),
+        attempts: 1,
+        report: validationIssues,
+      };
+      return this.persistBatchOutcome(companyId, actorUserId, importId, outcome);
+    }
 
-      // Commit counters/report only after the entire batch has committed.
+    let attempt = 0;
+    let lastFailure: ImportFailure | null = null;
+    while (attempt < 3) {
+      attempt += 1;
       try {
-        const results = await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
+        const outcome = await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
           const permissions = await this.access.assert(companyId, actorUserId, 'master.product.import');
-          const current = await this.repo.getProductsForImport(
+          const current = await this.repo.getProductsForImportTx(
             companyId,
             prepared.map((p) => p.row.code).filter(Boolean),
           );
-          const rows: {
-            p: (typeof prepared)[number];
+          const savedRows: {
+            p: PreparedImportRow;
             saved: 'created' | 'updated';
+            productId: string;
+            productCode: string;
           }[] = [];
           for (const p of prepared) {
-            // Recheck under the transaction lock; a concurrent import may have
-            // created/removed the code since the pre-transaction lookup.
             const before = current.get(p.row.code);
             if (dto.mode === 'create' && before) {
               throw new ConflictException({
@@ -982,89 +1233,159 @@ export class ProductMasterService {
               permissions.some((code) => permissionMatches(code, 'master.product.status')),
               'ورود گروهی کالا',
             );
-            rows.push({
-              p,
-              saved: await this.upsertImportRow(companyId, { ...p, existingId: before?.id ?? null }, actorUserId, meta),
-            });
+            const saved = await this.upsertImportRow(
+              companyId,
+              { ...p, existingId: before?.id ?? null },
+              actorUserId,
+              meta,
+            );
+            savedRows.push({ p, saved: saved.saved, productId: saved.productId, productCode: saved.productCode });
           }
-          return rows;
+
+          const successIssues = savedRows.map(({ p, saved, productId, productCode }) =>
+            importIssue(p.rowNo, saved, saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.', {
+              batch_no: batchNo,
+              import_id: importId,
+              product_code: productCode || undefined,
+              product_id: productId,
+              status: saved,
+              failure_category: 'none',
+              retryable: false,
+              transaction_outcome: 'committed',
+            }));
+          const report = [...validationIssues, ...successIssues].sort(sortIssues);
+          const failedRows = countFailedRows(report);
+          const batchOutcome: ImportBatchOutcome = {
+            batch_no: batchNo,
+            status: failedRows > 0 ? 'failed' : 'committed',
+            transaction_outcome: 'committed',
+            failure_category: failedRows > 0 ? 'validation' : 'none',
+            retryable: false,
+            ...(failedRows > 0
+              ? { reason_code: validationIssues[0]?.code ?? 'partial_batch', message_fa: `دستهٔ ${batchNo}: برخی ردیف‌ها پیش از تراکنش رد شدند؛ سایر ردیف‌ها ثبت شدند.` }
+              : {}),
+            total_rows: batch.length,
+            created_rows: savedRows.filter((r) => r.saved === 'created').length,
+            updated_rows: savedRows.filter((r) => r.saved === 'updated').length,
+            failed_rows: failedRows,
+            attempts: attempt,
+            report,
+          };
+          // همان تراکنش محصول/تاریخچه: بدون این ردیف، commit محصول انجام نمی‌شود.
+          await this.repo.recordImportBatch({ companyId, importId, batch: batchOutcome });
+          return batchOutcome;
         });
-        for (const { p, saved } of results) {
-          if (saved === 'created') created++;
-          else updated++;
-          report.push({
-            row: p.rowNo,
-            status: saved,
-            code: saved,
-            message_fa: saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.',
-            product_code: p.row.code || undefined,
-          });
-        }
+        return outcome;
       } catch (err) {
-        // Preserve useful, already-public domain codes; never leak raw SQL text.
-        const response = (err as { response?: { code?: unknown; message_fa?: unknown } }).response;
-        const code = typeof response?.code === 'string' ? response.code : 'batch_failed';
-        const detail = typeof response?.message_fa === 'string'
-          ? response.message_fa
-          : 'خطای سرویس یا پایگاه داده؛ هیچ ردیفی از این دسته ذخیره نشد.';
-        const message = `دستهٔ ${batchNo} ناموفق بود: ${detail}`;
-        for (const p of prepared) {
-          errors.push({ row: p.rowNo, code, message_fa: message });
-          report.push({ row: p.rowNo, status: 'failed', code, message_fa: message });
-        }
+        lastFailure = classifyImportError(err);
+        if (lastFailure.auto_retry && attempt < 3) continue;
+        break;
       }
     }
 
-    const failed = new Set(errors.map((e) => e.row)).size;
-    const saved = await this.repo.insertImport({
-      companyId,
-      idempotencyKey: idemKey,
-      mode: dto.mode,
-      totalRows: validated.rows.length,
-      createdRows: created,
-      updatedRows: updated,
-      failedRows: failed,
+    const failure = lastFailure ?? classifyImportError(new Error('batch_failed'));
+    const failureIssues = prepared.map((p) =>
+      importIssue(p.rowNo, failure.code, `دستهٔ ${batchNo} ناموفق بود: ${failure.message_fa}`, {
+        batch_no: batchNo,
+        import_id: importId,
+        product_code: p.row.code || undefined,
+        product_id: p.existingId ?? undefined,
+        status: failure.transaction_outcome === 'unknown' ? 'failed' : 'rolled_back',
+        failure_category: failure.failure_category,
+        retryable: failure.retryable,
+        transaction_outcome: failure.transaction_outcome,
+      }));
+    const report = [...validationIssues, ...failureIssues].sort(sortIssues);
+    const outcome: ImportBatchOutcome = {
+      batch_no: batchNo,
+      status: failure.transaction_outcome === 'unknown' ? 'failed' : 'rolled_back',
+      transaction_outcome: failure.transaction_outcome,
+      failure_category: failure.failure_category,
+      retryable: failure.retryable,
+      reason_code: failure.code,
+      message_fa: `دستهٔ ${batchNo} ناموفق بود: ${failure.message_fa}`,
+      total_rows: batch.length,
+      created_rows: 0,
+      updated_rows: 0,
+      failed_rows: countFailedRows(report),
+      attempts: attempt,
       report,
-      createdBy: actorUserId,
-    });
-
-    await this.audit.record({
-      companyId,
-      actorUserId,
-      action: 'create',
-      entityType: 'product_import',
-      entityId: saved.id,
-      after: { mode: dto.mode, total: validated.rows.length, created, updated, failed },
-      ip: meta.ip,
-      userAgent: meta.userAgent,
-      requestId: meta.requestId,
-    });
-
-    return {
-      import_id: saved.id,
-      total_rows: validated.rows.length,
-      created_rows: created,
-      updated_rows: updated,
-      failed_rows: failed,
-      errors,
-      idempotent_replay: false,
     };
+    // تراکنش شکست‌خورده rollback شده است؛ وضعیت دسته در تراکنش جداگانه‌ای ثبت می‌شود.
+    return this.persistBatchOutcome(companyId, actorUserId, importId, outcome);
   }
 
-  async getImport(companyId: string, id: string) {
+  private async finalizeImportRecord(args: {
+    companyId: string;
+    importId: string;
+    actorUserId: string;
+    meta: RequestMeta;
+    totalRows: number;
+    outcomes: ImportBatchOutcome[];
+  }): Promise<ImportResult> {
+    const { companyId, importId, actorUserId, meta, totalRows, outcomes } = args;
+    const report = outcomes.flatMap((batch) => batch.report);
+    const errors = report.filter((issue) => issue.status !== 'created' && issue.status !== 'updated');
+    const failedRows = countFailedRows(report);
+    const summary = summarizeImportBatches(outcomes);
+
+    await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
+      await this.repo.finalizeImport({
+        companyId,
+        importId,
+        totalRows,
+        createdRows: summary.created_rows,
+        updatedRows: summary.updated_rows,
+        failedRows,
+        report,
+        failureCategory: summary.failure_category,
+        retryable: summary.retryable,
+        transactionOutcome: summary.transaction_outcome,
+        lastBatchNo: summary.last_batch_no,
+      });
+      await this.audit.record({
+        companyId,
+        actorUserId,
+        action: 'create',
+        entityType: 'product_import',
+        entityId: importId,
+        after: {
+          mode: 'import',
+          total: totalRows,
+          created: summary.created_rows,
+          updated: summary.updated_rows,
+          failed: failedRows,
+          status: 'completed',
+          transaction_outcome: summary.transaction_outcome,
+          failure_category: summary.failure_category,
+          retryable: summary.retryable,
+        },
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+    });
+
+    const record = await this.repo.getImport(companyId, importId);
+    if (!record) throw new Error('import_finalize_read_failed');
+    const batches = await this.repo.listImportBatches(companyId, importId);
+    return buildImportResult(record, batches, false);
+  }
+
+  async getImport(companyId: string, id: string): Promise<ImportResult> {
     const row = await this.repo.getImport(companyId, id);
     if (!row) throw new NotFoundException({ code: 'not_found', message_fa: 'گزارشِ import یافت نشد.' });
-    return row;
+    const batches = await this.repo.listImportBatches(companyId, id);
+    return buildImportResult(row, batches, false);
   }
 
   private async upsertImportRow(
     companyId: string,
-    p: { rowNo: number; row: Record<string, string>; existingId: string | null; categoryId: string; uomId: string; taxId: string | null },
+    p: PreparedImportRow,
     actorUserId: string,
     meta: RequestMeta,
-  ): Promise<'created' | 'updated'> {
+  ): Promise<{ saved: 'created' | 'updated'; productId: string; productCode: string }> {
     const r = p.row;
-    // آپلودِ ردیف: create/update صریح روی (company_id, code) — بدونِ upsertِ خاموش
     if (!p.existingId) {
       const code = r.code || (await this.generateSkuCode(companyId));
       const created = await this.repo.insertProductRow({
@@ -1088,7 +1409,7 @@ export class ProductMasterService {
         companyId, actorUserId, action: 'create', entityType: 'product', entityId: created.id,
         after: { code, name: r.name, source: 'import' }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
       });
-      return 'created';
+      return { saved: 'created', productId: created.id, productCode: code };
     }
 
     const sets: { col: string; value: unknown }[] = [];
@@ -1102,7 +1423,10 @@ export class ProductMasterService {
     if (r.weight_gr) sets.push({ col: 'weight_gr', value: Number(foldDigits(r.weight_gr)) });
     if (r.volume_cm3) sets.push({ col: 'volume_cm3', value: Number(foldDigits(r.volume_cm3)) });
     if (r.distribution_kind) sets.push({ col: 'distribution_kind', value: r.distribution_kind });
-    await this.repo.updateProductRow(p.existingId, companyId, sets);
+    const ok = await this.repo.updateProductRow(p.existingId, companyId, sets);
+    if (!ok) {
+      throw new NotFoundException({ code: 'not_found', message_fa: 'کالا برای بروزرسانی یافت نشد.' });
+    }
     if (r.barcode) {
       await this.addBarcode(companyId, p.existingId, { barcode: r.barcode, kind: 'other' }, meta, actorUserId);
     }
@@ -1110,7 +1434,7 @@ export class ProductMasterService {
       companyId, actorUserId, action: 'update', entityType: 'product', entityId: p.existingId,
       after: { source: 'import', fields: Object.keys(r) }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-    return 'updated';
+    return { saved: 'updated', productId: p.existingId, productCode: r.code || '' };
   }
 
   // =================================================================
