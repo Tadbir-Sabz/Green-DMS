@@ -3,7 +3,7 @@ import { Observable, finalize } from 'rxjs';
 import type { PoolClient } from 'pg';
 import { PG_POOL } from '../database/database.module';
 import type { TenantAwarePool } from '../database/tenant-pool';
-import { applyTenant, clearTenant, tenantStorage } from '../database/tenant-context';
+import { applyTenant, releaseTenantClient, tenantStorage } from '../database/tenant-context';
 
 /**
  * اجارهٔ connection به ازای هر درخواست احراز‌شده — پیش‌نیاز فعال‌شدن RLS.
@@ -37,16 +37,16 @@ export class TenantInterceptor implements NestInterceptor {
     try {
       await applyTenant(client, { companyId: tenant.companyId, userId: tenant.userId });
     } catch (err) {
-      client.release();
+      await releaseTenantClient(client, client.release.bind(client), err instanceof Error ? err : new Error(String(err)));
       throw err;
     }
 
     return tenantStorage.run({ client, tenant: { companyId: tenant.companyId, userId: tenant.userId } }, () =>
       next.handle().pipe(
         finalize(() => {
-          void clearTenant(client)
-            .catch(() => undefined)
-            .finally(() => client.release());
+          void releaseTenantClient(client, client.release.bind(client)).then(outcome => {
+            if (!outcome.clean) console.error('[TenantInterceptor] tenant cleanup failed; connection discarded');
+          });
         }),
       ),
     );
