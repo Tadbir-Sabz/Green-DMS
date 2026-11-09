@@ -3,7 +3,7 @@ import { test as base, expect } from '@playwright/test';
 // Capture diagnostics without changing any business/assertion semantics.
 export const test = base.extend<{ browserEvidence: void }>({
   browserEvidence: [async ({ page }, use, info) => {
-    const events: unknown[] = [];
+    const events: Array<{ kind: string; level?: string; text?: string; path?: string; error?: string; status?: number }> = [];
     const safeUrl = (url: string) => { try { return new URL(url).pathname; } catch { return '[invalid URL]'; } };
     const redact = (text: string) => text
       .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
@@ -17,6 +17,13 @@ export const test = base.extend<{ browserEvidence: void }>({
       await info.attach('browser-screen', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
     }
     await info.attach('browser-events', { body: JSON.stringify(events, null, 2), contentType: 'application/json' });
+    // Expected negative-control 4xx responses stay in evidence, not in this list.
+    // Browser execution must not pass while an app page has an uncaught error,
+    // server error or failed transport. Navigation aborts are recorded but expected.
+    const unexpected = events.filter(event => event.kind === 'pageerror'
+      || (event.kind === 'http-error' && (event.status ?? 0) >= 500)
+      || (event.kind === 'requestfailed' && event.error !== 'net::ERR_ABORTED'));
+    expect(unexpected, 'unexpected browser/runtime failures; see browser-events attachment').toEqual([]);
   }, { auto: true }],
 });
 export { expect };

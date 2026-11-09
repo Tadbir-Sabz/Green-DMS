@@ -23,10 +23,20 @@ for (const file of files) {
     events.push({ path: file, events: content });
   }
 }
+const flat = events.flatMap(file => file.events);
+const counts = {
+  console_errors: flat.filter(e => e.kind === 'console' && e.level === 'error').length,
+  page_errors: flat.filter(e => e.kind === 'pageerror').length,
+  failed_requests: flat.filter(e => e.kind === 'requestfailed').length,
+  http_5xx: flat.filter(e => e.kind === 'http-error' && e.status >= 500).length,
+};
 const summary = {
+  counts,
   head: process.env.BROWSER_HEAD_SHA,
   command: 'npm run test:e2e', exit_code: process.env.BROWSER_EXIT_CODE ?? 'UNEXECUTED',
   screenshots, events,
 };
 await writeFile('browser-evidence.json', JSON.stringify(summary, null, 2));
 console.log(`::notice title=browser-evidence::head=${summary.head} exit_code=${summary.exit_code} screenshots=${screenshots.length} diagnostic_files=${events.length}; full data in browser-evidence.json artifact`);
+
+console.log(`::notice title=browser-diagnostics::${JSON.stringify(counts)}`);
