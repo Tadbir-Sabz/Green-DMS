@@ -10721,7 +10721,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** قرارداد اتصال کاتالوگ به دامنه عملیاتی */
+        /**
+         * قرارداد اتصال کاتالوگ به دامنه عملیاتی
+         * @description وضعیت تصمیمهای مالک و مرز فنی اتصال را برمیگرداند؛ `available` تا تصمیم مالک و پیادهسازی عضویت همواره `false` است.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -10731,20 +10734,17 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description اتصال دامنه تا تعیین هویت و اختیار غیرفعال است */
+                /** @description قرارداد و فهرست تصمیمهای لازم؛ جریان کاری دامنه غیرفعال است */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            /** @constant */
-                            available: false;
-                            code: string;
-                            message_fa: string;
-                        };
+                        "application/json": components["schemas"]["DomainCatalogContractStatus"];
                     };
                 };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -10764,7 +10764,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمی‌شود */
+        /** مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمیشود */
         get: {
             parameters: {
                 query?: never;
@@ -10776,13 +10776,281 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description هویت و قرارداد اختیار دامنه عملیاتی تعیین نشده است */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** مرز بسته فهرست دامنههای مجاز؛ بدون داده ساختگی */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
                 };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** مرز بسته تفکیک دامنه جاری؛ زمینه دامنه اجباری است */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                    "x-domain-id": components["parameters"]["xDomainIdHeader"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains/{domainId}/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                domainId: components["parameters"]["domainIdPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته فهرست کالاهای دامنه؛ بدون عضویت یا وضعیت ساختگی */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        /** مرز بسته افزودن کالای مرکزی به دامنه؛ هیچ نوشتهای انجام نمیشود */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains/{domainId}/products/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                domainId: components["parameters"]["domainIdPath"];
+                /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+                productId: components["parameters"]["productIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** مرز بسته حذف/غیرفعالسازی عضویت؛ تاریخچهای ساخته یا پاک نمیشود */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                    /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+                    productId: components["parameters"]["productIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** مرز بسته تغییر وضعیت دامنهای؛ هیچ نوشتهای انجام نمیشود */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                    /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+                    productId: components["parameters"]["productIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        trace?: never;
+    };
+    "/products/{id}/domain-membership": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                "x-domain-id": components["parameters"]["xDomainIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته عضویت کالا در دامنه؛ بدون نشت اطلاعات بین دامنهای */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                    "x-domain-id": components["parameters"]["xDomainIdHeader"];
+                };
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/domain-membership/history": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                "x-domain-id": components["parameters"]["xDomainIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته تاریخچه عضویت؛ بدون نشت اطلاعات بین دامنهای */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                    "x-domain-id": components["parameters"]["xDomainIdHeader"];
+                };
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
             };
         };
         put?: never;
@@ -13405,6 +13673,28 @@ export interface components {
                 } | null;
             }[];
         };
+        DomainOwnerDecision: {
+            /** @enum {string} */
+            id: "PM-B1" | "PM-B2" | "PM-B3" | "PM-B4" | "PM-B5" | "PM-B6" | "PM-B7" | "PM-B8";
+            title: string;
+        };
+        DomainCatalogContractStatus: {
+            /** @constant */
+            available: false;
+            authority_registered: boolean;
+            /** @enum {string} */
+            code: "domain_identity_unresolved" | "domain_catalog_not_implemented";
+            message_fa: string;
+            decision_document: string;
+            /** Format: uri */
+            decision_document_url: string;
+            owner_decisions: components["schemas"]["DomainOwnerDecision"][];
+            technical_contract: string[];
+            source?: string;
+        };
+        DomainCatalogUnavailable: components["schemas"]["DomainCatalogContractStatus"] & {
+            operation: string;
+        };
         ProductFamily: {
             /** Format: uuid */
             readonly id: string;
@@ -13689,6 +13979,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description اتصال کاتالوگ دامنه تا تصمیم مالک و مرجع معتبر غیرفعال است؛ هیچ داده عضویت ارائه نمیشود */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["DomainCatalogUnavailable"];
+            };
+        };
         /** @description نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و retry_after_sec را دارد؛ Retry-After هم به‌صورتِ سرصفحهٔ استاندارد برمی‌گردد. */
         TooManyRequests: {
             headers: {
@@ -13710,6 +14009,12 @@ export interface components {
         /** @description اندازه صفحه */
         limit: number;
         idPath: string;
+        /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+        domainIdPath: string;
+        /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+        productIdPath: string;
+        /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+        xDomainIdHeader: string;
     };
     requestBodies: never;
     headers: never;

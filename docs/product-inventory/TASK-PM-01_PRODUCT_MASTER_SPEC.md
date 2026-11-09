@@ -134,3 +134,9 @@ The user has already required per-domain availability variation; PM-A–D cannot
 **Stop conditions:** no domain identity/rollout/authority decision, unresolved mandatory current-module exit boundary, missing independent review/gate disposition, or a failing isolation/financial invariant. Independently continue schema/contract discovery and nondependent acceptance specification; do not use stop conditions to block unrelated completed catalog capability.
 
 **Definition of readiness:** current approval prerequisite accepted, named PM decisions recorded, additive contract/migration approved, bounded acceptance plan agreed. Until then this is an actionable specification, not permission to begin a broad implementation or a claim of Product Master completion.
+
+## 9. TASK-PM-01B reconciliation addendum (no change to accepted decisions)
+
+TASK-PM-01B repeated the full repository/schema/auth/contract inspection and confirmed the operational-domain identity and domain-management authorization contract is still absent. `pricing_domain`, approval `domain_id` UUIDs, branches, areas, warehouses, companies and labels are not equivalent. Eight precise owner decisions PM-B1–PM-B8 are recorded in `TASK-PM-01B_DOMAIN_OWNER_DECISIONS.md`; none is approved.
+
+Only independently valid foundations were implemented: an unregistered provider interface and fail-closed domain gate, blocked read/write API boundaries with service-level transaction/authorization checks, additive OpenAPI/client documentation without fake data, and a Persian RTL decision/blocked-state screen. No `operational_domain` or membership table, domain-scoped permission vocabulary, backfill, rollout, consumer cutover or simulated completed workflow was added. No historical migration was modified. The acceptance examples in §2 remain required business invariants after owner approval; they are **not** claimed as implemented. Overall Product Master business acceptance remains **BLOCKED**.

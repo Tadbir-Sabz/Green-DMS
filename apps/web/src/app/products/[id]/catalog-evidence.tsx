@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { components } from "@dms/api-client";
 import { api } from "@/lib/api";
 import {
@@ -147,6 +148,7 @@ export function CatalogHistory({ productId }: { productId: string }) {
 
 export function DomainIntegrationStatus() {
   const [message, setMessage] = useState("");
+  const [decisionCount, setDecisionCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     let live = true;
@@ -159,6 +161,7 @@ export function DomainIntegrationStatus() {
           return;
         }
         setMessage(data.message_fa);
+        setDecisionCount(data.owner_decisions?.length ?? null);
       })
       .catch(() => {
         if (live) setError("دریافت وضعیت اتصال دامنه ناموفق بود.");
@@ -181,8 +184,17 @@ export function DomainIntegrationStatus() {
       )}
       <p className="mt-4 text-sm text-ink-muted">
         در این وضعیت امکان افزودن یا تغییر عضویت دامنه وجود ندارد. هیچ دامنه یا
-        دسترسی عرضه‌ای از روی شرکت، شعبه یا دامنه قیمت‌گذاری ساخته نشده است.
+        دسترسی عرضهای از روی شرکت، شعبه یا دامنه قیمتگذاری ساخته نشده است.
+        {decisionCount !== null && (
+          <> تعداد تصمیمهای باز مالک: <bdi>{decisionCount}</bdi>.</>
+        )}
       </p>
+      <Link
+        className={`${btnGhost} mt-4`}
+        href="/products/domain-integration"
+      >
+        جزئیات تصمیمها و وضعیت
+      </Link>
     </section>
   );
 }

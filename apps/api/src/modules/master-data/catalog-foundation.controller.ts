@@ -3,7 +3,9 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
+  Headers,
   Inject,
   Injectable,
   NotFoundException,
@@ -11,7 +13,6 @@ import {
   Patch,
   Post,
   Query,
-  ServiceUnavailableException,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -36,6 +37,7 @@ import {
   type AuthContext,
 } from "../identity-rbac/auth-context.decorator";
 import { CatalogAccess } from "./catalog-access.service";
+import { DomainCatalogGate } from "./domain-catalog.contract";
 
 export class CatalogLabelDto {
   @IsString() @IsNotEmpty() @MaxLength(64) code: string;
@@ -56,6 +58,7 @@ export class CatalogFoundationService {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly access: CatalogAccess,
+    private readonly domainGate: DomainCatalogGate,
   ) {}
   async createCategory(user: AuthContext, dto: CatalogLabelDto) {
     return this.access.write(
@@ -153,15 +156,92 @@ export class CatalogFoundationService {
     };
   }
   domainContract() {
-    return {
-      available: false,
-      code: "domain_identity_unresolved",
-      message_fa:
-        "هویت دامنه عملیاتی و مرز اختیار آن تعریف نشده است. دامنه قیمت‌گذاری جایگزین دامنه کاتالوگ نیست. فعال بودن مرکزی به معنی عرضه در همه دامنه‌ها نیست.",
-    };
+    return this.domainGate.status();
   }
   domainCatalog(): never {
-    throw new ServiceUnavailableException(this.domainContract());
+    return this.domainGate.blocked("product_domain_catalog");
+  }
+  async currentDomain(user: AuthContext, domainId?: string): Promise<never> {
+    await this.domainGate.requireAuthorizedDomain({
+      companyId: user.companyId,
+      userId: user.userId,
+      domainId,
+      action: "resolve_domain",
+    });
+    return this.domainGate.blocked("domain_context");
+  }
+  async domainList(user: AuthContext, query?: string): Promise<never> {
+    await this.domainGate.listAuthorizedDomains({
+      companyId: user.companyId,
+      userId: user.userId,
+      query,
+    });
+    return this.domainGate.blocked("domain_list");
+  }
+  async domainProducts(
+    user: AuthContext,
+    domainId: string,
+  ): Promise<never> {
+    await this.domainGate.requireAuthorizedDomain({
+      companyId: user.companyId,
+      userId: user.userId,
+      domainId,
+      action: "read_membership",
+    });
+    return this.domainGate.blocked("domain_products");
+  }
+  async membership(
+    user: AuthContext,
+    domainId?: string,
+  ): Promise<never> {
+    await this.domainGate.requireAuthorizedDomain({
+      companyId: user.companyId,
+      userId: user.userId,
+      domainId,
+      action: "read_membership",
+    });
+    return this.domainGate.blocked("product_membership");
+  }
+  async membershipHistory(
+    user: AuthContext,
+    domainId?: string,
+  ): Promise<never> {
+    await this.domainGate.requireAuthorizedDomain({
+      companyId: user.companyId,
+      userId: user.userId,
+      domainId,
+      action: "read_history",
+    });
+    return this.domainGate.blocked("membership_history");
+  }
+  /**
+   * Existing central update permission is the outermost service guard; no
+   * domain-management permission vocabulary has been invented. Domain context
+   * and provider authorization are rechecked inside the shared transaction,
+   * then the gate throws before any membership or history write can occur.
+   */
+  async blockedMembershipWrite(
+    user: AuthContext,
+    domainId: string,
+    operation: string,
+  ) {
+    this.domainGate.requireDomainContext(domainId);
+    const actor = {
+      companyId: user.companyId,
+      userId: user.userId,
+      domainId,
+      action: "manage_membership" as const,
+    };
+    await this.domainGate.requireAuthorizedDomain(actor);
+    return this.access.write(
+      user.companyId,
+      user.userId,
+      "master.product.update",
+      async () => {
+        await this.domainGate.requireAuthorizedDomain(actor);
+        return this.domainGate.blocked(operation);
+      },
+    );
   }
 }
 
@@ -201,5 +281,73 @@ export class CatalogFoundationController {
   @RequirePermissions("master.product.view")
   domain() {
     return this.service.domainCatalog();
+  }
+  @Get("operational-domains")
+  @RequirePermissions("master.product.view")
+  domains(
+    @CurrentUser() user: AuthContext,
+    @Query("q") q?: string,
+  ) {
+    return this.service.domainList(user, q);
+  }
+  @Get("operational-domains/current")
+  @RequirePermissions("master.product.view")
+  currentDomain(
+    @CurrentUser() user: AuthContext,
+    @Headers("x-domain-id") domainId?: string,
+  ) {
+    return this.service.currentDomain(user, domainId);
+  }
+  @Get("operational-domains/:domainId/products")
+  @RequirePermissions("master.product.view")
+  domainProducts(
+    @CurrentUser() user: AuthContext,
+    @Param("domainId") domainId: string,
+  ) {
+    return this.service.domainProducts(user, domainId);
+  }
+  @Get("products/:id/domain-membership")
+  @RequirePermissions("master.product.view")
+  productMembership(
+    @CurrentUser() user: AuthContext,
+    @Headers("x-domain-id") domainId?: string,
+  ) {
+    return this.service.membership(user, domainId);
+  }
+  @Get("products/:id/domain-membership/history")
+  @RequirePermissions("master.product.view")
+  productMembershipHistory(
+    @CurrentUser() user: AuthContext,
+    @Headers("x-domain-id") domainId?: string,
+  ) {
+    return this.service.membershipHistory(user, domainId);
+  }
+  @Post("operational-domains/:domainId/products")
+  @RequirePermissions("master.product.update")
+  addDomainProduct(
+    @CurrentUser() user: AuthContext,
+    @Param("domainId") domainId: string,
+  ) {
+    return this.service.blockedMembershipWrite(user, domainId, "membership_create");
+  }
+  @Patch("operational-domains/:domainId/products/:productId")
+  @RequirePermissions("master.product.update")
+  changeDomainProduct(
+    @CurrentUser() user: AuthContext,
+    @Param("domainId") domainId: string,
+  ) {
+    return this.service.blockedMembershipWrite(
+      user,
+      domainId,
+      "membership_status_change",
+    );
+  }
+  @Delete("operational-domains/:domainId/products/:productId")
+  @RequirePermissions("master.product.update")
+  removeDomainProduct(
+    @CurrentUser() user: AuthContext,
+    @Param("domainId") domainId: string,
+  ) {
+    return this.service.blockedMembershipWrite(user, domainId, "membership_removal");
   }
 }

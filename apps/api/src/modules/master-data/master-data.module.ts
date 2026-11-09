@@ -1,6 +1,7 @@
 import { CatalogFoundationController, CatalogFoundationService } from './catalog-foundation.controller';
 import { ProductPackagingService } from './product-packaging.service';
 import { CatalogAccess } from './catalog-access.service';
+import { DomainCatalogGate } from './domain-catalog.contract';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { PricingModule } from '../pricing/pricing.module';
@@ -67,6 +68,7 @@ import {
   ],
   providers: [
     CatalogAccess,
+    DomainCatalogGate,
     CatalogFoundationService,
     ProductPackagingService,
     ProductMasterRepository,

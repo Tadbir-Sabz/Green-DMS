@@ -174,6 +174,7 @@ export default function ProductsPage(): React.JSX.Element {
 
       <div className="mb-4 flex flex-wrap gap-3">
         <Link href="/products/settings" className={btnGhost}>خانواده‌ها و گروه‌ها</Link>
+        {auth.hasPermission('master.product.view') && <Link href="/products/domain-integration" className={btnGhost}>وضعیت دامنه‌های عملیاتی</Link>}
         {auth.hasPermission('master.product.create') && <Link href="/products/new" className={btnPrimary}>
           ＋ کالای جدید
         </Link>}

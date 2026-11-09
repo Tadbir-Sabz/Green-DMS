@@ -5333,27 +5333,120 @@ paths:
     get:
       tags: [products]
       summary: قرارداد اتصال کاتالوگ به دامنه عملیاتی
+      description: وضعیت تصمیمهای مالک و مرز فنی اتصال را برمیگرداند؛ `available` تا تصمیم مالک و پیادهسازی عضویت همواره `false` است.
       responses:
         '200':
-          description: اتصال دامنه تا تعیین هویت و اختیار غیرفعال است
+          description: قرارداد و فهرست تصمیمهای لازم؛ جریان کاری دامنه غیرفعال است
           content:
             application/json:
-              schema:
-                type: object
-                required: [available, code, message_fa]
-                properties:
-                  available: { type: boolean, const: false }
-                  code: { type: string }
-                  message_fa: { type: string }
+              schema: { $ref: '#/components/schemas/DomainCatalogContractStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /products/{id}/domain-catalog:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمی‌شود
+      summary: مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمیشود
       responses:
-        '503':
-          description: هویت و قرارداد اختیار دامنه عملیاتی تعیین نشده است
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains:
+    get:
+      tags: [products]
+      summary: مرز بسته فهرست دامنههای مجاز؛ بدون داده ساختگی
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains/current:
+    get:
+      tags: [products]
+      summary: مرز بسته تفکیک دامنه جاری؛ زمینه دامنه اجباری است
+      parameters:
+        - { $ref: '#/components/parameters/xDomainIdHeader' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains/{domainId}/products:
+    parameters:
+      - { $ref: '#/components/parameters/domainIdPath' }
+    get:
+      tags: [products]
+      summary: مرز بسته فهرست کالاهای دامنه؛ بدون عضویت یا وضعیت ساختگی
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [products]
+      summary: مرز بسته افزودن کالای مرکزی به دامنه؛ هیچ نوشتهای انجام نمیشود
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains/{domainId}/products/{productId}:
+    parameters:
+      - { $ref: '#/components/parameters/domainIdPath' }
+      - { $ref: '#/components/parameters/productIdPath' }
+    patch:
+      tags: [products]
+      summary: مرز بسته تغییر وضعیت دامنهای؛ هیچ نوشتهای انجام نمیشود
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    delete:
+      tags: [products]
+      summary: مرز بسته حذف/غیرفعالسازی عضویت؛ تاریخچهای ساخته یا پاک نمیشود
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /products/{id}/domain-membership:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+      - { $ref: '#/components/parameters/xDomainIdHeader' }
+    get:
+      tags: [products]
+      summary: مرز بسته عضویت کالا در دامنه؛ بدون نشت اطلاعات بین دامنهای
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /products/{id}/domain-membership/history:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+      - { $ref: '#/components/parameters/xDomainIdHeader' }
+    get:
+      tags: [products]
+      summary: مرز بسته تاریخچه عضویت؛ بدون نشت اطلاعات بین دامنهای
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
 webhooks:
   invoicePosted:
@@ -5429,6 +5522,24 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    domainIdPath:
+      name: domainId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است
+    productIdPath:
+      name: productId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود
+    xDomainIdHeader:
+      name: x-domain-id
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+      description: زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است
 
   responses:
     BadRequest:
@@ -5466,6 +5577,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    ServiceUnavailable:
+      description: اتصال کاتالوگ دامنه تا تصمیم مالک و مرجع معتبر غیرفعال است؛ هیچ داده عضویت ارائه نمیشود
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/DomainCatalogUnavailable' }
     TooManyRequests:
       description: >-
         نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و
@@ -7707,6 +7823,36 @@ components:
               at: { type: string, format: date-time }
               before_data: { type: [object, 'null'], additionalProperties: true }
               after_data: { type: [object, 'null'], additionalProperties: true }
+    DomainOwnerDecision:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, enum: [PM-B1, PM-B2, PM-B3, PM-B4, PM-B5, PM-B6, PM-B7, PM-B8] }
+        title: { type: string }
+    DomainCatalogContractStatus:
+      type: object
+      required: [available, authority_registered, code, message_fa, decision_document, decision_document_url, owner_decisions, technical_contract]
+      properties:
+        available: { type: boolean, const: false }
+        authority_registered: { type: boolean }
+        code: { type: string, enum: [domain_identity_unresolved, domain_catalog_not_implemented] }
+        message_fa: { type: string }
+        decision_document: { type: string }
+        decision_document_url: { type: string, format: uri }
+        owner_decisions:
+          type: array
+          items: { $ref: '#/components/schemas/DomainOwnerDecision' }
+        technical_contract:
+          type: array
+          items: { type: string }
+        source: { type: string }
+    DomainCatalogUnavailable:
+      allOf:
+        - { $ref: '#/components/schemas/DomainCatalogContractStatus' }
+        - type: object
+          required: [operation]
+          properties:
+            operation: { type: string }
     ProductFamily:
       type: object
       required: [id, code, name]
