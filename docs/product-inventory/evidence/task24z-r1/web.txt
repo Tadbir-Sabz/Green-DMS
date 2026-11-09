@@ -1,0 +1,11 @@
+ ✓ src/components/AppShell.test.tsx (5 tests) 566ms
+ ✓ src/app/login/page.test.tsx (5 tests) 529ms
+ ✓ src/components/ui/Modal.test.tsx (1 test) 148ms
+ ✓ src/lib/cn.test.ts (24 tests) 10ms
+ ✓ src/lib/api.test.ts (8 tests) 8ms
+ ✓ src/lib/permissions.test.ts (7 tests) 7ms
+ ✓ src/next-config.test.ts (2 tests) 6ms
+ Test Files  7 passed (7)
+      Tests  52 passed (52)
+   Start at  06:53:12
+   Duration  7.54s (environment 70%, tests 19%, import 9%, transform 1%, worker 1%)

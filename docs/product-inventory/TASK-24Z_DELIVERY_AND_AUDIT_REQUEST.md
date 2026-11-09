@@ -1,3 +1,6 @@
+> **TASK-24Z-R1 update:** see the R1 section below. Earlier checkpoint counts
+> and blockers are historical; do not use them as final R1 evidence.
+
 # TASK-24Z — implementation checkpoint / independent audit request
 
 **Self-assessment: FAIL — acceptance gates remain open. Not release approval.**
@@ -106,3 +109,158 @@ Checkpoint implementation SHA: `a74b8e199564c68b2061e1ab760fa160e3ba63f4`.
 Migration CI for this SHA was queued at observation:
 https://github.com/Tadbir-Sabz/Green-DMS/actions/runs/42574029038
 Evidence-only follow-up commits do not change the tested implementation.
+
+# TASK-24Z-R1 — implementation and validation continuation
+
+## Exact initial state
+
+Initial local HEAD, remote branch and PR head all equaled
+`60e3dd54ba7eec83a5426849a47e9ed82d230752`. Branch was
+`arena/1246108f-green-dms`, worktree clean, PR #13 OPEN. Verified with
+`git status --short`, `git log -1`, `git branch --show-current`,
+`git ls-remote origin refs/heads/arena/1246108f-green-dms`, and
+`gh pr view 13 --json state,headRefName,headRefOid` before edits.
+No reset, force push, branch switch, merge, deployment or shared service changes.
+
+Implementation commits: `2d9a51eb0f79ebc42dc2df7dd6ff270bf708b4cb`,
+`e41f2b088a9c74c215920e42e8549773a3882018` (final executable code/test SHA).
+Later evidence commits do not change executable code.
+
+## Implemented fixes (not audit-only changes)
+
+- **Pricing recovery:** fixed the remaining legacy decision consumer in the
+  pricing regression suite to use the canonical HTTP endpoint and DTO; assigned
+  its chain to the actual authorized approver role. Did not restore an allow-all
+  step or weaken pricing/margin assertions. This fixes nine cascading failures,
+  not nine unrelated business-rule changes. Pricing suite: 48/48 locally.
+- **Resubmission:** additive migration 0055 adds `superseded_at`, removes global
+  entity uniqueness, and enforces one unsuperseded, unconsumed binding per
+  company/operation/type/entity. Historical bindings and decisions remain.
+  Rollback refuses to discard populated supersession data.
+- **Duplicate/concurrent submissions:** per-entity transaction advisory lock,
+  locked entity/lines, locked prior requests/bindings, and duplicate response
+  `409 approval_already_submitted`. No duplicate successful active submissions.
+- **Changed document:** re-read under lock before storing fingerprint. A changed
+  snapshot creates a new workflow and supersedes the old binding. Old decisions
+  cannot authorize the new snapshot. Same valid pending/approved snapshot is
+  not silently resubmitted. Consumed bindings are never reused.
+- **Decision atomicity:** decision insertion and conditional request transition
+  now share one transaction with a locked request. Request-transition failure
+  rolls back the decision. Expiry is checked both before and under the lock.
+- **Execution atomicity:** consumption and document transition remain one
+  transaction. Execution shares the submission advisory key and locks. Expired
+  approvals cannot execute.
+- **Migration recovery:** 0053 creates the creator archive only when creator
+  data actually exists. This preserves populated rollback safety while allowing
+  empty full down/up to leave a genuinely empty schema. Added purchase creator
+  round-trip assertions alongside sales creator assertions.
+- **Persian order UX:** pending orders can submit again after rejection, expiry
+  or a material change. Duplicate valid requests receive server validation;
+  the UI button does not grant authorization or reopen a closed request.
+
+## Explicit lifecycle semantics and evidence
+
+| State/event | Rule | Public API proof |
+|---|---|---|
+| First submission | New request, persisted composed chain and binding | OPS-1/2/3, NC-A1/A2 |
+| Two matching policies | Both chains must be completed before execution | NC-C2 |
+| Same pending/approved unchanged snapshot | 409 duplicate; no new active binding | R2 |
+| Rejected | New request; rejected history stays closed/immutable | R1 |
+| Returned/cancelled | Never reopened; new request and binding | R4 |
+| Expired | Cannot decide or execute; resubmit creates a new request | R4, runtime expiry filter |
+| Material document/item change | Old binding superseded, fresh decisions required | R3, NC-H2 |
+| Policy change after submission | Persisted snapshot governs existing request; next submission resolves current policies | Implementation: SNAP chain; adversarial edit test still desirable |
+| Two final decisions | One decision/transition succeeds, loser 409 | R5 |
+| Two executions / successful replay | Exactly one transition and one consume; loser/replay 409 | NC-C2, R6 |
+| Request transition DB error | Decision and request changes both roll back | R5 injected PostgreSQL trigger |
+| Business transition DB error | Consume and document change both roll back; retry succeeds | R6 injected PostgreSQL trigger |
+
+All workflow requests/bindings/decisions in these acceptance controls are created
+via HTTP. SQL is used only for inspection or documented clock/document/DB-fault
+injection, not to construct an approved binding.
+
+## Original failure-by-failure classification
+
+See `evidence/task24z-r1/FAILURE_CLASSIFICATION.md`: all **37 individual tests**
+are listed by full name with classification, root cause, corrective change,
+reproduction and local disposition. Exact original stacks remain in
+`evidence/task24z/full-api-final.txt`; new stacks in
+`evidence/task24z-r1/final-full-api.txt`. Three separate PostGIS suite-setup
+failures are identified, not hidden in passing counts.
+
+Local final full attempt: **1229 passed / 28 failed / 66 skipped**, plus one
+unhandled teardown error (`57P01 terminating connection due to administrator
+command`, product-master-attributes). Exit **1**, not PASS. No test was removed
+or skipped to improve counts. This is an extension-incomplete/harness-limited
+run and cannot establish real PostGIS or credential-authentication correctness.
+
+## Validation commands / exits
+
+- `npx tsc -p apps/api/tsconfig.json --noEmit`: exit 0.
+- `npx tsc -p apps/web/tsconfig.json --noEmit`: exit 0.
+- `npm run openapi:check`: exit 0; 184 paths, 264 operations, 133 schemas.
+- `node scripts/contract-drift.mjs`: exit 0; 264/264, zero route/enum/required drift.
+- `npm run test -w apps/web`: exit 0; 52/52, 7 files.
+- Disposable-mirror API command prefix:
+  `DATABASE_URL=postgres://postgres@127.0.0.1:55432/postgres PSQL=/tmp/pgshim/psql NODE_ENV=test npx vitest run --root apps/api`.
+  - Eight approval/sales/returns/purchasing/pricing regression files: exit 0,
+    **202/202** (`regressions.txt`).
+  - Final lifecycle + migration files: exit 0, **45/45** (`final-focused.txt`).
+  - Full suite without file filters: exit 1, totals above (`final-full-api.txt`).
+
+Environment is the previously documented isolated embedded PostgreSQL 18.6
+sandbox with **sandbox-only modified migrations**, C locale and Node psql shim.
+No local docker, real psql or pg_config binary. Available outbound hosts exclude
+OS package and container registries, so do not pretend an apt/container install
+or PostgreSQL-extension-complete local run happened. Real CI uses isolated
+`postgis/postgis:16-3.4`, real psql, Redis and a separate storage job.
+
+## Remaining review targets
+
+- Full Persian RTL browser workflow, accessible complete-chain/provenance and
+  delegation-history UX still requires browser evidence. Purchase-order page is
+  absent; do not claim that capability is complete.
+- Distinct-person approval counts, assigned-role-with-zero-eligible-members at
+  submission, deny policy model, and full domain/risk ownership adversarial
+  matrix remain original TASK-24Z review targets; green focused tests do not
+  establish those controls.
+- This continuation did not recover the missing original standalone Agent-2
+  audit artifact or fabricate its contents. Original finding summary above is
+  retained as mandatory independent regression targets.
+
+## Final executable-SHA CI results
+
+Exact code/test head: `e41f2b088a9c74c215920e42e8549773a3882018`.
+Run https://github.com/Tadbir-Sabz/Green-DMS/actions/runs/42576104692:
+all six CI jobs **PASS** (static, unit, real PostgreSQL integration, credential
+hygiene, separate S3 storage round-trip). No local spatial substitutions were
+used in this CI run. Real extension-enabled migration cycle **PASS**:
+https://github.com/Tadbir-Sabz/Green-DMS/actions/runs/42576104597.
+Release image smoke **PASS**:
+https://github.com/Tadbir-Sabz/Green-DMS/actions/runs/42576104664.
+
+Storage job used a recorded, pinned S3-compatible Adobe s3mock image, not a real
+MinIO server; this distinction is material. Browser compose **UNVERIFIED /
+BLOCKED BY EXTERNAL INFRASTRUCTURE**:
+https://github.com/Tadbir-Sabz/Green-DMS/actions/runs/42576104656.
+Annotations prove quay.io MinIO 401 and Docker Hub pull access denied.
+No browser tests executed. Do not call that job a product E2E PASS.
+
+The original 37 failures are now individually reconciled with passing corrected
+pricing/migration tests or successful real CI infrastructure validation. Local
+full-run failures and the extra teardown exception remain faithfully recorded.
+See `ci-real-postgres.json`, `ci-migrations.json`, `ci-storage.json`, and
+`ci-e2e-blocker.json` in the R1 evidence directory.
+
+**R1 overall result: NOT READY.** Core lifecycle, pricing recovery, resubmission
+and transactional fault controls are implemented and tested; this is not an
+audit-only delivery. However, complete browser/RTL evidence is absent and the
+remaining original policy/eligibility review targets above prevent an honest
+claim that every TASK-24Z requirement is complete. Agent-2 should independently
+verify the repaired paths and retained original TASK-24Y targets. No acceptance,
+merge readiness, merge, or deployment is claimed. PR #13 remains open.
+
+Any subsequent commit in this continuation contains documentation/evidence only.
+Its exact final SHA is the PR branch head (`git rev-parse HEAD`); that SHA cannot
+be embedded in its own contents. Check that head with `gh pr checks 13` rather
+than treating earlier green CI as evidence for uninspected code changes.
