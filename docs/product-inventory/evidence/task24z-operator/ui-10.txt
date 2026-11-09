@@ -1,0 +1,6 @@
+ ✓ src/components/AppShell.test.tsx (5 tests) 677ms
+ ✓ src/components/approvals/ApprovalRecord.test.tsx (5 tests) 262ms
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  11:13:53
+   Duration  2.88s (environment 48%, tests 36%, import 12%, transform 4%)

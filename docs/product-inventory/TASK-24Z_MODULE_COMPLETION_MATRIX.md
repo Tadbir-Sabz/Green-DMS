@@ -41,3 +41,33 @@ Canonical authority: `PRODUCT_ROADMAP.md` §§4–5, 7–8, 12–13. Gate 2 requ
 - Acceptance: owner-approved bounded scope, independent security review, exact-head CI, browser artifacts including classified console events, Persian operator help. Existing successful suites need no manual rerun absent relevant change.
 
 After this prerequisite and its review gate, resume **Product Master** completion discovery under the existing target design. Do not leap directly to pricing/procurement or mark the proposed P1–P9 reorder approved.
+
+## TASK-24Z-OPERATOR-CLOSURE implementation update
+
+The earlier table is the discovery baseline, not an unchanged statement that all
+operator screens are missing. This update supersedes those UI dispositions for
+the bounded delivered slice; D01–D07 remain in the owner register.
+
+| Current capability | Implementation now | Remaining gate |
+|---|---|---|
+| Actionable inbox | Existing server-selected tasks; keyboard-selectable actions, success feedback, detail-before-decision link and cache refresh | Independent authorization review; D06 self-only availability remains open |
+| Company/submitted/expired register | Responsive cards, explicit filters including superseded binding projection, loading/error/empty states and refresh | Exact-head evidence in operator report; not a paginated large-volume redesign |
+| Decision history and delegation identity | Company-gated detail shows stored decision, timestamp, comment, actor and delegated_from; no history edits | Independent review; older missing metadata is not reconstructed |
+| Composed policy provenance | 0059 stores matched policies/source-chain inputs for new requests; Persian detail shows source chains plus effective saved stages | Historical provenance stays explicitly unavailable; rollback drops added evidence only |
+| Request lifecycle/resubmission | Details show pending/rejected/approved/cancelled/expired/superseded and consumption; links to existing sales/return owner pages; valid returned → new request → approval browser journey | No new purchase UI; owner semantics and complete broader consumer journeys are not claimed |
+| Configuration/operational oversight | New read-only policy/chain page, central/domain/operation labels and explicit unknown-policy boundary | Configuration create/publish UI and complete delegation authoring remain NOT IMPLEMENTED in this slice, dependent on D01–D07 scope/semantics; not silently approved deferred |
+| Delegation overview | Both identity IDs and active/not-started/expired/revoked display; existing revoke retained | Delegated decision metadata API regression verified; no new eligibility rules or substitute selection |
+| Operator Persian help | `docs/APPROVAL_OPERATOR_GUIDE_FA.md` | Independent accessibility/visual review pending |
+
+This is a substantial implemented operator slice, **not** a declaration that all
+workflow/admin capability or the entire current module has passed its completion
+gate. The owner must resolve/accept remaining scope explicitly. No roadmap reorder
+or procurement/treasury/pricing expansion occurred.
+
+**Next business-module proposal remains Product Master**, after current approval
+prerequisite gates. Start with fresh evidence-backed discovery against the approved
+Product Master target and D1–D5; select one bounded missing journey, retain sensitive
+change enforcement, four-decimal precision and unchanged financial rounding,
+historical snapshots, tenant isolation and catalogue-only bundle restriction.
+Do not assume implementation is absent merely from older inventory text or start
+all consumer modules at once.

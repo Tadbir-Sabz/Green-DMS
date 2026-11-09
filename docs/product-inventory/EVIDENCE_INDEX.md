@@ -212,3 +212,18 @@
 - `evidence/task24z-final-gate/`: PR-head/check, CI-job, browser-annotation and
   artifact metadata snapshots. Actual artifact download failed with EOF;
   metadata is not a locally inspected screenshot/event payload.
+
+## TASK-24Z-OPERATOR-CLOSURE
+
+- `TASK-24Z_OPERATOR_CLOSURE_REPORT.md`: source commits8951720/bffdc4c/5cbf3cf/
+  b451d2b, exact-head15/15browser and all5nativeCI PASS, immutable provenance0059,
+  historic failures and remaining NOT READY gates.
+- `TASK-24Z_OPERATOR_POLICY_DEPENDENCIES.md`: D01–D07 implementation boundaries;
+  module matrix updated without roadmap reorder/implicit deferrals.
+- `../APPROVAL_OPERATOR_GUIDE_FA.md`: Persian lifecycle/provenance/delegation help.
+- `evidence/task24z-operator/SCREENSHOT_MANIFEST.md`: actual major-screen browser
+  attachment names and artifact13669457924; manual visual review UNVERIFIED.
+- `evidence/task24z-operator/`: local44lifecycle/10UI/2filter/targetedrollback
+  results, preserved local missing-PostGIS failure, first/filtered/final browser
+  annotations and exact-head native CI/artifact metadata. Current two console
+  occurrences classified from actual text/path notices, not guessed from counts.

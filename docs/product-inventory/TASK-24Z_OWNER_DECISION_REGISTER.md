@@ -68,3 +68,12 @@ All entries below are **OPEN / proposed, not approved**. A recommendation is not
 ## Decision recording protocol
 
 For each ID record actual owner identity, chosen alternative, exact semantics/examples, rationale, approval reference/date, affected module and migration/test obligations. Until then keep OPEN. A scope-only decision does not satisfy independent security review. Roadmap phase reorder proposals remain proposals; this register does not approve them.
+
+## Operator implementation update (no owner decision inferred)
+
+Bounded operator implementation at b451d2b does not resolve D01–D07. The new
+`TASK-24Z_OPERATOR_POLICY_DEPENDENCIES.md` maps each to concrete code/UI boundaries.
+Read-only policy/source/identity visibility and lifecycle tracking did not require
+inventing the decisions. Full configuration publishing and new delegation authoring
+are not claimed implemented or approved deferred. D07 still needs explicit acceptance
+of the delivered slice; product/module lead must name the accountable decision owners.
