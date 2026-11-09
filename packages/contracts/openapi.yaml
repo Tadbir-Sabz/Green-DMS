@@ -7103,7 +7103,14 @@ components:
                   id: { type: string, format: uuid }
                   steps:
                     type: array
-                    items: { type: object, additionalProperties: true }
+                    items:
+                      type: object
+                      properties:
+                        approver_staff_id: { type: [string, 'null'], format: uuid }
+                        approver_role_id: { type: [string, 'null'], format: uuid }
+                        min_amount: { type: [string, number, 'null'] }
+                        max_amount: { type: [string, number, 'null'] }
+                        is_mandatory: { type: boolean }
         policy_id: { type: [string, 'null'], format: uuid, description: شناسه سیاست حاکم هنگام ایجاد؛ نه فهرست کامل منابع ترکیب }
         expires_at: { type: [string, 'null'], format: date-time }
         binding:

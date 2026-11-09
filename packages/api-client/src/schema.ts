@@ -12600,7 +12600,13 @@ export interface components {
                     /** Format: uuid */
                     id?: string;
                     steps?: {
-                        [key: string]: unknown;
+                        /** Format: uuid */
+                        approver_staff_id?: string | null;
+                        /** Format: uuid */
+                        approver_role_id?: string | null;
+                        min_amount?: string | number | null;
+                        max_amount?: string | number | null;
+                        is_mandatory?: boolean;
                     }[];
                 }[];
             } | null;

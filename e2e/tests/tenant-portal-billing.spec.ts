@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { request as pwRequest, type APIRequestContext } from '@playwright/test';
 import { test, expect } from './browser-fixture';
 
@@ -254,10 +255,27 @@ test.describe('tenant / portal / billing / attachments', () => {
       operation: 'sales.order.approve', scope: 'central', approval_chain_id: chainId,
     } });
     expect(policy.status()).toBe(201);
-    const order = await ctx.api.post(`${API}/orders`, { headers: auth, data: {
-      customer_id: ctx.customerA, order_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }), lines: [],
+    // Reference fixture only: category creation has no public endpoint. Never
+    // fabricate requests, bindings, decisions, prices or business transitions.
+    // Refuse to touch any stack other than the workflow's disposable project.
+    expect(process.env.COMPOSE_PROJECT_NAME).toMatch(/^browser-[0-9]+-[0-9]+$/);
+    expect(ctx.companyId).toMatch(/^[0-9a-f-]{36}$/i);
+    const categoryId = execFileSync('docker', ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.prod.yml', '-f', 'e2e/compose.browser.yml', 'exec', '-T', 'postgres', 'sh', '-c',
+      'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atq -v ON_ERROR_STOP=1',
+    ], { input: `insert into product_category (company_id, code, name) values ('${ctx.companyId}', 'OP-${rnd}', 'گروه آزمون گردش') returning id;`, encoding: 'utf8' }).trim();
+    const units = await ctx.api.get(`${API}/units`, { headers: auth });
+    expect(units.status()).toBe(200);
+    const unitId = (await units.json()).items[0].id;
+    const product = await ctx.api.post(`${API}/products`, { headers: auth, data: {
+      code: `OP-${rnd}`, name: 'کالای آزمون گردش', category_id: categoryId, base_uom_id: unitId,
     } });
-    expect(order.status()).toBe(201);
+    expect(product.status(), await product.text()).toBe(201);
+    const productId = (await product.json()).id;
+    const order = await ctx.api.post(`${API}/orders`, { headers: auth, data: {
+      customer_id: ctx.customerA, order_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }),
+      price_override_reason: 'قیمت دستی آزمون با مجوز موجود', lines: [{ product_id: productId, qty: 1, unit_price: '100' }],
+    } });
+    expect(order.status(), await order.text()).toBe(201);
     const orderId = (await order.json()).id;
     const submit = async () => {
       const result = await ctx.api.post(`${API}/orders/${orderId}/request-approval`, { headers: auth, data: {} });
