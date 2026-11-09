@@ -13,6 +13,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { validationPipeOptions } from '../src/common/validation';
 import { hashPassword } from '../src/modules/identity-rbac/password';
+import { businessToday } from '../src/common/business-date';
 import {
   resolveApprovalPolicy,
   policyMatches,
@@ -204,7 +205,8 @@ const createOrder = async (token: string): Promise<string> => {
     .post('/api/v1/orders')
     .send({
       customer_id: customerId,
-      order_date: new Date().toISOString().slice(0, 10),
+      // تاریخِ کسب‌وکار (Asia/Tehran) تا در پنجرهٔ ۲۰:۳۰–۲۴:۰۰ UTC سند عقب‌گرد محسوب نشود.
+      order_date: businessToday(),
       lines: [{ product_id: productId, qty: 1 }],
     });
   expect(res.status).toBe(201);
