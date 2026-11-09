@@ -956,7 +956,21 @@ export class ProductMasterService {
             saved: 'created' | 'updated';
           }[] = [];
           for (const p of prepared) {
+            // Recheck under the transaction lock; a concurrent import may have
+            // created/removed the code since the pre-transaction lookup.
             const before = current.get(p.row.code);
+            if (dto.mode === 'create' && before) {
+              throw new ConflictException({
+                code: 'duplicate_code',
+                message_fa: `کدِ «${p.row.code}» قبلاً ثبت شده است (mode=create).`,
+              });
+            }
+            if (dto.mode === 'update' && !before) {
+              throw new NotFoundException({
+                code: 'not_found',
+                message_fa: `کدِ «${p.row.code}» برای بروزرسانی یافت نشد (mode=update).`,
+              });
+            }
             this.guardSensitive(
               before ?? { status: 'active' },
               {
@@ -970,7 +984,7 @@ export class ProductMasterService {
             );
             rows.push({
               p,
-              saved: await this.upsertImportRow(companyId, p, actorUserId, meta),
+              saved: await this.upsertImportRow(companyId, { ...p, existingId: before?.id ?? null }, actorUserId, meta),
             });
           }
           return rows;
@@ -987,10 +1001,16 @@ export class ProductMasterService {
           });
         }
       } catch (err) {
-        const message = (err as Error).message ?? 'خطای ناشناخته';
+        // Preserve useful, already-public domain codes; never leak raw SQL text.
+        const response = (err as { response?: { code?: unknown; message_fa?: unknown } }).response;
+        const code = typeof response?.code === 'string' ? response.code : 'batch_failed';
+        const detail = typeof response?.message_fa === 'string'
+          ? response.message_fa
+          : 'خطای سرویس یا پایگاه داده؛ هیچ ردیفی از این دسته ذخیره نشد.';
+        const message = `دستهٔ ${batchNo} ناموفق بود: ${detail}`;
         for (const p of prepared) {
-          errors.push({ row: p.rowNo, code: 'batch_failed', message_fa: `دستهٔ ${batchNo} ناموفق بود: ${message}` });
-          report.push({ row: p.rowNo, status: 'failed', code: 'batch_failed', message_fa: `دستهٔ ${batchNo} ناموفق بود.` });
+          errors.push({ row: p.rowNo, code, message_fa: message });
+          report.push({ row: p.rowNo, status: 'failed', code, message_fa: message });
         }
       }
     }

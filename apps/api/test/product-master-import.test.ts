@@ -1,14 +1,45 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { setupProductMasterFixture, type Fixture } from './product-master-fixture';
+import { setupProductMasterFixture, createProduct, type Fixture } from './product-master-fixture';
 
 /**
  * تست‌های رفتاریِ import (§E + M-5): اعتبارسنجیِ ردیف‌به‌ردیف، تشخیصِ تکرار،
  * حالت‌های create/update، idempotency، فیلدهای حساس، ایزوله‌سازیِ tenant، audit.
  */
 let fx: Fixture;
+let importOnlyToken = '';
 
 beforeAll(async () => {
   fx = await setupProductMasterFixture('greendms_pm_import');
+
+  // Real DB-backed actor with only the import permission; no status/update rights.
+  const hash = await fx.pool.query<{ password_hash: string }>(
+    `select password_hash from app_user where username = 'pm_admin'`,
+  );
+  const person = await fx.pool.query<{ id: string }>(
+    `insert into person (company_id, code, first_name, last_name)
+     values ($1, 'IMP-ONLY', 'ورودکننده', 'کالا') returning id`,
+    [fx.companyId],
+  );
+  await fx.pool.query(
+    `insert into app_user (person_id, username, password_hash, access_level)
+     values ($1, 'pm_import_only', $2, 'web')`,
+    [person.rows[0].id, hash.rows[0].password_hash],
+  );
+  const role = await fx.pool.query<{ id: string }>(
+    `insert into role (company_id, code, name)
+     values ($1, 'pm_import_only_role', 'فقط ورود گروهی') returning id`,
+    [fx.companyId],
+  );
+  await fx.pool.query(
+    `insert into role_permission (role_id, permission_code) values ($1, 'master.product.import')`,
+    [role.rows[0].id],
+  );
+  await fx.pool.query(
+    `insert into user_role (app_user_id, role_id)
+     select u.id, $1 from app_user u where u.username = 'pm_import_only'`,
+    [role.rows[0].id],
+  );
+  importOnlyToken = await fx.loginAs('pm_import_only', fx.adminPassword);
 }, 180_000);
 
 afterAll(async () => {
@@ -198,5 +229,68 @@ describe('Tenant — شرکت از نشست می‌آید، هرگز از CSV', 
       `select company_id from product where code = 'TEN-1'`,
     );
     expect(rows.rows[0].company_id).toBe(fx.companyId);
+  });
+});
+
+describe('D4/atomicity — import service boundary (native PostgreSQL)', () => {
+  it('an import-only actor cannot transition status even with confirm_sensitive', async () => {
+    await fx
+      .api()
+      .post('/api/v1/products/import/commit')
+      .send({ csv: csv(['D4-STATUS,کالای D4,PMCAT,pm_piece']), mode: 'create', idempotency_key: 'k-d4-base' })
+      .expect(200);
+    const res = await fx
+      .api(importOnlyToken)
+      .post('/api/v1/products/import/commit')
+      .send({
+        csv: [
+          'code,name,status,category_code,base_uom_code',
+          'D4-STATUS,کالای D4,blocked,PMCAT,pm_piece',
+        ].join('\n'),
+        mode: 'update',
+        idempotency_key: 'k-d4-denied',
+        confirm_sensitive: true,
+      })
+      .expect(200);
+    expect(res.body.updated_rows).toBe(0);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'status_change_forbidden' })]),
+    );
+    const saved = await fx.pool.query<{ status: string }>(
+      `select status from product where company_id = $1 and code = 'D4-STATUS'`,
+      [fx.companyId],
+    );
+    expect(saved.rows[0].status).toBe('active');
+  });
+
+  it('a barcode conflict rolls back the whole update batch and preserves its domain error', async () => {
+    const target = await createProduct(fx, { code: 'IMP-ROLLBACK', name: 'نام قدیم' });
+    const holder = await createProduct(fx, { code: 'IMP-BARCODE-HOLDER' });
+    await fx
+      .api()
+      .post(`/api/v1/products/${holder.id}/barcodes`)
+      .send({ barcode: 'IMPORT-BC-CONFLICT', kind: 'other' })
+      .expect(201);
+    const res = await fx
+      .api()
+      .post('/api/v1/products/import/commit')
+      .send({
+        csv: [
+          'code,name,barcode,category_code,base_uom_code',
+          `${target.code},نام جدید,IMPORT-BC-CONFLICT,PMCAT,pm_piece`,
+        ].join('\n'),
+        mode: 'update',
+        idempotency_key: 'k-import-barcode-conflict',
+      })
+      .expect(200);
+    expect(res.body.updated_rows).toBe(0);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'duplicate_barcode' })]),
+    );
+    const saved = await fx.pool.query<{ name: string }>(
+      `select name from product where company_id = $1 and code = $2`,
+      [fx.companyId, target.code],
+    );
+    expect(saved.rows[0].name).toBe('نام قدیم');
   });
 });

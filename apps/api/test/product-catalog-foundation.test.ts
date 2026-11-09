@@ -161,4 +161,65 @@ describe("PM integrated catalog foundation (native PostgreSQL required)", () => 
     await fx.api().patch(`/api/v1/product-families/${f.body.id}`).send({is_active:true}).expect(200);
   });
 
+  it("enforces company RLS and immutable history for the actual dms_app role", async () => {
+    const tag = `pm-rls-${Date.now()}`;
+    const mine = `${tag}-mine`;
+    const other = `${tag}-other`;
+    const otherCompany = await fx.pool.query<{ id: string }>(
+      "insert into company (code, legal_name) values ('PMCO-RLS-OTHER', 'شرکت دوم') returning id",
+    );
+    const otherId = otherCompany.rows[0].id;
+    await fx.pool.query(
+      `insert into product_catalog_history
+         (company_id, product_id, entity_type, entity_id, action, before_data, after_data)
+       values
+         ($1, null, 'product_family', gen_random_uuid(), 'INSERT', null, $3::jsonb),
+         ($2, null, 'product_family', gen_random_uuid(), 'INSERT', null, $4::jsonb)`,
+      [fx.companyId, otherId, JSON.stringify({ marker: mine }), JSON.stringify({ marker: other })],
+    );
+
+    const client = await fx.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local role dms_app');
+      await client.query("select set_config('app.company_id', $1, true)", [fx.companyId]);
+      const mineRows = await client.query<{ company_id: string; marker: string }>(
+        `select company_id, after_data->>'marker' marker from product_catalog_history
+         where after_data->>'marker' in ($1, $2)`,
+        [mine, other],
+      );
+      expect(mineRows.rows).toHaveLength(1);
+      expect(mineRows.rows[0]).toMatchObject({ company_id: fx.companyId, marker: mine });
+
+      await client.query("select set_config('app.company_id', $1, true)", [otherId]);
+      const otherRows = await client.query<{ company_id: string; marker: string }>(
+        `select company_id, after_data->>'marker' marker from product_catalog_history
+         where after_data->>'marker' in ($1, $2)`,
+        [mine, other],
+      );
+      expect(otherRows.rows).toHaveLength(1);
+      expect(otherRows.rows[0]).toMatchObject({ company_id: otherId, marker: other });
+
+      await client.query("select set_config('app.company_id', '', true)");
+      const noContext = await client.query(
+        `select 1 from product_catalog_history where after_data->>'marker' in ($1, $2)`,
+        [mine, other],
+      );
+      expect(noContext.rows).toHaveLength(0);
+
+      await client.query("select set_config('app.company_id', $1, true)", [fx.companyId]);
+      await expect(
+        client.query(
+          `insert into product_catalog_history
+             (company_id, product_id, entity_type, entity_id, action, before_data, after_data)
+           values ($1, null, 'product_family', gen_random_uuid(), 'INSERT', null, '{"marker":"forged"}'::jsonb)`,
+          [fx.companyId],
+        ),
+      ).rejects.toThrow(/permission denied/i);
+    } finally {
+      await client.query('rollback').catch(() => undefined);
+      client.release();
+    }
+  });
+
 });

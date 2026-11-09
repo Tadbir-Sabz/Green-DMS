@@ -33,12 +33,13 @@ Once supplied, add the separate membership persistence/API/UI and real two-domai
 
 | Area | Status | Evidence / remaining boundary |
 |---|---|---|
-| Central product CRUD/lifecycle and D1 | PASS WITH FINDINGS | Existing API/UI reused; collision handling and service guards strengthened. Latest source still needs final native run recorded below. |
+| Central product CRUD/lifecycle and D1 | PASS WITH FINDINGS | Existing API/UI reused; collision handling and service guards strengthened. No saturation-load proof; final-source CI is recorded in the PR body. |
 | Families/categories | PASS WITH FINDINGS | Connected create/rename/family activation, stable references. Family/reference dropdown collections retain the legacy unpaginated API; not all reference lists have new paging/filter UX. |
 | Attributes/variants, typed barcodes, aliases/duplicates, relations | PASS WITH FINDINGS | Existing connected implementation preserved; mutations now share transaction. See native Product Master suites plus new rollback tests; not every editing permutation has browser coverage. |
-| UOM/conversion and catalog bundles | PASS WITH FINDINGS | Finite/positive/four-decimal factor guard, shared packaging/barcode transaction, D5 retained. UOM remains the existing global reference model; no company-owned UOM policy invented. |
-| Service write authorization and isolation | PASS WITH FINDINGS | Canonical permission query + nested tenant checks + existing RLS; unit and native tests. No claim of independently reviewed security approval or saturation-load testing. |
-| Atomic history | PASS WITH FINDINGS | Trigger-backed evidence, select-only runtime grant, keyset API/UI, rollback tests. No synthetic pre-migration history. Family/category history is persisted but not exposed as a dedicated history screen. |
+| UOM/conversion and catalog bundles | PASS WITH FINDINGS | Finite/positive/four-decimal factor guard, shared packaging/barcode transaction, D5 retained. UOM remains the existing global reference model; no company-owned UOM policy or global UOM history invented. |
+| Bulk import | PASS WITH FINDINGS | Per-batch atomicity, D4 denial, barcode rollback and sequential idempotent replay are tested. Concurrent same-key report races and whole-file (multi-batch) all-or-nothing remain findings. |
+| Service write authorization and isolation | PASS WITH FINDINGS | Canonical permission query, nested tenant checks, `dms_app` RLS proof and import-only actor denial. No independently reviewed security approval or saturation-load test. |
+| Atomic history | PASS WITH FINDINGS | Trigger-backed evidence, select-only runtime grant, company RLS/fail-closed context proof, keyset API/UI and rollback tests. No synthetic pre-migration history. Family/category history is persisted but not exposed as a dedicated history screen. |
 | Independent domain membership/status/browse/history/privacy | BLOCKED | Authoritative identity/auth contract above absent; fail-closed endpoint/UI only, not membership implementation. |
 | Persian RTL UI | PASS WITH FINDINGS | Real connected central workflows, permission-aware controls, component tests and shared Playwright CI; manual visual/responsive/accessibility acceptance remains UNVERIFIED. |
 | Full two-person approval binding for PM sensitive changes | NOT CLAIMED | Existing explicit-confirmation guard retained; does not create/fabricate approval bindings. |
@@ -63,4 +64,15 @@ Once supplied, add the separate membership persistence/API/UI and real two-domai
 
 Closes import guard/error-swallowing paths, adds non-destructive family lifecycle and cascade-safe history ownership. Local focused boundary tests 6/6 and full typecheck passed. Adds native integration cases for category/family public workflows, actor/before/after/history pagination, product/evidence rollback, family activation/reference preservation, barcode/packaging rollback, precision, forged permissions and fail-closed domain behavior. These cases require native PostgreSQL/PostGIS and are not skipped or replaced with an incomplete SQL engine.
 
-After permission-aware UI changes: focused product component tests **6/6 across 2 files**, exit 0; web typecheck exit 0. Final exact-SHA CI/check statuses must be appended after the final source push. No native PostgreSQL/psql/docker service exists locally; native acceptance is provided by the isolated CI jobs, not a fabricated local run.
+After permission-aware UI changes: focused product component tests **6/6 across 2 files**, exit 0; web typecheck exit 0. No native PostgreSQL/psql/docker service exists locally; native acceptance is provided by the isolated CI jobs, not a fabricated local run.
+
+### Fully green source `f441f023e15015f4de319609c959128f9e5ed605`
+
+- Local commands, all exit 0: `node scripts/check-test-partition.mjs`; DB-free API Vitest partition **21 files / 311 passed**; `npm run test:web` **11 files / 65 passed**; `npm run typecheck`; `npm run build`; `npm run openapi:check` (188 paths / 269 operations / 134 schemas / 3 webhooks); `node scripts/contract-drift.mjs`; `git diff --check`.
+- `gh pr checks 14`: all eight checks PASS. CI run 42627040215 (5/5 jobs), Playwright E2E 42627040446, release image smoke 42627040451 and migration up → down → up 42627040907 all SUCCESS on this exact SHA. Earlier runs on `40c4e3a` were cancelled by the subsequent fast-forward push, not failed; migration runs for that intermediate SHA succeeded.
+- Native PostgreSQL/PostGIS integration job 129193485233: **47 files / 1026 passed (1026)**; Vitest printed no skipped/pending line. Environment: GitHub `ubuntu-26.04` runner with isolated `postgis/postgis:16-3.4`, PostgreSQL 16.4. The earlier whole-run `gh run view --log` EOF remains recorded above; a later signed per-job log fetch provided these exact totals. Check annotations include Node 20 deprecation/Ubuntu image migration warnings and expected injected-fault PostgreSQL errors; no clean-console claim is made.
+- Agent2 independent review remains UNVERIFIED. The PR comment requesting a read-only review is not a review or approval.
+
+### Final hardening source
+
+Adds actual `dms_app` company-RLS/fail-closed history proof, import-only D4 denial, barcode-conflict rollback with preserved `duplicate_barcode` code, transaction-local import recheck and domain-specific batch error mapping. The exact final-SHA CI/check results are recorded in **PR #14 body** so the repository does not need another SHA-changing documentation commit after validation. Whole-module acceptance remains **BLOCKED** on the authoritative domain contract and the remaining findings above.
