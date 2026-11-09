@@ -309,7 +309,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen overflow-x-clip bg-canvas">
       {/* ------------------------------ سربدنه ------------------------------ */}
       <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface-glass px-3 backdrop-blur-md sm:gap-3 sm:px-5">
         <button

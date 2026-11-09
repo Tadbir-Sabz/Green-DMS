@@ -187,7 +187,7 @@ export default function ApprovalInboxPage() {
           )}
 
           <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-surface border border-line rounded-2xl overflow-hidden">
+            <div className="min-w-0 lg:col-span-2 bg-surface border border-line rounded-2xl overflow-x-auto">
               {inbox.isError && (
                 <div className="p-4 text-sm text-danger-ink">{(inbox.error as Error).message}</div>
               )}
@@ -234,7 +234,7 @@ export default function ApprovalInboxPage() {
               </table>
             </div>
 
-            <div className="bg-surface border border-line rounded-2xl p-5 h-fit space-y-3">
+            <div className="min-w-0 bg-surface border border-line rounded-2xl p-5 h-fit space-y-3">
               <div className="font-semibold">ثبت تصمیم</div>
               {!selected && <div className="text-sm text-ink-subtle">یک درخواست را انتخاب کنید</div>}
               {selected && (

@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { test as base, expect } from '@playwright/test';
 
 // Capture diagnostics without changing any business/assertion semantics.
@@ -14,9 +15,13 @@ export const test = base.extend<{ browserEvidence: void }>({
     page.on('response', res => { if (res.status() >= 400) events.push({ kind: 'http-error', path: safeUrl(res.url()), status: res.status() }); });
     await use();
     if (!page.isClosed()) {
-      await info.attach('browser-screen', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+      const screenshot = info.outputPath('browser-screen.png');
+      await page.screenshot({ path: screenshot, fullPage: true });
+      await info.attach('browser-screen', { path: screenshot, contentType: 'image/png' });
     }
-    await info.attach('browser-events', { body: JSON.stringify(events, null, 2), contentType: 'application/json' });
+    const diagnostics = info.outputPath('browser-events.json');
+    await writeFile(diagnostics, JSON.stringify(events, null, 2));
+    await info.attach('browser-events', { path: diagnostics, contentType: 'application/json' });
     // Expected negative-control 4xx responses stay in evidence, not in this list.
     // Browser execution must not pass while an app page has an uncaught error,
     // server error or failed transport. Navigation aborts are recorded but expected.
