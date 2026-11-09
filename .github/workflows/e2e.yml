@@ -214,6 +214,13 @@ jobs:
           echo "::error title=e2e-test-tail::$(tail -n 50 /tmp/e2e.log | enc)"
           echo "::error title=e2e-api-log-on-test-failure::$(docker compose -f docker-compose.yml -f docker-compose.prod.yml -f e2e/compose.browser.yml logs --no-color --tail 40 api 2>&1 | enc)"
 
+      - name: summarize browser evidence
+        if: always()
+        env:
+          BROWSER_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BROWSER_EXIT_CODE: ${{ steps.e2etest.outputs.exit_code || 'UNEXECUTED' }}
+        run: node scripts/browser-evidence.mjs
+
       - name: upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -223,7 +230,9 @@ jobs:
             playwright-report/
             test-results/
             /tmp/e2e.log
-          retention-days: 7
+            browser-evidence.json
+            browser-results.json
+          retention-days: 90
           if-no-files-found: ignore
 
       - name: tear down
