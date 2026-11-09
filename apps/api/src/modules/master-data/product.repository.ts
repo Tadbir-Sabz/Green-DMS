@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import { type Runner, runner } from '../../common/transaction';
 import type { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from './product.dto';
+import type { ExportProductsQueryDto } from './product-export.dto';
+import type { ProductExportRow } from './product-export';
 
 /**
  * ستون‌های پاسخ — دقیقاً مطابق اسکیمای Product در openapi.yaml
@@ -228,5 +231,70 @@ export class ProductRepository {
       [id, companyId],
     );
     return (rowCount ?? 0) > 0;
+  }
+
+  /**
+   * TASK-PM-01D-M3 — read-only, company-scoped CSV projection.
+   * The optional runner lets the service execute authorization, joins and
+   * snapshot read on one repeatable-read transaction connection.
+   * limit+1 detects truncation without silently exporting an unbounded file.
+   */
+  async exportRows(
+    companyId: string,
+    query: ExportProductsQueryDto,
+    client?: Runner,
+  ): Promise<{ rows: ProductExportRow[]; truncated: boolean }> {
+    const limit = query.limit ?? 10_000;
+    const params: unknown[] = [companyId];
+    const where: string[] = ['p.company_id = $1', 'p.deleted_at is null'];
+    if (query.q) {
+      params.push(`%${query.q}%`);
+      const i = params.length;
+      where.push(`(p.code ilike $${i} or p.name ilike $${i} or p.name_latin ilike $${i}
+        or exists (select 1 from product_alias a
+                   where a.product_id = p.id and a.company_id = p.company_id
+                     and a.alias ilike $${i}))`);
+    }
+    if (query.category_id) {
+      params.push(query.category_id);
+      where.push(`p.category_id = $${params.length}`);
+    }
+    if (query.brand_id) {
+      params.push(query.brand_id);
+      where.push(`p.brand_id = $${params.length}`);
+    }
+    if (query.status) {
+      params.push(query.status);
+      where.push(`p.status = $${params.length}`);
+    }
+    params.push(limit + 1);
+    const sql = `select
+        p.code, p.name, p.name_latin,
+        cat.code as category_code, fam.code as family_code, br.name as brand_name,
+        u.code as base_uom_code, tax.code as tax_code, bc.barcode,
+        p.status, p.min_order_qty::double precision as min_order_qty,
+        p.weight_gr, p.volume_cm3, p.distribution_kind,
+        p.is_batch_tracked, p.is_expiry_tracked, p.shelf_life_days,
+        p.is_returnable_container, p.requires_permit, p.created_at
+      from product p
+      join product_category cat on cat.id = p.category_id and cat.company_id = p.company_id
+      join uom u on u.id = p.base_uom_id
+      left join product_family fam on fam.id = p.family_id and fam.company_id = p.company_id
+      left join brand br on br.id = p.brand_id and br.company_id = p.company_id
+      left join tax_code tax on tax.id = p.tax_code_id and tax.company_id = p.company_id
+      left join lateral (
+        select pb.barcode
+        from product_barcode pb
+        where pb.product_id = p.id and pb.company_id = p.company_id
+          and pb.packaging_id is null
+        order by pb.is_primary desc, pb.created_at asc, pb.id asc
+        limit 1
+      ) bc on true
+      where ${where.join(' and ')}
+      order by p.code ${query.sort === 'code_desc' ? 'desc' : 'asc'}
+      limit $${params.length}`;
+    const { rows } = await runner(this.pool, client).query<ProductExportRow>(sql, params);
+    const truncated = rows.length > limit;
+    return { rows: truncated ? rows.slice(0, limit) : rows, truncated };
   }
 }

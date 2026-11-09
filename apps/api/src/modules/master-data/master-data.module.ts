@@ -15,6 +15,8 @@ import { PersonService } from './person.service';
 import { ProductBarcodeController } from './product-barcode.controller';
 import { ProductCatalogController } from './product-catalog.controller';
 import { ProductController } from './product.controller';
+import { ProductExportController } from './product-export.controller';
+import { ProductExportService } from './product-export.service';
 import { ProductImportController } from './product-import.controller';
 import { ProductMasterRepository } from './product-master.repository';
 import { ProductMasterService } from './product-master.service';
@@ -59,6 +61,7 @@ import {
     ProductImportController,
     ProductBarcodeController,
     ProductCatalogController,
+    ProductExportController,
     ProductController,
     PackagingController,
     PersonController,
@@ -79,6 +82,7 @@ import {
     { provide: PRODUCT_REPOSITORY, useExisting: ProductRepository },
     ProductService,
     { provide: PRODUCT_SERVICE, useExisting: ProductService },
+    ProductExportService,
     MasterDataRepository,
     { provide: MASTER_DATA_REPOSITORY, useExisting: MasterDataRepository },
     PersonRepository,

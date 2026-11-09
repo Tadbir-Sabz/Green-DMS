@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
+import {
+  downloadProductExportCsv,
+  productExportFilename,
+  productExportNotice,
+  readProductExportMeta,
+} from './export';
 import { AppLoader } from '@/components/AppShell';
 import {
   type Category,
@@ -45,6 +51,7 @@ export default function ProductsPage(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -87,6 +94,32 @@ export default function ProductsPage(): React.JSX.Element {
     void load('', '');
     void api.GET('/product-categories').then(({ data }) => setCategories(data?.items ?? []));
   }, [router, load]);
+
+  /** خروجی CSV از همان فیلترهای جاری فهرست — snapshot فقط-خواندنی سرور */
+  const doExport = async (): Promise<void> => {
+    setExporting(true);
+    setListError(null);
+    setNotice(null);
+    const query: { sort: 'code_asc' | 'code_desc'; q?: string; status?: 'active' | 'blocked' | 'discontinued'; limit: number } = {
+      sort: sort.current,
+      limit: 10000,
+    };
+    if (q.trim()) query.q = q.trim();
+    if (status) query.status = status as 'active' | 'blocked' | 'discontinued';
+    const { data, error, response } = await api.GET('/products/export', {
+      params: { query },
+      parseAs: 'text',
+    });
+    setExporting(false);
+    if (error || typeof data !== 'string') {
+      setListError(faError(error));
+      return;
+    }
+    const filename = productExportFilename(response.headers.get('content-disposition'));
+    downloadProductExportCsv(data, filename);
+    const meta = readProductExportMeta(response);
+    setNotice(`${productExportNotice(meta)} فایل «${filename}» دانلود شد.`);
+  };
 
   /** اسکنِ بارکد/کد — قطعی: یا به صفحهٔ کالا می‌رود یا پیامِ دقیق می‌دهد */
   const doScan = async (e: FormEvent): Promise<void> => {
@@ -182,6 +215,11 @@ export default function ProductsPage(): React.JSX.Element {
         {auth.hasPermission('master.product.import') && <Link href="/products/import" className={btnGhost}>
           ورودِ گروهی (CSV)
         </Link>}
+        {auth.hasPermission('master.product.view') && (
+          <button type="button" onClick={() => void doExport()} disabled={exporting} className={btnGhost}>
+            {exporting ? 'در حال ساخت خروجی…' : 'خروجی CSV'}
+          </button>
+        )}
       </div>
 
       {notice && <p className={`mb-4 ${okCls}`}>{notice}</p>}

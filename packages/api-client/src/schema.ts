@@ -1340,6 +1340,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * خروجی CSV از کالاهای کاتالوگ مرکزی (TASK-PM-01D-M3)
+         * @description یک snapshot فقط-خواندنی و قطعی از کالاهای حذف‌نشدهٔ همان شرکت، با همان فیلترهای فهرست کالا (بدون صفحه‌بندی cursor). ستون‌های قابلِ استفاده در ورود گروهی محصول حفظ می‌شوند؛ ستون‌های تشخیصی اضافی نادیده گرفته می‌شوند. سقف پیش‌فرض ۱۰٬۰۰۰ ردیف است. در صورت وجود ردیف بیشتر، خروجی بریده شده و سربرگ X-Product-Export-Truncated مقدار true می‌گیرد؛ پاسخ هرگز به‌صورت بی‌صدا ناقص اعلام نمی‌شود. خروجی شامل تاریخچه، صفات، روابط، بسته‌ها، بسته‌بندی و عضویت دامنه نیست. مجوز master.product.view و ممیزی export اعمال می‌شود.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    sort?: "code_asc" | "code_desc";
+                    q?: string;
+                    category_id?: string;
+                    brand_id?: string;
+                    status?: "active" | "blocked" | "discontinued";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فایل CSV با BOM UTF-8 و سربرگ‌های امن در برابر فرمول صفحه گسترده */
+                200: {
+                    headers: {
+                        /** @description تعداد ردیف‌های کالای نوشته‌شده در فایل */
+                        "X-Product-Export-Row-Count"?: number;
+                        /** @description true یعنی فیلتر بیش از سقف مجاز نتیجه داشته و فایل کامل نیست */
+                        "X-Product-Export-Truncated"?: boolean;
+                        /** @description سقف اعمال‌شده بر تعداد ردیف‌ها */
+                        "X-Product-Export-Max-Rows"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products/{id}": {
         parameters: {
             query?: never;
