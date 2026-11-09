@@ -20,7 +20,7 @@ test('استقرارِ خودخدمت → ورود → داشبورد BI', async
 
   // ۱) ساختِ اجارهٔ تازه و حسابِ مدیر از راهِ onboarding (عمومی، از پروکسیِ وب)
   const ctx = await request.newContext({ baseURL: API });
-  const reg = await ctx.post('/onboarding/register', {
+  const reg = await ctx.post(`${API}/onboarding/register`, {
     data: {
       company_code: companyCode,
       company_name: 'شرکتِ تستِ E2E',
@@ -37,7 +37,7 @@ test('استقرارِ خودخدمت → ورود → داشبورد BI', async
   expect(body.admin_username).toBe(email);
 
   // ۱ب) ثبتِ مجدد با همان کدِ شرکت → 409 (قاعدهٔ تجاریِ یکتایی)
-  const dup = await ctx.post('/onboarding/register', {
+  const dup = await ctx.post(`${API}/onboarding/register`, {
     data: { company_code: companyCode, company_name: 'تکراری', admin_email: `x_${suffix}@e2e.test`, admin_password: PASSWORD },
   });
   expect(dup.status(), 'duplicate company_code must conflict (409)').toBe(409);
@@ -63,7 +63,7 @@ test('ورود با رمزِ نادرست رد می‌شود', async ({ page }) 
   const email = `bad_${suffix}@e2e.test`;
 
   const ctx = await request.newContext({ baseURL: API });
-  const reg = await ctx.post('/onboarding/register', {
+  const reg = await ctx.post(`${API}/onboarding/register`, {
     data: {
       company_code: `E2EB${suffix}`,
       company_name: 'شرکتِ تستِ ورود',

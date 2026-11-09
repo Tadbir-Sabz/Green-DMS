@@ -541,6 +541,22 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
     expect(rows[0].can).toBe(false);
   });
 
+  it('runtime role can actually provision a tenant without ambiguous output variables', async () => {
+    const suffix = crypto.randomBytes(6).toString('hex');
+    const result = await asRuntime('none', c => c.query<{
+      company_id: string; branch_id: string; person_id: string; app_user_id: string;
+    }>(`select * from fn_provision_company($1,$2,$3,$4,$5,$6)`,
+      [`CLOSE-${suffix}`, 'شرکت مرورگر', `closure-${suffix}@example.test`, 'test-hash', 'مدیر', 'تست']));
+    const row = result.rows[0];
+    expect(row.company_id).toBeTruthy();
+    expect(row.branch_id).toBeTruthy();
+    expect(row.person_id).toBeTruthy();
+    expect(row.app_user_id).toBeTruthy();
+    const roles = await ownerPool.query(`select r.code from user_role ur join role r on r.id = ur.role_id
+      where ur.app_user_id = $1 and r.company_id = $2`, [row.app_user_id, row.company_id]);
+    expect(roles.rows.map(r => r.code)).toContain('ceo');
+  });
+
   it('fn_provision_company هم SECURITY DEFINER با search_path پین‌شده و بدونِ EXECUTE عمومی است', async () => {
     const { rows } = await asRuntime('none', (c) =>
       c.query<{ prosecdef: boolean; config: string[] | null; acl: string | null }>(
