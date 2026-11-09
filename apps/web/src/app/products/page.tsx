@@ -169,6 +169,7 @@ export default function ProductsPage(): React.JSX.Element {
       </form>
 
       <div className="mb-4 flex flex-wrap gap-3">
+        <Link href="/products/settings" className={btnGhost}>خانواده‌ها و گروه‌ها</Link>
         <Link href="/products/new" className={btnPrimary}>
           ＋ کالای جدید
         </Link>

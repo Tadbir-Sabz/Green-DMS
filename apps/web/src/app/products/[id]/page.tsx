@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { CatalogHistory, DomainIntegrationStatus } from './catalog-evidence';
 import { useParams, useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
 import { api, getToken } from '@/lib/api';
@@ -50,9 +51,11 @@ import {
  */
 
 type Uom = components['schemas']['Uom'];
-type TabKey = 'identity' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle';
+type TabKey = 'identity' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle' | 'history' | 'domain';
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'history', label: 'تاریخچه' },
+  { key: 'domain', label: 'عرضه در دامنه' },
   { key: 'identity', label: 'مشخصات' },
   { key: 'attributes', label: 'صفات و variant' },
   { key: 'aliases', label: 'نام‌های جایگزین' },
@@ -131,6 +134,7 @@ export default function ProductDetailPage(): React.JSX.Element {
         {TABS.map((t) => (
           <button
             key={t.key}
+            aria-pressed={tab === t.key}
             onClick={() => setTab(t.key)}
             className={`rounded-lg px-4 py-2 text-sm transition-colors focus-ring ${
               tab === t.key ? 'bg-info text-on-info font-medium' : 'text-ink-muted hover:bg-surface-alt'
@@ -141,6 +145,8 @@ export default function ProductDetailPage(): React.JSX.Element {
         ))}
       </div>
 
+      {tab === 'history' && <CatalogHistory productId={id} />}
+      {tab === 'domain' && <DomainIntegrationStatus />}
       {tab === 'identity' && <IdentityTab product={product} onSaved={loadProduct} onNotice={setNotice} />}
       {tab === 'attributes' && <AttributesTab productId={id} signature={product.variant_signature ?? null} onNotice={setNotice} />}
       {tab === 'aliases' && <AliasesTab productId={id} onNotice={setNotice} />}

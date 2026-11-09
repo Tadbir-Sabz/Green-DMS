@@ -1,3 +1,6 @@
+import { CatalogFoundationController, CatalogFoundationService } from './catalog-foundation.controller';
+import { ProductPackagingService } from './product-packaging.service';
+import { CatalogAccess } from './catalog-access.service';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { PricingModule } from '../pricing/pricing.module';
@@ -47,6 +50,7 @@ import {
 @Module({
   imports: [IdentityRbacModule, PricingModule],
   controllers: [
+    CatalogFoundationController,
     MasterDataController,
     // نکته: کنترلرهای Product Master باید قبل از ProductController ثبت شوند تا
     // مسیرهای literal زیرمجموعهٔ /products (مثل duplicate-check) قبل از ':id' match شوند.
@@ -62,6 +66,9 @@ import {
     PromotionController,
   ],
   providers: [
+    CatalogAccess,
+    CatalogFoundationService,
+    ProductPackagingService,
     ProductMasterRepository,
     ProductMasterService,
     ProductRepository,

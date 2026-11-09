@@ -21,3 +21,4 @@ product-master-security.test.ts
 product-master-snapshots.test.ts
 rules-engine-behavior.test.ts
 view-isolation.test.ts
+product-catalog-foundation.test.ts

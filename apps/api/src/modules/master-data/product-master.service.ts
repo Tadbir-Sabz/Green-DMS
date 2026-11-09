@@ -1,3 +1,4 @@
+import { CatalogAccess } from './catalog-access.service';
 import {
   BadRequestException,
   ConflictException,
@@ -46,6 +47,7 @@ import type { RequestMeta } from '../../common/request-meta';
 @Injectable()
 export class ProductMasterService {
   constructor(
+    private readonly access: CatalogAccess,
     private readonly repo: ProductMasterRepository,
     @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
   ) {}
@@ -111,13 +113,18 @@ export class ProductMasterService {
   }
 
   async createFamily(companyId: string, code: string, name: string, meta: RequestMeta, actorUserId: string): Promise<FamilyRow> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const row = await this.repo.createFamily(companyId, code, name);
     await this.audit.record({
       companyId, actorUserId, action: 'create', entityType: 'product_family', entityId: row.id,
       after: row, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return row;
-  }
+  
+ });
+ }
 
   // =================================================================
   // alias
@@ -134,6 +141,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ) {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     await this.assertProduct(companyId, productId);
     const aliasNorm = normalizeText(alias);
     if (!aliasNorm) {
@@ -177,16 +187,23 @@ export class ProductMasterService {
       }
       throw err;
     }
-  }
+  
+ });
+ }
 
   async removeAlias(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const ok = await this.repo.deleteAlias(companyId, id);
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'alias یافت نشد.' });
     await this.audit.record({
       companyId, actorUserId, action: 'delete', entityType: 'product_alias', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  }
+  
+ });
+ }
 
   // =================================================================
   // صفات (B3)
@@ -201,6 +218,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<AttributeDefRow & { enum_values?: { id: string; value: string }[] }> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     if (!['text', 'number', 'enum'].includes(d.kind)) {
       throw new BadRequestException({ code: 'invalid_kind', message_fa: 'نوعِ صفت باید text یا number یا enum باشد.' });
     }
@@ -227,9 +247,14 @@ export class ProductMasterService {
       after: { ...def, enum_values: enumValues }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return { ...def, enum_values: enumValues };
-  }
+  
+ });
+ }
 
   async addAttributeEnumValue(companyId: string, defId: string, value: string, meta: RequestMeta, actorUserId: string) {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const def = await this.repo.getAttributeDef(companyId, defId);
     if (!def) throw new NotFoundException({ code: 'not_found', message_fa: 'صفت یافت نشد.' });
     if (def.kind !== 'enum') {
@@ -241,7 +266,9 @@ export class ProductMasterService {
       after: { def_id: defId, value }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return row;
-  }
+  
+ });
+ }
 
   async listEnumValues(companyId: string, defId: string) {
     const def = await this.repo.getAttributeDef(companyId, defId);
@@ -274,6 +301,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<{ values: AttributeValueRow[]; variant_signature: string | null }> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     await this.assertProduct(companyId, productId);
     const defs = await this.repo.listAttributeDefs(companyId);
     const defMap = new Map(defs.map((d) => [d.id, d]));
@@ -377,7 +407,9 @@ export class ProductMasterService {
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return { values: saved, variant_signature: signature };
-  }
+  
+ });
+ }
 
   // =================================================================
   // روابط (جایگزین/مکمل)
@@ -395,6 +427,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<RelationRow> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     if (!['substitute', 'complement'].includes(kind)) {
       throw new BadRequestException({ code: 'invalid_kind', message_fa: 'نوعِ رابطه باید substitute یا complement باشد.' });
     }
@@ -419,16 +454,23 @@ export class ProductMasterService {
       }
       throw err;
     }
-  }
+  
+ });
+ }
 
   async removeRelation(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const ok = await this.repo.deleteRelation(companyId, id);
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'رابطه یافت نشد.' });
     await this.audit.record({
       companyId, actorUserId, action: 'delete', entityType: 'product_relation', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  }
+  
+ });
+ }
 
   // =================================================================
   // bundle — کاتالوگ در P1 (D5)
@@ -446,6 +488,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<BundleRow[]> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     await this.assertProduct(companyId, bundleProductId);
     if (items.length === 0) {
       throw new BadRequestException({ code: 'empty_bundle', message_fa: 'بسته باید دست‌کم یک جزء داشته باشد.' });
@@ -493,7 +538,9 @@ export class ProductMasterService {
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return after;
-  }
+  
+ });
+ }
 
   /**
    * D5 — ممنوعیتِ صریحِ P1: SKU بسته نباید قابلِ سفارش/فروش باشد یا در حرکتِ موجودی شرکت کند.
@@ -526,6 +573,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<BarcodeRow> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     await this.assertProduct(companyId, productId);
     const kinds = ['gs1_ean13', 'gs1_ean8', 'gs1_upc', 'gs1_itf14', 'internal', 'other'];
     if (!kinds.includes(dto.kind)) {
@@ -584,16 +634,23 @@ export class ProductMasterService {
     } catch (err) {
       throw this.mapBarcodeDbError(err);
     }
-  }
+  
+ });
+ }
 
   async removeBarcode(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const ok = await this.repo.deleteBarcode(companyId, id);
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'بارکد یافت نشد.' });
     await this.audit.record({
       companyId, actorUserId, action: 'delete', entityType: 'product_barcode', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  }
+  
+ });
+ }
 
   /**
    * resolution قطعیِ اسکن (H-1): (۱) product_barcode ← (۲) product.code ← (۳) alias نوعِ code.
@@ -756,6 +813,8 @@ export class ProductMasterService {
     errors: { row: number; code: string; message_fa: string }[];
     idempotent_replay: boolean;
   }> {
+    await this.access.assert(companyId, actorUserId, 'master.product.import');
+
     const idemKey = createHash('sha256')
       .update(`${dto.mode}\u0000${dto.idempotency_key}\u0000${dto.csv}`)
       .digest('hex');
@@ -875,19 +934,18 @@ export class ProductMasterService {
         continue;
       }
 
-      // اجرای دسته — همه‌یاهیچ
+      // Commit counters/report only after the entire batch has committed.
       try {
-        for (const p of prepared) {
-          const saved = await this.upsertImportRow(companyId, p, actorUserId, meta);
+        const results = await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
+          const rows: { p: typeof prepared[number]; saved: 'created' | 'updated' }[] = [];
+          for (const p of prepared) rows.push({ p, saved: await this.upsertImportRow(companyId, p, actorUserId, meta) });
+          return rows;
+        });
+        for (const {p, saved} of results) {
           if (saved === 'created') created++;
           else updated++;
-          report.push({
-            row: p.rowNo,
-            status: saved,
-            code: saved,
-            message_fa: saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.',
-            product_code: p.row.code || undefined,
-          });
+          report.push({ row: p.rowNo, status: saved, code: saved,
+            message_fa: saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.', product_code: p.row.code || undefined });
         }
       } catch (err) {
         const message = (err as Error).message ?? 'خطای ناشناخته';

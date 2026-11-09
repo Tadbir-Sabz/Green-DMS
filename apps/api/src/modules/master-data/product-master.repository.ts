@@ -1,3 +1,4 @@
+import { catalogTransaction } from './catalog-access.service';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
@@ -339,9 +340,10 @@ export class ProductMasterRepository {
     bundleProductId: string,
     items: { componentProductId: string; qty: string }[],
   ): Promise<void> {
-    const client = await this.pool.connect();
+    const ambient = catalogTransaction.getStore();
+    const client = ambient ?? await this.pool.connect();
     try {
-      await client.query('begin');
+      if (!ambient) await client.query('begin');
       await client.query('delete from product_bundle where bundle_product_id = $1', [bundleProductId]);
       for (const item of items) {
         await client.query(
@@ -349,12 +351,12 @@ export class ProductMasterRepository {
           [bundleProductId, item.componentProductId, item.qty],
         );
       }
-      await client.query('commit');
+      if (!ambient) await client.query('commit');
     } catch (err) {
-      await client.query('rollback');
+      if (!ambient) await client.query('rollback');
       throw err;
     } finally {
-      client.release();
+      if (!ambient) client.release();
     }
   }
 

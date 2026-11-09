@@ -88,7 +88,7 @@ export class ProductRepository {
 
     if (query.q) {
       params.push(`%${query.q}%`);
-      where.push(`(code ilike $${params.length} or name ilike $${params.length})`);
+      where.push(`(code ilike $${params.length} or name ilike $${params.length} or name_latin ilike $${params.length} or exists (select 1 from product_alias a where a.product_id = product.id and a.alias ilike $${params.length}))`);
     }
     if (query.category_id) {
       params.push(query.category_id);
@@ -104,14 +104,14 @@ export class ProductRepository {
     }
     if (query.cursor) {
       params.push(decodeCursor(query.cursor));
-      where.push(`code > $${params.length}`);
+      where.push(`code ${query.sort === 'code_desc' ? '<' : '>'} $${params.length}`);
     }
     params.push(limit + 1);
 
     const { rows } = await this.pool.query<ProductRow>(
       `select ${COLUMNS} from product
         where ${where.join(' and ')}
-        order by code
+        order by code ${query.sort === 'code_desc' ? 'desc' : 'asc'}
         limit $${params.length}`,
       params,
     );

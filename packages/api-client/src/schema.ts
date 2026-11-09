@@ -1272,6 +1272,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    sort?: "code_asc" | "code_desc";
                     /** @description مقدار `next_cursor` صفحه قبلی */
                     cursor?: components["parameters"]["cursor"];
                     /** @description اندازه صفحه */
@@ -2455,7 +2456,36 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** ایجاد گروه مرکزی کالا */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        code: string;
+                        name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description گروه ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCategory"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -10590,6 +10620,178 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product-families/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** ویرایش نام خانواده با حفظ هویت */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description خانواده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductFamily"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/products/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** تاریخچه اتمی کاتالوگ کالا */
+        get: {
+            parameters: {
+                query?: {
+                    before?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تاریخچه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCatalogHistoryPage"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-domain-integration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** قرارداد اتصال کاتالوگ به دامنه عملیاتی */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description اتصال دامنه تا تعیین هویت و اختیار غیرفعال است */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            available: false;
+                            code: string;
+                            message_fa: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/domain-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمی‌شود */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description هویت و قرارداد اختیار دامنه عملیاتی تعیین نشده است */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     invoicePosted: {
@@ -13178,6 +13380,28 @@ export interface components {
                 code?: string;
                 name?: string;
                 score?: number;
+            }[];
+        };
+        ProductCatalogHistoryPage: {
+            has_more: boolean;
+            next_cursor: string | null;
+            items: {
+                id: string;
+                entity_type: string;
+                /** Format: uuid */
+                entity_id?: string | null;
+                /** @enum {string} */
+                action: "INSERT" | "UPDATE" | "DELETE";
+                /** Format: uuid */
+                actor_user_id?: string | null;
+                /** Format: date-time */
+                at: string;
+                before_data?: {
+                    [key: string]: unknown;
+                } | null;
+                after_data?: {
+                    [key: string]: unknown;
+                } | null;
             }[];
         };
         ProductFamily: {

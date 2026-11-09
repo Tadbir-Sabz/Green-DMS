@@ -119,6 +119,9 @@ export class UpdateProductDto extends PartialType(CreateProductDto) {
 /** GET /api/v1/products — صفحه‌بندی cursor + فیلترها (ضمیمه F) */
 export class ListProductsQueryDto {
   @IsOptional()
+  @IsIn(['code_asc','code_desc'])
+  sort?: 'code_asc' | 'code_desc';
+  @IsOptional()
   @IsString()
   @MaxLength(128)
   q?: string;
