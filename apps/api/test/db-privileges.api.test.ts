@@ -10,6 +10,7 @@ import pg from 'pg';
 import { IntegrationsQueue, type ClaimedJob } from '../src/modules/integrations/queue/integrations.queue';
 import { runAsJobTenant } from '../src/database/job-context';
 import { verifyRuntimeDatabaseIdentity } from '../src/database/runtime-identity';
+import { runAsJobTenant as withPortalCompany } from '../src/database/job-context';
 import { BiRepository } from '../src/modules/bi/bi.repository';
 import { PortalRepository } from '../src/modules/portal/portal.repository';
 import { TenantAwarePool } from '../src/database/tenant-pool';
@@ -545,7 +546,8 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
 
   it('portal session issuance and lookup work under RLS without broad table access', async () => {
     const inner = new pg.Pool({ connectionString: appUrl.toString() });
-    const repo = new PortalRepository(new TenantAwarePool(inner) as unknown as pg.Pool);
+    const scopedPool = new TenantAwarePool(inner) as unknown as pg.Pool;
+    const repo = new PortalRepository(scopedPool);
     const hash = crypto.randomBytes(32).toString('hex');
     try {
       const login = await repo.findByEmail(portalEmailA);
@@ -557,6 +559,16 @@ describe('احرازِ هویتِ پرتال — بدونِ دسترسیِ نا�
       expect(await repo.findSessionById(sid, companyB)).toBeNull();
       expect((await repo.findSessionByRefreshHash(hash))?.company_id).toBe(companyA);
       expect(await repo.findSessionByRefreshHash('not-a-valid-token')).toBeNull();
+      const capability = await inner.query(`select prosecdef, proconfig,
+        has_function_privilege('dms_readonly', 'fn_portal_find_refresh(text)', 'execute') as readonly_allowed
+        from pg_proc where proname = 'fn_portal_find_refresh'`);
+      expect(capability.rows[0].prosecdef).toBe(true);
+      expect(capability.rows[0].proconfig).toContain('search_path=public, pg_temp');
+      expect(capability.rows[0].readonly_allowed).toBe(false);
+
+      await withPortalCompany(scopedPool, companyA, async () => {
+        expect(await repo.invoices(companyA, customerA)).toEqual([]);
+      });
       await repo.revokeSession(sid, companyA);
       expect((await repo.findSessionById(sid, companyA))?.revoked_at).toBeTruthy();
     } finally {
