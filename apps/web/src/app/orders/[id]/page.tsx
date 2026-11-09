@@ -14,7 +14,8 @@ import { toPersianDate } from "@/lib/date";
 
 /**
  * جزئیات سفارش فروش — GET /orders/{id} با اقلام و چرخهٔ تأیید.
- * دکمهٔ «تأیید» POST /orders/{id}/approve (از draft/pending_approval).
+ * دکمهٔ «ارسال به گردش تأیید» POST /orders/{id}/request-approval  (TASK-24Z)
+ * دکمهٔ «تأیید» POST /orders/{id}/approve (از draft/pending_approval؛ نیازمند اتصالِ تأیید).
  * نام کالا/مشتری از GET /products و GET /customers resolve می‌شود (خط‌ها فقط id دارند).
  */
 type SalesOrder = components["schemas"]["SalesOrder"];
@@ -40,6 +41,7 @@ function OrderDetailInner() {
   const toast = useToast();
   const [version, setVersion] = useState(0);
   const [approving, setApproving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const order = useQuery({
     queryKey: ["order", id, version],
@@ -76,6 +78,31 @@ function OrderDetailInner() {
     ? (customers.data ?? []).find((c) => c.id === o.customer_id)?.code ?? o.customer_id.slice(0, 8)
     : "—";
 
+  /**
+   * TASK-24Z — بدونِ این گام، `POST /orders/{id}/approve` همیشه ۴۰۹
+   * (`approval_required`) می‌دهد. پیامِ خطای سرور عیناً نمایش داده می‌شود تا
+   * اپراتور بداند «چه چیزی کم است»، نه یک شکستِ بی‌توضیح.
+   */
+  const requestApproval = async () => {
+    if (!o?.id) return;
+    setSubmitting(true);
+    const res = await api.POST("/orders/{id}/request-approval", {
+      params: { path: { id: o.id } },
+    });
+    setSubmitting(false);
+    if (res.error) {
+      toast.error(errorMessage(res.error));
+      return;
+    }
+    const body = res.data as { stages?: number } | undefined;
+    toast.success(
+      body?.stages
+        ? `به گردش تأیید ارسال شد (${body.stages} مرحله)`
+        : "به گردش تأیید ارسال شد",
+    );
+    setVersion((v) => v + 1);
+  };
+
   const approve = async () => {
     if (!o?.id) return;
     setApproving(true);
@@ -90,6 +117,8 @@ function OrderDetailInner() {
   };
 
   const canApprove = o?.status === "draft" || o?.status === "pending_approval";
+  // ارسال به گردش فقط از پیش‌نویس معنا دارد (در انتظارِ تأیید یعنی از قبل ارسال شده)
+  const canSubmit = o?.status === "draft";
 
   const lineColumns: Column<OrderLine>[] = [
     { key: "product", header: "کالا", render: (l) => productName(l.product_id) },
@@ -146,6 +175,15 @@ function OrderDetailInner() {
           <span className="px-3 py-1.5 rounded-xl bg-surface-alt text-sm text-ink">
             {STATUS_FA[o.status ?? ""] ?? o.status}
           </span>
+          {canSubmit && (
+            <button
+              onClick={requestApproval}
+              disabled={submitting}
+              className="px-4 py-2 rounded-xl bg-surface-alt border border-line hover:bg-surface text-ink text-sm font-medium focus-ring disabled:opacity-50"
+            >
+              {submitting ? "در حال ارسال..." : "ارسال به گردش تأیید"}
+            </button>
+          )}
           {canApprove && (
             <button
               onClick={approve}

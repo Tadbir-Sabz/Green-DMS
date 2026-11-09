@@ -576,7 +576,8 @@ describe('3 — جداسازیِ وظایف روی تأییدِ سفارش', () 
   });
 
   it('O-4 · پس از تأییدِ واقعیِ گردش، دروازه باز می‌شود و فقط یک بار', async () => {
-    const chain = await createChain(companyId, 'sales.order.approve');
+    const role = (await pool.query<{ id: string }>(`select id from role where company_id = $1 and code = 'role_Y-CHK'`, [companyId])).rows[0].id;
+    const chain = await createChain(companyId, 'sales.order.approve', [1], role);
     await pool.query(
       `insert into approval_policy (company_id, operation, scope, approval_chain_id)
        values ($1, 'sales.order.approve', 'central', $2)`,
@@ -584,19 +585,13 @@ describe('3 — جداسازیِ وظایف روی تأییدِ سفارش', () 
     );
     const orderId = await createOrder(makerToken);
 
-    // گردشِ تأییدِ تأییدشده + اتصال
-    const req = await pool.query<{ id: string }>(
-      `insert into approval_request (approval_chain_id, entity_type, entity_id, requested_by, current_step, status)
-       values ($1, 'sales_order', $2,
-               (select requested_by from (select $3::uuid as requested_by) x), 1, 'approved')
-       returning id`,
-      [chain, orderId, (await pool.query<{ id: string }>(`select id from app_user where username = $1`, [MAKER_USER])).rows[0].id],
-    );
-    await pool.query(
-      `insert into approval_binding (company_id, approval_request_id, operation, entity_type, entity_id)
-       values ($1, $2, 'sales.order.approve', 'sales_order', $3)`,
-      [companyId, req.rows[0].id, orderId],
-    );
+    const submitted = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({});
+    expect(submitted.status).toBe(201);
+    const requestId = submitted.body.approval_request_id;
+    const decided = await api(checkerToken)
+      .post(`/api/v1/rules-engine/approvals/${requestId}/decision`)
+      .send({ step_no: 1, decision: 'approved' });
+    expect(decided.status).toBe(201);
 
     const ok = await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({});
     expect(ok.status).toBe(200);
@@ -605,13 +600,14 @@ describe('3 — جداسازیِ وظایف روی تأییدِ سفارش', () 
     // اتصال مصرف شده و دیگر درخواستِ دوم را باز نمی‌کند
     const consumed = await countRows(
       `select count(*)::int as c from approval_binding where approval_request_id = $1 and consumed_at is not null`,
-      [req.rows[0].id],
+      [requestId],
     );
     expect(consumed).toBe(1);
   });
 
   it('O-5 · تأییدِ گردشِ رد‌شده دروازه را باز نمی‌کند', async () => {
-    const chain = await createChain(companyId, 'sales.order.approve');
+    const role = (await pool.query<{ id: string }>(`select id from role where company_id = $1 and code = 'role_Y-CHK'`, [companyId])).rows[0].id;
+    const chain = await createChain(companyId, 'sales.order.approve', [1], role);
     // دروازه فقط وقتی فعال است که سیاست وجود داشته باشد (پیوندِ صریحِ سیاست ↔ اجرا)
     await pool.query(
       `insert into approval_policy (company_id, operation, scope, approval_chain_id)
@@ -619,20 +615,17 @@ describe('3 — جداسازیِ وظایف روی تأییدِ سفارش', () 
       [companyId, chain],
     );
     const orderId = await createOrder(makerToken);
-    const makerId = (await pool.query<{ id: string }>(`select id from app_user where username = $1`, [MAKER_USER])).rows[0].id;
-    const req = await pool.query<{ id: string }>(
-      `insert into approval_request (approval_chain_id, entity_type, entity_id, requested_by, current_step, status)
-       values ($1, 'sales_order', $2, $3, 1, 'rejected') returning id`,
-      [chain, orderId, makerId],
-    );
-    await pool.query(
-      `insert into approval_binding (company_id, approval_request_id, operation, entity_type, entity_id)
-       values ($1, $2, 'sales.order.approve', 'sales_order', $3)`,
-      [companyId, req.rows[0].id, orderId],
-    );
+    const submitted = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({});
+    expect(submitted.status).toBe(201);
+    const requestId = submitted.body.approval_request_id;
+    const decided = await api(checkerToken)
+      .post(`/api/v1/rules-engine/approvals/${requestId}/decision`)
+      .send({ step_no: 1, decision: 'rejected' });
+    expect(decided.status).toBe(201);
+
     const res = await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({});
     expect(res.status).toBe(409);
-    expect(res.body.code).toBe('approval_not_granted');
+    expect(res.body.code).toBe('approval_required');
   });
 });
 

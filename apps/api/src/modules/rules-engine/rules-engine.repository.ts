@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Pool, QueryResultRow } from 'pg';
+import type { Pool, PoolClient, QueryResultRow } from 'pg';
+import { runner, type Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import {
   CreateApprovalChainDto,
@@ -117,6 +118,45 @@ export interface ExceptionItemRow extends QueryResultRow {
 
 /** شناسهٔ UUID — پیش‌اعتبارسنجیِ پارامترهای مسیر پیش از رفتن به Postgres */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * TASK-24Z · Phase H — نگاشتِ صریحِ (عملیات → وضعیتِ موجودیت).
+ *
+ * هر کوئری ستون‌های همان `FINGERPRINT_FIELDS[operation]` را برمی‌گرداند و همیشه
+ * با محدودهٔ شرکت فیلتر می‌شود. عملیاتِ ناموجود در این نگاشت ⇒ `loadEntityState`
+ * مقدارِ `null` می‌دهد ⇒ اجرا رد می‌شود (fail-closed، نه «بدونِ کنترل»).
+ */
+const ENTITY_STATE_SQL: Record<string, string> = {
+  'sales.order.approve': `select o.customer_id, o.branch_id, o.grand_total::text as grand_total,
+                                  o.order_date::text as order_date,
+                                  (select coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.packaging_id,
+                                    l.qty::text, l.qty_base::text, l.unit_price::text, l.discount_pct::text,
+                                    l.discount_amount::text, l.tax_rate_pct::text, l.tax_amount::text,
+                                    l.line_total::text, l.promotion_id) order by l.line_no), '[]'::jsonb)
+                                   from sales_order_line l where l.sales_order_id = o.id) as items
+                             from sales_order o
+                             join branch b on b.id = o.branch_id
+                            where o.id = $1 and b.company_id = $2`,
+  'sales.return.approve': `select r.customer_id, r.branch_id, r.invoice_id,
+                                  count(l.id)::int as line_count,
+                                  coalesce(sum(l.qty), 0)::text as qty_total,
+                                  coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.batch_id,
+                                    l.qty::text, l.qty_approved::text, l.unit_price::text, l.disposition)
+                                    order by l.id) filter (where l.id is not null), '[]'::jsonb) as items
+                             from return_request r
+                             left join return_request_line l on l.return_request_id = r.id
+                             join branch b on b.id = r.branch_id
+                            where r.id = $1 and b.company_id = $2
+                            group by r.id, r.customer_id, r.branch_id, r.invoice_id`,
+  'ap.purchase.approve': `select p.supplier_id, p.branch_id, p.grand_total::text as grand_total,
+                            (select coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.qty::text,
+                              l.unit_price::text, l.discount_amount::text, l.tax_amount::text,
+                              l.line_total::text) order by l.line_no), '[]'::jsonb)
+                             from purchase_order_line l where l.purchase_order_id = p.id) as items
+                            from purchase_order p
+                            join branch b on b.id = p.branch_id
+                           where p.id = $1 and b.company_id = $2`,
+};
 
 @Injectable()
 export class RulesEngineRepository {
@@ -505,15 +545,49 @@ export class RulesEngineRepository {
     decidedBy: string,
     decision: string,
     comment: string | null,
+    meta: Record<string, unknown> | null = null,
   ): Promise<string> {
     const { rows } = await this.pool.query<{ id: string }>(
       `insert into approval_decision
-          (approval_request_id, step_no, decided_by, decision, comment)
-       values ($1, $2, $3, $4, $5)
+          (approval_request_id, step_no, decided_by, decision, comment, meta)
+       values ($1, $2, $3, $4, $5, $6)
        returning id`,
-      [requestId, stepNo, decidedBy, decision, comment ?? null],
+      [requestId, stepNo, decidedBy, decision, comment ?? null, meta ? JSON.stringify(meta) : null],
     );
     return rows[0].id;
+  }
+
+  /**
+   * TASK-24Z · Phase D — واگذارکننده‌ای که این نماینده به‌جای او تصمیم می‌گیرد.
+   * فقط برای ثبت در `approval_decision.meta` (حسابرسی) — تصمیم‌گیری مجوز نمی‌دهد.
+   */
+  async delegatingUserForStep(
+    companyId: string,
+    delegateId: string,
+    step: ApprovalStepDefRow,
+    operation: string,
+    domainId: string | null,
+  ): Promise<string | null> {
+    const { rows } = await this.pool.query<{ delegator_id: string }>(
+      `select d.delegator_id
+         from approval_delegation d
+        where d.company_id = $1 and d.delegate_id = $2 and d.is_active
+          and now() between d.valid_from and d.valid_to
+          and (d.operation is null or d.operation = $3)
+          and (d.domain_id is null or d.domain_id = $4::uuid)
+          and (
+            ($5::uuid is not null and exists (
+               select 1 from app_user du join staff dst on dst.person_id = du.person_id
+                where du.id = d.delegator_id and dst.id = $5))
+            or ($6::uuid is not null and exists (
+               select 1 from user_role dur
+                where dur.app_user_id = d.delegator_id and dur.role_id = $6))
+          )
+        order by d.valid_to asc
+        limit 1`,
+      [companyId, delegateId, operation, domainId, step.approver_staff_id, step.approver_role_id],
+    );
+    return rows[0]?.delegator_id ?? null;
   }
 
   /**
@@ -551,7 +625,11 @@ export class RulesEngineRepository {
     userId: string,
     step: ApprovalStepDefRow,
   ): Promise<boolean> {
-    if (step.approver_staff_id == null && step.approver_role_id == null) return true;
+    // TASK-24Z · Phase D (یافتهٔ B-1): مرحلهٔ بدونِ تأییدکننده **هرگز** مجاز نیست.
+    // نسخهٔ پیشین اینجا `true` برمی‌گرداند و هر کاربرِ شرکت می‌توانست آن مرحله را
+    // تأیید کند (allow-all). حالا fail-closed است؛ چنین مرحله‌ای در زمانِ ساختِ
+    // گردش هم رد می‌شود (`approval_step_unassigned`).
+    if (step.approver_staff_id == null && step.approver_role_id == null) return false;
     const { rows } = await this.pool.query<{ ok: boolean }>(
       `select (
          ($3::uuid is not null and exists (
@@ -695,6 +773,12 @@ export class RulesEngineRepository {
   }
 
   /** اتصالِ درخواستِ تأیید به موجودیتِ محافظت‌شده. */
+  /**
+   * ساختِ اتصالِ درخواست به موجودیت.
+   *
+   * TASK-24Z: `client` اختیاری است تا فراخوان بتواند ساختِ اتصال را در **همان
+   * تراکنشِ** ساختِ درخواست اجرا کند (اتمیک‌بودنِ چرخهٔ عمر، یافتهٔ A-1).
+   */
   async createBinding(input: {
     company_id: string;
     approval_request_id: string;
@@ -702,8 +786,8 @@ export class RulesEngineRepository {
     entity_type: string;
     entity_id: string;
     entity_fingerprint: string | null;
-  }): Promise<string> {
-    const { rows } = await this.pool.query<{ id: string }>(
+  }, client?: Runner): Promise<string> {
+    const { rows } = await runner(this.pool, client).query<{ id: string }>(
       `insert into approval_binding
          (company_id, approval_request_id, operation, entity_type, entity_id, entity_fingerprint)
        values ($1,$2,$3,$4,$5,$6)
@@ -716,16 +800,38 @@ export class RulesEngineRepository {
     return rows[0].id;
   }
 
-  /** آیا برای این موجودیت/عملیات یک تأییدِ **معتبر** وجود دارد؟ */
-  async findConsumedBinding(companyId: string, operation: string, entityType: string, entityId: string) {
-    const { rows } = await this.pool.query<{
+  /**
+   * یافتنِ اتصالِ **مصرف‌نشده** برای این موجودیت/عملیات.
+   *
+   * TASK-24Z — تفاوت با نسخهٔ پیشین:
+   *   • `consumed_at is null` به شرط اضافه شد؛ پیش‌تر ممکن بود اتصالِ سوخته
+   *     برگردد و `consumeBinding` بعداً شکست بخورد (پاسخِ ۴۰۹ گیج‌کننده).
+   *   • `for update of b` قفلِ ردیف می‌گیرد تا دو عملیاتِ هم‌زمان نتوانند هر دو
+   *     همان اتصال را بخوانند (سریال‌سازی، یافتهٔ D-1).
+   *   • جدیدترین اتصال اول می‌آید؛ اگر موجودیت چند بار تأیید شده باشد، تصمیمِ
+   *     آخر معتبر است.
+   */
+  async findConsumedBinding(
+    companyId: string,
+    operation: string,
+    entityType: string,
+    entityId: string,
+    client?: Runner,
+  ) {
+    const { rows } = await runner(this.pool, client).query<{
       id: string; approval_request_id: string; consumed_at: string | null; entity_fingerprint: string | null;
     }>(
       `select b.id, b.approval_request_id, b.consumed_at, b.entity_fingerprint
          from approval_binding b
          join approval_request a on a.id = b.approval_request_id
+         join approval_chain ac on ac.id = a.approval_chain_id
         where b.company_id = $1 and b.operation = $2
-          and b.entity_type = $3 and b.entity_id = $4`,
+          and b.entity_type = $3 and b.entity_id = $4
+          and b.consumed_at is null and a.status = 'approved'
+          and ac.company_id = $1
+        order by b.created_at desc
+        limit 1
+        for update of b`,
       [companyId, operation, entityType, entityId],
     );
     return rows[0] ?? null;
@@ -734,9 +840,11 @@ export class RulesEngineRepository {
   /**
    * مصرفِ اتمیکِ اتصال: فقط یک بار و فقط اگر تأیید واقعاً `approved` باشد.
    * `consumed_at` دوباره‌مصرف را می‌بندد.
+   *
+   * TASK-24Z: `client` برای اجرا در همان تراکنشِ گذارِ کسب‌وکار.
    */
-  async consumeBinding(companyId: string, bindingId: string): Promise<boolean> {
-    const { rowCount } = await this.pool.query(
+  async consumeBinding(companyId: string, bindingId: string, client?: Runner): Promise<boolean> {
+    const { rowCount } = await runner(this.pool, client).query(
       `update approval_binding b
           set consumed_at = now()
         where b.id = $1 and b.company_id = $2 and b.consumed_at is null
@@ -763,6 +871,94 @@ export class RulesEngineRepository {
         limit 1`,
       [companyId, delegatorId, operation],
     );
+    return rows[0] ?? null;
+  }
+
+  /**
+   * TASK-24Z · Phase D (یافتهٔ B-2) — تفکیل **در لحظهٔ تصمیم**، نه فقط در کارتابل.
+   *
+   * آیا `userId` نمایندهٔ معتبرِ یکی از تأییدکنندگانِ این مرحله است؟
+   *
+   * کنترل‌ها (همه در یک کوئری، تا هیچ‌کدام قابلِ فراموش‌شدن نباشد):
+   *   • همان شرکت (company_id) — تفکیلِ بین‌شرکتی بی‌اثر است.
+   *   • `is_active` و بازهٔ اعتبار در **همین لحظه** (expired/revoked هرگز مجاز نیست).
+   *   • دامنه: اگر تفکیل `domain_id` دارد باید با قلمروِ موجودیت یکی باشد؛
+   *     اگر تفکیل بی‌قلمرو است، بر همهٔ اقلامِ عملیات اعمال می‌شود.
+   *   • عملیات: `operation` تفکیل یا خالی (همهٔ عملیات‌ها) یا برابرِ عملیاتِ جاری.
+   *   • نماینده نمی‌تواند خودش را واگذار کند (قیدِ DB هم دارد).
+   *   • تفکیل **فقط** جای تأییدکنندهٔ مجازِ همان مرحله می‌نشیند؛ اگر مرحله هیچ
+   *     تأییدکننده‌ای ندارد، تفکیل هم مجاز نمی‌سازد (fail-closed).
+   */
+  async delegationCoversStep(
+    companyId: string,
+    delegateId: string,
+    step: ApprovalStepDefRow,
+    operation: string,
+    domainId: string | null,
+  ): Promise<boolean> {
+    if (step.approver_staff_id == null && step.approver_role_id == null) return false;
+    const { rows } = await this.pool.query<{ ok: boolean }>(
+      `select exists (
+         select 1
+           from approval_delegation d
+          where d.company_id = $1
+            and d.delegate_id = $2
+            and d.is_active
+            and now() between d.valid_from and d.valid_to
+            and (d.operation is null or d.operation = $3)
+            and (d.domain_id is null or d.domain_id = $4::uuid)
+            and (
+              -- واگذارکننده همان کارمندِ مرحله است
+              ($5::uuid is not null and exists (
+                 select 1 from app_user du join staff dst on dst.person_id = du.person_id
+                  where du.id = d.delegator_id and dst.id = $5))
+              -- یا واگذارکننده دارایِ نقشِ مرحله است
+              or ($6::uuid is not null and exists (
+                 select 1 from user_role dur
+                  where dur.app_user_id = d.delegator_id and dur.role_id = $6))
+            )
+       ) as ok`,
+      [companyId, delegateId, operation, domainId, step.approver_staff_id, step.approver_role_id],
+    );
+    return rows[0]?.ok === true;
+  }
+
+  /**
+   * TASK-24Z · Phase H — وضعیتِ فعلیِ موجودیت برای محاسبهٔ اثرانگشت.
+   *
+   * نگاشتِ (operation → جدول) صریح و بسته است: عملیاتِ ناشناخته ⇒ `null` ⇒ ردِ اجرا.
+   * فیلدها همان `FINGERPRINT_FIELDS` هستند؛ اینجا فقط واکشی می‌شوند.
+   *
+   * محدودهٔ شرکت همیشه اعمال می‌شود تا اثرانگشتِ یک شرکت هرگز از دادهٔ شرکتِ دیگر
+   * ساخته نشود.
+   */
+  async loadEntityState(
+    companyId: string,
+    operation: string,
+    entityId: string,
+    client?: Runner,
+  ): Promise<Record<string, unknown> | null> {
+    if (!UUID_RE.test(entityId)) return null;
+    const sql = ENTITY_STATE_SQL[operation];
+    if (!sql) return null;
+    // Serialize the approved snapshot with the subsequent business transition.
+    // The table comes only from this closed server-side map, never client input.
+    if (client) {
+      const table = ({
+        'sales.order.approve': 'sales_order',
+        'sales.return.approve': 'return_request',
+        'ap.purchase.approve': 'purchase_order',
+      } as Record<string, string>)[operation];
+      await client.query(`select e.id from ${table} e join branch b on b.id = e.branch_id
+        where e.id = $1 and b.company_id = $2 for update of e`, [entityId, companyId]);
+      // Lock existing lines too: line-only edits need not update the parent.
+      await client.query(`select id from ${table}_line where ${table}_id = $1 order by id for update`, [entityId]);
+    }
+
+    const { rows } = await runner(this.pool, client).query<Record<string, unknown>>(sql, [
+      entityId,
+      companyId,
+    ]);
     return rows[0] ?? null;
   }
 
@@ -896,8 +1092,8 @@ export class RulesEngineRepository {
     entity_domain_id: string | null;
     risk_score: number | null;
     policy_id: string | null;
-  }): Promise<string> {
-    const { rows } = await this.pool.query<{ id: string }>(
+  }, client?: Runner): Promise<string> {
+    const { rows } = await runner(this.pool, client).query<{ id: string }>(
       `insert into approval_request
          (approval_chain_id, entity_type, entity_id, requested_by, amount, current_step,
           status, expires_at, entity_domain_id, risk_score, policy_id)
@@ -917,6 +1113,19 @@ export class RulesEngineRepository {
     const { rows } = await this.pool.query<{ id: string }>(
       `select u.id from app_user u join staff st on st.person_id = u.person_id where st.id = $1`,
       [staffId],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /** فیلترِ کاربران به اعضای همان شرکت — اعلانِ بین‌شرکتی ممنوع. */
+  async filterUsersInCompany(companyId: string, userIds: string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const { rows } = await this.pool.query<{ id: string }>(
+      `select u.id
+         from app_user u
+         join person p on p.id = u.person_id
+        where p.company_id = $1 and u.id = any($2::uuid[])`,
+      [companyId, userIds],
     );
     return rows.map((r) => r.id);
   }

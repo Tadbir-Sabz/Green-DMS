@@ -47,6 +47,18 @@ export class ReturnController {
     return this.service.get(companyId, id);
   }
 
+  /** TASK-24Z — ارسال به گردشِ تأیید (ساختِ اتصال). */
+  @Post(':id/request-approval')
+  @HttpCode(201)
+  @RequirePermissions('sales.return.request')
+  requestApproval(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.requestApproval(companyId, id, userId);
+  }
+
   @Post(':id/approve')
   @HttpCode(200)
   @RequirePermissions('sales.return.approve')

@@ -536,6 +536,51 @@ export class OrderService {
    *
    * خودتأییدی در هر دو حالت ممنوع است.
    */
+  /**
+   * TASK-24Z · Phase A — ارسالِ سفارش به گردشِ تأیید.
+   *
+   * این متد همان چیزی است که «چرخهٔ عمرِ واقعی» را ممکن می‌کند: سیاست حل و ترکیب
+   * می‌شود، درخواست **و اتصال** در یک تراکنش ساخته می‌شوند، و سفارش به وضعیتِ
+   * `pending_approval` می‌رود. بدونِ این گام، `POST /orders/:id/approve` همیشه
+   * `409 approval_required` می‌داد (یافتهٔ A-1).
+   */
+  async requestApproval(
+    companyId: string,
+    id: string,
+    actorUserId: string,
+  ): Promise<{ approval_request_id: string; current_step: number; expires_at: string | null; stages: number }> {
+    this.assertId(id);
+    const existing = await this.repo.findById(companyId, id);
+    if (!existing) throw notFound();
+    const createdBy = (existing as { created_by?: string | null }).created_by ?? null;
+    if (createdBy && createdBy === actorUserId) {
+      // سازنده می‌تواند درخواست بدهد، ولی نمی‌تواند خودش تأیید کند؛ اینجا فقط
+      // یک یادآوری است — کنترلِ اصلی در مسیرِ تصمیم است.
+    }
+    const status = (existing as { status?: string }).status;
+    if (status !== 'draft' && status !== 'pending_approval') {
+      throw new ConflictException({
+        code: 'not_submittable',
+        message_fa: 'فقط سفارشِ پیش‌نویس یا در انتظارِ تأیید قابلِ ارسال به گردشِ تأیید است.',
+        details: { status },
+      });
+    }
+    const started = await this.rules.submitForApproval(companyId, {
+      operation: 'sales.order.approve',
+      entityType: 'sales_order',
+      entityId: id,
+      requestedBy: actorUserId,
+    });
+    // وضعیتِ سفارش باید «در انتظارِ تأیید» شود تا در فهرست‌های عملیاتی درست دیده شود.
+    await this.repo.markPendingApproval(companyId, id);
+    return {
+      approval_request_id: started.approvalRequestId,
+      current_step: started.currentStep,
+      expires_at: started.expiresAt,
+      stages: started.stages,
+    };
+  }
+
   async approve(companyId: string, id: string, actorUserId: string): Promise<OrderView> {
     this.assertId(id);
     const existing = await this.repo.findById(companyId, id);
@@ -551,23 +596,36 @@ export class OrderService {
     }
 
     const policies = await this.rules.listPoliciesForOperation(companyId, 'sales.order.approve');
-    if (policies.length > 0) {
-      // عملیات واقعاً حاکمیت دارد: اجرا فقط پس از تأییدِ گردش مجاز است.
-      const gate = await this.rules.requireApproved(companyId, {
-        operation: 'sales.order.approve',
-        entityType: 'sales_order',
-        entityId: id,
-      });
-      void gate;
+    if (policies.length === 0) {
+      // بدونِ سیاست ⇒ رفتارِ عقب‌رو (سازگاری). خودتأییدی بالا مسدود است و تصمیم
+      // در ممیزی ثبت می‌شود؛ هیچ تأییدی بی‌ردِ پایمال نمی‌شود.
+      const approved = await this.repo.approve(companyId, id);
+      if (!approved) {
+        throw new ConflictException({
+          code: 'not_approvable',
+          message_fa: 'فقط سفارش پیش‌نویس یا در انتظار تأیید قابل تأیید است.',
+        });
+      }
+      return this.get(companyId, id);
     }
 
-    const approved = await this.repo.approve(companyId, id);
-    if (!approved) {
-      throw new ConflictException({
-        code: 'not_approvable',
-        message_fa: 'فقط سفارش پیش‌نویس یا در انتظار تأیید قابل تأیید است.',
-      });
-    }
+    // TASK-24Z · Phase B — مصرفِ اتصال و گذارِ وضعیت در **یک** تراکنش.
+    // اگر گذار شکست بخورد، اتصال مصرف‌نشده می‌ماند و تأییدِ معتبر از دست نمی‌رود (D-1).
+    const approvedId = await this.rules.consumeApprovedBinding(
+      companyId,
+      { operation: 'sales.order.approve', entityType: 'sales_order', entityId: id },
+      async (client) => {
+        const done = await this.repo.approve(companyId, id, client);
+        if (!done) {
+          throw new ConflictException({
+            code: 'not_approvable',
+            message_fa: 'فقط سفارش پیش‌نویس یا در انتظار تأیید قابل تأیید است.',
+          });
+        }
+        return done;
+      },
+    );
+    void approvedId;
     return this.get(companyId, id);
   }
 

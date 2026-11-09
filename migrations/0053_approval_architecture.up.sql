@@ -253,4 +253,18 @@ comment on column sales_order.created_by is
 comment on column purchase_order.created_by is
   'TASK-24Y: سازندهٔ سفارشِ خرید — مبنای جلوگیری از خودتأییدی (بدونِ FK، برچسب).';
 
+-- TASK-24Z: restore identities from a previous safe rollback without overwriting
+-- identities subsequently recorded by the application.
+do $$
+begin
+  if to_regclass('approval_sod_creator_archive') is not null then
+    update sales_order s set created_by = a.created_by
+      from approval_sod_creator_archive a
+      where a.entity_table = 'sales_order' and a.entity_id = s.id and s.created_by is null;
+    update purchase_order s set created_by = a.created_by
+      from approval_sod_creator_archive a
+      where a.entity_table = 'purchase_order' and a.entity_id = s.id and s.created_by is null;
+  end if;
+end $$;
+
 commit;

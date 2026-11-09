@@ -2744,6 +2744,63 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /orders/{id}/request-approval:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [orders]
+      summary: ارسالِ سفارش به گردشِ تأیید
+      description: |
+        TASK-24Z — ارسالِ موجودیت به گردشِ تأیید. درخواستِ تأیید **و اتصال** در یک
+        تراکنش ساخته می‌شوند؛ بدونِ این گام `POST .../approve` با 409 بازمی‌گردد.
+      responses:
+        '201':
+          description: گردشِ تأیید ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalSubmission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /returns/{id}/request-approval:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [returns]
+      summary: ارسالِ مرجوعی به گردشِ تأیید
+      description: |
+        TASK-24Z — ارسالِ موجودیت به گردشِ تأیید. درخواستِ تأیید **و اتصال** در یک
+        تراکنش ساخته می‌شوند؛ بدونِ این گام `POST .../approve` با 409 بازمی‌گردد.
+      responses:
+        '201':
+          description: گردشِ تأیید ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalSubmission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /purchase-orders/{id}/request-approval:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [purchasing]
+      summary: ارسالِ سفارشِ خرید به گردشِ تأیید
+      description: |
+        TASK-24Z — ارسالِ موجودیت به گردشِ تأیید. درخواستِ تأیید **و اتصال** در یک
+        تراکنش ساخته می‌شوند؛ بدونِ این گام `POST .../approve` با 409 بازمی‌گردد.
+      responses:
+        '201':
+          description: گردشِ تأیید ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalSubmission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /orders/{id}/approve:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -4045,52 +4102,6 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /approvals:
-    get:
-      tags: [approvals]
-      summary: صف تأیید کاربر جاری (سفارش/مرجوعی/اصلاحیه مبلغ‌محور)
-      parameters:
-        - { $ref: '#/components/parameters/cursor' }
-        - { $ref: '#/components/parameters/limit' }
-        - { name: entity_type, in: query, schema: { type: string } }
-      responses:
-        '200':
-          description: صفحه‌ای از آیتم‌های در انتظار تأیید
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - { $ref: '#/components/schemas/Page' }
-                  - type: object
-                    properties:
-                      items:
-                        type: array
-                        items: { $ref: '#/components/schemas/ApprovalRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-  /approvals/{id}/decision:
-    parameters:
-      - { $ref: '#/components/parameters/idPath' }
-    post:
-      tags: [approvals]
-      summary: تصمیم تأییدکننده (تأیید/رد با توضیح)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [decision]
-              properties:
-                decision: { type: string, enum: [approve, reject] }
-                note: { type: string }
-      responses:
-        '200':
-          description: تصمیم ثبت شد
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApprovalRequest' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
 
   # ---------------- گزارش‌ها، تنظیمات، یکپارچه‌سازی ----------------
   /reports:
@@ -5044,6 +5055,33 @@ paths:
                 properties:
                   expired: { type: integer }
                   escalated: { type: integer }
+  /approvals:
+    get:
+      tags: [approvals]
+      deprecated: true
+      summary: '(قدیمی/Deprecated) صفِ صفحه‌بندی‌شدهٔ تأییدها — از /rules-engine/approvals استفاده کنید'
+      description: |
+        این مسیر در کدِ `rules.contract.controller.ts` زنده است و کلاینت‌های قدیمی
+        از آن استفاده می‌کنند؛ ولی مسیرِ رسمی و کامل (`/rules-engine/approvals`)
+        جایگزینِ آن شده است. TASK-24Z: مستند شد تا «کد بدون سند» در drift گزارش نشود.
+      parameters:
+        - { $ref: '#/components/parameters/cursor' }
+        - { $ref: '#/components/parameters/limit' }
+      responses:
+        '200':
+          description: صفحه‌ای از درخواست‌های تأیید
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Page' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/ApprovalRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /rules-engine/approval-policies:
     get:
       tags: [rules-engine]
@@ -7024,6 +7062,18 @@ components:
         valid_to: { type: [string, 'null'], format: date }
         is_active: { type: boolean }
 
+    ApprovalSubmission:
+      type: object
+      required: [approval_request_id, current_step, stages]
+      description: |
+        TASK-24Z — پاسخِ ارسال به گردشِ تأیید. `approval_request_id` را برای ثبتِ
+        تصمیم در `POST /rules-engine/approvals/{id}/decision` و بررسی در کارتابل
+        به کار ببرید. `stages` شمارِ مراحلِ ترکیب‌شدهٔ همهٔ سیاست‌های منطبق است.
+      properties:
+        approval_request_id: { type: string, format: uuid }
+        current_step: { type: integer, minimum: 1 }
+        stages: { type: integer, minimum: 1 }
+        expires_at: { type: [string, 'null'], format: date-time }
     ApprovalRequest:
       type: object
       description: درخواست تأیید مبلغ‌محور (زنجیره تأیید — ماژول ۳ §۳.۳)

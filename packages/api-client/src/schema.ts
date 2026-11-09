@@ -5234,6 +5234,150 @@ export interface paths {
         };
         trace?: never;
     };
+    "/orders/{id}/request-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ارسالِ سفارش به گردشِ تأیید
+         * @description TASK-24Z — ارسالِ موجودیت به گردشِ تأیید. درخواستِ تأیید **و اتصال** در یک
+         *     تراکنش ساخته می‌شوند؛ بدونِ این گام `POST .../approve` با 409 بازمی‌گردد.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description گردشِ تأیید ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalSubmission"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/returns/{id}/request-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ارسالِ مرجوعی به گردشِ تأیید
+         * @description TASK-24Z — ارسالِ موجودیت به گردشِ تأیید. درخواستِ تأیید **و اتصال** در یک
+         *     تراکنش ساخته می‌شوند؛ بدونِ این گام `POST .../approve` با 409 بازمی‌گردد.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description گردشِ تأیید ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalSubmission"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchase-orders/{id}/request-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ارسالِ سفارشِ خرید به گردشِ تأیید
+         * @description TASK-24Z — ارسالِ موجودیت به گردشِ تأیید. درخواستِ تأیید **و اتصال** در یک
+         *     تراکنش ساخته می‌شوند؛ بدونِ این گام `POST .../approve` با 409 بازمی‌گردد.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description گردشِ تأیید ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalSubmission"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}/approve": {
         parameters: {
             query?: never;
@@ -7905,101 +8049,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** صف تأیید کاربر جاری (سفارش/مرجوعی/اصلاحیه مبلغ‌محور) */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description مقدار `next_cursor` صفحه قبلی */
-                    cursor?: components["parameters"]["cursor"];
-                    /** @description اندازه صفحه */
-                    limit?: components["parameters"]["limit"];
-                    entity_type?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description صفحه‌ای از آیتم‌های در انتظار تأیید */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Page"] & {
-                            items?: components["schemas"]["ApprovalRequest"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/approvals/{id}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["idPath"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** تصمیم تأییدکننده (تأیید/رد با توضیح) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["idPath"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        decision: "approve" | "reject";
-                        note?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description تصمیم ثبت شد */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApprovalRequest"];
-                    };
-                };
-                403: components["responses"]["Forbidden"];
-                409: components["responses"]["Conflict"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/reports": {
         parameters: {
             query?: never;
@@ -10078,6 +10127,57 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * (قدیمی/Deprecated) صفِ صفحه‌بندی‌شدهٔ تأییدها — از /rules-engine/approvals استفاده کنید
+         * @deprecated
+         * @description این مسیر در کدِ `rules.contract.controller.ts` زنده است و کلاینت‌های قدیمی
+         *     از آن استفاده می‌کنند؛ ولی مسیرِ رسمی و کامل (`/rules-engine/approvals`)
+         *     جایگزینِ آن شده است. TASK-24Z: مستند شد تا «کد بدون سند» در drift گزارش نشود.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description مقدار `next_cursor` صفحه قبلی */
+                    cursor?: components["parameters"]["cursor"];
+                    /** @description اندازه صفحه */
+                    limit?: components["parameters"]["limit"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحه‌ای از درخواست‌های تأیید */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Page"] & {
+                            items?: components["schemas"]["ApprovalRequest"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -12466,6 +12566,19 @@ export interface components {
             /** Format: date */
             valid_to?: string | null;
             is_active?: boolean;
+        };
+        /**
+         * @description TASK-24Z — پاسخِ ارسال به گردشِ تأیید. `approval_request_id` را برای ثبتِ
+         *     تصمیم در `POST /rules-engine/approvals/{id}/decision` و بررسی در کارتابل
+         *     به کار ببرید. `stages` شمارِ مراحلِ ترکیب‌شدهٔ همهٔ سیاست‌های منطبق است.
+         */
+        ApprovalSubmission: {
+            /** Format: uuid */
+            approval_request_id: string;
+            current_step: number;
+            stages: number;
+            /** Format: date-time */
+            expires_at?: string | null;
         };
         /** @description درخواست تأیید مبلغ‌محور (زنجیره تأیید — ماژول ۳ §۳.۳) */
         ApprovalRequest: {

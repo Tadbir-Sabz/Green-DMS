@@ -13,6 +13,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { PG_POOL } from '../src/database/database.module';
 import { validationPipeOptions } from '../src/common/validation';
+import { businessToday } from '../src/common/business-date';
 import { hashPassword } from '../src/modules/identity-rbac/password';
 
 /**
@@ -338,7 +339,7 @@ describe('G03-01..05 — چرخهٔ عمرِ قاعده', () => {
 
 const orderBody = (over: Record<string, unknown> = {}) => ({
   customer_id: customerId,
-  order_date: new Date().toISOString().slice(0, 10),
+  order_date: businessToday(),
   lines: [{ product_id: productId, qty: 1, unit_price: '5000', discount_amount: '0' }],
   // TASK-24F: قیمتِ دستیِ واگرا بدونِ دلیلِ صریح پذیرفته نمی‌شود (مسیرِ یگانهٔ موتورِ قیمت)
   price_override_reason: 'توافقِ قیمتِ آزمونِ قواعد',
@@ -447,26 +448,40 @@ const seedChain = async (code: string, entity: string, steps: { step_no: number;
     `insert into approval_chain (company_id, code, entity, is_active) values ($1,$2,$3,true) returning id`,
     [companyId, code, entity],
   );
+  const role = (await pool.query<{ id: string }>(`select id from role where company_id = $1 and code = 'admin_full'`, [companyId])).rows[0].id;
   for (const s of steps) {
     await pool.query(
-      `insert into approval_step_def (approval_chain_id, step_no, min_amount, max_amount)
-       values ($1,$2,$3,$4)`,
-      [chain.rows[0].id, s.step_no, s.min ?? null, s.max ?? null],
+      `insert into approval_step_def (approval_chain_id, step_no, min_amount, max_amount, approver_role_id)
+       values ($1,$2,$3,$4,$5)`,
+      [chain.rows[0].id, s.step_no, s.min ?? null, s.max ?? null, role],
     );
   }
+  await pool.query(`update approval_policy set approval_chain_id = $2
+    where company_id = $1 and operation = 'sales.order.approve' and scope = 'central'`, [companyId, chain.rows[0].id]);
+  await pool.query(`insert into approval_policy (company_id, operation, scope, approval_chain_id)
+    select $1, 'sales.order.approve', 'central', $2 where not exists
+    (select 1 from approval_policy where company_id = $1 and operation = 'sales.order.approve' and scope = 'central')`, [companyId, chain.rows[0].id]);
   return chain.rows[0].id;
 };
 
-const createApproval = (chainId: string, entityId: string, amount: number | null) =>
-  api()
-    .post('/api/v1/rules-engine/approvals')
-    .send({
-      approval_chain_id: chainId,
-      entity_type: 'sales_order',
-      entity_id: entityId,
-      requested_by: adminUserId,
-      amount,
-    });
+// Create the business entity through HTTP. Fake IDs only identify fixture reuse;
+// no test constructs an approval binding or request with SQL.
+const entityFixtures = new Map<string, string>();
+const createApproval = async (chainId: string, fixtureId: string, amount: number | null) => {
+  let entityId = entityFixtures.get(fixtureId);
+  if (!entityId) {
+    await deactivateAllRules();
+    const created = await api().post('/api/v1/orders').send(orderBody({
+      lines: [{ product_id: productId, qty: 1, unit_price: String(amount ?? 0) }],
+    })).expect(201);
+    entityId = created.body.id as string;
+    entityFixtures.set(fixtureId, entityId);
+  }
+  return api().post('/api/v1/rules-engine/approvals').send({
+    approval_chain_id: chainId, entity_type: 'sales_order',
+    entity_id: entityId, requested_by: adminUserId, amount,
+  });
+};
 
 describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', () => {
   it('ساختِ درخواست با گامِ درست بر اساسِ مبلغ', async () => {
@@ -474,24 +489,24 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
       { step_no: 1, min: 0, max: 1000 },
       { step_no: 2, min: 1000, max: null },
     ]);
-    const req = await createApproval(chainId, '11111111-1111-4111-8111-111111111111', 2500).expect(201);
+    const req = await createApproval(chainId, '11111111-1111-4111-8111-111111111111', 2500);
     expect(req.body.current_step).toBe(2);
     expect(req.body.status).toBe('pending');
   });
 
   it('تأییدِ دو‌مرحله‌ای: مرحله ۱ ⇒ pending/step 2، مرحله ۲ ⇒ approved', async () => {
     const chainId = await seedChain('CH-TWO', 'sales_order', [{ step_no: 1 }, { step_no: 2 }]);
-    const req = await createApproval(chainId, '22222222-2222-4222-8222-222222222222', 500).expect(201);
+    const req = await createApproval(chainId, '22222222-2222-4222-8222-222222222222', 500);
     const id = req.body.id as string;
     const step1 = await api(admin2Token)
-      .post(`/api/v1/approvals/${id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${id}/decision`)
+      .send({ step_no: 1, decision: 'approved' })
       .expect(201);
     expect(step1.body.status).toBe('pending');
     expect(step1.body.current_step).toBe(2);
     const step2 = await api(admin2Token)
-      .post(`/api/v1/approvals/${id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${id}/decision`)
+      .send({ step_no: 2, decision: 'approved' })
       .expect(201);
     expect(step2.body.status).toBe('approved');
     expect(step2.body.closed_at).toBeTruthy();
@@ -506,34 +521,34 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
 
   it('رد ⇒ rejected و بسته‌شدنِ فوری', async () => {
     const chainId = await seedChain('CH-REJECT', 'sales_order', [{ step_no: 1 }, { step_no: 2 }]);
-    const req = await createApproval(chainId, '33333333-3333-4333-8333-333333333333', 100).expect(201);
+    const req = await createApproval(chainId, '33333333-3333-4333-8333-333333333333', 100);
     const res = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'reject', note: 'دلیلِ رد' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 1, decision: 'rejected', comment: 'دلیلِ رد' })
       .expect(201);
     expect(res.body.status).toBe('rejected');
   });
 
   it('تصمیم روی درخواستِ بسته‌شده ⇒ 409 not_pending', async () => {
     const chainId = await seedChain('CH-CLOSED', 'sales_order', [{ step_no: 1 }]);
-    const req = await createApproval(chainId, '44444444-4444-4444-8444-444444444444', 10).expect(201);
+    const req = await createApproval(chainId, '44444444-4444-4444-8444-444444444444', 10);
     await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' })
       .expect(201);
     const again = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' })
       .expect(409);
     expect(again.body.code).toBe('not_pending');
   });
 
   it('بدونِ مجوزِ rules.approval.decide ⇒ 403', async () => {
     const chainId = await seedChain('CH-RBAC', 'sales_order', [{ step_no: 1 }]);
-    const req = await createApproval(chainId, '55555555-5555-4555-8555-555555555555', 10).expect(201);
+    const req = await createApproval(chainId, '55555555-5555-4555-8555-555555555555', 10);
     const res = await api(viewerToken)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' })
       .expect(403);
     expect(res.body.code).toBe('forbidden');
   });
@@ -541,7 +556,7 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
   it('دو درخواستِ باز برای یک موجودیت مجاز نیست (ایندکسِ یکتا)', async () => {
     const chainId = await seedChain('CH-UNIQ', 'sales_order', [{ step_no: 1 }]);
     const entityId = '66666666-6666-4666-8666-666666666666';
-    await createApproval(chainId, entityId, 10).expect(201);
+    await createApproval(chainId, entityId, 10);
     const dup = await createApproval(chainId, entityId, 20);
     expect(dup.status).toBeGreaterThanOrEqual(400);
   });
@@ -559,16 +574,16 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
   // نخستین گامِ سازگار را برمی‌گرداند، گامِ ۲ در زنجیرهٔ بی‌باند هرگز قابلِ تصمیم نبود (۴۰۹ دائمی).
   it('زنجیرهٔ بی‌باندِ دو‌مرحله‌ای تا انتها پیش می‌رود و گام‌ها به‌ترتیب مصرف می‌شوند', async () => {
     const chainId = await seedChain('CH-NOBAND', 'sales_order', [{ step_no: 1 }, { step_no: 2 }]);
-    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999901', 777).expect(201);
+    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999901', 777);
     const first = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' })
       .expect(201);
     expect(first.body.current_step).toBe(2);
     expect(first.body.status).toBe('pending');
     const second = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 2, decision: 'approved' })
       .expect(201);
     expect(second.body.status).toBe('approved');
     // ناسازگاریِ باند نباید به‌عنوان ۴۰۹ در گام‌های بعدی برگردد
@@ -581,17 +596,17 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
       { step_no: 2, min: 1000, max: 5000 },
       { step_no: 3, min: 5000, max: null },
     ]);
-    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999902', 2500).expect(201);
+    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999902', 2500);
     // گامِ ورود برای ۲۵۰۰ گامِ ۲ است
     expect(req.body.current_step).toBe(2);
     const d1 = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 2, decision: 'approved' })
       .expect(201);
     expect(d1.body.current_step).toBe(3);
     const d2 = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 3, decision: 'approved' })
       .expect(201);
     expect(d2.body.status).toBe('approved');
   });
@@ -601,13 +616,13 @@ describe('G03-13..19 — گردشِ تأیید و کنترلِ دسترسی', ()
       { step_no: 1, min: 0, max: 1000 },
       { step_no: 2, min: 1000, max: null },
     ]);
-    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999903', 100).expect(201);
+    const req = await createApproval(chainId, '99999999-9999-4999-8999-999999999903', 100);
     expect(req.body.current_step).toBe(1);
     // افزایشِ مبلغ به باندِ گامِ ۲ ⇒ گامِ جاری (۱) دیگر پاسخِ باند نیست ⇒ fail-closed
     await pool.query(`update approval_request set amount = 9000 where id = $1`, [req.body.id]);
     const res = await api(admin2Token)
-      .post(`/api/v1/approvals/${req.body.id}/decision`)
-      .send({ decision: 'approve' })
+      .post(`/api/v1/rules-engine/approvals/${req.body.id}/decision`)
+      .send({ step_no: 1, decision: 'approved' })
       .expect(409);
     expect(res.body.code).toBe('amount_band_mismatch');
     expect(res.body.details?.expected_step).toBe(2);
@@ -666,7 +681,7 @@ describe('G03-20..23 — جداسازیِ اجاره و استثنا', () => {
       .post('/api/v1/orders')
       .send({
         customer_id: otherCustomerId,
-        order_date: new Date().toISOString().slice(0, 10),
+        order_date: businessToday(),
         lines: [{ product_id: productId, qty: 1, unit_price: '100' }],
       })
       .expect(400);

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
+import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import type { CreateOrderDto, ListOrdersQueryDto, UpdateOrderDto } from './order.dto';
 
@@ -545,8 +546,19 @@ export class OrderRepository {
   }
 
   /** تأیید: فقط از draft/pending_approval به approved */
-  async approve(companyId: string, id: string): Promise<string | null> {
-    const { rows } = await this.pool.query<{ id: string }>(
+  /** draft → pending_approval (بدونِ اثر روی اسنادِ تأییدشده). */
+  async markPendingApproval(companyId: string, id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update sales_order set status = 'pending_approval'
+        where id = $1 and status = 'draft'
+          and exists (select 1 from branch b where b.id = sales_order.branch_id and b.company_id = $2)`,
+      [id, companyId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  async approve(companyId: string, id: string, client?: Runner): Promise<string | null> {
+    const { rows } = await (client ?? this.pool).query<{ id: string }>(
       `update sales_order set status = 'approved'
         where id = $1 and status in ('draft', 'pending_approval') and exists (
           select 1 from branch b where b.id = sales_order.branch_id and b.company_id = $2)

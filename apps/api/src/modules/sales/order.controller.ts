@@ -70,6 +70,21 @@ export class OrderController {
     return this.service.update(companyId, id, dto, userId, this.pricingPermissions(user));
   }
 
+  /**
+   * TASK-24Z — ارسال به گردشِ تأیید. این مسیر **اتصال** می‌سازد؛ بدونِ آن
+   * `POST :id/approve` هرگز نمی‌توانست موفق شود (یافتهٔ A-1).
+   */
+  @Post(':id/request-approval')
+  @HttpCode(201)
+  @RequirePermissions('sales.order.create')
+  requestApproval(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.requestApproval(companyId, id, userId);
+  }
+
   @Post(':id/approve')
   @HttpCode(200)
   @RequirePermissions('sales.order.approve')

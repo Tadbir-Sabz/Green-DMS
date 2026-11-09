@@ -91,15 +91,17 @@ export class UpdateRuleDto {
   is_active?: boolean;
 }
 
-/** POST /approvals/{id}/decision — decision فقط approve/reject طبق قرارداد */
-export class ApprovalDecisionContractDto {
-  @IsIn(['approve', 'reject'])
-  decision!: 'approve' | 'reject';
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  note?: string;
+/**
+ * TASK-24Z: DTOی تصمیم در این کنترلر **حذف شد**.
+ *
+ * پیش‌تر این کنترلر مسیرِ `POST approvals/:id/decision` را دوباره اعلام می‌کرد
+ * و بدنه را با `{decision: 'approve'|'reject', note}` اعتبارسنجی می‌کرد، در حالی
+ * که قراردادِ OpenAPI و رابطِ وب هر دو `{step_no, decision: 'approved'|'rejected'|'returned'}`
+ * می‌فرستند. نتیجه: تصمیم از مسیرِ وب **همیشه ۴۰۰** می‌گرفت و UIِ تحویل‌شده
+ * عملاً کار نمی‌کرد. یک مسیر، یک DTO — در `RulesEngineController`.
+ */
+export class ApprovalDecisionContractDtoLegacy {
+  decision?: string;
 }
 
 /**
@@ -158,14 +160,6 @@ export class RulesContractController {
     return this.service.listApprovalsPaged(companyId, query);
   }
 
-  @Post('approvals/:id/decision')
-  @RequirePermissions('rules.approval.decide')
-  decide(
-    @Param('id') id: string,
-    @Body() dto: ApprovalDecisionContractDto,
-    @CurrentUser('companyId') companyId: string,
-    @CurrentUser('userId') userId: string,
-  ): Promise<ApprovalRequestView> {
-    return this.service.decideApprovalContract(companyId, id, userId, dto);
-  }
+  // TASK-24Z: مسیرِ تصمیم فقط یک‌جا اعلام می‌شود (RulesEngineController)،
+  // مطابقِ قرارداد OpenAPI: { step_no, decision: approved|rejected|returned }.
 }

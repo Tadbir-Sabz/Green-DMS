@@ -63,6 +63,18 @@ export class PurchaseOrderController {
     return this.service.create(companyId, dto, userId);
   }
 
+  /** TASK-24Z — ارسال به گردشِ تأیید (ساختِ اتصال؛ پیش‌نیازِ تأیید). */
+  @Post(':id/request-approval')
+  @HttpCode(201)
+  @RequirePermissions('ap.purchase.request')
+  requestApproval(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.service.requestApproval(companyId, id, userId);
+  }
+
   @Post(':id/approve')
   @HttpCode(200)
   @RequirePermissions('ap.purchase.approve')

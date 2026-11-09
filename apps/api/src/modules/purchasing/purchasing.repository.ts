@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
+import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import type { DocNumberService } from '../../common/doc-number.service';
 import { DOC_NUMBER_SERVICE } from '../../common/doc-number.service';
@@ -375,8 +376,9 @@ export class PurchasingRepository {
   async approvePurchaseOrder(
     companyId: string,
     id: string,
+    client?: Runner,
   ): Promise<PurchaseOrderRow | null> {
-    const { rows } = await this.pool.query<PurchaseOrderRow>(
+    const { rows } = await (client ?? this.pool).query<PurchaseOrderRow>(
       `update purchase_order set status = 'approved'
         where id = $1 and status = 'draft'
           and branch_id in (select id from branch where company_id = $2)

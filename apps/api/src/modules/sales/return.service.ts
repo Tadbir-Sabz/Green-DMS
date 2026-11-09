@@ -95,6 +95,38 @@ export class ReturnService {
    * خودش را تأیید کند و هیچ زنجیره/تصمیمی ثبت نمی‌شد. `requested_by` از قبل
    * در جدول بود ولی خوانده نمی‌شد — ستونِ بی‌استفاده یعنی کنترلِ ناموجود.
    */
+  /**
+   * TASK-24Z · Phase A — ارسالِ مرجوعی به گردشِ تأیید (ساختِ درخواست + اتصال).
+   */
+  async requestApproval(
+    companyId: string,
+    id: string,
+    actorUserId: string,
+  ): Promise<{ approval_request_id: string; current_step: number; expires_at: string | null; stages: number }> {
+    this.assertId(id);
+    const row = await this.repo.findById(companyId, id);
+    if (!row) throw new NotFoundException({ code: 'not_found', message_fa: 'درخواست مرجوعی یافت نشد' });
+    if (row.status !== 'submitted') {
+      throw new ConflictException({
+        code: 'invalid_transition',
+        message_fa: 'فقط مرجوعیِ ثبت‌شده (submitted) قابلِ ارسال به گردشِ تأیید است.',
+        details: { status: row.status },
+      });
+    }
+    const started = await this.rules.submitForApproval(companyId, {
+      operation: 'sales.return.approve',
+      entityType: 'return_request',
+      entityId: id,
+      requestedBy: row.requested_by ?? actorUserId,
+    });
+    return {
+      approval_request_id: started.approvalRequestId,
+      current_step: started.currentStep,
+      expires_at: started.expiresAt,
+      stages: started.stages,
+    };
+  }
+
   async approve(companyId: string, id: string, actorUserId: string): Promise<ReturnView> {
     this.assertId(id);
     const row = await this.repo.findById(companyId, id);
@@ -117,18 +149,28 @@ export class ReturnService {
 
     // دروازهٔ سیاست — فقط اگر سیاستی برای این عملیات تعریف شده باشد
     const policies = await this.rules.listPoliciesForOperation(companyId, 'sales.return.approve');
-    if (policies.length > 0) {
-      await this.rules.requireApproved(companyId, {
-        operation: 'sales.return.approve',
-        entityType: 'return_request',
-        entityId: id,
-      });
+    if (policies.length === 0) {
+      const ok = await this.repo.approve(companyId, id);
+      if (!ok) {
+        throw new ConflictException({ code: 'invalid_transition', message_fa: 'وضعیت درخواست هم‌زمان تغییر کرده است.' });
+      }
+      return this.get(companyId, id);
     }
 
-    const ok = await this.repo.approve(companyId, id);
-    if (!ok) {
-      throw new ConflictException({ code: 'invalid_transition', message_fa: 'وضعیت درخواست هم‌زمان تغییر کرده است.' });
-    }
+    // TASK-24Z · Phase B — مصرف + گذار در یک تراکنش (یافتهٔ D-1).
+    await this.rules.consumeApprovedBinding(
+      companyId,
+      { operation: 'sales.return.approve', entityType: 'return_request', entityId: id },
+      async (client) => {
+        const ok = await this.repo.approve(companyId, id, client);
+        if (!ok) {
+          throw new ConflictException({
+            code: 'invalid_transition',
+            message_fa: 'وضعیت درخواست هم‌زمان تغییر کرده است.',
+          });
+        }
+      },
+    );
     return this.get(companyId, id);
   }
 

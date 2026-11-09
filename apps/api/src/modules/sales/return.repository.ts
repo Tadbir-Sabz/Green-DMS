@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
+import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import type { CreateReturnDto, ReceiveReturnDto } from './return.dto';
 
@@ -162,8 +163,8 @@ export class ReturnRepository {
   }
 
   /** تأیید: submitted → approved (به‌روزرسانی اتمیک با شرط وضعیت؛ false یعنی transition نامعتبر) */
-  async approve(companyId: string, id: string): Promise<boolean> {
-    const { rowCount } = await this.pool.query(
+  async approve(companyId: string, id: string, client?: Runner): Promise<boolean> {
+    const { rowCount } = await (client ?? this.pool).query(
       `update return_request set status = 'approved', approved_at = now()
         where id = $1
           and status = 'submitted'
