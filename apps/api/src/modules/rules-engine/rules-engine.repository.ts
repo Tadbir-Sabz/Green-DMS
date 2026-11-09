@@ -502,7 +502,10 @@ export class RulesEngineRepository {
     if (!UUID_RE.test(requestId)) return null;
     const { rows } = await runner(this.pool, client).query<ApprovalRequestRow>(
       `select a.id, a.approval_chain_id, a.entity_type, a.entity_id, a.requested_by,
-              a.amount, a.expires_at, a.entity_domain_id, a.status, a.current_step, a.created_at, a.closed_at
+              a.amount::text as amount, a.expires_at, a.entity_domain_id, a.policy_id, a.policy_snapshot, a.status, a.current_step, a.created_at, a.closed_at,
+              (select json_build_object('operation', b.operation, 'consumed_at', b.consumed_at,
+                 'superseded_at', b.superseded_at) from approval_binding b
+                 where b.approval_request_id = a.id and b.company_id = $2 limit 1) as binding
          from approval_request a
          join approval_chain ac on ac.id = a.approval_chain_id
         where a.id = $1 and ac.company_id = $2`,
@@ -530,7 +533,7 @@ export class RulesEngineRepository {
 
   async listApprovalDecisions(requestId: string): Promise<ApprovalDecisionRow[]> {
     const { rows } = await this.pool.query<ApprovalDecisionRow>(
-      `select id, approval_request_id, step_no, decided_by, decision, comment, decided_at
+      `select id, approval_request_id, step_no, decided_by, decision, comment, decided_at, meta
          from approval_decision
         where approval_request_id = $1
         order by step_no, decided_at`,
@@ -1094,17 +1097,18 @@ export class RulesEngineRepository {
     entity_domain_id: string | null;
     risk_score: number | null;
     policy_id: string | null;
+    policy_snapshot?: Record<string, unknown>;
   }, client?: Runner): Promise<string> {
     const { rows } = await runner(this.pool, client).query<{ id: string }>(
       `insert into approval_request
          (approval_chain_id, entity_type, entity_id, requested_by, amount, current_step,
-          status, expires_at, entity_domain_id, risk_score, policy_id)
-       values ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10)
+          status, expires_at, entity_domain_id, risk_score, policy_id, policy_snapshot)
+       values ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10,$11::jsonb)
        returning id`,
       [
         input.approval_chain_id, input.entity_type, input.entity_id, input.requested_by,
         input.amount, input.current_step, input.expires_at, input.entity_domain_id,
-        input.risk_score, input.policy_id,
+        input.risk_score, input.policy_id, JSON.stringify(input.policy_snapshot ?? null),
       ],
     );
     return rows[0].id;

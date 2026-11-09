@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "@/lib/api";
@@ -81,6 +82,7 @@ export default function ApprovalInboxPage() {
   const [selected, setSelected] = useState<InboxItem | null>(null);
   const [decision, setDecision] = useState<"approved" | "rejected" | "returned">("approved");
   const [comment, setComment] = useState("");
+  const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const inbox = useQuery({
@@ -117,7 +119,10 @@ export default function ApprovalInboxPage() {
     },
     onSuccess: () => {
       setError(null);
+      setSuccess("تصمیم ثبت شد؛ سابقه درخواست بدون بازنویسی نگهداری می‌شود.");
       setSelected(null);
+      void qc.invalidateQueries({ queryKey: ["approval-record"] });
+      void qc.invalidateQueries({ queryKey: ["approval-register"] });
       setComment("");
       void qc.invalidateQueries({ queryKey: ["approval-inbox"] });
     },
@@ -171,6 +176,10 @@ export default function ApprovalInboxPage() {
         </div>
       </div>
 
+      <nav className="flex flex-wrap gap-4 text-sm text-brand"><Link className="underline focus-ring" href="/approvals">پیگیری همه وضعیت‌ها و تاریخچه</Link><Link className="underline focus-ring" href="/approvals/administration">نظارت بر تنظیمات</Link></nav>
+      {success && <p role="status" className="rounded-lg border border-line bg-surface p-3">{success}</p>}
+      {inbox.isLoading && tab === "inbox" && <p role="status">در حال دریافت کارتابل…</p>}
+      {delegations.isLoading && tab === "delegations" && <p role="status">در حال دریافت واگذاری‌ها…</p>}
       {error && (
         <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">
           {error}
@@ -207,12 +216,11 @@ export default function ApprovalInboxPage() {
                     return (
                       <tr
                         key={r.id}
-                        onClick={() => setSelected(r)}
                         className={`border-t border-line cursor-pointer hover:bg-surface-hover ${
                           selected?.id === r.id ? "bg-brand-soft" : ""
                         }`}
                       >
-                        <td className="px-4 py-3">{faEntity(r.entity_type)}</td>
+                        <td className="px-4 py-3"><button className="text-brand underline focus-ring rounded" aria-pressed={selected?.id === r.id} onClick={() => { setSelected(r); setComment(""); setDecision("approved"); setError(null); setSuccess(null); }}>{faEntity(r.entity_type)}</button></td>
                         <td className="px-4 py-3 text-ink-muted">{r.chain_code}</td>
                         <td className="px-4 py-3">{faMoney(r.amount)}</td>
                         <td className="px-4 py-3">{r.current_step.toLocaleString("fa-IR")}</td>
@@ -223,7 +231,7 @@ export default function ApprovalInboxPage() {
                       </tr>
                     );
                   })}
-                  {!inbox.isLoading && rows.length === 0 && (
+                  {!inbox.isLoading && !inbox.isError && rows.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-10 text-center text-ink-subtle">
                         در حال حاضر درخواستی در نوبت شما نیست
@@ -252,6 +260,7 @@ export default function ApprovalInboxPage() {
                     <span>{selected.current_step.toLocaleString("fa-IR")}</span>
                   </div>
 
+                  <Link href={`/approvals/${selected.id}`} className="block text-brand underline focus-ring">مشاهده مراحل و تاریخچه قبل از تصمیم</Link>
                   <div>
                     <label className="text-ink-muted" htmlFor="decision">
                       تصمیم
@@ -291,7 +300,7 @@ export default function ApprovalInboxPage() {
                     ثبت تصمیم
                   </button>
                   <p className="text-xs text-ink-subtle leading-relaxed">
-                    تصمیم بازنویسی‌شدنی نیست؛ در صورت اشتباه، تصمیم تازه‌ای ثبت کنید.
+                    تصمیم بازنویسی‌شدنی نیست. پیش از ثبت، سند و سابقه را بررسی کنید؛ تغییر وضعیت فقط از مسیر مجاز گردش انجام می‌شود.
                   </p>
                 </div>
               )}
@@ -301,7 +310,7 @@ export default function ApprovalInboxPage() {
       )}
 
       {tab === "delegations" && (
-        <div className="bg-surface border border-line rounded-2xl overflow-hidden">
+        <div className="min-w-0 bg-surface border border-line rounded-2xl overflow-x-auto">
           {delegations.isError && (
             <div className="p-4 text-sm text-danger-ink">
               {(delegations.error as Error).message}
@@ -324,8 +333,8 @@ export default function ApprovalInboxPage() {
                   <td className="px-4 py-3">{d.operation ?? "همهٔ عملیات"}</td>
                   <td className="px-4 py-3">{faDate(d.valid_from)}</td>
                   <td className="px-4 py-3">{faDate(d.valid_to)}</td>
-                  <td className="px-4 py-3 text-ink-muted">{d.reason}</td>
-                  <td className="px-4 py-3">{d.is_active ? "فعال" : "لغو شده"}</td>
+                  <td className="px-4 py-3 text-ink-muted"><p>{d.reason}</p><p className="max-w-64 break-all text-xs">واگذارکننده: <bdi>{d.delegator_id}</bdi></p><p className="max-w-64 break-all text-xs">نماینده: <bdi>{d.delegate_id}</bdi></p></td>
+                  <td className="px-4 py-3">{!d.is_active ? "لغو شده" : new Date(d.valid_to).getTime() <= Date.now() ? "منقضی شده" : new Date(d.valid_from).getTime() > Date.now() ? "شروع نشده" : "فعال در بازه"}</td>
                   <td className="px-4 py-3">
                     {d.is_active && (
                       <button
@@ -339,7 +348,7 @@ export default function ApprovalInboxPage() {
                   </td>
                 </tr>
               ))}
-              {!delegations.isLoading && (delegations.data?.length ?? 0) === 0 && (
+              {!delegations.isLoading && !delegations.isError && (delegations.data?.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-ink-subtle">
                     واگذاری‌ای ثبت نشده است

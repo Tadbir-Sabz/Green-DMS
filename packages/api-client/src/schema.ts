@@ -12582,6 +12582,53 @@ export interface components {
         };
         /** @description درخواست تأیید مبلغ‌محور (زنجیره تأیید — ماژول ۳ §۳.۳) */
         ApprovalRequest: {
+            /** @description ورودی سیاست‌های ترکیب هنگام ایجاد؛ برای سابقه‌های قدیمی بازسازی نمی‌شود */
+            policy_snapshot?: {
+                version?: number;
+                policies?: {
+                    /** Format: uuid */
+                    id?: string;
+                    scope?: string;
+                    /** Format: uuid */
+                    approval_chain_id?: string;
+                    min_amount?: string | number | null;
+                    max_amount?: string | number | null;
+                    min_risk_score?: number | null;
+                    expires_in_hours?: number | null;
+                }[];
+                source_chains?: {
+                    /** Format: uuid */
+                    id?: string;
+                    steps?: {
+                        [key: string]: unknown;
+                    }[];
+                }[];
+            } | null;
+            /**
+             * Format: uuid
+             * @description شناسه سیاست حاکم هنگام ایجاد؛ نه فهرست کامل منابع ترکیب
+             */
+            policy_id?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+            binding?: {
+                operation?: string;
+                /** Format: date-time */
+                consumed_at?: string | null;
+                /** Format: date-time */
+                superseded_at?: string | null;
+            } | null;
+            /** @description مراحل ذخیره‌شده درخواست؛ نه پیکربندی جاری سیاست */
+            snapshot_steps?: {
+                step_no?: number;
+                /** Format: uuid */
+                approver_staff_id?: string | null;
+                /** Format: uuid */
+                approver_role_id?: string | null;
+                min_amount?: string | number | null;
+                max_amount?: string | number | null;
+                is_mandatory?: boolean;
+            }[];
             /** Format: uuid */
             readonly id?: string;
             /** Format: uuid */
@@ -12606,6 +12653,10 @@ export interface components {
             closed_at?: string | null;
             decisions?: {
                 step_no?: number;
+                meta?: {
+                    /** Format: uuid */
+                    delegated_from?: string;
+                } | null;
                 /** Format: uuid */
                 decided_by?: string | null;
                 /** @enum {string|null} */

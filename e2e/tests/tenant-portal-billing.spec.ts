@@ -232,6 +232,71 @@ test.describe('tenant / portal / billing / attachments', () => {
     await page.goto('/bi');
     await expect(page.getByText('داشبورد BI').first()).toBeVisible({ timeout: 30_000 });
   });
+  test('گردش اپراتور: بازگردانی، ارسال تازه، منشأ و تاریخچه در موبایل و دسکتاپ', async ({ page }, info) => {
+    const auth = { Authorization: `Bearer ${ctx.staffToken}` };
+    const rolesResponse = await ctx.api.get(`${API}/roles`, { headers: auth });
+    expect(rolesResponse.status()).toBe(200);
+    const rolesBody = await rolesResponse.json();
+    const role = (rolesBody.items ?? rolesBody).find((r: { code: string }) => r.code.toLowerCase() === 'ceo');
+    expect(role).toBeTruthy();
+    const checkerName = `checker_${stamp}_${rnd}`;
+    const checker = await ctx.api.post(`${API}/users`, { headers: auth, data: {
+      username: checkerName, password: ADMIN_PASSWORD, person_code: `CHK-${rnd}`,
+      first_name: 'تأییدکننده', last_name: 'آزمون', role_ids: [role.id], access_level: 'web',
+    } });
+    expect(checker.status()).toBe(201);
+    const chain = await ctx.api.post(`${API}/rules-engine/approval-chains`, { headers: auth, data: {
+      code: `OP-${rnd}`, entity: 'sales_order', steps: [{ step_no: 1, approver_role_id: role.id }],
+    } });
+    expect(chain.status()).toBe(201);
+    const chainId = (await chain.json()).id;
+    const policy = await ctx.api.post(`${API}/rules-engine/approval-policies`, { headers: auth, data: {
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chainId,
+    } });
+    expect(policy.status()).toBe(201);
+    const order = await ctx.api.post(`${API}/orders`, { headers: auth, data: {
+      customer_id: ctx.customerA, order_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }), lines: [],
+    } });
+    expect(order.status()).toBe(201);
+    const orderId = (await order.json()).id;
+    const submit = async () => {
+      const result = await ctx.api.post(`${API}/orders/${orderId}/request-approval`, { headers: auth, data: {} });
+      expect(result.status()).toBe(201);
+      return (await result.json()).approval_request_id as string;
+    };
+    const firstId = await submit();
+    await page.goto('/login');
+    await page.fill('#username', checkerName); await page.fill('#password', ADMIN_PASSWORD);
+    await page.click('button[type=submit]');
+    await expect(page).toHaveURL(/\/(products|dashboard|bi)/, { timeout: 30_000 });
+    await page.goto('/approvals/inbox');
+    await page.getByRole('button', { name: 'سفارش فروش', exact: true }).click();
+    await page.selectOption('#decision', 'returned'); await page.fill('#comment', 'نیاز به اصلاح و ارسال تازه');
+    await page.getByRole('button', { name: 'ثبت تصمیم', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('تصمیم ثبت شد');
+    const nextId = await submit();
+    expect(nextId).not.toBe(firstId);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`/approvals/${firstId}`);
+      await expect(page.getByText('جایگزین شده', { exact: true })).toBeVisible();
+      await expect(page.getByText('نیاز به اصلاح و ارسال تازه', { exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'منشأ ترکیب سیاست‌ها' })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await info.attach(`operator-history-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    }
+    await page.goto('/approvals/inbox');
+    await page.getByRole('button', { name: 'سفارش فروش', exact: true }).click();
+    await page.getByRole('button', { name: 'ثبت تصمیم', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('تصمیم ثبت شد');
+    await page.goto(`/approvals/${nextId}`);
+    await expect(page.getByText('تأیید شده', { exact: true })).toBeVisible();
+    await page.goto('/approvals/administration');
+    await expect(page.getByRole('heading', { name: 'نظارت بر تنظیمات تأیید' })).toBeVisible();
+    await expect(page.getByText('سیاست‌های ثبت‌شده', { exact: true })).toBeVisible();
+    await info.attach('operator-administration', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+  });
+
   test('کارتابل تأیید: RTL و نمای واکنش‌گرا پس از ورود واقعی', async ({ page }, info) => {
     await page.goto('/login');
     await page.fill('#username', ADMIN_EMAIL);

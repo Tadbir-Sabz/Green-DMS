@@ -40,3 +40,8 @@ await writeFile('browser-evidence.json', JSON.stringify(summary, null, 2));
 console.log(`::notice title=browser-evidence::head=${summary.head} exit_code=${summary.exit_code} screenshots=${screenshots.length} diagnostic_files=${events.length}; full data in browser-evidence.json artifact`);
 
 console.log(`::notice title=browser-diagnostics::${JSON.stringify(counts)}`);
+for (const file of events) {
+  for (const event of file.events.filter(e => e.kind === 'console' && e.level === 'error')) {
+    console.log(`::notice title=browser-console-detail::${JSON.stringify({ path: file.path, text: event.text }).replace(/\r?\n/g, ' ').replace(/%/g, '%25')}`);
+  }
+}

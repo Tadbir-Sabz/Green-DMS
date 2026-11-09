@@ -559,6 +559,13 @@ describe('3 — چرخهٔ کاملِ تأیید (بدونِ SQLِ خام)', () 
     const sub = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({});
     expect(sub.status).toBe(201);
     const reqId = sub.body.approval_request_id as string;
+    const record = await api(checkerToken).get(`/api/v1/rules-engine/approvals/${reqId}`).expect(200);
+    expect(record.body.snapshot_steps).toHaveLength(1);
+    expect(record.body.snapshot_steps[0].approver_role_id).toBe(checkerRoleId);
+    expect(record.body.policy_snapshot.policies.map((p: { id: string }) => p.id)).toContain(pol.body.id);
+    expect(record.body.policy_snapshot.source_chains[0].id).toBe(chain);
+    expect(record.body.binding).toMatchObject({ operation: 'sales.order.approve', consumed_at: null, superseded_at: null });
+    await api(foreignToken).get(`/api/v1/rules-engine/approvals/${reqId}`).expect(404);
 
     // اتصال ساخته شد — توسط خودِ محصول، نه آزمون
     expect(await countRows(
@@ -711,6 +718,11 @@ describe('4 — کنترل‌های منفی', () => {
       .send({ step_no: 1, decision: 'returned' }).expect(201);
     const third = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
     expect(new Set([requestId, second.body.approval_request_id, third.body.approval_request_id]).size).toBe(3);
+    const previous = await api(checkerToken).get(`/api/v1/rules-engine/approvals/${second.body.approval_request_id}`).expect(200);
+    expect(previous.body.binding.superseded_at).toBeTruthy();
+    expect(previous.body.decisions[0].decision).toBe('returned');
+    expect(previous.body.policy_snapshot.version).toBe(1);
+
   });
 
   it('R5 · request transition DB failure rolls back decision; retry and concurrent final decisions are safe', async () => {
@@ -1138,6 +1150,9 @@ describe('4 — کنترل‌های منفی', () => {
       [reqId],
     );
     expect(meta.rows[0].meta?.delegated_from).toBe(checkerUserId);
+    const detail = await api(otherToken).get(`/api/v1/rules-engine/approvals/${reqId}`).expect(200);
+    expect(detail.body.decisions[0].meta.delegated_from).toBe(checkerUserId);
+
   });
 
   it('NC-D4 · تفکیل خودتأییدی را مجاز نمی‌کند', async () => {

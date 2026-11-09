@@ -646,7 +646,9 @@ export class RulesEngineService {
     const req = await this.repo.getApprovalRequest(companyId, requestId);
     if (!req) throw notFound('درخواست تأیید یافت نشد');
     const decisions = await this.repo.listApprovalDecisions(requestId);
-    return { ...req, decisions };
+    // Use the request's persisted composed chain, never today's policy configuration.
+    const snapshot_steps = await this.repo.getApprovalChainSteps(req.approval_chain_id);
+    return { ...req, decisions, snapshot_steps };
   }
 
   async decideApproval(
@@ -1096,6 +1098,15 @@ export class RulesEngineService {
           entity_domain_id: domainId,
           risk_score: input.riskScore ?? null,
           policy_id: composed.decidingPolicyId,
+          policy_snapshot: {
+            version: 1,
+            policies: policies.filter(p => composed.matchedPolicyIds.includes(p.id)).map(p => ({
+              id: p.id, scope: p.scope, approval_chain_id: p.approval_chain_id,
+              min_amount: p.min_amount, max_amount: p.max_amount,
+              min_risk_score: p.min_risk_score, expires_in_hours: p.expires_in_hours,
+            })),
+            source_chains: [...chainStages].map(([id, steps]) => ({ id, steps })),
+          },
         },
         client,
       );

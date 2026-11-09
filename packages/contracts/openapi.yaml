@@ -7078,6 +7078,52 @@ components:
       type: object
       description: درخواست تأیید مبلغ‌محور (زنجیره تأیید — ماژول ۳ §۳.۳)
       properties:
+        policy_snapshot:
+          type: [object, 'null']
+          description: ورودی سیاست‌های ترکیب هنگام ایجاد؛ برای سابقه‌های قدیمی بازسازی نمی‌شود
+          properties:
+            version: { type: integer }
+            policies:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  scope: { type: string }
+                  approval_chain_id: { type: string, format: uuid }
+                  min_amount: { type: [string, number, 'null'] }
+                  max_amount: { type: [string, number, 'null'] }
+                  min_risk_score: { type: [integer, 'null'] }
+                  expires_in_hours: { type: [integer, 'null'] }
+            source_chains:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  steps:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        policy_id: { type: [string, 'null'], format: uuid, description: شناسه سیاست حاکم هنگام ایجاد؛ نه فهرست کامل منابع ترکیب }
+        expires_at: { type: [string, 'null'], format: date-time }
+        binding:
+          type: [object, 'null']
+          properties:
+            operation: { type: string }
+            consumed_at: { type: [string, 'null'], format: date-time }
+            superseded_at: { type: [string, 'null'], format: date-time }
+        snapshot_steps:
+          type: array
+          description: مراحل ذخیره‌شده درخواست؛ نه پیکربندی جاری سیاست
+          items:
+            type: object
+            properties:
+              step_no: { type: integer }
+              approver_staff_id: { type: [string, 'null'], format: uuid }
+              approver_role_id: { type: [string, 'null'], format: uuid }
+              min_amount: { type: [string, number, 'null'] }
+              max_amount: { type: [string, number, 'null'] }
+              is_mandatory: { type: boolean }
         id: { type: string, format: uuid, readOnly: true }
         approval_chain_id: { type: [string, 'null'], format: uuid }
         entity_type: { type: string, examples: ['sales_order', 'return_request', 'stock_adjustment'] }
@@ -7095,6 +7141,10 @@ components:
             type: object
             properties:
               step_no: { type: integer }
+              meta:
+                type: [object, 'null']
+                properties:
+                  delegated_from: { type: string, format: uuid }
               decided_by: { type: [string, 'null'], format: uuid }
               decision: { type: [string, 'null'], enum: [approved, rejected, returned, null] }
               decided_at: { type: [string, 'null'], format: date-time }
