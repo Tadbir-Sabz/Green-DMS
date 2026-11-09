@@ -227,3 +227,17 @@
   results, preserved local missing-PostGIS failure, first/filtered/final browser
   annotations and exact-head native CI/artifact metadata. Current two console
   occurrences classified from actual text/path notices, not guessed from counts.
+
+## TASK-24Z-EXIT-GATE (no test reruns / no runtime changes)
+
+- `TASK-24Z_EXIT_GATE.md`: definitive STILL BLOCKED full-module boundary,
+  mandatory/optional/owner-gated/approved-future/shared matrix, D01–D07 owner
+  choices and exact start conditions; no implicit scope waiver.
+- `TASK-PM-01_PRODUCT_MASTER_SPEC.md`: actionable decision-gated design for
+  central SKU plus per-domain availability, existing0046/0047 reuse, APIs/RLS,
+  audit, governance/autonomy and acceptance; no new business-module implementation.
+- `evidence/task24z-exit-gate/`:55f3548 exact-head five-job CI snapshot,
+ 15/15browser14.5s annotations and artifact13670730844 metadata. Supported
+ download again fails signedblob EOF; manual visual review UNVERIFIED.
+- Existing target design has a continuity appendix clarifying per-domain
+ availability without changing approved D1–D5 or asserting phase reorder approval.

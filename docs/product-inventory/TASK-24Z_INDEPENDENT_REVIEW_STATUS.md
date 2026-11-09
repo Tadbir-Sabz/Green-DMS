@@ -57,3 +57,16 @@ mutation route. Review same-company visibility versus rules.view, delegation/SoD
 atomicity, RLS, financial invariants,0059 grants/rollback and older onboarding.
 No Agent-2 report or submitted review received; findings/disagreements remain
 UNVERIFIED, not “none found”. No merge/deployment approval implied.
+
+## Exit gate — no independent approval received
+
+Fresh input55f354871549f09b91cf1b437f0e70b8a9bd2906 has its own green automation.
+PR reviews remain empty; no Agent-2 report or dispatch tool available. Renewed
+read-only request:
+https://github.com/Tadbir-Sabz/Green-DMS/pull/13#issuecomment-6739602529
+
+Review tenant/RLS, authorization (including decide-only history visibility),
+provenance, supersession/resubmission, delegated identity,0059 and transactions.
+All independent findings remain UNVERIFIED. Agent-1's new source-confirmed M04
+permission-boundary gap is not an Agent-2 finding; preserve any later disagreement
+explicitly. No modification of implementation/history/CI, no merge/deployment.

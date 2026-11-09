@@ -71,3 +71,14 @@ change enforcement, four-decimal precision and unchanged financial rounding,
 historical snapshots, tenant isolation and catalogue-only bundle restriction.
 Do not assume implementation is absent merely from older inventory text or start
 all consumer modules at once.
+
+## Exit-gate determination (supersedes ambiguous deferral language)
+
+`TASK-24Z_EXIT_GATE.md` now provides the authoritative task-local exit matrix:
+full current module STILL BLOCKED, supported journeys PASS WITH FINDINGS only.
+Configuration authoring, substitution management, chain administration and
+least-privilege decider/history access need completion or explicit authorized
+boundary acceptance. “Future” in earlier rows was proposed placement, never an
+approved deferral. Actual approved future restriction is Product Master D5 bundle
+operations until P5. Product Master next-step specification is prepared separately;
+no new module implementation or global rollout authorized by this documentation.
