@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
@@ -722,7 +722,29 @@ describe('4 — کنترل‌های منفی', () => {
     expect(previous.body.binding.superseded_at).toBeTruthy();
     expect(previous.body.decisions[0].decision).toBe('returned');
     expect(previous.body.policy_snapshot.version).toBe(1);
+    const register = await api(checkerToken).get('/api/v1/rules-engine/approvals').expect(200);
+    expect(register.body.find((r: { id: string }) => r.id === second.body.approval_request_id).binding.superseded_at).toBeTruthy();
 
+
+  });
+
+  it('OP-PROVENANCE · additive rollback preserves request and immutable decisions, never fabricates old provenance', async () => {
+    const { requestId } = await resubmissionFixture();
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${requestId}/decision`)
+      .send({ step_no: 1, decision: 'rejected', comment: 'تاریخچه محفوظ' }).expect(201);
+    const before = await api(checkerToken).get(`/api/v1/rules-engine/approvals/${requestId}`).expect(200);
+    expect(before.body.policy_snapshot.version).toBe(1);
+    await pool.query(readFileSync(path.join(ROOT, 'migrations/0059_approval_provenance.down.sql'), 'utf8'));
+    try {
+      expect((await pool.query('select status from approval_request where id = $1', [requestId])).rows[0].status).toBe('rejected');
+      expect((await pool.query('select comment from approval_decision where approval_request_id = $1', [requestId])).rows[0].comment).toBe('تاریخچه محفوظ');
+    } finally {
+      await pool.query(readFileSync(path.join(ROOT, 'migrations/0059_approval_provenance.up.sql'), 'utf8'));
+    }
+    const after = await api(checkerToken).get(`/api/v1/rules-engine/approvals/${requestId}`).expect(200);
+    expect(after.body.policy_snapshot).toBeNull();
+    expect(after.body.decisions).toEqual(before.body.decisions);
+    expect(after.body.snapshot_steps).toEqual(before.body.snapshot_steps);
   });
 
   it('R5 · request transition DB failure rolls back decision; retry and concurrent final decisions are safe', async () => {

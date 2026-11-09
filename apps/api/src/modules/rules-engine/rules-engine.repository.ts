@@ -487,7 +487,10 @@ export class RulesEngineRepository {
     }
     const { rows } = await this.pool.query<ApprovalRequestRow>(
       `select a.id, a.approval_chain_id, a.entity_type, a.entity_id, a.requested_by,
-              a.amount, a.status, a.current_step, a.created_at, a.closed_at
+              a.amount::text as amount, a.status, a.current_step, a.created_at, a.closed_at,
+              (select json_build_object('operation', b.operation, 'consumed_at', b.consumed_at,
+                 'superseded_at', b.superseded_at) from approval_binding b
+                 where b.approval_request_id = a.id and b.company_id = $1 limit 1) as binding
          from approval_request a
          join approval_chain ac on ac.id = a.approval_chain_id
         ${where}

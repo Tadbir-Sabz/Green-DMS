@@ -309,6 +309,11 @@ test.describe('tenant / portal / billing / attachments', () => {
     await expect(page.getByRole('status')).toContainText('تصمیم ثبت شد');
     await page.goto(`/approvals/${nextId}`);
     await expect(page.getByText('تأیید شده', { exact: true })).toBeVisible();
+    await page.goto('/approvals');
+    await page.getByLabel('وضعیت', { exact: true }).selectOption('superseded');
+    await page.getByRole('button').filter({ hasText: firstId }).click();
+    await expect(page.getByRole('heading', { name: 'تاریخچه تغییرناپذیر تصمیم‌ها' })).toBeVisible();
+    await info.attach('operator-register-superseded', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
     await page.goto('/approvals/administration');
     await expect(page.getByRole('heading', { name: 'نظارت بر تنظیمات تأیید' })).toBeVisible();
     await expect(page.getByText('سیاست‌های ثبت‌شده', { exact: true })).toBeVisible();
