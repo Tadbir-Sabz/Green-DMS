@@ -199,3 +199,16 @@
 `product-master-core` به PostGIS/نقشِ init/افزونهٔ جست‌وجو نیاز دارند که در این سندباکس نیست؛ این
 فایل‌ها در CI با `postgis/postgis:16-3.4` اجرا می‌شوند.
 
+
+## TASK-24Z-FINAL-GATE — evidence reconciliation (documentation only)
+
+- `TASK-24Z_FINAL_GATE_REPORT.md`: freshly verified PR HEAD d285850, exact-head
+  five CI jobs and 14/14 browser results; both console occurrences UNVERIFIED;
+  independent review still pending, no clean-console/approval claim.
+- `TASK-24Z_OWNER_DECISION_REGISTER.md`: D01–D07 questions, alternatives,
+  consequences, recommendations and role owners; all OPEN, not invented rules.
+- `TASK-24Z_MODULE_COMPLETION_MATRIX.md`: current/next/shared/future boundaries,
+  canonical roadmap dependencies and bounded operator-closure next task.
+- `evidence/task24z-final-gate/`: PR-head/check, CI-job, browser-annotation and
+  artifact metadata snapshots. Actual artifact download failed with EOF;
+  metadata is not a locally inspected screenshot/event payload.
