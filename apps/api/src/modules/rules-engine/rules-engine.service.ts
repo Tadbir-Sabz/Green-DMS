@@ -761,9 +761,9 @@ export class RulesEngineService {
     }
 
     return withTransaction(this.pool, async (client) => {
-      const locked = await client.query<{ status: string; current_step: number }>(
-        'select status, current_step from approval_request where id = $1 for update', [requestId]);
-      if (locked.rows[0]?.status !== 'pending' || locked.rows[0]?.current_step !== stepNo) {
+      const locked = await client.query<{ status: string; current_step: number; expired: boolean }>(
+        'select status, current_step, expires_at <= now() as expired from approval_request where id = $1 for update', [requestId]);
+      if (locked.rows[0]?.expired || locked.rows[0]?.status !== 'pending' || locked.rows[0]?.current_step !== stepNo) {
         throw this.concurrentDecision();
       }
     try {

@@ -133,6 +133,18 @@ describe('F-1 · rollback هویتِ سازنده را نابود نمی‌کن�
       )
     ).rows[0].id;
 
+    const supplierId = (await pool.query<{ id: string }>(
+      `insert into supplier(company_id, person_id, code) values ($1,$2,'MS1') returning id`,
+      [companyId, person.rows[0].id],
+    )).rows[0].id;
+    const warehouseId = (await pool.query<{ id: string }>(
+      `insert into warehouse(branch_id, code, name, kind) values ($1,'MW1','انبار','main') returning id`, [branchId],
+    )).rows[0].id;
+    const purchaseId = (await pool.query<{ id: string }>(
+      `insert into purchase_order(branch_id,doc_number,fiscal_year,supplier_id,warehouse_id,created_by)
+       values ($1,'MPO-1',1404,$2,$3,$4) returning id`, [branchId,supplierId,warehouseId,userId],
+    )).rows[0].id;
+
     // پیش‌شرط: مقدار واقعاً ذخیره شده است
     const before = await pool.query<{ created_by: string | null }>(
       `select created_by from sales_order where id = $1`,
@@ -165,6 +177,9 @@ describe('F-1 · rollback هویتِ سازنده را نابود نمی‌کن�
      * TASK-24Z مقدار را از آرشیو بازمی‌گرداند.
      */
     expect(after.rows[0].created_by).toBe(userId);
+    expect((await pool.query(`select created_by from purchase_order where id = $1`, [purchaseId])).rows[0].created_by).toBe(userId);
+    expect((await pool.query(`select created_by from approval_sod_creator_archive where entity_table = 'purchase_order' and entity_id = $1`, [purchaseId])).rows[0].created_by).toBe(userId);
+
   }, 120_000);
 
   it('rollback بدونِ دادهٔ سازنده، ستون را ساده حذف می‌کند (بدونِ آرشیوِ اضافی)', async () => {
