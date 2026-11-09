@@ -1,0 +1,65 @@
+flowchart TB
+  subgraph CHQ["Central Headquarters - implemented governance plus proposed registry authority"]
+    CG["Central governance and policy<br/>IMPLEMENTED Product Master governance"]
+    PM["Central Product Master<br/>product.id, code, taxonomy, UOM, lifecycle<br/>IMPLEMENTED"]
+    HIST["Immutable catalog history 0060<br/>IMPLEMENTED"]
+    IAM["IAM roles and permissions<br/>IMPLEMENTED company-level only"]
+    REG["Single company-scoped operational_domain registry<br/>PROPOSED after PM-B1"]
+    ASSIGN["Actor-to-domain assignment<br/>PROPOSED after PM-B4"]
+    AUDIT["Domain membership audit and history<br/>PROPOSED after PM-B7"]
+  end
+
+  subgraph FOUND["PM-01B fail-closed foundation - implemented"]
+    GATE["DomainCatalogGate<br/>FOUNDATION"]
+    STATUS["GET /product-domain-integration<br/>available false plus eight decisions<br/>FOUNDATION"]
+    API["Blocked domain API boundaries<br/>400 or 503, no data<br/>FOUNDATION"]
+    UI["Persian RTL decision screen<br/>loading, error, empty, permission states<br/>FOUNDATION"]
+  end
+
+  subgraph DOMAINS["Operational domains - delegated resources and autonomy"]
+    D1["Abstract operational domain<br/>PROPOSED identity, no data"]
+    WH["Warehouses and operational inventory<br/>EXISTING resources, integration PROPOSED"]
+    FLEET["Vehicles and fleet<br/>EXISTING resources, integration PROPOSED"]
+    PRICE["Domain-specific pricing<br/>pricing_domain is NOT the catalog domain"]
+    USERS["Domain-level users and permissions<br/>PROPOSED domain scope in IAM"]
+    MEM["product_domain_membership<br/>PROPOSED after PM-B4 and PM-B5"]
+    AVAIL["Domain availability and activation<br/>PROPOSED after PM-B5"]
+    ATTR["Domain commercial and operational attributes<br/>PROPOSED, no downstream execution"]
+  end
+
+  subgraph DB["Database boundaries"]
+    RLS["Company RLS and dms_app<br/>IMPLEMENTED"]
+    DRLS["Domain-aware RLS policies<br/>PROPOSED, UNVERIFIED"]
+    PG["Isolated PostgreSQL and PostGIS tests<br/>EXISTING CI, domain tests BLOCKED"]
+  end
+
+  CG --> PM
+  PM --> HIST
+  IAM --> CG
+  REG -. "PM-B1 approval" .-> D1
+  ASSIGN -. "PM-B3 and PM-B4 approval" .-> USERS
+  REG --> GATE
+  ASSIGN --> GATE
+  GATE --> API
+  API --> UI
+  STATUS --> UI
+  D1 --> MEM
+  PM --> MEM
+  MEM --> AVAIL
+  MEM --> AUDIT
+  AVAIL --> ATTR
+  D1 --> WH
+  D1 --> FLEET
+  D1 --> PRICE
+  MEM -. "requires domain RLS proof" .-> DRLS
+  RLS --> DRLS
+  DRLS --> PG
+
+  classDef implemented fill:#e7f7ed,stroke:#1b7f3a,color:#102a18;
+  classDef foundation fill:#e8f1ff,stroke:#175cd3,color:#102a43;
+  classDef proposed fill:#fff4d6,stroke:#a66b00,stroke-dasharray:5 5,color:#402c00;
+  classDef blocked fill:#fde8e8,stroke:#b42318,color:#5a0f0a;
+  class CG,PM,HIST,IAM,RLS,PRICE,WH,FLEET implemented;
+  class GATE,STATUS,API,UI foundation;
+  class REG,ASSIGN,AUDIT,D1,USERS,MEM,AVAIL,ATTR,DRLS proposed;
+  class PG blocked;

@@ -1,0 +1,64 @@
+erDiagram
+  COMPANY ||--o{ CENTRAL_PRODUCT : owns
+  COMPANY ||--o{ EXISTING_PRICING_DOMAIN : owns
+  COMPANY ||--o{ APP_USER : owns
+  APP_USER ||--o{ USER_ROLE : has
+  ROLE ||--o{ ROLE_PERMISSION : grants
+  PERMISSION ||--o{ ROLE_PERMISSION : used_by
+  CENTRAL_PRODUCT ||--o{ PRODUCT_CATALOG_HISTORY : records
+
+  COMPANY ||--o{ PROPOSED_OPERATIONAL_DOMAIN : would_own
+  PROPOSED_OPERATIONAL_DOMAIN ||--o{ PROPOSED_DOMAIN_RESOURCE_MAP : explicit_mapping
+  PROPOSED_DOMAIN_RESOURCE_MAP }o--|| EXISTING_WAREHOUSE : may_reference
+  PROPOSED_DOMAIN_RESOURCE_MAP }o--|| EXISTING_VEHICLE : may_reference
+  PROPOSED_DOMAIN_RESOURCE_MAP }o--|| EXISTING_PRICING_DOMAIN : may_reference
+  PROPOSED_OPERATIONAL_DOMAIN ||--o{ PROPOSED_ACTOR_DOMAIN_ASSIGNMENT : scoped_actor
+  APP_USER ||--o{ PROPOSED_ACTOR_DOMAIN_ASSIGNMENT : assigned
+  CENTRAL_PRODUCT ||--o{ PROPOSED_PRODUCT_DOMAIN_MEMBERSHIP : canonical_product
+  PROPOSED_OPERATIONAL_DOMAIN ||--o{ PROPOSED_PRODUCT_DOMAIN_MEMBERSHIP : scoped_membership
+  PROPOSED_PRODUCT_DOMAIN_MEMBERSHIP ||--o{ PROPOSED_MEMBERSHIP_HISTORY : immutable_events
+  PROPOSED_PRODUCT_DOMAIN_MEMBERSHIP ||--o{ PROPOSED_DOMAIN_PRODUCT_ATTRIBUTE : local_attributes
+  PROPOSED_MEMBERSHIP_HISTORY ||--o{ PROPOSED_DOMAIN_IDENTITY_SNAPSHOT : preserves_domain_facts
+
+  CENTRAL_PRODUCT {
+    uuid id PK
+    uuid company_id FK
+    string code
+    string central_lifecycle
+  }
+  PROPOSED_OPERATIONAL_DOMAIN {
+    uuid id PK
+    uuid company_id FK
+    string stable_code
+    string display_name
+    string lifecycle_state
+    int row_version
+  }
+  PROPOSED_ACTOR_DOMAIN_ASSIGNMENT {
+    uuid company_id FK
+    uuid user_id FK
+    uuid domain_id FK
+    string approved_scope
+    timestamptz valid_from
+    timestamptz valid_to
+  }
+  PROPOSED_PRODUCT_DOMAIN_MEMBERSHIP {
+    uuid company_id FK
+    uuid domain_id FK
+    uuid product_id FK
+    string membership_state
+    string local_availability_state
+    string reason
+    int row_version
+  }
+  PROPOSED_MEMBERSHIP_HISTORY {
+    bigint id PK
+    uuid company_id FK
+    uuid domain_id FK
+    uuid product_id FK
+    string action
+    string before_state
+    string after_state
+    uuid actor_user_id
+    timestamptz at
+  }

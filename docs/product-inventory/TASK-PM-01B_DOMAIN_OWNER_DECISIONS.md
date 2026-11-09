@@ -60,3 +60,24 @@ An approved authority provider must supply all of the following before membershi
 - migration/cutover/backfill policy with signed examples.
 
 Only then should `product_domain_membership` and its immutable history be added with same-company FKs, uniqueness, indexes, domain-aware RLS plus service authorization, and native up/down/up tests. Until then, DB-specific membership tests are **BLOCKED**, not passed or skipped.
+
+## 5. TASK-PM-01C enrichment — decision-ready package, status unchanged
+
+> خلاصه فارسی: TASK-PM-01C هشت تصمیم بالا را به بستهای قابلبررسی برای مالک تبدیل کرد؛ هیچکدام تأیید نشدهاند. هیچ نام فرد، امضا، شناسه دامنه، سیاست اجرایی یا مجوزی ساخته نشد. پیادهسازی PM-01B همچنان بسته و ایمن است.
+
+**Approval status preservation:** PM-B1, PM-B2, PM-B3, PM-B4, PM-B5, PM-B6, PM-B7 and PM-B8 all remain **OPEN / NOT APPROVED**. No decision is marked approved, deferred by authority, signed, owned by a named individual, or executed as policy. The accountable roles from §2 remain unchanged.
+
+The detailed nine-element decision package is `docs/product-inventory/TASK-PM-01C_OWNER_DECISION_PACKAGE.md`. For each decision it now supplies: current evidence and implementation constraints; the actual business question; two or three viable alternatives; a recommendation with architectural reasoning; security/privacy/operational/data-integrity consequences; dependencies on IAM, RLS, Product Master and other modules; migration and backward-compatibility implications; the exact accountable owner role; and acceptance evidence required before implementation.
+
+| ID | PM-01C package location | Recommended alternative, recommendation only | Status |
+|---|---|---|---|
+| PM-B1 | Decision package §PM-B1 | Single explicit company-scoped authoritative registry with audited mappings | OPEN / NOT APPROVED |
+| PM-B2 | Decision package §PM-B2 | Explicit versioned lifecycle state machine, owner-approved transitions | OPEN / NOT APPROVED |
+| PM-B3 | Decision package §PM-B3 | IAM-approved domain-scoped permissions and field visibility matrix | OPEN / NOT APPROVED |
+| PM-B4 | Decision package §PM-B4 | Split central/domain authority matrix with explicit actor-domain assignment | OPEN / NOT APPROVED |
+| PM-B5 | Decision package §PM-B5 | Bounded membership state machine, no physical delete, immutable history | OPEN / NOT APPROVED |
+| PM-B6 | Decision package §PM-B6 | Permissioned and field-filtered candidate-product visibility | OPEN / NOT APPROVED |
+| PM-B7 | Decision package §PM-B7 | Immutable domain identity snapshot in membership history | OPEN / NOT APPROVED |
+| PM-B8 | Decision package §PM-B8 | Role-based, field-filtered and audited cross-domain visibility | OPEN / NOT APPROVED |
+
+Related PM-01C evidence: `TASK-PM-01C_ARCHITECTURE.md`, `TASK-PM-01C_SECURITY_MODEL.md`, `TASK-PM-01C_DEPENDENCY_MATRIX.md`, `TASK-PM-01C_ROADMAP_ADDENDUM.md`, and four standalone Mermaid diagram files. These documents describe a target state only. No PM-01C migration, code, OpenAPI change, permission seed, RLS policy, registry row, domain identity, lifecycle workflow or functional domain UI was added. The exact next implementation task is TASK-PM-01D in the dependency matrix and remains blocked until explicit owner approval evidence exists.
