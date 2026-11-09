@@ -88,7 +88,7 @@ export class ProductService {
     } catch (err) {
       throw this.mapDbError(err, 'ساخت کالا');
     }
-  
+
  });
  }
 
@@ -107,7 +107,7 @@ export class ProductService {
     if (!existing) {
       throw new NotFoundException({ code: 'not_found', message_fa: 'کالا یافت نشد' });
     }
-    await this.assertReferences(companyId, dto);
+    await this.assertReferences(companyId, dto.family_id === existing.family_id ? { ...dto, family_id: undefined } : dto);
 
     // D4 — نگهبانِ حساسیت در مرزِ نوشتن (همهٔ مسیرها همین service را می‌گذرانند)
     const changes = detectSensitiveProductChanges(existing, dto);
@@ -158,7 +158,7 @@ export class ProductService {
       requestId: meta.requestId,
     });
     return row;
-  
+
  });
  }
 
@@ -182,7 +182,7 @@ export class ProductService {
       userAgent: meta.userAgent,
       requestId: meta.requestId,
     });
-  
+
  });
  }
 

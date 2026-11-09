@@ -80,7 +80,7 @@ export class ProductMasterRepository {
   // ---------- خانواده ----------
   async listFamilies(companyId: string): Promise<FamilyRow[]> {
     const { rows } = await this.pool.query<FamilyRow>(
-      'select id, code, name from product_family where company_id = $1 order by code',
+      'select id, code, name, is_active from product_family where company_id = $1 order by code',
       [companyId],
     );
     return rows;
@@ -88,7 +88,7 @@ export class ProductMasterRepository {
 
   async createFamily(companyId: string, code: string, name: string): Promise<FamilyRow> {
     const { rows } = await this.pool.query<FamilyRow>(
-      'insert into product_family (company_id, code, name) values ($1, $2, $3) returning id, code, name',
+      'insert into product_family (company_id, code, name) values ($1, $2, $3) returning id, code, name, is_active',
       [companyId, code, name],
     );
     return rows[0];
@@ -96,7 +96,7 @@ export class ProductMasterRepository {
 
   async familyExists(companyId: string, id: string): Promise<boolean> {
     const { rows } = await this.pool.query(
-      'select 1 from product_family where id = $1 and company_id = $2',
+      'select 1 from product_family where id = $1 and company_id = $2 and is_active',
       [id, companyId],
     );
     return rows.length > 0;
@@ -640,11 +640,11 @@ export class ProductMasterRepository {
     return rows.length > 0;
   }
 
-  async getProductsForImport(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string }>> {
-    const map = new Map<string, { id: string; code: string }>();
+  async getProductsForImport(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
+    const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
     if (codes.length === 0) return map;
-    const { rows } = await this.pool.query<{ id: string; code: string }>(
-      'select id, code from product where company_id = $1 and deleted_at is null and code = any($2::text[])',
+    const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
+      'select id, code, status, base_uom_id, tax_code_id from product where company_id = $1 and deleted_at is null and code = any($2::text[])',
       [companyId, codes],
     );
     for (const r of rows) map.set(r.code, r);

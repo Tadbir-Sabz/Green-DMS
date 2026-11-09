@@ -5293,16 +5293,17 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     patch:
       tags: [products]
-      summary: ویرایش نام خانواده با حفظ هویت
+      summary: ویرایش نام یا فعال/غیرفعال کردن خانواده با حفظ هویت
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name]
+              minProperties: 1
               properties:
                 name: { type: string, minLength: 1, maxLength: 255 }
+                is_active: { type: boolean }
       responses:
         '200':
           description: خانواده
@@ -7713,6 +7714,7 @@ components:
         id: { type: string, format: uuid, readOnly: true }
         code: { type: string }
         name: { type: string }
+        is_active: { type: boolean, default: true }
 
     ProductAlias:
       type: object

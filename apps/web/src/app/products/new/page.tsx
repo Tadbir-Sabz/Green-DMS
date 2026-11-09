@@ -276,7 +276,7 @@ export default function NewProductPage(): React.JSX.Element {
               >
                 <option value="">— بدون خانواده —</option>
                 {families.map((f) => (
-                  <option key={f.id} value={f.id}>
+                  <option key={f.id} value={f.id} disabled={f.is_active === false}>
                     {f.code} — {f.name}
                   </option>
                 ))}

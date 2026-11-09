@@ -7,3 +7,4 @@ do $$ declare t text; begin
 end $$;
 drop function fn_product_catalog_history();
 drop table product_catalog_history;
+alter table product_family drop column is_active;

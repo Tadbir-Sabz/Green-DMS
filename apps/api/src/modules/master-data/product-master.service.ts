@@ -1,3 +1,4 @@
+import { permissionMatches } from '../identity-rbac/permissions';
 import { CatalogAccess } from './catalog-access.service';
 import {
   BadRequestException,
@@ -56,7 +57,7 @@ export class ProductMasterService {
   // D1 — کدِ SKU
   // =================================================================
   /** تولیدِ کدِ خودکارِ یکتا (SKU-000001…) با retry برای برخوردِ احتمالی با کدهای دستی */
-  async generateSkuCode(companyId: string): Promise<string> {
+  private async generateSkuCode(companyId: string): Promise<string> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const seq = await this.repo.nextCodeSeq(companyId);
       const code = `SKU-${String(seq).padStart(6, '0')}`;
@@ -116,13 +117,21 @@ export class ProductMasterService {
  return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
     await this.access.assert(companyId, actorUserId, 'master.product.update');
 
-    const row = await this.repo.createFamily(companyId, code, name);
+    if (typeof code !== 'string' || typeof name !== 'string' || !code.trim() || !name.trim() || code.length > 64 || name.length > 255) {
+      throw new BadRequestException({ code: 'invalid_family', message_fa: 'کد و نام خانواده معتبر نیست.' });
+    }
+    let row: FamilyRow;
+    try { row = await this.repo.createFamily(companyId, code.trim(), name.trim()); }
+    catch (err) {
+      if ((err as {code?: string}).code === '23505') throw new ConflictException({code:'duplicate_family',message_fa:'کد خانواده قبلاً ثبت شده است.'});
+      throw err;
+    }
     await this.audit.record({
       companyId, actorUserId, action: 'create', entityType: 'product_family', entityId: row.id,
       after: row, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return row;
-  
+
  });
  }
 
@@ -187,7 +196,7 @@ export class ProductMasterService {
       }
       throw err;
     }
-  
+
  });
  }
 
@@ -201,7 +210,7 @@ export class ProductMasterService {
       companyId, actorUserId, action: 'delete', entityType: 'product_alias', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  
+
  });
  }
 
@@ -247,7 +256,7 @@ export class ProductMasterService {
       after: { ...def, enum_values: enumValues }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return { ...def, enum_values: enumValues };
-  
+
  });
  }
 
@@ -266,7 +275,7 @@ export class ProductMasterService {
       after: { def_id: defId, value }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return row;
-  
+
  });
  }
 
@@ -407,7 +416,7 @@ export class ProductMasterService {
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return { values: saved, variant_signature: signature };
-  
+
  });
  }
 
@@ -454,7 +463,7 @@ export class ProductMasterService {
       }
       throw err;
     }
-  
+
  });
  }
 
@@ -468,7 +477,7 @@ export class ProductMasterService {
       companyId, actorUserId, action: 'delete', entityType: 'product_relation', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  
+
  });
  }
 
@@ -538,7 +547,7 @@ export class ProductMasterService {
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return after;
-  
+
  });
  }
 
@@ -634,7 +643,7 @@ export class ProductMasterService {
     } catch (err) {
       throw this.mapBarcodeDbError(err);
     }
-  
+
  });
  }
 
@@ -648,7 +657,7 @@ export class ProductMasterService {
       companyId, actorUserId, action: 'delete', entityType: 'product_barcode', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  
+
  });
  }
 
@@ -937,15 +946,45 @@ export class ProductMasterService {
       // Commit counters/report only after the entire batch has committed.
       try {
         const results = await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
-          const rows: { p: typeof prepared[number]; saved: 'created' | 'updated' }[] = [];
-          for (const p of prepared) rows.push({ p, saved: await this.upsertImportRow(companyId, p, actorUserId, meta) });
+          const permissions = await this.access.assert(companyId, actorUserId, 'master.product.import');
+          const current = await this.repo.getProductsForImport(
+            companyId,
+            prepared.map((p) => p.row.code).filter(Boolean),
+          );
+          const rows: {
+            p: (typeof prepared)[number];
+            saved: 'created' | 'updated';
+          }[] = [];
+          for (const p of prepared) {
+            const before = current.get(p.row.code);
+            this.guardSensitive(
+              before ?? { status: 'active' },
+              {
+                ...(p.row.status ? { status: p.row.status } : {}),
+                ...(before && p.row.base_uom_code ? { base_uom_id: p.uomId } : {}),
+                ...(before && p.row.tax_code ? { tax_code_id: p.taxId } : {}),
+              },
+              dto.confirm_sensitive ?? false,
+              permissions.some((code) => permissionMatches(code, 'master.product.status')),
+              'ورود گروهی کالا',
+            );
+            rows.push({
+              p,
+              saved: await this.upsertImportRow(companyId, p, actorUserId, meta),
+            });
+          }
           return rows;
         });
-        for (const {p, saved} of results) {
+        for (const { p, saved } of results) {
           if (saved === 'created') created++;
           else updated++;
-          report.push({ row: p.rowNo, status: saved, code: saved,
-            message_fa: saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.', product_code: p.row.code || undefined });
+          report.push({
+            row: p.rowNo,
+            status: saved,
+            code: saved,
+            message_fa: saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.',
+            product_code: p.row.code || undefined,
+          });
         }
       } catch (err) {
         const message = (err as Error).message ?? 'خطای ناشناخته';
@@ -1045,7 +1084,7 @@ export class ProductMasterService {
     if (r.distribution_kind) sets.push({ col: 'distribution_kind', value: r.distribution_kind });
     await this.repo.updateProductRow(p.existingId, companyId, sets);
     if (r.barcode) {
-      await this.addBarcode(companyId, p.existingId, { barcode: r.barcode, kind: 'other' }, meta, actorUserId).catch(() => undefined);
+      await this.addBarcode(companyId, p.existingId, { barcode: r.barcode, kind: 'other' }, meta, actorUserId);
     }
     await this.audit.record({
       companyId, actorUserId, action: 'update', entityType: 'product', entityId: p.existingId,

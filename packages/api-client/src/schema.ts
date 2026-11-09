@@ -10635,7 +10635,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** ویرایش نام خانواده با حفظ هویت */
+        /** ویرایش نام یا فعال/غیرفعال کردن خانواده با حفظ هویت */
         patch: {
             parameters: {
                 query?: never;
@@ -10648,7 +10648,8 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        name: string;
+                        name?: string;
+                        is_active?: boolean;
                     };
                 };
             };
@@ -13409,6 +13410,8 @@ export interface components {
             readonly id: string;
             code: string;
             name: string;
+            /** @default true */
+            is_active: boolean;
         };
         ProductAlias: {
             /** Format: uuid */

@@ -294,7 +294,7 @@ function IdentityTab({
           <select className={`${selectCls} mt-1`} value={form.family_id} onChange={(e) => setForm({ ...form, family_id: e.target.value })}>
             <option value="">— بدون خانواده —</option>
             {families.map((f) => (
-              <option key={f.id} value={f.id}>
+              <option key={f.id} value={f.id} disabled={f.is_active === false}>
                 {f.code} — {f.name}
               </option>
             ))}

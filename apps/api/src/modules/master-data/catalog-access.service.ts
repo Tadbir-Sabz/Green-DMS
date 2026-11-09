@@ -1,11 +1,11 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import type { PoolClient } from 'pg';
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import type { Pool } from 'pg';
-import { PG_POOL } from '../../database/database.module';
-import { tenantStorage } from '../../database/tenant-context';
-import { withTransaction } from '../../common/transaction';
-import { permissionMatches } from '../identity-rbac/permissions';
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { PoolClient } from "pg";
+import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import type { Pool } from "pg";
+import { PG_POOL } from "../../database/database.module";
+import { tenantStorage } from "../../database/tenant-context";
+import { withTransaction } from "../../common/transaction";
+import { permissionMatches } from "../identity-rbac/permissions";
 
 export const catalogTransaction = new AsyncLocalStorage<PoolClient>();
 
@@ -14,7 +14,11 @@ export const catalogTransaction = new AsyncLocalStorage<PoolClient>();
 export class CatalogAccess {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async assert(companyId: string, userId: string, required: string): Promise<string[]> {
+  async assert(
+    companyId: string,
+    userId: string,
+    required: string,
+  ): Promise<string[]> {
     const { rows } = await this.pool.query<{ code: string }>(
       `select distinct rp.permission_code as code from app_user u
        join person p on p.id = u.person_id
@@ -25,30 +29,49 @@ export class CatalogAccess {
          and u.access_level <> 'none' and (u.locked_until is null or u.locked_until <= now())`,
       [userId, companyId],
     );
-    const permissions = rows.map(r => r.code);
-    if (!permissions.some(p => permissionMatches(p, required))) {
-      throw new ForbiddenException({ code: 'catalog_write_forbidden', message_fa: 'مجوز معتبر برای این عملیات کاتالوگ ندارید.' });
+    const permissions = rows.map((r) => r.code);
+    if (!permissions.some((p) => permissionMatches(p, required))) {
+      throw new ForbiddenException({
+        code: "catalog_write_forbidden",
+        message_fa: "مجوز معتبر برای این عملیات کاتالوگ ندارید.",
+      });
     }
     return permissions;
   }
 
   /** All pool.query based collaborators share this transaction and tenant GUCs. */
-  async write<T>(companyId: string, userId: string, required: string, work: () => Promise<T>): Promise<T> {
+  async write<T>(
+    companyId: string,
+    userId: string,
+    required: string,
+    work: () => Promise<T>,
+  ): Promise<T> {
     await this.assert(companyId, userId, required);
     if (catalogTransaction.getStore()) {
       const tenant = tenantStorage.getStore()?.tenant;
       if (tenant?.companyId !== companyId || tenant.userId !== userId) {
-        throw new ForbiddenException({ code: 'catalog_context_mismatch', message_fa: 'تغییر هویت در تراکنش مجاز نیست.' });
+        throw new ForbiddenException({
+          code: "catalog_context_mismatch",
+          message_fa: "تغییر هویت در تراکنش مجاز نیست.",
+        });
       }
       return work();
     }
-    return withTransaction(this.pool, async client => {
-      await client.query(`select set_config('app.company_id', $1, true), set_config('app.user_id', $2, true)`, [companyId, userId]);
-      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`catalog:${companyId}`]);
-      return tenantStorage.run({ client, tenant: { companyId, userId } }, () => catalogTransaction.run(client, async () => {
-        await this.assert(companyId, userId, required);
-        return work();
-      }));
+    return withTransaction(this.pool, async (client) => {
+      await client.query(
+        `select set_config('app.company_id', $1, true), set_config('app.user_id', $2, true)`,
+        [companyId, userId],
+      );
+      await client.query(
+        "select pg_advisory_xact_lock(hashtextextended($1, 0))",
+        [`catalog:${companyId}`],
+      );
+      return tenantStorage.run({ client, tenant: { companyId, userId } }, () =>
+        catalogTransaction.run(client, async () => {
+          await this.assert(companyId, userId, required);
+          return work();
+        }),
+      );
     });
   }
 }
