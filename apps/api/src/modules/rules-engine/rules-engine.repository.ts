@@ -497,12 +497,12 @@ export class RulesEngineRepository {
     return rows;
   }
 
-  async getApprovalRequest(companyId: string, requestId: string): Promise<ApprovalRequestRow | null> {
+  async getApprovalRequest(companyId: string, requestId: string, client?: Runner): Promise<ApprovalRequestRow | null> {
     // TASK-24 (G-03): شناسهٔ غیر-UUID نباید 500 بدهد — «یافت‌نشد» پاسخِ درست است
     if (!UUID_RE.test(requestId)) return null;
-    const { rows } = await this.pool.query<ApprovalRequestRow>(
+    const { rows } = await runner(this.pool, client).query<ApprovalRequestRow>(
       `select a.id, a.approval_chain_id, a.entity_type, a.entity_id, a.requested_by,
-              a.amount, a.status, a.current_step, a.created_at, a.closed_at
+              a.amount, a.expires_at, a.entity_domain_id, a.status, a.current_step, a.created_at, a.closed_at
          from approval_request a
          join approval_chain ac on ac.id = a.approval_chain_id
         where a.id = $1 and ac.company_id = $2`,
@@ -546,8 +546,9 @@ export class RulesEngineRepository {
     decision: string,
     comment: string | null,
     meta: Record<string, unknown> | null = null,
+    client?: Runner,
   ): Promise<string> {
-    const { rows } = await this.pool.query<{ id: string }>(
+    const { rows } = await runner(this.pool, client).query<{ id: string }>(
       `insert into approval_decision
           (approval_request_id, step_no, decided_by, decision, comment, meta)
        values ($1, $2, $3, $4, $5, $6)
@@ -600,8 +601,9 @@ export class RulesEngineRepository {
     currentStep: number,
     closedAt: string | null,
     expected?: { status: string; currentStep: number },
+    client?: Runner,
   ): Promise<boolean> {
-    const { rowCount } = await this.pool.query(
+    const { rowCount } = await runner(this.pool, client).query(
       `update approval_request
           set status = $2, current_step = $3, closed_at = $4
         where id = $1
@@ -827,8 +829,8 @@ export class RulesEngineRepository {
          join approval_chain ac on ac.id = a.approval_chain_id
         where b.company_id = $1 and b.operation = $2
           and b.entity_type = $3 and b.entity_id = $4
-          and b.consumed_at is null and a.status = 'approved'
-          and ac.company_id = $1
+          and b.consumed_at is null and b.superseded_at is null and a.status = 'approved'
+          and ac.company_id = $1 and (a.expires_at is null or a.expires_at > now())
         order by b.created_at desc
         limit 1
         for update of b`,

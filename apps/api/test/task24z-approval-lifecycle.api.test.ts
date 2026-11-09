@@ -687,6 +687,129 @@ describe('3 — چرخهٔ کاملِ تأیید (بدونِ SQLِ خام)', () 
 // 4 — کنترل‌های منفیِ دائمی (Phase J)
 // =====================================================================
 describe('4 — کنترل‌های منفی', () => {
+  const resubmissionFixture = async () => {
+    const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chain,
+    }).expect(201);
+    const orderId = await createOrder(makerToken);
+    const submitted = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    return { orderId, requestId: submitted.body.approval_request_id as string };
+  };
+
+  it('R4 · expired and returned requests get fresh workflows, never reopen', async () => {
+    const { orderId, requestId } = await resubmissionFixture();
+    // Expiry clock fault injection; request and binding are created over HTTP.
+    await pool.query(`update approval_request set expires_at = now() - interval '1 second' where id = $1`, [requestId]);
+    const expired = await api(checkerToken).post(`/api/v1/rules-engine/approvals/${requestId}/decision`)
+      .send({ step_no: 1, decision: 'approved' });
+    expect(expired.status).toBe(409);
+    expect(expired.body.code).toBe('approval_expired');
+    const second = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    expect((await api(checkerToken).get(`/api/v1/rules-engine/approvals/${requestId}`)).body.status).toBe('expired');
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${second.body.approval_request_id}/decision`)
+      .send({ step_no: 1, decision: 'returned' }).expect(201);
+    const third = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    expect(new Set([requestId, second.body.approval_request_id, third.body.approval_request_id]).size).toBe(3);
+  });
+
+  it('R5 · request transition DB failure rolls back decision; retry and concurrent final decisions are safe', async () => {
+    const { requestId } = await resubmissionFixture();
+    await pool.query(`create function r1_fail_request() returns trigger language plpgsql as $$
+      begin raise exception 'R1 injected request transition failure'; end $$;
+      create trigger r1_fail_request before update on approval_request
+      for each row execute function r1_fail_request()`);
+    try {
+      const failed = await api(checkerToken).post(`/api/v1/rules-engine/approvals/${requestId}/decision`)
+        .send({ step_no: 1, decision: 'approved' });
+      expect(failed.status).toBe(500);
+      expect(await countRows(`select count(*)::int as c from approval_decision where approval_request_id = $1`, [requestId])).toBe(0);
+    } finally {
+      await pool.query('drop trigger r1_fail_request on approval_request; drop function r1_fail_request()');
+    }
+    const results = await Promise.all([1, 2].map(() => api(checkerToken)
+      .post(`/api/v1/rules-engine/approvals/${requestId}/decision`).send({ step_no: 1, decision: 'approved' })));
+    expect(results.map(r => r.status).sort()).toEqual([201, 409]);
+    expect(await countRows(`select count(*)::int as c from approval_decision where approval_request_id = $1`, [requestId])).toBe(1);
+  });
+
+  it('R6 · business transition DB failure rolls back consumption; same approval retries successfully', async () => {
+    const { requestId, orderId } = await resubmissionFixture();
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${requestId}/decision`)
+      .send({ step_no: 1, decision: 'approved' }).expect(201);
+    await pool.query(`create function r1_fail_order() returns trigger language plpgsql as $$
+      begin if new.status = 'approved' then raise exception 'R1 injected execution failure'; end if; return new; end $$;
+      create trigger r1_fail_order before update on sales_order for each row execute function r1_fail_order()`);
+    try {
+      await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(500);
+      expect(await countRows(`select count(*)::int as c from approval_binding where approval_request_id = $1 and consumed_at is null`, [requestId])).toBe(1);
+      expect((await pool.query(`select status from sales_order where id = $1`, [orderId])).rows[0].status).toBe('pending_approval');
+    } finally {
+      await pool.query('drop trigger r1_fail_order on sales_order; drop function r1_fail_order()');
+    }
+    await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(200);
+    await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(409);
+  });
+
+  it('R1 · rejected request is superseded, never reopened, with immutable decisions', async () => {
+    const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chain,
+    }).expect(201);
+    const orderId = await createOrder(makerToken);
+    const first = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    const oldId = first.body.approval_request_id;
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${oldId}/decision`)
+      .send({ step_no: 1, decision: 'rejected', comment: 'اصلاح لازم است' }).expect(201);
+    const retried = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    const newId = retried.body.approval_request_id;
+    expect(newId).not.toBe(oldId);
+    const history = await api(checkerToken).get(`/api/v1/rules-engine/approvals/${oldId}`).expect(200);
+    expect(history.body.status).toBe('rejected');
+    expect(history.body.decisions).toHaveLength(1);
+    expect(history.body.decisions[0].decision).toBe('rejected');
+    const before = await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({});
+    expect(before.status).toBe(409);
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${newId}/decision`)
+      .send({ step_no: 1, decision: 'approved' }).expect(201);
+    await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(200);
+    const oldBinding = await pool.query(`select superseded_at, consumed_at from approval_binding where approval_request_id = $1`, [oldId]);
+    expect(oldBinding.rows[0].superseded_at).toBeTruthy();
+    expect(oldBinding.rows[0].consumed_at).toBeNull();
+  });
+
+  it('R2 · concurrent duplicate submission creates exactly one request and binding', async () => {
+    const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chain,
+    }).expect(201);
+    const orderId = await createOrder(makerToken);
+    const results = await Promise.all([1, 2].map(() => api(makerToken)
+      .post(`/api/v1/orders/${orderId}/request-approval`).send({})));
+    expect(results.map(r => r.status).sort()).toEqual([201, 409]);
+    expect(results.find(r => r.status === 409)?.body.code).toBe('approval_already_submitted');
+    expect(await countRows(`select count(*)::int as c from approval_binding where entity_id = $1`, [orderId])).toBe(1);
+  });
+
+  it('R3 · changed approved document requires fresh decisions; previous approval cannot execute', async () => {
+    const chain = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
+    await api(adminToken).post('/api/v1/rules-engine/approval-policies').send({
+      operation: 'sales.order.approve', scope: 'central', approval_chain_id: chain,
+    }).expect(201);
+    const orderId = await createOrder(makerToken);
+    const first = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${first.body.approval_request_id}/decision`)
+      .send({ step_no: 1, decision: 'approved' }).expect(201);
+    // Fault injection only: bindings and decisions are exclusively HTTP-created.
+    await pool.query(`update sales_order_line set unit_price = unit_price + 1 where sales_order_id = $1`, [orderId]);
+    const next = await api(makerToken).post(`/api/v1/orders/${orderId}/request-approval`).send({}).expect(201);
+    expect(next.body.approval_request_id).not.toBe(first.body.approval_request_id);
+    await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(409);
+    await api(checkerToken).post(`/api/v1/rules-engine/approvals/${next.body.approval_request_id}/decision`)
+      .send({ step_no: 1, decision: 'approved' }).expect(201);
+    await api(checkerToken).post(`/api/v1/orders/${orderId}/approve`).send({}).expect(200);
+  });
+
   it('NC-C2 · all matching policy chains survive persistence and require decisions', async () => {
     const central = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: checkerRoleId }]);
     const operation = await createChain(companyId, 'sales_order', [{ step_no: 1, roleId: otherRoleId }]);

@@ -897,7 +897,9 @@ describe('PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ �
       [companyId],
     );
     await pool.query(
-      `insert into approval_step_def (approval_chain_id, step_no) values ($1, 1)`,
+      `insert into approval_step_def (approval_chain_id, step_no, approver_role_id)
+       select $1, 1, ur.role_id from user_role ur join app_user u on u.id = ur.app_user_id
+       where u.username = 'pe_chain_approver' limit 1`,
       [chain.rows[0].id],
     );
   });
@@ -939,8 +941,8 @@ describe('PE-4 — کفِ سود و استثنای تأییدشدهٔ شخصِ �
     // این تأییدکننده فقط `rules.approval.decide` دارد، نه `pricing.margin.override`.
     const chainApprover = await login(CHAIN_APPROVER_USER, CHAIN_APPROVER_PASSWORD);
     await api(chainApprover)
-      .post(`/api/v1/approvals/${chainReq}/decision`)
-      .send({ decision: 'approve', note: 'تأییدِ گردش' })
+      .post(`/api/v1/rules-engine/approvals/${chainReq}/decision`)
+      .send({ step_no: 1, decision: 'approved', comment: 'تأییدِ گردش' })
       .expect(201);
 
     // شخصِ دوم با مجوزِ override تأیید می‌کند

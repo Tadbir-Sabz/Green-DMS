@@ -662,6 +662,10 @@ export class RulesEngineService {
     if (req.status !== 'pending') {
       throw new ConflictException({ code: 'not_pending', message_fa: 'درخواست تأیید در وضعیت منتظر نیست.' });
     }
+    const expiresAt = (req as unknown as { expires_at?: string | Date }).expires_at;
+    if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+      throw new ConflictException({ code: 'approval_expired', message_fa: 'مهلت درخواست تأیید پایان یافته است.' });
+    }
     // G-03: مرحلهٔ تصمیم از وضعیتِ خودِ درخواست گرفته می‌شود، نه از بدنهٔ درخواست.
     stepNo = Number(req.current_step);
 
@@ -756,10 +760,16 @@ export class RulesEngineService {
       });
     }
 
+    return withTransaction(this.pool, async (client) => {
+      const locked = await client.query<{ status: string; current_step: number }>(
+        'select status, current_step from approval_request where id = $1 for update', [requestId]);
+      if (locked.rows[0]?.status !== 'pending' || locked.rows[0]?.current_step !== stepNo) {
+        throw this.concurrentDecision();
+      }
     try {
       await this.repo.createApprovalDecision(
         requestId, stepNo, decidedBy, decision, comment,
-        delegatedFrom ? { delegated_from: delegatedFrom } : null,
+        delegatedFrom ? { delegated_from: delegatedFrom } : null, client,
       );
     } catch (err) {
       // G-03: ایندکسِ یکتای (approval_request_id, step_no) — مهاجرت 0051
@@ -780,10 +790,10 @@ export class RulesEngineService {
         'rejected',
         stepNo,
         new Date().toISOString(),
-        expected,
+        expected, client,
       );
       if (!ok) throw this.concurrentDecision();
-      return this.repo.getApprovalRequest(companyId, requestId);
+      return this.repo.getApprovalRequest(companyId, requestId, client);
     }
 
     if (decision === 'returned') {
@@ -792,10 +802,10 @@ export class RulesEngineService {
         'cancelled',
         stepNo,
         new Date().toISOString(),
-        expected,
+        expected, client,
       );
       if (!ok) throw this.concurrentDecision();
-      return this.repo.getApprovalRequest(companyId, requestId);
+      return this.repo.getApprovalRequest(companyId, requestId, client);
     }
 
     // approved → پیش رفتن به مرحله بعدی یا بسته شدن (انتقالِ اتمیک)
@@ -806,10 +816,11 @@ export class RulesEngineService {
       done ? 'approved' : 'pending',
       done ? stepNo : stepNo + 1,
       done ? new Date().toISOString() : null,
-      expected,
+      expected, client,
     );
     if (!ok) throw this.concurrentDecision();
-    return this.repo.getApprovalRequest(companyId, requestId);
+    return this.repo.getApprovalRequest(companyId, requestId, client);
+    });
   }
 
   private concurrentDecision(): ConflictException {
@@ -1013,6 +1024,28 @@ export class RulesEngineService {
 
     // ۴) درخواست + اتصال در **یک** تراکنش (اتمیک‌بودنِ چرخهٔ عمر).
     const created = await withTransaction(this.pool, async (client) => {
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`${companyId}:${input.operation}:${input.entityId}`]);
+      const currentState = await this.repo.loadEntityState(companyId, input.operation, input.entityId, client);
+      const currentFingerprint = fingerprintOf(input.operation, currentState);
+      if (currentFingerprint !== fingerprint) {
+        throw new ConflictException({ code: 'entity_changed_during_submission', message_fa: 'سند هنگام ارسال تغییر کرد؛ دوباره تلاش کنید.' });
+      }
+      const prior = await client.query<{ id: string; approval_request_id: string; status: string; entity_fingerprint: string }>(
+        `select b.id, b.approval_request_id, case when a.expires_at <= now() then 'expired' else a.status end as status, b.entity_fingerprint
+         from approval_binding b join approval_request a on a.id = b.approval_request_id
+         where b.company_id = $1 and b.operation = $2 and b.entity_id = $3
+           and b.consumed_at is null and b.superseded_at is null for update of b, a`,
+        [companyId, input.operation, input.entityId]);
+      for (const old of prior.rows) {
+        if (['pending', 'approved'].includes(old.status) && old.entity_fingerprint === fingerprint) {
+          throw new ConflictException({ code: 'approval_already_submitted', message_fa: 'درخواست معتبر قبلاً ثبت شده است.' });
+        }
+        await client.query(`update approval_request set status = $2, closed_at = now()
+          where id = $1 and status = 'pending'`, [old.approval_request_id, old.status === 'expired' ? 'expired' : 'cancelled']);
+        await client.query('update approval_binding set superseded_at = now() where id = $1', [old.id]);
+      }
+
       // Persist the composed chain, not just the first contributing policy.
       // Otherwise decision-time lookup silently loses domain/operation stages.
       const snapshot = await client.query<{ id: string }>(
@@ -1150,6 +1183,8 @@ export class RulesEngineService {
     execute: (client: PoolClient, binding: { id: string; approval_request_id: string }) => Promise<T>,
   ): Promise<T> {
     return withTransaction(this.pool, async (client) => {
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`${companyId}:${input.operation}:${input.entityId}`]);
       // قفلِ ردیفِ اتصال (`for update of b`) تا دو عملیاتِ هم‌زمان سریال شوند.
       const binding = await this.repo.findConsumedBinding(
         companyId,

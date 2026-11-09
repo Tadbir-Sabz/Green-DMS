@@ -117,8 +117,8 @@ function OrderDetailInner() {
   };
 
   const canApprove = o?.status === "draft" || o?.status === "pending_approval";
-  // ارسال به گردش فقط از پیش‌نویس معنا دارد (در انتظارِ تأیید یعنی از قبل ارسال شده)
-  const canSubmit = o?.status === "draft";
+  // ارسال مجدد پس از رد، انقضا یا تغییر سند نیز از سرور اعتبارسنجی می‌شود.
+  const canSubmit = canApprove;
 
   const lineColumns: Column<OrderLine>[] = [
     { key: "product", header: "کالا", render: (l) => productName(l.product_id) },
@@ -181,7 +181,7 @@ function OrderDetailInner() {
               disabled={submitting}
               className="px-4 py-2 rounded-xl bg-surface-alt border border-line hover:bg-surface text-ink text-sm font-medium focus-ring disabled:opacity-50"
             >
-              {submitting ? "در حال ارسال..." : "ارسال به گردش تأیید"}
+              {submitting ? "در حال ارسال..." : (o?.status === "pending_approval" ? "ارسال مجدد برای تأیید" : "ارسال به گردش تأیید")}
             </button>
           )}
           {canApprove && (

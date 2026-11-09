@@ -18,6 +18,9 @@ begin
 end $$;
 
 -- Creator archive deliberately survives rollback and is restored on reapply.
+do $$ begin
+ if exists (select 1 from sales_order where created_by is not null)
+    or exists (select 1 from purchase_order where created_by is not null) then
 create table if not exists approval_sod_creator_archive (
   entity_table text not null check (entity_table in ('sales_order', 'purchase_order')),
   entity_id uuid not null,
@@ -30,6 +33,9 @@ insert into approval_sod_creator_archive
 insert into approval_sod_creator_archive
   select 'purchase_order', id, created_by from purchase_order where created_by is not null
   on conflict (entity_table, entity_id) do update set created_by = excluded.created_by;
+
+ end if;
+end $$;
 
 -- §6
 drop table if exists approval_binding;
