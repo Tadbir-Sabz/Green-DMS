@@ -130,6 +130,42 @@ D4 و عضویت دامنهای در این مسیر قابل تغییر نیس�
   میانبر، حتی با `GRANT EXECUTE` آزمایشی، مجاز نیست. `0064` اجرای تابع را از
   این نقشها گرفته و پیششرط مالکیت مانع ساخت پارتیشن میشود.
 
+### ۴-ب) پاکسازی پیشنمایشهای منقضی — TASK-PM-01D-M4-I / F-R-03
+
+دفتر عملیات M4 عمداً فقطخواندنی/فقطنوشتنی کنترلشده است و `dms_app` مجوز
+`DELETE` ندارد. برای جلوگیری از انباشت ردیفهای `preview_created` منقضی، یک ابزار
+**صریح اپراتوری** Outside API اضافه شده است؛ هیچ صف، worker، زمانبند، تغییر
+گرانت، تابع `SECURITY DEFINER` تازه یا ویرایش مهاجرت محافظتشده وجود ندارد.
+سیاست نگهداشت/زمانبندی production همچنان `UNVERIFIED / نیازمند تصمیم اپراتور`
+است و این سند آن را تصویب نمیکند.
+
+پیش از اجرا، هویت `DATABASE_URL` باید مالک اشیاء و دارای قابلیت مشاهدهٔ کامل
+شواهد بینشرکتی (`superuser` یا `BYPASSRLS`) باشد؛ ابزار بدون آن fail-closed
+میشود. شناسهٔ دقیق **یک شرکت** و برش زمانی صریح ISO-8601 همراه `Z` یا offset
+الزامی است. اجرای بدون `--apply` فقط خشکآزمایی است و هیچ حذفی انجام نمیدهد:
+
+```bash
+DATABASE_URL='<authorized object-owner URL>' \
+BULK_PREVIEW_CLEANUP_COMPANY_ID='<tenant-uuid>' \
+BULK_PREVIEW_CLEANUP_BEFORE='2026-11-09T00:00:00Z' \
+node scripts/cleanup-expired-bulk-previews.mjs
+
+# فقط پس از بازبینی خروجی خشکآزمایی و ثبت اقدام در لاگ استقرار:
+DATABASE_URL='<authorized object-owner URL>' \
+BULK_PREVIEW_CLEANUP_COMPANY_ID='<tenant-uuid>' \
+BULK_PREVIEW_CLEANUP_BEFORE='2026-11-09T00:00:00Z' \
+node scripts/cleanup-expired-bulk-previews.mjs --apply
+```
+
+ابزار فقط ردیفهای `preview_created` همان شرکت را که `expires_at` آنها از برش
+زمانی عبور کرده و در `product_bulk_history_event`، `product_catalog_history` یا
+`audit_log` هیچ شاهد operation-bound ندارند حذف میکند. وضعیتهای
+`accepted/committed/rejected/unknown`، پیشنمایشهای معتبر، پیشنمایشهای دارای
+شاهد، شرکتهای دیگر و `FORCE ROW LEVEL SECURITY`/گرانتهای `dms_app` و
+`dms_readonly` دستنخورده میمانند. `dms_app` هرگز نمیتواند این ابزار را اجرا کند؛
+پیششرط مالکیت، نبود `DELETE` و چکهای بعد از حذف در همان تراکنش بررسی میشوند.
+توپولوژی دقیق مالک production بدون شاهد مجاز همچنان `UNVERIFIED` است.
+
 **یادآوری مالک:** رفتار «همه یا هیچ» این صفحه فقط برای همان گزینش محدود M4
 است. مصوبهٔ §E دربارهٔ «همه یا هیچ در هر دسته import + ادامه» و تصمیم باز
 «همه یا هیچ بودن کل فایل» بدون تغییر باقی میمانند. PM-B1 تا PM-B8 همچنان

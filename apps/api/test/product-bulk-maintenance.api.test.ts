@@ -217,6 +217,29 @@ describe('POST /products/bulk-maintenance/preview — authorization and field po
     expect(await historyCount([p.id], 'تازه')).toBe(0);
   });
 
+  it('direct viewer POST reconcile is denied and cannot transition or reconcile the ledger', async () => {
+    const [p] = await mkProducts(1);
+    const pre = await preview([p.id], { name: 'نام تطبیق ممنوع' }).expect(200);
+    const forbidden = await reconcile(pre.body.operation_id, viewerToken).expect(403);
+    expect(forbidden.body.code).toBe('forbidden');
+    await request(fx.app.getHttpServer())
+      .post(`${statusUrl(pre.body.operation_id)}/reconcile`)
+      .expect(401);
+
+    expect(await ledgerStatus(pre.body.operation_id)).toBe('preview_created');
+    const evidence = await fx.pool.query<{ n: number }>(
+      `select count(*)::int as n from product_bulk_history_event where bulk_operation_id = $1::uuid`,
+      [pre.body.operation_id],
+    );
+    expect(evidence.rows[0].n).toBe(0);
+    expect(await auditCount(pre.body.operation_id)).toBe(0);
+    expect(await versions([p.id])).toEqual(new Map([[p.id, p.row_version]]));
+
+    const status = await getStatus(pre.body.operation_id).expect(200);
+    expect(status.body.reconciled).toBe(false);
+    expect(status.body.status).not.toBe('committed');
+  });
+
   it('creates an exact product-read-only preview; only a durable ledger row is inserted', async () => {
     const ps = await mkProducts(2);
     const ids = ps.map((p) => p.id);
