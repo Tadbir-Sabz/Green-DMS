@@ -402,3 +402,5 @@ fallbackِ مستندِ `dms_app`.
   عملیاتِ بیرونی).
 - ⚠️ `location_sample.staff_id` بدونِ FK؛ ownership ها به `dms_owner` واگذار نشده
   (عمدی؛ `REASSIGN OWNED` اجرا نشد).
+  **یادداشت تاریخی H:** این بند وضعیت TASK-16 است؛ در مدل جاری `dms_owner` مالک
+  طرحواره/اشیاء نیست و ترمیم پارتیشن فقط با مالک اشیاء / `DATABASE_URL` مجاز است.
