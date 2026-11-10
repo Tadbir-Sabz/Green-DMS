@@ -66,7 +66,7 @@
 
 | ویژگی | مقدارِ پشتیبانیشده |
 |---|---|
-| هویت | همان `DATABASE_URL` که مهاجرتها را اعمال کرده و مالک `public.audit_log`، `location_sample` و `inventory_txn` است؛ بررسی: `select relowner::regrole from pg_class where oid = ''public.audit_log''::regclass;` |
+| هویت | همان `DATABASE_URL` که مهاجرتها را اعمال کرده و مالک `public.audit_log`، `location_sample` و `inventory_txn` است؛ بررسی: `select relowner::regrole from pg_class where oid = 'public.audit_log'::regclass;` |
 | امتیاز لازم | مالکیت والدها + `USAGE`/`CREATE` روی `public`؛ در توپولوژی فعلی CI/compose مالک یک ابرکاربر است، ولی ابرکاربری شرط ذاتی نیست |
 | تابع | `fn_ensure_partitions(integer)` — `SECURITY INVOKER`، `search_path = public, pg_catalog, pg_temp`، مالک = مالک اشیاء |
 | مرز اجرا | `0064` مقدار `EXECUTE` را از `PUBLIC`، `dms_app`، `dms_readonly`، `dms_migrator` و `dms_owner` گرفته است؛ فقط مالک (و ابرکاربر) آن را دارند. هیچ مسیر APIـی به تابع وصل نیست |
