@@ -1,0 +1,144 @@
+TASK-PM-01D-M4-H — executed verification ledger
+================================================
+Baseline SHA: 2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c
+Branch: arena/be5eaff3-green-dms; PR14 OPEN/DRAFT/base main.
+Validation timestamp (UTC): 2026-11-10T16:07:38Z .. 2026-11-10T16:09:xxZ
+Local PostgreSQL: PG16.2, 127.0.0.1:55432, trust auth, disposable DBs only.
+PSQL=/tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql
+No .env; inline DATABASE_URL='postgres://postgres@127.0.0.1:55432/postgres',
+NODE_ENV=test, APP_DATABASE_URL unset. No production/shared DB or secrets.
+
+Stage commits already pushed:
+  12b80451ab69de72b2bf4039324a015ff794c472  H-01/H-02 (3 files)
+  95bd63ac3184445fe616783ae9f1d4be45ace550  H-03/H-04 + historical labels (12 files)
+Final commit SHA and push result are recorded in the final chat report and in
+the GitHub branch/PR head; they are intentionally not self-referenced here.
+
+------------------------------------------------------------------------------
+1) Static / formatting checks (cwd /home/user/Green-DMS)
+------------------------------------------------------------------------------
+git diff --check                              EXIT=0
+npm run openapi:check                        EXIT=0
+  "مسیرها: 201 | عملیات‌ها: 284 | اسکیماها: 153 | وب هوکها: 3"
+node scripts/contract-drift.mjs              EXIT=0
+  "قرارداد و کد کاملاً همتراز هستند", required drift 0
+node scripts/check-test-partition.mjs        EXIT=0
+  "total test files: 80", "partition OK: declared manifest == computed partition"
+npm run typecheck                            EXIT=0
+Logs: /tmp/pm01dm4h-openapi.log, /tmp/pm01dm4h-drift.log,
+      /tmp/pm01dm4h-partition.log, /tmp/pm01dm4h-typecheck.log,
+      /tmp/pm01dm4h-validation-summary.txt
+
+------------------------------------------------------------------------------
+2) Standard migration cycle and focused migration/security suites
+------------------------------------------------------------------------------
+First invocations failed only because of shell environment:
+  TEST_DB was empty  -> "zero-length delimited identifier at or near ..." EXIT=1
+  PSQL was unset     -> "spawnSync psql ENOENT" Vitest EXIT=1
+Corrected invocations with the same repository files:
+
+export TEST_DB=greendms_h_mig_1794326907
+env -u APP_DATABASE_URL DATABASE_URL='postgres://postgres@127.0.0.1:55432/postgres' \
+  NODE_ENV=test node scripts/test-migrations.mjs
+  EXIT=0; 64 up/down/up; "دو اجرا دقیقاً 1029 شیء یکسان دارند";
+  temporary DB dropped. Log: /tmp/pm01dm4h-migrations.log
+
+cd apps/api && env -u APP_DATABASE_URL \
+  DATABASE_URL='postgres://postgres@127.0.0.1:55432/postgres' NODE_ENV=test \
+  PSQL=/tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql \
+  npx vitest run test/migration-rollback-race.test.ts test/migrations-security.test.ts
+  EXIT=0; 2 files / 16 tests PASS (race 8/8, migrations-security 8/8).
+  Log: /tmp/pm01dm4h-focused.log
+
+------------------------------------------------------------------------------
+3) H-01 exact ownership SQL on an isolated database
+------------------------------------------------------------------------------
+DB: greendms_h_sqlcheck_49962_1794326163 (created, then dropped)
+Applied all migrations/*.up.sql with psql -X -v ON_ERROR_STOP=1 -1 -q:
+  APPLY_EXIT=0
+Exact documented command:
+  psql -X -v ON_ERROR_STOP=1 -Atc \
+    "select relowner::regrole from pg_class where oid = 'public.audit_log'::regclass;" "$DB"
+  EXACT_EXIT=0; output: postgres
+Historic doubled-quote command:
+  ... oid = ''public.audit_log''::regclass;
+  DOUBLED_EXIT=1; "ERROR: syntax error at or near \"public\""
+Catalog facts:
+  nspowner=pg_database_owner; owner_create=false;
+  migrator_is_owner_member=false; app_exec=false
+Logs: /tmp/pm01dm4h-sql-apply.log, /tmp/pm01dm4h-sql-exact.out,
+      /tmp/pm01dm4h-sql-doubled.out, /tmp/pm01dm4h-sql-catalog.out
+
+------------------------------------------------------------------------------
+4) H-02 supported recovery command on an isolated database
+------------------------------------------------------------------------------
+DB: greendms_h_recovery_1794326972 (created, then dropped)
+Applied all 64 ups: APPLY_EXIT=0
+Inserted exactly 1 historical audit_log row.
+audit_log_2027_01 was empty (0 rows), then dropped: DROP_EMPTY_FUTURE_EXIT=0
+Partition count before recovery: 3
+psql -X -v ON_ERROR_STOP=1 -q -d "$DB" -c "select fn_ensure_partitions(2);"
+  RECOVERY_CALL1_EXIT=0; RECOVERY_CALL2_EXIT=0 (idempotent)
+Partition count after two calls: 4
+Historical audit rows after recovery: 1 (unchanged)
+New partition security: relrowsecurity=true | relforcerowsecurity=true | policies=1
+Grants / EXECUTE matrix:
+  dms_app SELECT=true | dms_readonly SELECT=true |
+  dms_app EXECUTE=false | dms_migrator EXECUTE=false | dms_owner EXECUTE=false
+Exact ownership command output: postgres
+Catalog: nspowner=pg_database_owner; owner_create=false;
+  migrator_owner_member=false; app_exec=false
+DB_DROPPED=greendms_h_recovery_1794326972; LEFTOVER_H_DBS=NONE
+Log: /tmp/pm01dm4h-recovery-summary.txt
+
+------------------------------------------------------------------------------
+5) H-04 reverse dependency order on an isolated database
+------------------------------------------------------------------------------
+DB: greendms_h_order_1794326937 (created, then dropped)
+Applied all 64 ups: APPLY_ALL_UPS_EXIT=0
+0064.down: EXIT=0
+Direct 0062.down while 0063 remained applied: DIRECT_0062_DOWN_EXIT=3
+  psql:migrations/0062_product_bulk_maintenance.down.sql:98:
+  ERROR: cannot drop table product_bulk_operation because other objects depend on it
+  DETAIL: policy product_bulk_history_event_select ... depends on table
+          product_bulk_operation; policy product_bulk_history_event_insert ...
+After that failure: product_bulk_operation existed; dependent policies=2.
+Then standard order:
+  0063.down EXIT=0; 0062.down EXIT=0
+  AFTER_STANDARD_ORDER=NULL|product_bulk_operation,
+                       NULL|product_bulk_history_event
+DB_DROPPED=greendms_h_order_1794326937; LEFTOVER_H_DBS=NONE
+DMS_ROLE_NOLOGIN=true; G_REVIEW_ROLE_LEFTOVERS=0
+Log: /tmp/pm01dm4h-order-summary.txt
+
+------------------------------------------------------------------------------
+6) Cross-document consistency scans
+------------------------------------------------------------------------------
+Baseline scan: /tmp/pm01dm4h-crossdoc-before.txt (377 lines).
+Post-edit stage-2 scan command:
+  git grep -n -I -E <H patterns> HEAD -- docs migrations apps/api/src
+  with patterns for doubled quotes, dms_owner schema ownership, "نقش مهاجرت",
+  fn_ensure_partitions, DATABASE_URL maintenance identity and 0062/0063 ordering.
+Stage-2 result: 48 matching lines; the raw output is
+  /tmp/pm01dm4h-crossdoc-stage2.txt.
+Classification: corrected H-01/H-04 statements, explicitly labelled historical
+  0041/TASK-11/TASK-12/TASK-16/TASK-19/F/G review-request wording, generic
+  runtime-identity migration/runtime separation, and the protected 0041/0062
+  source comments that H is forbidden to edit. No unlabelled current claim that
+  dms_owner owns the schema, dms_migrator independently repairs partitions, or
+  standalone 0062.down is a successful rollback remains.
+Final scan result after adding the H report/index/verification documents:
+  PENDING_STAGE4
+Final raw scan file: /tmp/pm01dm4h-crossdoc-final.txt
+
+------------------------------------------------------------------------------
+7) Boundaries / preservation
+------------------------------------------------------------------------------
+Protected files unchanged by H: 0062.down, 0063.down, 0064.up/down, 0041,
+0019, 0042, existing role grants/ownership, runtime authorization logic,
+production configuration/secrets, PR14 body.
+Only code change: a comment in apps/api/src/database/database.module.ts.
+No force-push, destructive reset/rebase, approve/merge/release/deploy,
+production/shared DB access or full M4 acceptance claim.
+Local trust-auth PG16.2 runs are NOT CI-equivalent to the exact-SHA CI which
+used real PostGIS/password-auth services.

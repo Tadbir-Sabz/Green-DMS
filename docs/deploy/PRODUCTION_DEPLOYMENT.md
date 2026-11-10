@@ -27,8 +27,8 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"  
 | متغیر | نقش | قاعدهٔ ردشدن (fail-closed) |
 |---|---|---|
 | `JWT_SECRET` | امضای توکن‌ها | نبود/جای‌نگه‌دار/کوتاه‌تر از ۳۲ نویسه/تک‌نویسه ⇒ رد |
-| `APP_DATABASE_URL` | نقشِ زمانِ اجرا (`dms_app`) | نبود یا یکی‌بودن با نقشِ مهاجرت ⇒ رد |
-| `DATABASE_URL` | نقشِ مهاجرت/مدیریت | فقط برایِ migrate؛ رمزِ جای‌نگه‌دار ⇒ رد |
+| `APP_DATABASE_URL` | نقشِ زمانِ اجرا (`dms_app`) | نبود یا یکیبودن با هویتِ مالک اشیاء / اجرای مهاجرتها ⇒ رد |
+| `DATABASE_URL` | **هویتِ مالک اشیاء** که مهاجرتها را اعمال میکند (نه `dms_migrator` مستقل) | فقط برایِ migrate و ترمیم مجاز پارتیشن؛ رمزِ جاینگهدار ⇒ رد |
 | `ALLOWED_ORIGINS` | فهرستِ CORS (کاما-جدا) | نبود یا ورودیِ نامعتبر ⇒ رد؛ `*` ممنوع |
 | `SMS_PROVIDER` + درگاه | تحویلِ OTP | `log` بدونِ `SMS_ALLOW_LOG_PROVIDER=true` ⇒ رد |
 | `PSP_WEBHOOK_SECRET` | HMAC وب‌هوک PSP | فقط اگر `PSP_ENDPOINT` ست باشد؛ جای‌نگه‌دار ⇒ رد |

@@ -97,6 +97,9 @@ WEB ASSETS OK   (.next/BUILD_ID + next.config.mjs + node_modules::next)
 ## ۷) شواهدِ هویتِ پایگاه‌دادهٔ زمانِ اجرا
 
 - `APP_DATABASE_URL` = `dms_app` (محدود) و `DATABASE_URL` = نقشِ مهاجرت — جداسازی حفظ؛ راستی‌آزماییِ `runtime-identity.ts` (fail-closed) در production فعال.
+  **یادداشت تاریخی H:** «نقش مهاجرت» در این گزارش TASK-19 به معنای همان
+  `DATABASE_URL` مالک اشیاء است، نه `dms_migrator` مستقل؛ مدل جاری ترمیم پارتیشن
+  فقط با مالک اشیاء و `EXECUTE` صریح/خارج از مخزن پشتیبانیشده است.
 - `pg_stat_activity` (اتصال‌های TCP واقعیِ برنامه): **`dms_app=1`، `dms=0`** — برنامه قطعاً با نقشِ محدود کار می‌کند و نقشِ مهاجرت پس از migrate باقی نمانده.
 - `pg_roles`: `dms_app` با `rolsuper=f, rolbypassrls=f, rolcanlogin=t`.
 - ۱۶۱ جدول با RLSِ فعال‌و‌اجباری (`relforcerowsecurity`) رویِ دیتابیسِ تازه؛ خواندنِ `branch` بدونِ زمینه ⇒ صفر ردیف (درونِ همان راستی‌آزماییِ بوت).
