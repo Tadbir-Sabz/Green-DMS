@@ -128,7 +128,13 @@ Classification: corrected H-01/H-04 statements, explicitly labelled historical
   dms_owner owns the schema, dms_migrator independently repairs partitions, or
   standalone 0062.down is a successful rollback remains.
 Final scan result after adding the H report/index/verification documents:
-  PENDING_STAGE4
+  Stage-3 committed scan: 69 matching lines; raw /tmp/pm01dm4h-crossdoc-stage3.txt.
+  All matches are corrected current statements, explicitly labelled historical
+  records, generic runtime identity separation, H evidence wording, or the two
+  protected source comments that H must not edit. No unlabelled current claim of
+  schema ownership by dms_owner, independent partition repair by dms_migrator,
+  or successful standalone out-of-order rollback remains.
+  Final post-update scan matches: 69
 Final raw scan file: /tmp/pm01dm4h-crossdoc-final.txt
 
 ------------------------------------------------------------------------------
