@@ -1,0 +1,199 @@
+TASK-PM-01D-M4-G — local verification ledger
+=============================================
+
+Baseline: 74e71172055d6cad482305db1834300c62fb53f5 (F final / G start).
+Branch: arena/be5eaff3-green-dms. PR #14: OPEN / DRAFT, base main.
+R verdict still stands: FAIL. F-R review verdict still stands: FAIL.
+This ledger is evidence of local execution only, NOT CI-equivalence, NOT
+independent review, NOT approval/merge/release/deploy authorization.
+Exact final SHA and exact CI run IDs are recorded in the PR #14 body after the
+final push; they are intentionally absent here to avoid a self-referential hash.
+
+Disposable DB isolation proof
+-----------------------------
+Local PostgreSQL 16.2 UTF8, 127.0.0.1:55432, datadir /tmp/pm01dm2-pgdata,
+trust auth. No .env file exists; shell DATABASE_URL / APP_DATABASE_URL / PSQL
+were unset between calls. Every command below used inline:
+  PSQL=/tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql
+  DATABASE_URL=postgres://postgres@127.0.0.1:55432/postgres
+  NODE_ENV=test
+The two new suites create uniquely named disposable DBs and drop them in
+teardown (race: greendms_g_race_*; recovery: greendms_g_recovery_* plus a
+non-superuser owner role). No production or shared DB was touched. The local
+cluster uses trust auth, so password authentication is NOT claimed. CI uses
+real PostGIS/pgcrypto/password auth/Redis; this sandbox has shims and no real
+PostGIS, pgcrypto, MinIO or Redis. ECONNREFUSED 127.0.0.1:6379 and negative
+test ERROR/FATAL lines are expected and nonfatal.
+Four files requiring real PostGIS/password auth (customers.api, geofences.api,
+postgres-init-role.api, tours.api) are excluded from the local selected DB run
+and covered by exact-final-SHA CI.
+
+Backups / preservation
+----------------------
+Before edits: /tmp/pm01dm4g-backup/ (145 files) and
+/tmp/pm01dm4g-backup.tar.gz (236K). Recorded original SHA256:
+  0062.down fb737a0385f166d87a9b926aeb671d4ad2540a913e6eaa3aa9b48b91dbcc7514
+  0063.down 08a7af61fa3102fb4e9643757c921b1626079517df4b92890ed5a7a102d83899
+  0041.up   d3b0232fdc460b3e6c1d8016a51233b3d02f0367ce3a14427307e8a1419d5fc7
+  0042.up   c32ad10ec245fe6e3b041dd52ee53af45e55c1c9d4a8953ec0ae76c5eeedeb9f
+  audit.service.ts 6e167b7dba914f880d83b27361d173a3aecaac3a62bd43906e1bb1db40d26d74
+No reset, rebase, force-push, discard or history rewrite. F/R docs, evidence,
+CI metadata and artifacts were preserved; G only adds new artifacts.
+
+Commands and exact results
+--------------------------
+All logs: /tmp/pm01dm4g-*.log. EXIT is the command's process status.
+
+1) Baseline / PR / worktree
+   git rev-parse HEAD / origin/arena/be5eaff3-green-dms
+     => 74e71172055d6cad482305db1834300c62fb53f5 (both).
+   gh pr view 14 --json state,isDraft,baseRefName,headRefOid
+     => OPEN / isDraft=true / base=main / head=74e7117....
+   Worktree was clean before the first edit; BASELINE_OK.
+
+2) PostgreSQL capability / catalog probes (throwaway DBs)
+   LOCK TABLE inside DO EXECUTE                         => OK.
+   CREATE OR REPLACE FUNCTION + SET search_path
+     => proconfig={"search_path=public, pg_catalog, pg_temp"}; without SET
+        => proconfig=NULL. This alone was NOT enough to restore the exact
+        0042 state (see item 3b), so 0064.down recreates the function.
+   Dependent-object inventory after all ups
+     => 1|1|1|1|2|2|3|5|2 (audit col, hist col, evidence table, ledger
+        table, history triggers, evidence policies, evidence constraints,
+        indexes, functions).
+   Trigger names  => trg_product_bulk_history_evidence,
+                     trg_product_catalog_history_bind_bulk.
+   Constraint names => product_bulk_history_event_history_id_key,
+                       product_bulk_history_event_pkey,
+                       uq_product_bulk_history_event_operation_product.
+   Parent RLS flags => audit_log|t|t, inventory_txn|t|t,
+                       location_sample|t|t.
+   Past partitions => audit_log_2026_10/11/12/2027_01; pre-existing audit
+                       rows 0.
+   63 up / 0063 down / 0062 down / reapply => ALL_UPS_OK,
+       0063_DOWN_OK, 0062_DOWN_OK, REAPPLY_OK, 1|t, DB_DROPPED.
+   64 fresh ups + recovery + down => ALL_64_UPS_OK, prosecdef=f,
+       pinned search_path, four roles EXECUTE=f, parents owner=postgres,
+       RECOVERY_OK, t|1|0, forced RLS=t|t|postgres, idempotent=1,
+       down f|NULL|t, 0064_CYCLE_OK, DB_DROPPED.
+   CAUTION: the early 0064 smoke dropped audit_log_2026_11 with 1 row
+   (historic_rows=0). It is NOT cited as evidence-preservation proof. The
+   final role suite instead preserves 3 historical rows in another partition
+   and verifies count/sum unchanged.
+
+3) Mandatory new suites (executed locally, inline env)
+   command (from apps/api):
+     ../../node_modules/.bin/vitest run \
+       test/migration-rollback-race.test.ts \
+       test/audit-partition-recovery.api.test.ts
+   /tmp/pm01dm4g-new-tests-1.log EXIT=1 (4 passed / 4 failed); causes fixed:
+     psql ignored PGOPTIONS application_name (use PGAPPNAME); role suite
+     db.query template-literal syntax; DB-local DDL must use the target DB
+     pool, not the admin postgres pool; grantedLocks must use ctx.pool.
+   /tmp/pm01dm4g-new-tests-2.log EXIT=1 (race 6/8, role 7 skipped); causes
+     fixed as above.
+   /tmp/pm01dm4g-new-tests-3.log EXIT=0: 2 files / 15 tests PASS in 6.43s.
+     Race 8/8: A committed ledger blocks; B operation-bound audit blocks;
+       C/0062 + C/0063 writer commits before lock and is detected;
+       D/F/0062 + D/F/0063 writer after lock cannot commit dropped data;
+       E full schema/rows intact after each guard failure; F empty down +
+       reapply exact end state; G repeated failure/recovery no partial schema.
+     Role 7/7: real TCP current_user/session_user for dms_app, dms_readonly,
+       dms_migrator, dms_owner and a non-superuser owner; no SET ROLE, no
+       superuser rescue for least privilege; dms_app no DDL/CREATE/EXECUTE;
+       dms_readonly no protected evidence read; dms_migrator/dms_owner no
+       EXECUTE; authorized non-superuser object owner creates missing
+       partition, 3 historical audit rows (count/sum) unchanged, forced
+       RLS/policy/grants intact, idempotent no duplicate; documented
+       DATABASE_URL owner also idempotent.
+
+3b) 0064.down exact-catalog probe (throwaway DBs)
+    First down version used CREATE OR REPLACE + grant to public,dms_app and
+    `comment on schema public is null`. Catalog diff found three mismatches:
+      proacl order {postgres=X,=X,dms_app=X} vs baseline
+                   {=X,postgres=X,dms_app=X};
+      fn comment lost the ZWNJ in "فعالسازی";
+      schema comment became NULL instead of "standard public schema".
+    /tmp/pm01dm4g-down-before.txt / -after.txt; -before-def.txt / -after-def.txt.
+    Fixed 0064.down: drop function and recreate the exact 0042 body/comment,
+    grant EXECUTE only to dms_app, restore public schema comment. Candidate
+    probe /tmp/pm01dm4g-down-candidate.sql produced
+    CAT_DIFF_EXIT=0 DEF_DIFF_EXIT=0 and exact
+    false|null|{=X/postgres,postgres=X/postgres,dms_app=X/postgres}|...|
+    standard public schema|postgres on both sides.
+    This is now asserted automatically by a new isolated-DB test in
+    apps/api/test/migrations-security.test.ts (8 tests in the final focused
+    run), including reapplying 0064.up after down.
+
+4) npm run typecheck (final)
+   /tmp/pm01dm4g-final-typecheck.log EXIT=0. Earlier
+   /tmp/pm01dm4g-typecheck.log first attempt EXIT=2 due to a single-quote
+   syntax error in the new Persian operator message; corrected.
+
+5) npm run build (final)
+   /tmp/pm01dm4g-final-build.log EXIT=0. Earlier
+   /tmp/pm01dm4g-build.log first attempt had the same transient syntax error.
+
+6) npm run openapi:check (final)
+   /tmp/pm01dm4g-final-openapi.log EXIT=0: 201 paths / 284 operations /
+   153 schemas / 3 webhooks — valid. Earlier /tmp/pm01dm4g-openapi.log EXIT=0.
+
+7) node scripts/contract-drift.mjs (final)
+   /tmp/pm01dm4g-final-drift.log EXIT=0: required drift 0; contract and code
+   fully aligned. Earlier /tmp/pm01dm4g-drift.log EXIT=0.
+
+8) node scripts/check-test-partition.mjs (final)
+   /tmp/pm01dm4g-final-partition.log EXIT=0: 80 test files; declared manifest
+   == computed partition. db-backed-tests.txt gained the non-api race suite;
+   audit-partition-recovery.api.test.ts is selected by *.api.test.ts.
+
+9) node scripts/test-migrations.mjs (final)
+   /tmp/pm01dm4g-final-migration-cycle.log EXIT=0: 64 strict up/down/up;
+   exactly 1029 identical objects in both up passes; temp DB dropped.
+   Earlier /tmp/pm01dm4g-migration-cycle.log also EXIT=0. The script counts
+   migrations dynamically; no hardcoded 63/1029 remained.
+
+10) Focused M4 + security + race + recovery (final)
+    /tmp/pm01dm4g-final-focused.log EXIT=0: 6 files / 49 tests PASS
+    (11 security, 8 migrations-security including the exact 0064.down test,
+    7 recovery, 8 race, 4 unit, rest M4 API). Redis ECONNREFUSED and
+    negative-test PG noise nonfatal. Earlier /tmp/pm01dm4g-focused.log had
+    6 files / 48 tests before the new catalog test was added.
+
+11) DB-free API unit tests (CI --print unit selection, final)
+    /tmp/pm01dm4g-final-api-unit.log EXIT=0: 26 files / 339 tests PASS.
+
+12) npm run test:web (final)
+    /tmp/pm01dm4g-final-web.log EXIT=0: 17 files / 88 tests PASS.
+
+13) Selected local DB-backed run (final)
+    /tmp/pm01dm4g-final-selected-db.log EXIT=0: 49 files / 1004 tests PASS.
+    Four real-PostGIS/password-auth files excluded locally as noted above.
+    Earlier /tmp/pm01dm4g-selected-db.log had 49 files / 1003 tests before
+    the new catalog test was added.
+
+14) git diff --check (final)
+    EXIT=0. No whitespace errors.
+
+15) Leftover disposable DB check
+    select datname from pg_database where datname like 'greendms_g_%'
+    => no rows after the final suites. All G DBs were dropped.
+
+Counts summary (locally EXECUTED, not CI)
+----------------------------------------
+Static/typecheck/build/OpenAPI/drift/partition/diffcheck: 7 final command
+classes PASS. Migration cycle: 1 full 64 up/down/up cycle PASS.
+Vitest: focused 6 files/49 tests, unit 26/339, web 17/88, selected DB
+49/1004, mandatory new 2/15 (included in focused/selected counts),
+migrations-security 8/8. No local test was skipped in the final
+focused/unit/web/selected runs; the four PostGIS/password files were
+excluded from the selected local run and are executed by exact-final-SHA CI.
+
+UNVERIFIED / remaining boundaries
+----------------------------------
+Independent read-only review (retry of original F-R-01 exploit + F-R-02 real
+PG identities), exact production ownership topology, real network/ACK loss,
+pool saturation, operational impact of ACCESS EXCLUSIVE during rollback,
+manual RTL/responsive/a11y/console review, G-03, PM-B1..PM-B8, whole-file
+atomicity, overall Product Master/domain acceptance. CI on the exact final
+commit is recorded in PR #14 body; this ledger does not claim CI-equivalence.

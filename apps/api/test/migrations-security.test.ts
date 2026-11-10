@@ -48,6 +48,30 @@ function runSqlFile(file: string): void {
   });
 }
 
+// همان اجرا، ولی روی DB یکبارمصرف جداگانه؛ برای مقایسهٔ کاتالوگِ دقیق ۰۰۶۴
+// down با وضعیت پس از ۰۰۴۲، بدون بههمزدن DB مشترکِ بقیهٔ آزمونها.
+function runSqlFileOn(database: string, file: string): void {
+  execFileSync(PSQL, [...psqlBase, '-d', database, '-1', '-q', '-f', file], {
+    env: psqlEnv,
+    stdio: 'pipe',
+  });
+}
+
+async function maintenanceFunctionState(q: pg.Pool): Promise<Record<string, unknown>> {
+  const { rows } = await q.query(`
+    select p.prosecdef as secdef,
+           p.proconfig::text as config,
+           p.proacl::text as acl,
+           obj_description(p.oid, 'pg_proc') as fn_comment,
+           obj_description(n.oid, 'pg_namespace') as schema_comment,
+           pg_get_functiondef(p.oid) as def,
+           p.proowner::regrole::text as owner
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where p.oid = 'public.fn_ensure_partitions(integer)'::regprocedure`);
+  return rows[0] as Record<string, unknown>;
+}
+
 const uid = () => crypto.randomBytes(6).toString('hex');
 
 interface Counts {
@@ -169,9 +193,10 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-PM-01D-M4-F: 0063 (شواهد operation-bound) آخرین مهاجرت است. با افزودنِ
-    // مهاجرتِ تازه این خط عمداً باید بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0063_product_bulk_evidence.up.sql');
+    // TASK-PM-01D-M4-G: 0064 (بازیابی پارتیشن ممیزی با هویت مالک اشیاء) آخرین
+    // مهاجرت است. با افزودنِ مهاجرتِ تازه این خط عمداً باید بهروزرسانی شود —
+    // تغییرِ آگاهانه، نه شکستِ خاموش.
+    expect(files[files.length - 1]).toBe('0064_audit_partition_recovery.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -265,6 +290,70 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     expect(rows[0].app_exec).toBe(0);
     expect(rows[0].expiry_idx).toBe(1);
   });
+
+  it('0064: maintenance function is invoker, search_path pinned and EXECUTE denied to runtime roles', async () => {
+    const { rows } = await db.query(`
+      select
+        (select prosecdef from pg_proc where oid='public.fn_ensure_partitions(integer)'::regprocedure) as secdef,
+        (select proconfig::text from pg_proc where oid='public.fn_ensure_partitions(integer)'::regprocedure) as config,
+        (select has_function_privilege('dms_app','public.fn_ensure_partitions(integer)','EXECUTE')) as app_exec,
+        (select has_function_privilege('dms_readonly','public.fn_ensure_partitions(integer)','EXECUTE')) as ro_exec,
+        (select has_function_privilege('dms_migrator','public.fn_ensure_partitions(integer)','EXECUTE')) as migrator_exec,
+        (select has_function_privilege('dms_owner','public.fn_ensure_partitions(integer)','EXECUTE')) as owner_exec,
+        (select count(*)::int from pg_class where relname in ('audit_log','location_sample','inventory_txn') and relkind='p') as parents`);
+    expect(rows[0].secdef).toBe(false);
+    expect(rows[0].config).toContain('search_path=public, pg_catalog, pg_temp');
+    expect(rows[0].app_exec).toBe(false);
+    expect(rows[0].ro_exec).toBe(false);
+    expect(rows[0].migrator_exec).toBe(false);
+    expect(rows[0].owner_exec).toBe(false);
+    expect(rows[0].parents).toBe(3);
+  });
+
+  it('0064 down: exact 0042 catalog state is restored on an isolated DB', async () => {
+    const dbName = `greendms_g_down_${uid()}`;
+    const isolatedUrl = new URL(adminUrl);
+    isolatedUrl.pathname = `/${dbName}`;
+    let isolated: pg.Pool | undefined;
+    await adminPool.query(`create database "${dbName}"`);
+    try {
+      const files = readdirSync(path.join(ROOT, 'migrations'))
+        .filter((f) => f.endsWith('.up.sql') && !f.startsWith('0064_'))
+        .sort();
+      for (const f of files) runSqlFileOn(dbName, path.join(ROOT, 'migrations', f));
+      isolated = new pg.Pool({ connectionString: isolatedUrl.toString(), max: 1 });
+      const baseline = await maintenanceFunctionState(isolated);
+      expect(baseline.secdef).toBe(false);
+      expect(baseline.config).toBeNull();
+
+      const up64 = path.join(ROOT, 'migrations', '0064_audit_partition_recovery.up.sql');
+      const down64 = path.join(ROOT, 'migrations', '0064_audit_partition_recovery.down.sql');
+      runSqlFileOn(dbName, up64);
+      const hardened = await maintenanceFunctionState(isolated);
+      expect(hardened.secdef).toBe(false);
+      expect(hardened.config).toContain('search_path=public, pg_catalog, pg_temp');
+      expect(hardened.schema_comment).toContain('TASK-PM-01D-M4-G');
+
+      // بدنه، prosecdef/proconfig، ترتیبِ دقیقِ proacl، comment تابع و comment
+      // طرحوارهٔ public باید بایتبهبایت با وضعیت پس از ۰۰۴۲ یکی باشند.
+      runSqlFileOn(dbName, down64);
+      const restored = await maintenanceFunctionState(isolated);
+      expect(restored).toEqual(baseline);
+
+      // اعمال دوبارهٔ ۰۰۶۴ باید همان سختسازی را برگرداند (up/down/up).
+      runSqlFileOn(dbName, up64);
+      const reapplied = await maintenanceFunctionState(isolated);
+      expect(reapplied.secdef).toBe(false);
+      expect(reapplied.config).toContain('search_path=public, pg_catalog, pg_temp');
+      expect(reapplied.schema_comment).toContain('TASK-PM-01D-M4-G');
+    } finally {
+      await isolated?.end();
+      await adminPool
+        .query('select pg_terminate_backend(pid) from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()', [dbName])
+        .catch(() => undefined);
+      await adminPool.query(`drop database if exists "${dbName}"`).catch(() => undefined);
+    }
+  }, 300_000);
 
   it('0063/0062 down: populated ledger, history and evidence refuse rollback', async () => {
     const company = (await db.query(`select id from company limit 1`)).rows[0].id as string;

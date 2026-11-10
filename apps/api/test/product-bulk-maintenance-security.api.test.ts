@@ -670,7 +670,15 @@ describe('TASK-PM-01D-M4-F — missing audit partition fails closed under dms_ap
     );
     expect(ledger.rows[0].status).toBe('rejected');
 
-    // dms_app نمیتواند پارتیشن بسازد؛ فقط نقش مهاجرت/ادمین این کار را میکند.
+    // TASK-PM-01D-M4-G / F-R-02: dms_app حتی EXECUTE روی تابع نگهداشت را هم
+    // ندارد؛ ترمیم فقط با هویت مالک اشیاء (همان DATABASE_URL که مهاجرتها را
+    // اعمال کرده؛ اینجا fx.admin) مجاز است، نه dms_migrator/dms_owner بیملکیت.
+    const execProbe = await fx.admin.query<{ app_exec: boolean; migrator_exec: boolean }>(
+      `select has_function_privilege('dms_app','public.fn_ensure_partitions(integer)','EXECUTE') as app_exec,
+              has_function_privilege('dms_migrator','public.fn_ensure_partitions(integer)','EXECUTE') as migrator_exec`,
+    );
+    expect(execProbe.rows[0].app_exec).toBe(false);
+    expect(execProbe.rows[0].migrator_exec).toBe(false);
     await expect(fx.appClient.query('select fn_ensure_partitions(2)')).rejects.toThrow();
     await fx.admin.query(`select fn_ensure_partitions(2)`);
     const restored = await fx.admin.query<{ ok: boolean }>(

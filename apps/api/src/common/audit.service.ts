@@ -46,10 +46,17 @@ export class AuditPartitionMissingError extends Error {
     super(
       [
         'پارتیشن ماهانهٔ audit_log وجود ندارد؛ هیچ تغییری ثبت نشد.',
-        'اقدام اپراتور: با نقش مهاجرت/تعمیرات (DATABASE_URL، نه dms_app) دستور',
-        '  select fn_ensure_partitions(2);',
-        'را اجرا و لاگ استقرار را ثبت کنید؛ سپس عملیات را از نو آغاز کنید.',
-        'نقش dms_app اجازهٔ CREATE/DDL ندارد و برنامه هرگز پارتیشن نساخته است.',
+        'اقدام اپراتور (فقط خارج از برنامه، با هویت مالک اشیاء):',
+        '  ۱) با همان هویت DATABASE_URL که مهاجرتها را اعمال کرده و مالک',
+        '     public.audit_log است وصل شوید؛ بررسی:',
+        "     select relowner::regrole from pg_class where oid = 'public.audit_log'::regclass;",
+        '     نه dms_app، نه dms_readonly، و نه dms_migrator/dms_owner مگر آنکه',
+        '     مالکیت والدها به آنها منتقل و EXECUTE صریح داده شده باشد.',
+        '  ۲) select fn_ensure_partitions(2);  -- بایدار، قابل تکرار، بدون لمس ردیفهای تاریخی',
+        '  ۳) ساختهشدن پارتیشن، RLS اجباری/سیاست والد و گرانت dms_app را بررسی',
+        '     و اقدام را در لاگ استقرار ثبت کنید؛ سپس عملیات تازهای آغاز کنید.',
+        'برنامه (dms_app) فاقد CREATE/DDL و فاقد EXECUTE روی تابع نگهداشت است و',
+        'هیچ SECURITY DEFINER تازهای برای دور زدن مالکیت اضافه نشده است.',
       ].join('\n'),
     );
     this.name = 'AuditPartitionMissingError';
@@ -59,11 +66,14 @@ export class AuditPartitionMissingError extends Error {
 /**
  * نوشتن در audit_log (مهاجرت 0002، پارتیشنشده بر اساس at).
  *
- * - پارتیشنها فقط توسط مهاجرت 0019/0042 و تعمیرات ممتاز (fn_ensure_partitions)
- *   ساخته میشوند. پیش از F، recordRequired هنگام کمبود پارتیشن همان تابع DDL را
- *   زیر dms_app صدا میزد؛ چون dms_app فاقد CREATE است، آن تلاش شکست میخورد و
- *   خطای مبهمی میداد. اکنون خطا صریح، عملیاتی و fail-closed است و تراکنش M4
- *   (محصول + ممیزی + دفتر عملیات) کامل rollback میشود.
+ * - پارتیشنها فقط توسط مهاجرت 0019/0042/0064 و ترمیم ممتاز
+ *   (fn_ensure_partitions، فقط با هویت مالک اشیاء = DATABASE_URL) ساخته میشوند.
+ *   پیش از F، recordRequired هنگام کمبود پارتیشن همان تابع DDL را زیر dms_app
+ *   صدا میزد؛ چون dms_app فاقد CREATE است، آن تلاش شکست میخورد و خطای مبهمی
+ *   میداد. اکنون خطا صریح، عملیاتی و fail-closed است و تراکنش M4 (محصول +
+ *   ممیزی + دفتر عملیات) کامل rollback میشود. G هویت واقعی ترمیم را تصحیح کرد:
+ *   dms_migrator/dms_owner مالک والدها نیستند و EXECUTE تابع از همهٔ نقشهای
+ *   زمان اجرا/گزارشگیری گرفته شده است.
  * - `record` خطای ممیزی را بلعیده و فقط لاگ میکند؛ رفتار تاریخی سایر مسیرها حفظ
  *   شده است.
  * - `recordRequired` همان SQL را میگیرد ولی خطا را پرتاب میکند. مسیر M4 از این

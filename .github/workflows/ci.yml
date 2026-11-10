@@ -172,6 +172,9 @@ jobs:
       # TASK-PM-01D-M4-F: product-bulk-maintenance-security.api.test.ts نیز با همین
       # الگوی *.api.test.ts انتخاب میشود؛ خودش یک DB یکبارمصرف و اتصال واقعی
       # dms_app (APP_DATABASE_URL) میسازد و نیازی به سرویس/متغیر CI جداگانهای ندارد.
+      # TASK-PM-01D-M4-G: audit-partition-recovery.api.test.ts نیز با *.api.test.ts
+      # انتخاب میشود؛ migration-rollback-race.test.ts یک تست non-api DB-backed
+      # است و در db-backed-tests.txt فهرست شده (guard پارتیشن آن را الزام میکند).
       - name: API integration tests (DB-backed, excludes storage round-trip)
         id: apidb
         shell: bash

@@ -829,7 +829,7 @@ export class ProductBulkMaintenanceService {
         category: 'infrastructure',
         reasonCode: 'audit_partition_missing',
         messageFa:
-          'پارتیشن ممیزی وجود نداشت؛ هیچ تغییری ثبت نشد. اپراتور باید با نقش مهاجرت fn_ensure_partitions(2) را اجرا کند، سپس عملیات تازهای بسازد.',
+          'پارتیشن ممیزی وجود نداشت؛ هیچ تغییری ثبت نشد. اپراتور باید خارج از برنامه و با هویت مالک اشیاء (همان DATABASE_URL که مهاجرتها را اعمال کرده است، نه dms_app و نه dms_migrator/dms_owner بیملکیت) دستور fn_ensure_partitions(2) را اجرا و در لاگ استقرار ثبت کند، سپس عملیات تازهای بسازد.',
         outcome: 'rolled_back',
         errorCode: 'audit_partition_missing',
       };
