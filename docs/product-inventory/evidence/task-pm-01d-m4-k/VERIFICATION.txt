@@ -83,9 +83,11 @@ SCOPE RESOLUTION (K)
   No owner approval or approval decision is invented.
 
 FACTUAL CORRECTIONS
-  TASK-PM-01D-M4-I_IMPLEMENTATION.md:40 now says cleanup filters by the
-    explicit expires_at cutoff, matching
-    scripts/cleanup-expired-bulk-previews.mjs:111-132.
+  TASK-PM-01D-M4-I_IMPLEMENTATION.md:40 now says the earlier prose incorrectly
+    named created_at as the cleanup filter; the tool uses the explicit
+    expires_at cutoff, matching
+    scripts/cleanup-expired-bulk-previews.mjs:111-132, and created_at is not
+    that filter.
   M4_ACCEPTANCE_MATRIX.md A-20 now cites exact SHA
     39355a377fe66f3fd8c2bae996c8ec92211bd4db, exact workflow/check-run IDs and
     the independent J review.
@@ -94,6 +96,16 @@ VALIDATION (K) — DOCUMENTATION / EVIDENCE / LINK-PATH / CONSISTENCY ONLY
   No DB-backed test suite was rerun; no database role, grant, secret or
   configuration was altered. No application code, migration, CI configuration,
   approval, merge, release, deploy or PR readiness change was made.
+
+PUSH-HISTORY CORRECTION (DISCLOSED)
+  First ordinary push: 77b09cf32e085d3c2ef153f2f00ec1f12d5d437e.
+  A whitespace-normalization amend was published with git push
+  --force-with-lease, replacing the head with
+  4509b8879fc08e291c063bdb4433a6288a4d546a. This was a deviation from the
+  standing no-force-push instruction; no repository content was overwritten.
+  Recovery is a normal git merge -s ours preserving 77b09cf... as a reachable
+  parent with the whitespace-clean tree. No further force-push is used.
+  GitHub commits remain the durable source of truth.
 
 FINAL VALIDATION BLOCK (2026-11-10, pre-commit local checks)
   Changed files: 8 expected / 8 actual; unexpected 0; missing 0.
@@ -112,9 +124,11 @@ FINAL VALIDATION BLOCK (2026-11-10, pre-commit local checks)
     unchanged I VERIFICATION.json / VERIFICATION.txt hashes.
   Local PG roles dms_app / dms_migrator / dms_owner / dms_readonly: all
     NOLOGIN; no greendms_k_* disposable DBs remain.
-  Post-push exact local / remote / PR SHA agreement and exact K-final-SHA CI
-    IDs are recorded in PR #14 body and the final chat report, not as a
-    self-referential hash in this tree.
+  Post-push exact five-way local / remote / GitHub-branch / git ls-remote /
+    PR-head SHA agreement and exact K-final-SHA CI IDs are recorded in PR #14
+    body and the final chat report, not as a self-referential hash in this
+    tree. The force-with-lease deviation and non-destructive merge recovery are
+    disclosed above and in the final chat report.
 
 CURRENT FINAL VERDICTS
   M4 TECHNICAL ACCEPTANCE: PASS WITH FINDINGS

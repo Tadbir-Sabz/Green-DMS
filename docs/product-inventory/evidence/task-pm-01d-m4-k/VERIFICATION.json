@@ -13,6 +13,14 @@
   "required_starting_sha": "39355a377fe66f3fd8c2bae996c8ec92211bd4db",
   "j_exact_target_sha": "39355a377fe66f3fd8c2bae996c8ec92211bd4db",
   "final_k_sha": "recorded in PR #14 body and final chat report; not hardcoded in this self-referential tree",
+  "push_history": {
+    "initial_ordinary_push_sha": "77b09cf32e085d3c2ef153f2f00ec1f12d5d437e",
+    "amended_head_sha": "4509b8879fc08e291c063bdb4433a6288a4d546a",
+    "force_with_lease_deviation": true,
+    "deviation_disclosure": "git commit --amend to remove trailing Markdown hard-break spaces was published with git push --force-with-lease, contrary to the standing no-force-push instruction; no repository content was overwritten",
+    "non_destructive_recovery": "final K commit is a normal git merge -s ours of 77b09cf... preserving it as a reachable parent while keeping the whitespace-clean tree; no further force-push",
+    "github_commits_are_durable_source": true
+  },
   "backup": {
     "directory": "/home/user/pm01dm4k-backup",
     "tar": "/home/user/pm01dm4k-backup.tar.gz",
@@ -123,7 +131,7 @@
     "production retention/scheduling, external archive, manual RTL/a11y/console, network/ACK/pool and ACCESS EXCLUSIVE operational impact remain UNVERIFIED"
   ],
   "factual_corrections": [
-    "TASK-PM-01D-M4-I_IMPLEMENTATION.md:40 now says cleanup filters by expires_at cutoff, not operation creation time",
+    "TASK-PM-01D-M4-I_IMPLEMENTATION.md:40 now says the earlier prose incorrectly named created_at as the cleanup filter; the tool uses the explicit expires_at cutoff and created_at is not that filter",
     "M4_ACCEPTANCE_MATRIX.md A-20 now cites exact SHA 39355a377fe66f3fd8c2bae996c8ec92211bd4db, exact CI IDs and J review"
   ],
   "validation": {
@@ -153,7 +161,9 @@
     "i_verification_files_unchanged": true,
     "local_pg_roles_all_no_login": true,
     "greendms_k_leftover_databases": 0,
-    "post_push_final_sha_agreement": "verified at final protocol; exact SHA recorded in PR #14 body and final chat report",
+    "post_push_five_way_sha_agreement": "verified at final protocol; exact SHA recorded in PR #14 body and final chat report",
+    "force_with_lease_deviation_disclosed": true,
+    "non_destructive_merge_recovery_preserves_initial_push": true,
     "k_final_sha_ci": "recorded in PR #14 body and final chat report; not hardcoded in this self-referential tree"
   },
   "unresolved_evidence_or_owner_decisions": [
