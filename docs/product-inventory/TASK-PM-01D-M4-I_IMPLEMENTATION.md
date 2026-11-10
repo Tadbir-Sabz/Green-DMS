@@ -6,6 +6,8 @@
 **Branch / PR:** `arena/be5eaff3-green-dms`, PR #14 OPEN / DRAFT / base `main`.
 **Scope:** M4 technical acceptance readiness and evidence consistency only. This report does **not** accept Product Master, approve PM-B1..PM-B8, authorize release/deployment, or change production.
 
+> **Current-state note (TASK-PM-01D-M4-K, 2026-11-10):** This document preserves the I-stage historical self-assessment. The independent Agent-2 review `TASK-PM-01D-M4-J` and the dated K reconciliation in `M4_ACCEPTANCE_MATRIX.md` §8 are the current authoritative state. The current M4 technical verdict is `PASS WITH FINDINGS`; Product Master remains `BLOCKED`; production deployment remains `NOT AUTHORIZED`. Historical `UNVERIFIED` language below is not rewritten.
+
 ## 1) Assignment and method
 
 The task was to re-establish an authoritative, evidence-based M4 acceptance posture without repeating earlier implementation work, without changing protected migrations/CI, and without overwriting earlier review verdicts. I therefore:
@@ -37,7 +39,9 @@ Historical `R = FAIL` and `F-R = FAIL` are **not** deleted or relabelled. G-R wa
 
 ### F-R-03 — expired preview cleanup
 
-`scripts/cleanup-expired-bulk-previews.mjs` is an explicit, fail-closed operator tool. It requires an explicit owner `DATABASE_URL`, exactly one tenant UUID, an ISO cutoff, dry-run by default and `--apply` for deletion. It preflights object ownership/full visibility, forced RLS, grants and GUC, filters only evidence-free terminal-less `preview_created` rows by operation creation time, performs transactional delete and postflight checks, and emits JSON. It does **not** grant `DELETE` to `dms_app`, add a queue/scheduler/`SECURITY DEFINER`, edit protected SQL, or infer a production retention policy.
+`scripts/cleanup-expired-bulk-previews.mjs` is an explicit, fail-closed operator tool. It requires an explicit owner `DATABASE_URL`, exactly one tenant UUID, an ISO cutoff, dry-run by default and `--apply` for deletion. It preflights object ownership/full visibility, forced RLS, grants and GUC, filters only evidence-free terminal-less `preview_created` rows by the explicit `expires_at` cutoff (`expires_at <= BULK_PREVIEW_CLEANUP_BEFORE`), performs transactional delete and postflight checks, and emits JSON. It does **not** grant `DELETE` to `dms_app`, add a queue/scheduler/`SECURITY DEFINER`, edit protected SQL, or infer a production retention policy.
+
+> **Factual correction (TASK-PM-01D-M4-K, 2026-11-10):** the earlier prose incorrectly named `created_at` as the cleanup filter. The implementation at `scripts/cleanup-expired-bulk-previews.mjs:111-132` selects `preview_created` rows with `expires_at <= $2::timestamptz`; `created_at` is not the cleanup filter. This correction changes documentation only and does not rewrite any historical I verdict.
 
 `apps/api/test/product-bulk-preview-cleanup.test.ts` uses a disposable PostgreSQL database for five tests: dry-run candidate selection; `--apply` deletes exactly one eligible row and retains evidence, future, committed, unknown, accepted/rejected and other-tenant rows; forced RLS and grants are unchanged; repeated `--apply` is idempotent; a real non-owner TCP role and invalid tenant/cutoff fail closed. `apps/api/test/db-backed-tests.txt` declares the new non-`*.api.test.ts` DB suite.
 
@@ -98,3 +102,7 @@ The code and exact-SHA CI evidence for Stage A are green; F-R-03/04 are implemen
 **M4 ACCEPTANCE READINESS: UNVERIFIED**
 
 This is an evidence/readiness assessment, not permission to approve, merge, release or deploy.
+
+## 8) Current-state addendum — TASK-PM-01D-M4-K (2026-11-10, dated record)
+
+The independent Agent-2 review `TASK-PM-01D-M4-J` at exact SHA `39355a377fe66f3fd8c2bae996c8ec92211bd4db` returned `PASS WITH FINDINGS` for isolated M4 technical scope. K adopts that current-state verdict in `docs/product-inventory/M4_ACCEPTANCE_MATRIX.md` §8 and `docs/product-inventory/TASK-PM-01D-M4-K_IMPLEMENTATION.md`. This section does **not** rewrite §5 or §7 above: the I-stage `UNVERIFIED` readiness line is preserved as a historical record. Product Master remains `BLOCKED`; production deployment remains `NOT AUTHORIZED`. No approval, merge, release or deployment is implied.

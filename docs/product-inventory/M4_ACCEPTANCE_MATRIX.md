@@ -2,7 +2,7 @@
 
 **Baseline / required starting SHA:** `8c40105f8c5b38660a605078207ac5bd90215359` (H final).
 **I Stage A SHA:** `ce34fdcd738240025fb4f8c801da1a948eb98108` (implementation + tests).
-**Final I SHA and exact final-SHA CI run IDs:** recorded in PR #14 body and the final chat report, not as a self-referential hash inside this repository.
+**I final / J exact target SHA:** `39355a377fe66f3fd8c2bae996c8ec92211bd4db`; exact-SHA CI run IDs are recorded in A-20 below, PR #14 body and the durable J report. **K current-state records:** §8; the K final commit SHA is recorded in PR #14 body and the final chat report, not as a self-referential hash inside this repository.
 **Branch / PR:** `arena/be5eaff3-green-dms`; PR #14 remains OPEN / DRAFT against `main`.
 
 This matrix covers **M4 technical acceptance readiness only**. Passing M4 does **not** accept Product Master, approve PM-B1..PM-B8, authorize a release/deployment, or imply owner approval. Verdict vocabulary for every current row is exactly `PASS`, `FAIL`, `UNVERIFIED`, or `NOT APPLICABLE`. Historical labels such as `FAIL`, `PASS WITH FINDINGS`, `VERIFIED SAFE`, `BLOCKED`, and `OPEN / NOT APPROVED` are preserved in quoted form and are never rewritten as if they never existed.
@@ -44,8 +44,8 @@ This matrix covers **M4 technical acceptance readiness only**. Passing M4 does *
 | A-17 | F-R-03 expired preview cleanup | `scripts/cleanup-expired-bulk-previews.mjs`; operator guide §4-b | 5/5 new tests; dry-run/apply/idempotency/denial; RLS/grants postflight | `ce34fdc...` | none | `PASS` | Production retention/scheduling policy D-06; no runtime scheduler approved. |
 | A-18 | F-R-04 direct viewer POST reconcile 403 | `product-bulk-maintenance.api.test.ts` | direct 403 + 401 + ledger/evidence unchanged | `ce34fdc...` | none | `PASS` | None. |
 | A-19 | H-01..H-04 operational/documentation consistency | H report, architecture/deploy/operator docs, migrations README | H validation; I fixed 3 H non-ZWNJ spellings; CJK scan 0 | `8c40105...`, `ce34fdc...` | G-R 4 LOW caveats | `PASS` | None. |
-| A-20 | Exact-SHA CI and full local validation for H and I Stage A | existing workflows, unchanged | H 8/8 check-runs + 4/4 runs; Stage A 9/9 check-runs + 5/5 runs; local API unit 26/339, web 17/88, root build EXIT=0 | `8c40105...`, `ce34fdc...` | none | `PASS` | Final I SHA CI recorded in PR #14 body. |
-| R-AGG | Independent full re-audit of all seven original R findings | no new independent report | F/G/H/I self-assessment + narrow G-R; no full independent R/F-R re-review at final SHA | `6bffef3...`, `74e7117...`, `2e6d271...` | R `FAIL`; F-R `FAIL`; G-R narrow `VERIFIED SAFE` only | `UNVERIFIED` | Read-only independent re-review at final SHA with exact commands/results; production topology evidence. |
+| A-20 | Exact-SHA CI at I final / J target and independent J validation | existing workflows, unchanged | 8/8 check-runs + 4/4 workflow runs at `head_sha=39355a377fe66f3fd8c2bae996c8ec92211bd4db`: workflow runs `42859214454` e2e, `42859214511` migrations, `42859214519` release-image, `42859215185` CI; check-run IDs `129980469451`, `129980470263`, `129980472444`, `129980472808`, `129980472963`, `129980473065`, `129980473154`, `129980481452`; J independently re-ran OpenAPI 201/284/153/3, drift 0, partition 81, typecheck 4/4, 64 up/down/up with 1029 identical objects, API unit 26/339, web 17/88 and root build EXIT=0. No earlier-SHA green was transferred. | `39355a377fe66f3fd8c2bae996c8ec92211bd4db`; `evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md`; PR #14 body | Agent-2 J independent read-only review, overall `PASS WITH FINDINGS` | `PASS` | Raw final-SHA CI per-test log counts are `UNVERIFIED` because the external blob log returned EOF; local PG16.2 trust-auth is not production-equivalent; production topology remains D-01 `UNVERIFIED`. |
+| R-AGG | Independent full re-audit of all seven original R findings — **mandatory M4 acceptance evidence row; retained, see §8 K current-state split** | no standalone original R report; J chat report now durable | F/G/H/I self-assessment + narrow G-R; J independently re-audited seven reconstructed current behaviors at `39355a3...` | `6bffef3...`, `74e7117...`, `2e6d271...`, `39355a3...` | R `FAIL`; F-R `FAIL`; G-R narrow `VERIFIED SAFE` only; J `PASS WITH FINDINGS` | `UNVERIFIED` | Historical I row preserved. §8 records the current-state split: isolated M4 technical correctness `PASS WITH FINDINGS`; exact original IDs/verbatim grouping and production topology/authorization remain `UNVERIFIED`. |
 
 ## 2) Category B — related migration/security requirements M4 depends on
 
@@ -100,7 +100,9 @@ This matrix covers **M4 technical acceptance readiness only**. Passing M4 does *
 
 `R = FAIL` and `F-R = FAIL` are **historical aggregate verdicts** recorded at `6bffef3...` and `74e7117...`. G-R was a **later, narrower independent read-only review** at `2e6d271...`; it reported `F-R-01 VERIFIED SAFE` and `F-R-02 VERIFIED SAFE` with exact scope limits, plus `M4-G technical acceptance UNVERIFIED`, `Product Master BLOCKED`, 4 LOW caveats and `PASS WITH FINDINGS` overall. These statements do not contradict each other once time, SHA and scope are separated. I does **not** erase R/F-R `FAIL`, does **not** promote G-R to full M4 acceptance, and does **not** mark a finding resolved merely because H described it correctly. The current mandatory acceptance gap is an independent full re-audit at the final SHA; therefore aggregate M4 readiness remains `UNVERIFIED`.
 
-## 7) Current M4 readiness ledger
+> **K dated note (2026-11-10):** the paragraph above and §7 below are preserved as the I-stage historical readiness ledger. The independent J review is now durable in `evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md`; §8 is the current authoritative state. R-AGG is not removed from mandatory M4 acceptance.
+
+## 7) Historical I readiness ledger (preserved; superseded for current state by §8)
 
 - Mandatory M4 functional/security rows A-01..A-20 and B-01..B-08: `PASS`.
 - Mandatory independent acceptance evidence R-AGG: `UNVERIFIED` — exact missing evidence stated above.
@@ -109,4 +111,52 @@ This matrix covers **M4 technical acceptance readiness only**. Passing M4 does *
 - Historical R/F-R `FAIL` and G-R `VERIFIED SAFE` remain distinguishable and preserved.
 - No aggregate `PASS` is claimed while R-AGG is `UNVERIFIED`.
 
-**M4 ACCEPTANCE READINESS: UNVERIFIED** — this is an evidence/readiness assessment, not permission to approve, merge, release or deploy.
+**M4 ACCEPTANCE READINESS: UNVERIFIED** — historical I record; see §8 for the current K verdict. This remains an evidence/readiness assessment, not permission to approve, merge, release or deploy.
+
+## 8) TASK-PM-01D-M4-K — current-state acceptance reconciliation (2026-11-10)
+
+This dated section is the **current authoritative acceptance state**. Sections 1–7 preserve I-stage records. It incorporates the independent Agent-2 `TASK-PM-01D-M4-J` review whose complete chat report is durable at `evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md`. K changed acceptance documentation and evidence records only: no application code, migration, grant, authorization, secret, production configuration, CI configuration, approval, merge, release, deployment, or PR readiness change was made. PR #14 remains `OPEN / DRAFT`.
+
+### 8.1 R-AGG scope ambiguity resolution — A / B / C separation
+
+**R-AGG is not removed from mandatory M4 acceptance.** The row in §1 is retained and explicitly marked mandatory. Its previous `UNVERIFIED` status is preserved as the I-stage historical readiness record. K splits the current state into three distinct questions:
+
+| Dimension | Current status | Basis | Still missing |
+|---|---|---|---|
+| **A. Current isolated M4 technical correctness** | `PASS WITH FINDINGS` | Agent-2 J independently reviewed exact SHA `39355a377fe66f3fd8c2bae996c8ec92211bd4db`; all seven reconstructed current-state R behaviors received `PASS`; exact-SHA CI 8/8 check-runs and 4/4 workflow runs succeeded; J independently re-ran static checks, migration cycle, DB-free unit/web/build checks. | Exact final-SHA raw DB-backed per-test log counts are `UNVERIFIED` because the external CI log blob returned EOF; role-sensitive DB-backed suites were not locally re-executed under J/K read-only role constraints. |
+| **B. Historical evidence completeness** | `UNVERIFIED` | The original R report was chat-only. No standalone report, exact original seven finding IDs, or verbatim grouping exists in the repository, PR comments/reviews, or durable evidence. J used reconstructed IDs `R-REC-01`…`R-REC-07`; these are **not original IDs**. | Original R transcript/signed report at `6bffef3...`, or explicit owner acceptance that the reconstruction is authoritative. No owner approval is invented here. |
+| **C. Production topology and operational authorization** | `UNVERIFIED` / `NOT AUTHORIZED` | Exact production topology, object owner, password-auth/PostGIS equivalence, S3/MinIO production grade, retention/scheduling/archive, manual RTL/a11y/console, real network/ACK/pool, and `ACCESS EXCLUSIVE` operational impact were never approved or verified. | Authorized production-equivalent evidence, operator/owner sign-off, and explicit deployment authorization. No production DB/system was accessed. |
+
+**Authoritative scope references:** `TASK-PM-01D-M4_IMPLEMENTATION.md:199-210` defines M4 as a bounded operation, explicitly excludes production/DB shared changes and domain/queue/RBAC additions, and states that local evidence alone is not production-equivalent; `GAP_REGISTER.md:220-227` and `PRODUCT_MASTER_TARGET_DESIGN.md:288-299` keep PM-B1..PM-B8, whole-file atomicity, domain registry/membership and owner approvals outside M4; `TASK-PM-01D-M4-F_INDEPENDENT_REVIEW_REQUEST.md:75-81` explicitly says a reviewer must not accept production-equivalent DB, network/ACK, pool, manual RTL/a11y/console, G-03, whole-file, PM-B1..PM-B8 or full Product Master as PASS; `TASK-PM-01D-M4-I_IMPLEMENTATION.md:7` limits I to M4 technical acceptance readiness, not Product Master approval, release/deployment or production change; `M4_ACCEPTANCE_MATRIX.md:64-84` separates Category C Product Master and Category D production/release requirements.
+
+**Conclusion:** those authoritative M4 scope documents establish production topology/operator authorization as separate production-release gates, and exact original R IDs as historical-evidence completeness — not as current-code M4 technical prerequisites. I-stage wording at §1 R-AGG, §7 and `TASK-PM-01D-M4-I_IMPLEMENTATION.md:75,96` treated R-AGG plus production topology as an M4 blocker; K records that as an I evidence-ledger formulation, **not** an owner-approved scope prerequisite. No owner approval or approval decision exists in these records and none is invented. If an acceptance authority later requires original IDs or production topology as an M4 acceptance prerequisite, those prerequisites remain `UNVERIFIED` and would prevent an unconditional `PASS`; the current verdict is therefore `PASS WITH FINDINGS`, not `PASS`.
+
+### 8.2 Final acceptance ledger distinctions
+
+| Ledger item | Historical / preserved record | Current-state record at J target SHA | Scope / limitation |
+|---|---|---|---|
+| R historical verdict | `FAIL (CRITICAL 0 / HIGH 1 / MEDIUM 3 / LOW 3)` at `6bffef38fc4ce007798e68d4c7959729c76100e2`; chat-only, no standalone report. | **Unchanged; not rewritten.** | Historical aggregate only. |
+| Seven reconstructed R current-state findings | No exact original IDs/grouping available. | `R-REC-01`…`R-REC-07` all `PASS` for current code at `39355a3...`. Full table: J report §B and `evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md`. | Reconstructed IDs are not original IDs; exact historical mapping `UNVERIFIED`. |
+| R-AGG aggregate | I: `UNVERIFIED`; mandatory independent full re-audit absent. | **Mandatory row retained.** Current isolated M4 technical correctness: `PASS WITH FINDINGS`; historical evidence completeness: `UNVERIFIED`; production topology/authorization: `UNVERIFIED`. | No unconditional PASS; no silent removal. |
+| F-R-01 rollback TOCTOU | F-R historical `FAIL`; G-R narrow `VERIFIED SAFE` at `2e6d271...`. | `PASS` — lock-first guards, 8 race tests, exact migration SHA256s match final tree, exact-SHA CI. | Narrow/isolated; production `ACCESS EXCLUSIVE` impact `UNVERIFIED`. |
+| F-R-02 partition recovery identity | F-R historical `FAIL`; G-R narrow `VERIFIED SAFE`. | `PASS` — `0064` owner-only invoker function, EXECUTE revoked, 7 real-TCP role tests. | Exact production object-owner topology `UNVERIFIED`. |
+| F-R-03 expired preview cleanup | F-R historical LOW; I implemented tool + 5 tests. | `PASS` for technical capability. | Production scheduling/archival/retention D-06 `UNVERIFIED`; I prose corrected below. |
+| F-R-04 direct viewer POST reconcile | F-R historical LOW; inferred-only status previously. | `PASS` — direct 403/401, ledger/evidence/audit/version unchanged, `reconciled:false`. | None for the isolated technical finding. |
+| Mandatory M4 A-category requirements | I A-01..A-20 / B-01..B-08 `PASS`; A-14 `NOT APPLICABLE`. | A-01..A-20 and B-01..B-08 remain `PASS`; A-20 now cites exact SHA `39355a3...`, exact CI IDs and J review. | A-14 correctly outside M4; manual RTL/a11y/console and production topology are separate D rows. |
+| Product Master requirements | C-01..C-04 `NOT APPLICABLE` to M4; full Product Master `BLOCKED`. | **Unchanged `BLOCKED`.** G-03 `PARTIAL / VERIFIED=NO`; PM-B1..PM-B8 `OPEN / NOT APPROVED`; whole-file Q1–Q5 `OPEN / NOT APPROVED`. | M4 technical acceptance is not Product Master acceptance. |
+| Production/release requirements | D-01, D-02, D-03b, D-05, D-06 `UNVERIFIED`; D-07 `NOT APPLICABLE`. | **Unchanged `UNVERIFIED` / `NOT APPLICABLE`; deployment `NOT AUTHORIZED`.** | PR #14 remains `OPEN / DRAFT`; no approve/merge/release/deploy. |
+
+### 8.3 Exact-SHA CI, J limitations and factual corrections
+
+- Exact SHA `39355a377fe66f3fd8c2bae996c8ec92211bd4db`: **8/8 check-runs** and **4/4 workflow runs** `completed / success`. Workflow runs: `42859214454` (e2e), `42859214511` (migrations), `42859214519` (release-image), `42859215185` (CI). Check-run/job IDs: `129980469451`, `129980470263`, `129980472444`, `129980472808`, `129980472963`, `129980473065`, `129980473154`, `129980481452`. A-20 above carries the same IDs and J's independent static/local re-checks.
+- J limitations recorded here and in `evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md`: raw per-test CI log counts could not be independently retrieved because `gh api .../actions/jobs/129980473154/logs` returned EOF from an external blob host; local PG16.2 uses trust auth and is not production-equivalent; exact production topology/object owner/operator authorization remains `UNVERIFIED`.
+- Factual correction: `TASK-PM-01D-M4-I_IMPLEMENTATION.md:40` previously said preview cleanup filters “by operation creation time”. K corrected it to the explicit `expires_at` cutoff; `scripts/cleanup-expired-bulk-previews.mjs:111-132` selects `preview_created` rows with `expires_at <= $2::timestamptz`. No code or migration was changed.
+- Historical R/F-R/G-R/H/I verdicts remain unchanged in §5, §6, §7, the I implementation report and `evidence/task-pm-01d-m4-i/VERIFICATION.*`. Current-state assessments are added only as this dated K section and the K structured ledger.
+
+### 8.4 Current final verdicts
+
+**M4 TECHNICAL ACCEPTANCE: PASS WITH FINDINGS** — isolated M4 technical correctness at `39355a3...` is independently accepted with findings because all seven reconstructed current-state R behaviors pass, mandatory A/B technical rows pass, and exact-SHA CI is green. It is not an unconditional `PASS`: exact original R IDs/grouping, raw final-SHA per-test CI log counts, production topology/operator authorization, and several production/manual gates remain `UNVERIFIED`.
+
+**PRODUCT MASTER ACCEPTANCE: BLOCKED** — PM-B1..PM-B8, G-03 two-person binding, whole-file atomicity Q1–Q5, domain registry/membership/lifecycle and full Product Master acceptance remain open or blocked.
+
+**PRODUCTION DEPLOYMENT: NOT AUTHORIZED** — PR #14 is `OPEN / DRAFT`; no approval, merge, release, deploy, production DB/system access, role/grant/secret/config change, or production topology verification was performed. Readiness is not authorization.
