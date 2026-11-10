@@ -169,9 +169,9 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-PM-01D-M4: 0062 (نگهداشت گروهی کالا) آخرین مهاجرت است. با افزودنِ
+    // TASK-PM-01D-M4-F: 0063 (شواهد operation-bound) آخرین مهاجرت است. با افزودنِ
     // مهاجرتِ تازه این خط عمداً باید بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0062_product_bulk_maintenance.up.sql');
+    expect(files[files.length - 1]).toBe('0063_product_bulk_evidence.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -232,4 +232,118 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     expect(rows[0].shadow).toBe(true);
     expect(rows[0].src_ro).toBe(false);
   });
+
+  it('0063: operation-bound evidence schema, forced RLS and least privilege', async () => {
+    const { rows } = await db.query(`
+      select
+        (select count(*)::int from pg_attribute
+          where attrelid='public.audit_log'::regclass and attname='bulk_operation_id' and not attisdropped) as audit_col,
+        (select count(*)::int from pg_attribute
+          where attrelid='public.product_catalog_history'::regclass and attname='bulk_operation_id' and not attisdropped) as history_col,
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_history_event') as evidence_rls,
+        (select count(*)::int from pg_policy where polname like 'product_bulk_history_event_%') as evidence_pols,
+        (select has_table_privilege('dms_app','product_bulk_history_event','SELECT')) as app_select,
+        (select has_table_privilege('dms_app','product_bulk_history_event','INSERT')) as app_insert,
+        (select has_table_privilege('dms_app','product_bulk_history_event','UPDATE')) as app_update,
+        (select has_table_privilege('dms_app','product_bulk_history_event','DELETE')) as app_delete,
+        (select has_table_privilege('dms_readonly','product_bulk_operation','SELECT')) as ro_ledger,
+        (select has_table_privilege('dms_readonly','product_bulk_history_event','SELECT')) as ro_evidence,
+        (select count(*)::int from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+          where n.nspname='public' and p.proname in ('fn_product_catalog_history_bind_bulk','fn_product_bulk_history_evidence')
+            and has_function_privilege('dms_app', p.oid, 'EXECUTE')) as app_exec,
+        (select count(*)::int from pg_class where relname='ix_product_bulk_operation_expires') as expiry_idx`);
+    expect(rows[0].audit_col).toBe(1);
+    expect(rows[0].history_col).toBe(1);
+    expect(rows[0].evidence_rls).toBe(true);
+    expect(rows[0].evidence_pols).toBe(2);
+    expect(rows[0].app_select).toBe(true);
+    expect(rows[0].app_insert).toBe(false);
+    expect(rows[0].app_update).toBe(false);
+    expect(rows[0].app_delete).toBe(false);
+    expect(rows[0].ro_ledger).toBe(false);
+    expect(rows[0].ro_evidence).toBe(false);
+    expect(rows[0].app_exec).toBe(0);
+    expect(rows[0].expiry_idx).toBe(1);
+  });
+
+  it('0063/0062 down: populated ledger, history and evidence refuse rollback', async () => {
+    const company = (await db.query(`select id from company limit 1`)).rows[0].id as string;
+    const insertOp = (status: string, outcome: string, category: string, rh: string) =>
+      db.query(
+        `insert into product_bulk_operation
+          (id, company_id, status, outcome, failure_category, request_hash, preview_token_hash,
+           preview_hash, product_ids, changes, expected_versions, preview, expires_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,
+                 array['00000000-0000-4000-8000-000000000001']::uuid[],
+                 '{"name":"x"}'::jsonb,'{}'::jsonb,'{"items":[]}'::jsonb, now()+interval '1 day')
+         returning id`,
+        [crypto.randomUUID(), company, status, outcome, category, rh, rh, rh],
+      );
+    const opA = (await insertOp('committed', 'committed', 'none', 'rh1')).rows[0].id as string;
+    const opB = (await insertOp('unknown', 'unknown', 'unknown', 'rh2')).rows[0].id as string;
+    const opC = (await insertOp('rejected', 'rolled_back', 'infrastructure', 'rh3')).rows[0].id as string;
+
+    const hist = (await db.query(
+      `insert into product_catalog_history
+        (company_id, product_id, entity_type, entity_id, action, actor_user_id, bulk_operation_id)
+       values ($1,'00000000-0000-4000-8000-000000000001','product',
+               '00000000-0000-4000-8000-000000000001','UPDATE',null,$2)
+       returning id`,
+      [company, opA],
+    )).rows[0].id as string;
+    await db.query(
+      `insert into product_bulk_history_event
+        (bulk_operation_id, product_id, company_id, actor_user_id, history_id)
+       values ($1,'00000000-0000-4000-8000-000000000001',$2,
+               '00000000-0000-4000-8000-000000000099',$3)`,
+      [opA, company, hist],
+    );
+    await db.query(
+      `insert into audit_log (company_id, action, entity_type, bulk_operation_id)
+       values ($1,'update','product',$2)`,
+      [company, opA],
+    );
+
+    const down0063 = path.join(ROOT, 'migrations', '0063_product_bulk_evidence.down.sql');
+    const down0062 = path.join(ROOT, 'migrations', '0062_product_bulk_maintenance.down.sql');
+    expect(() => runSqlFile(down0063)).toThrow();
+    expect(() => runSqlFile(down0062)).toThrow();
+    const still = await db.query(`select to_regclass('public.product_bulk_history_event') is not null as evidence,
+                                          to_regclass('public.product_bulk_operation') is not null as ledger`);
+    expect(still.rows[0].evidence).toBe(true);
+    expect(still.rows[0].ledger).toBe(true);
+
+    // فقط دادهٔ ساختگی همین تست پاک میشود؛ هیچ شاهد تاریخی پروژه حذف نمیشود.
+    await db.query(`delete from audit_log where bulk_operation_id = $1`, [opA]);
+    await db.query(`delete from product_bulk_history_event where bulk_operation_id = $1`, [opA]);
+    await db.query(`delete from product_catalog_history where bulk_operation_id = $1`, [opA]);
+    await db.query(`delete from product_bulk_operation where id = any($1::uuid[])`, [[opA, opB, opC]]);
+  });
+
+  it('0063/0062 down/up: empty cycle is reversible and restores the same end state', async () => {
+    await db.query(`delete from audit_log where bulk_operation_id is not null`);
+    await db.query(`delete from product_bulk_history_event`);
+    await db.query(`delete from product_catalog_history where bulk_operation_id is not null`);
+    await db.query(`delete from product_bulk_operation`);
+
+    runSqlFile(path.join(ROOT, 'migrations', '0063_product_bulk_evidence.down.sql'));
+    runSqlFile(path.join(ROOT, 'migrations', '0062_product_bulk_maintenance.down.sql'));
+    expect((await db.query(`select to_regclass('public.product_bulk_operation') is null as gone`)).rows[0].gone).toBe(true);
+    runSqlFile(path.join(ROOT, 'migrations', '0062_product_bulk_maintenance.up.sql'));
+    runSqlFile(path.join(ROOT, 'migrations', '0063_product_bulk_evidence.up.sql'));
+
+    const { rows } = await db.query(`
+      select
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_operation') as ledger_rls,
+        (select has_table_privilege('dms_app','product_bulk_operation','SELECT')) as app_select,
+        (select has_table_privilege('dms_app','product_bulk_operation','DELETE')) as app_delete,
+        (select has_table_privilege('dms_readonly','product_bulk_operation','SELECT')) as ro_ledger,
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_history_event') as evidence_rls`);
+    expect(rows[0].ledger_rls).toBe(true);
+    expect(rows[0].app_select).toBe(true);
+    expect(rows[0].app_delete).toBe(false);
+    expect(rows[0].ro_ledger).toBe(false);
+    expect(rows[0].evidence_rls).toBe(true);
+  });
+
 });

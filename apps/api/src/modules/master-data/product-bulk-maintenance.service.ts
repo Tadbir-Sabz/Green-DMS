@@ -12,6 +12,7 @@ import {
   ProductBulkMaintenanceRepository,
   type BulkOperationRow,
   lockBulkOperation,
+  setBulkOperationContext,
 } from './product-bulk-maintenance.repository';
 import {
   BULK_FIELD_BY_KEY,
@@ -30,6 +31,7 @@ import {
   buildBulkPreviewRecord,
   canonicalJson,
   hashBulkPreview,
+  bulkPreviewTokensEqual,
   hashBulkPreviewToken,
   hashBulkRequest,
   newBulkOperationId,
@@ -134,7 +136,11 @@ export class ProductBulkMaintenanceService {
     return { supported_fields: BULK_FIELD_DEFINITIONS };
   }
 
-  /** POST /preview — no product UPDATE, no audit, no 0060 history. */
+  /**
+   * POST /preview — محصول، ممیزی و تاریخچهٔ ۰۰۶۰ تغییر نمیکنند؛ تنها یک ردیف
+   * دفتر عملیات پایدار (ledger) در همان تراکنش درج میشود. بنابراین «پیشنمایش»
+   * از نظر محصول فقطخواندنی است، نه یک GET خالص بدون اثر جانبی (TASK-PM-01D-M4-F).
+   */
   async preview(dto: BulkMaintenancePreviewDto, user: AuthContext): Promise<BulkPreviewPayload> {
     const productIds = normalizeProductIds(dto.product_ids);
     const changes = normalizeBulkChanges(dto.changes);
@@ -174,8 +180,25 @@ export class ProductBulkMaintenanceService {
     });
   }
 
-  /** GET /operations/:id — read-only status, stale/expired detection, reconciliation. */
+  /**
+   * GET /operations/:id — واقعاً فقطخواندنی (TASK-PM-01D-M4-F). تطبیق شواهد و
+   * هرگونه گذار وضعیت فقط از اکشن صریح POST /operations/:id/reconcile انجام میشود.
+   */
   async operationStatus(operationId: string, user: AuthContext): Promise<BulkOperationResult> {
+    return this.transaction(user, { isolation: 'repeatable read' }, async (client) => {
+      const row = await this.repo.findStatus(user.companyId, operationId, user.userId, client);
+      if (!row) {
+        throw new NotFoundException({ code: 'operation_not_found', message_fa: 'عملیات یافت نشد.' });
+      }
+      if (row.status === 'preview_created') {
+        return this.previewStateResult(row, client, false);
+      }
+      return this.resultFromRow(row, false, client);
+    });
+  }
+
+  /** POST /operations/:id/reconcile — اکشن صریح تطبیق شواهد operation-bound. */
+  async reconcileOperation(operationId: string, user: AuthContext): Promise<BulkOperationResult> {
     return this.transaction(user, { isolation: 'repeatable read' }, async (client) => {
       const row = await this.repo.findStatus(user.companyId, operationId, user.userId, client);
       if (!row) {
@@ -276,12 +299,12 @@ export class ProductBulkMaintenanceService {
     meta: RequestMeta,
     client: Runner,
   ): Promise<BulkOperationResult> {
-    await lockBulkOperation(client, dto.operation_id);
+    await lockBulkOperation(client, user.companyId, dto.operation_id);
     const row = await this.repo.findForUpdate(user.companyId, dto.operation_id, user.userId, client);
     if (!row) {
       throw new NotFoundException({ code: 'operation_not_found', message_fa: 'عملیات یافت نشد.' });
     }
-    if (hashBulkPreviewToken(dto.preview_token) !== row.preview_token_hash) {
+    if (!bulkPreviewTokensEqual(hashBulkPreviewToken(dto.preview_token), row.preview_token_hash)) {
       throw new ForbiddenException({
         code: 'invalid_preview_token',
         message_fa: 'نشانهٔ پیشنمایش معتبر نیست.',
@@ -370,6 +393,9 @@ export class ProductBulkMaintenanceService {
         'وضعیت عملیات همزمان تغییر کرده است؛ تراکنش برگشت خورد.',
       );
     }
+    // تنها نقطهای که هویت عملیات را به تراکنش میسپارد: سرور، داخل همان
+    // تراکنش، پس از accepted و پیش از نخستین UPDATE محصول. GUC فقط-تراکنشی است.
+    await setBulkOperationContext(client, row.id);
     const eligible = fresh.items.filter((item) => item.status === 'eligible');
     const items: BulkOperationItem[] = [];
     const productIds: string[] = [];
@@ -429,7 +455,10 @@ export class ProductBulkMaintenanceService {
         },
         ip: meta.ip,
         userAgent: meta.userAgent,
-        requestId: row.id,
+        // request_id کلاینت هرگز به ستون همبستگی نمیرود؛ فقط بهصورت تشخیصی
+        // (غیرقابل اعتماد) در after_data نگهداری میشود.
+        requestId: null,
+        bulkOperationId: row.id,
       },
       client,
     );
@@ -569,15 +598,18 @@ export class ProductBulkMaintenanceService {
     _client?: Runner,
   ): BulkOperationResult {
     const stored = row.result as unknown as BulkOperationResult | null;
-    if (stored) {
+    // وضعیت بایدار دفتر عملیات حاکم است: نتیجهٔ ذخیرهشدهٔ قدیمی (مثلاً committed)
+    // نباید پس از unknownشدن دستی/خرابی، GET فقطخواندنی را فریب دهد.
+    if (stored && row.status !== 'unknown' && row.status !== 'accepted' && row.status !== 'preview_created') {
       return {
         ...stored,
+        status: row.status,
+        outcome: row.outcome,
         idempotent_replay: replay,
         retryable: false,
-        reconciliation_hint_fa:
-          stored.status === 'unknown'
-            ? 'نتیجهٔ تراکنش نامشخص است. بدون تطبیق با تاریخچه و ممیزی، اجرای مجدد انجام ندهید.'
-            : null,
+        // فقط حالتهای قطعی committed/rejected از نتیجهٔ ذخیرهشده استفاده میکنند؛
+        // بنابراین راهنمای «تطبیق نامشخص» اینجا معنا ندارد.
+        reconciliation_hint_fa: null,
       };
     }
     const lifecycle: BulkOperationResult['lifecycle'] = [
@@ -611,7 +643,7 @@ export class ProductBulkMaintenanceService {
       retryable: false,
       reconciliation_hint_fa:
         row.status === 'unknown'
-          ? 'نتیجهٔ تراکنش نامشخص است. بدون تطبیق با تاریخچه و ممیزی، اجرای مجدد انجام ندهید.'
+          ? 'نتیجهٔ تراکنش نامشخص است. تنها با اکشن صریح تطبیق شواهد عملیات بررسی شود؛ اجرای مجدد انجام ندهید.'
           : null,
       items: (row.preview.items as BulkPreviewItem[]).length > 0
         ? row.status === 'rejected'
@@ -649,12 +681,12 @@ export class ProductBulkMaintenanceService {
       rejected_count: 0,
       failure_category: 'unknown',
       reason_code: 'commit_outcome_unknown',
-      message_fa: 'نتیجهٔ تراکنش نامشخص و شواهد ناکافی است؛ تنها بررسی اپراتور/مدیر مجاز است.',
+      message_fa: 'نتیجهٔ تراکنش نامشخص است؛ شواهد operation-bound کامل/سازگار نیستند و تنها اکشن صریح تطبیق یا بررسی اپراتور مجاز است.',
       expires_at: iso(row.expires_at),
       idempotent_replay: replay,
       reconciled: false,
       retryable: false,
-      reconciliation_hint_fa: 'بدون تطبیق قطعی تاریخچه، ممیزی و نسخهها اجرای مجدد انجام ندهید.',
+      reconciliation_hint_fa: 'بدون تطبیق قطعی شواهد operation-bound اجرای مجدد انجام ندهید؛ از اکشن صریح تطبیق استفاده کنید.',
       items: [],
     });
 
@@ -662,6 +694,8 @@ export class ProductBulkMaintenanceService {
     if (!actorUserId) return ambiguous();
     const changes = normalizeBulkChanges(row.changes);
     const productIds = normalizeProductIds(row.product_ids);
+    const expectedCount = row.eligible_count;
+
     const rows = await this.products.findByIdsForBulk(row.company_id, productIds, client);
     const brandNames = await this.validateBrandRefs(row.company_id, changes, rows, client);
     const fresh = buildBulkPreviewRecord(productIds, rows, changes, brandNames);
@@ -669,27 +703,42 @@ export class ProductBulkMaintenanceService {
     const stillAtExpected =
       versions.size === Object.keys(row.expected_versions).length &&
       Object.entries(row.expected_versions).every(([id, v]) => versions.get(id) === v);
-    const auditCount = await this.repo.auditEvidenceCount(
+
+    // شواهد فقط از ستونهای سرور-کنترلشدهٔ ۰۰۶۳ خوانده میشوند: نه request_id،
+    // نه after_data، نه بازیگر/شرکت استنتاجشده، نه شمارهٔ نسخه بهعنوان مالکیت.
+    const audit = await this.repo.auditEvidenceStats(
       row.company_id,
       row.id,
+      actorUserId,
       createdAt,
       client,
     );
-    const historyMatched = await this.repo.historyMatchedCount(
+    const evidence = await this.repo.boundEvidenceStats(
       row.company_id,
+      row.id,
+      actorUserId,
       productIds,
       createdAt,
-      actorUserId,
-      changes,
-      row.expected_versions,
       client,
     );
 
-    const committedEvidence =
-      auditCount === 1 &&
-      historyMatched === row.eligible_count &&
-      !stillAtExpected &&
-      fresh.eligible_count === 0;
+    const auditOk = audit.total === 1 && audit.valid === 1 && audit.invalid === 0;
+    const evidenceComplete =
+      evidence.history_rows === expectedCount &&
+      evidence.history_distinct_products === expectedCount &&
+      evidence.history_invalid === 0 &&
+      evidence.history_unexpected_products === 0 &&
+      evidence.evidence_rows === expectedCount &&
+      evidence.evidence_distinct_products === expectedCount &&
+      evidence.evidence_distinct_history === expectedCount &&
+      evidence.evidence_invalid === 0 &&
+      evidence.evidence_unexpected_products === 0 &&
+      evidence.evidence_mismatch === 0 &&
+      evidence.cross_operation_evidence === 0;
+
+    // نسخهها فقط بهعنوان «بررسی منفی سازگاری» بهکار میروند، نه اثبات مالکیت:
+    // اگر شاهد کامل باشد ولی ردیفها هنوز نسخهٔ پیش از عملیات باشند ⇒ ابهام.
+    const committedEvidence = auditOk && evidenceComplete && !stillAtExpected;
     if (committedEvidence) {
       const items: BulkOperationItem[] = row.preview.items.map((item) => ({
         product_id: item.product_id,
@@ -730,9 +779,13 @@ export class ProductBulkMaintenanceService {
       return result;
     }
 
+    // برگشت قطعی: هیچ شاهد الزامی/تاریخچهایِ همبسته وجود ندارد، محصولات دستنخورده
+    // و پیشنمایش همچنان معتبر است. هر چیز دیگری نامشخص میماند (fail-closed).
     const rolledBackEvidence =
-      auditCount === 0 &&
-      historyMatched === 0 &&
+      audit.total === 0 &&
+      evidence.history_rows === 0 &&
+      evidence.evidence_rows === 0 &&
+      evidence.cross_operation_evidence === 0 &&
       stillAtExpected &&
       fresh.eligible_count === row.eligible_count;
     if (rolledBackEvidence) {
@@ -750,7 +803,7 @@ export class ProductBulkMaintenanceService {
         rejected_count: row.rejected_count + row.eligible_count,
         failure_category: 'infrastructure',
         reason_code: 'transaction_rolled_back',
-        message_fa: 'هیچ تغییری ثبت نشد؛ تراکنش با شواهد بررسی و رد شد.',
+        message_fa: 'هیچ تغییری ثبت نشد؛ تراکنش با شواهد operation-bound بررسی و رد شد.',
         expires_at: iso(row.expires_at),
         idempotent_replay: replay,
         reconciled: true,
@@ -770,6 +823,17 @@ export class ProductBulkMaintenanceService {
   }
 
   private classifyFailure(err: unknown): FailureClassification {
+    if ((err as { code?: string })?.code === 'audit_partition_missing') {
+      return {
+        kind: 'reject',
+        category: 'infrastructure',
+        reasonCode: 'audit_partition_missing',
+        messageFa:
+          'پارتیشن ممیزی وجود نداشت؛ هیچ تغییری ثبت نشد. اپراتور باید با نقش مهاجرت fn_ensure_partitions(2) را اجرا کند، سپس عملیات تازهای بسازد.',
+        outcome: 'rolled_back',
+        errorCode: 'audit_partition_missing',
+      };
+    }
     if (err instanceof BulkMaintenanceUnknownError) {
       return {
         kind: 'unknown',
@@ -874,7 +938,7 @@ export class ProductBulkMaintenanceService {
       retryable: false,
       reconciliation_hint_fa:
         status === 'unknown'
-          ? 'بدون تطبیق قطعی تاریخچه، ممیزی و نسخهها اجرای مجدد انجام ندهید.'
+          ? 'بدون تطبیق قطعی شواهد operation-bound اجرای مجدد انجام ندهید؛ از اکشن صریح تطبیق استفاده کنید.'
           : null,
       items: [],
     };
@@ -991,7 +1055,7 @@ export class ProductBulkMaintenanceService {
           idempotent_replay: false,
           reconciled: false,
           retryable: false,
-          reconciliation_hint_fa: 'بدون تطبیق قطعی تاریخچه، ممیزی و نسخهها اجرای مجدد انجام ندهید.',
+          reconciliation_hint_fa: 'بدون تطبیق قطعی شواهد operation-bound اجرای مجدد انجام ندهید؛ از اکشن صریح تطبیق استفاده کنید.',
           items: [],
         };
       });

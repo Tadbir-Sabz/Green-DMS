@@ -229,7 +229,7 @@ describe('M4 Persian RTL bulk maintenance page', () => {
     expect(screen.getByText(/اجرای مجدد با همان شناسه انجام نمیشود/)).toBeTruthy();
   });
 
-  it('shows a fail-closed unknown outcome and reconciles only via the status endpoint', async () => {
+  it('shows a fail-closed unknown outcome and reconciles only via the explicit reconcile action', async () => {
     const unknownResult = {
       ...committedResult,
       status: 'unknown',
@@ -260,19 +260,25 @@ describe('M4 Persian RTL bulk maintenance page', () => {
       }
       return Promise.resolve({ data: null });
     });
-    mocks.get.mockImplementation((path: string) => {
-      if (path === '/products/bulk-maintenance/operations/{operationId}') {
+    mocks.post.mockImplementation((path: string) => {
+      if (path === '/products/bulk-maintenance/operations/{operationId}/reconcile') {
         return Promise.resolve({ data: reconciledResult });
       }
-      return defaultGet(path);
+      if (path === '/products/bulk-maintenance/preview') {
+        return Promise.resolve({ data: preview });
+      }
+      if (path === '/products/bulk-maintenance/execute') {
+        return Promise.resolve({ data: unknownResult });
+      }
+      return Promise.resolve({ data: null });
     });
     await reachResult(unknownResult);
     expect(await screen.findByText('نتیجه نامشخص — بررسی لازم است')).toBeTruthy();
     expect(screen.getByText('بدون تطبیق قطعی اجرای مجدد انجام ندهید.')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'بازخوانی وضعیت' }));
+    fireEvent.click(screen.getByRole('button', { name: 'تطبیق شواهد و بازخوانی' }));
     await waitFor(() =>
-      expect(mocks.get).toHaveBeenCalledWith(
-        '/products/bulk-maintenance/operations/{operationId}',
+      expect(mocks.post).toHaveBeenCalledWith(
+        '/products/bulk-maintenance/operations/{operationId}/reconcile',
         { params: { path: { operationId } } },
       ),
     );

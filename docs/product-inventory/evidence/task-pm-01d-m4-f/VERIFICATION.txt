@@ -1,0 +1,137 @@
+TASK-PM-01D-M4-F — local verification ledger
+=============================================
+
+Baseline: 6bffef38fc4ce007798e68d4c7959729c76100e2 (M4 final / F start).
+Branch: arena/be5eaff3-green-dms. PR #14: OPEN / DRAFT, base main.
+R verdict being remediated: FAIL (CRITICAL 0 / HIGH 1 / MEDIUM 3 / LOW 3).
+
+Disposable DB isolation proof
+-----------------------------
+Local PostgreSQL 16.2 UTF8, 127.0.0.1:55432, datadir /tmp/pm01dm2-pgdata,
+socket /tmp/pm01dm2-pgsocket, pid 7183, trust auth. Before any DB test:
+0 other client backends; no DATABASE_URL / APP_DATABASE_URL / NODE_ENV production
+variables inherited from a real deployment; no production or shared DB touched.
+PSQL: /tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql
+DATABASE_URL used only for disposable local DB creation/migration/seed:
+postgres://postgres@127.0.0.1:55432/postgres
+The production-role suite creates its own uniquely named DB, sets
+APP_DATABASE_URL to a real dms_app TCP connection, boots AppModule with it,
+then drops that DB in teardown. dms_app / dms_readonly passwords are random
+per run. Local trust auth means password authentication is NOT claimed; the
+claim is a real least-privilege dms_app connection with enforced RLS/grants.
+CI uses postgis/postgis:16-3.4 with POSTGRES_PASSWORD and real Redis.
+
+Environment caveat: no real PostGIS, real pgcrypto, MinIO or Redis in this
+sandbox. ECONNREFUSED 127.0.0.1:6379 is nonfatal; native ERROR/FATAL lines in
+negative tests are expected. Four files requiring real PostGIS/password auth
+are excluded from the local selected DB run and are covered by exact CI.
+
+Commands and exact results
+--------------------------
+
+1) git status / git diff --check / git diff --cached --check
+   Worktree contained only the F source, test, migration, contract, client and
+   web changes plus new F docs/evidence. All whitespace checks PASS.
+
+2) node scripts/migrate.mjs status
+   0 applied / 63 pending.
+
+3) node scripts/test-migrations.mjs
+   63 strict up/down/up; empty schema after down; both up passes have exactly
+   1029 identical objects; temporary greendms_ci_test DB dropped
+   (/tmp/pm01dm4f-migration-cycle.log).
+
+4) npm run generate -w packages/api-client
+   PASS; packages/api-client/src/schema.ts +49/-4
+   (/tmp/pm01dm4f-client-generate.log).
+
+5) npm run typecheck
+   PASS (/tmp/pm01dm4f-typecheck.log).
+
+6) npm run build
+   PASS; Next.js production build includes /products/bulk-maintenance
+   (/tmp/pm01dm4f-build.log).
+
+7) npm run openapi:check
+   201 paths / 284 operations / 153 schemas / 3 webhooks — valid
+   (/tmp/pm01dm4f-openapi.log).
+
+8) node scripts/contract-drift.mjs
+   284 / 284 / 284 — diff 0 (/tmp/pm01dm4f-drift.log).
+
+9) node scripts/check-test-partition.mjs
+   78 test files; declared manifest == computed partition
+   (/tmp/pm01dm4f-partition.log). db-backed-tests.txt unchanged because the
+   new suite is correctly named *.api.test.ts.
+
+10) DB-free API unit tests (CI --print unit selection)
+    26 files / 339 tests PASS (/tmp/pm01dm4f-api-unit.log).
+
+11) npm run test:web
+    17 files / 88 tests PASS (/tmp/pm01dm4f-web.log).
+
+12) Focused API/migrations/security suite
+    vitest run product-bulk-maintenance-unit.test.ts migrations-security.test.ts
+    product-bulk-maintenance.api.test.ts
+    product-bulk-maintenance-security.api.test.ts
+    4 files / 32 tests PASS (/tmp/pm01dm4f-focused-api5.log).
+    Security suite: 11/11 PASS, including real dms_app identity, no CREATE/DDL,
+    no evidence INSERT/DELETE, forced RLS, empty/invalid tenant GUC fail-closed,
+    intended M4 transaction, forged x-request-id false-committed blocked,
+    incomplete/inconsistent/duplicate/cross-operation/wrong-actor evidence,
+    accepted-ledger durable committed / rolled_back reconciliation, and missing
+    audit partition fail-closed then privileged restore
+    (/tmp/pm01dm4f-focused-api5.log).
+
+13) migrations-security.test.ts
+    6/6 PASS: fresh 63-migration chain, 0063 schema/RLS/grants, populated
+    0063/0062 down refusal, empty 0063/0062 down/up cycle restoring end state
+    (/tmp/pm01dm4f-focused-api5.log).
+
+14) Selected local DB-backed suite
+    47 files / 987 tests PASS (/tmp/pm01dm4f-selected-db.log).
+    Selection = CI *.api.test.ts (excluding attachments) + --print db, minus the
+    four sandbox-only files customers.api, geofences.api, tours.api,
+    postgres-init-role.api. This includes the new production-role security suite
+    and all M2/M3/Product Master/contract/RLS/history regressions available
+    locally.
+
+15) Known local-only exclusions and nonfatal noise
+    customers.api / geofences.api / tours.api need real PostGIS;
+    postgres-init-role.api needs password auth. Redis ECONNREFUSED, JWT warnings,
+    PG idle/admin/RLS/duplicate-key negative-test noise are nonfatal. Broad
+    local runs are NOT claimed as CI-equivalent or production-equivalent.
+
+16) CJK scan over changed text files
+    0 CJK characters.
+
+17) Exact-final-SHA CI
+    Recorded in PR #14 body and the final report after push, together with the
+    exact gh pr checks --watch result and check-run/job IDs. This file does not
+    hardcode a self-referential final SHA. Logs retained outside Git in /tmp:
+      /tmp/pm01dm4f-focused-api.log        first focused run, 4 failures fixed
+      /tmp/pm01dm4f-focused-api2.log       2 failures fixed
+      /tmp/pm01dm4f-focused-api3.log       4 files / 30 tests PASS
+      /tmp/pm01dm4f-focused-api4.log       1 failure fixed
+      /tmp/pm01dm4f-focused-api5.log       4 files / 32 tests PASS
+      /tmp/pm01dm4f-typecheck.log
+      /tmp/pm01dm4f-build.log
+      /tmp/pm01dm4f-partition.log
+      /tmp/pm01dm4f-openapi.log
+      /tmp/pm01dm4f-drift.log
+      /tmp/pm01dm4f-api-unit.log
+      /tmp/pm01dm4f-web.log
+      /tmp/pm01dm4f-selected-db.log
+      /tmp/pm01dm4f-migration-cycle.log
+      /tmp/pm01dm4f-client-generate.log
+
+Verdict classes
+---------------
+Static/contract evidence: PASS.
+Real disposable-DB execution: PASS for the commands above.
+Real least-privilege dms_app connection: PASS WITH FINDINGS (local trust auth).
+Production-equivalent infrastructure, network partition/ACK loss, saturation,
+manual a11y/responsive/console, owner decisions, independent focused review:
+UNVERIFIED / BLOCKED as recorded in
+docs/product-inventory/TASK-PM-01D-M4-F_IMPLEMENTATION.md.
+R FAIL remains until an independent focused review is completed.

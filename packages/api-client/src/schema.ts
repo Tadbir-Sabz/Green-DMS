@@ -1446,8 +1446,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * پیشنمایش فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
-         * @description پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف product_catalog_history یا audit_log ساخته نمیشود و تنها یک ردیف دفتر عملیات با نشانهٔ یکبارمصرف ذخیره میشود. مجوز master.product.update لازم است؛ master.product.view یا خروجی CSV مجوز نوشتن گروهی نیست.
+         * پیشنمایش محصولی فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
+         * @description پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف product_catalog_history یا audit_log ساخته نمیشود؛ تنها یک ردیف دفتر عملیات پایدار با نشانهٔ یکبارمصرف درج میشود. بنابراین این مسیر از نظر محصول فقطخواندنی است، نه یک GET بدون اثر جانبی (TASK-PM-01D-M4-F). مجوز master.product.update لازم است؛ master.product.view یا خروجی CSV مجوز نوشتن گروهی نیست.
          */
         post: {
             parameters: {
@@ -1537,8 +1537,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * وضعیت بایدار و تطبیق نتیجهٔ یک عملیات نگهداشت گروهی
-         * @description وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده، کهنه، منقضی، ثبتشده، ردشده یا نامشخص. وضعیتهای نامشخص/پذیرفتهشده تنها با شواهد ممیزی و تاریخچهای تطبیق داده میشوند و هرگز نتیجهٔ ثبت نشده موفق اعلام نمیشود.
+         * وضعیت بایدار و واقعاً فقطخواندنی یک عملیات نگهداشت گروهی
+         * @description وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده، کهنه، منقضی، ثبتشده، ردشده یا نامشخص. این GET هیچ گذار وضعیت یا تطبیق شواهد انجام نمیدهد (TASK-PM-01D-M4-F)؛ تطبیق فقط با اکشن صریح POST /operations/{operationId}/reconcile ممکن است.
          */
         get: {
             parameters: {
@@ -1568,6 +1568,51 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/operations/{operationId}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * اکشن صریح تطبیق شواهد operation-bound یک عملیات (TASK-PM-01D-M4-F)
+         * @description فقط برای وضعیتهای نامشخص/پذیرفتهشده، شواهد سرور-کنترلشدهٔ ۰۰۶۳ (ممیزی الزامی، تاریخچهٔ ۰۰۶۰ و جدول شواهد) را بهصورت کامل، سازگار، بدون تکرار و بدون اتصال به عملیات/شرکت/بازیگر دیگر بررسی میکند. ناقص، ناسازگار، تکراری، جداافتاده یا شواهد عملیات دیگر ⇒ fail-closed نامشخص. GET وضعیت هرگز تغییری نمیدهد. مجوز master.product.update لازم است.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    operationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ تطبیق قطعی (committed/rolled_back) یا نامشخص failclosed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceOperationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;

@@ -844,13 +844,15 @@ paths:
   /products/bulk-maintenance/preview:
     post:
       tags: [products]
-      summary: پیشنمایش فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
+      summary: پیشنمایش محصولی فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
       description: >-
         پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر
         ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف
-        product_catalog_history یا audit_log ساخته نمیشود و تنها یک ردیف دفتر
-        عملیات با نشانهٔ یکبارمصرف ذخیره میشود. مجوز master.product.update لازم
-        است؛ master.product.view یا خروجی CSV مجوز نوشتن گروهی نیست.
+        product_catalog_history یا audit_log ساخته نمیشود؛ تنها یک ردیف دفتر
+        عملیات پایدار با نشانهٔ یکبارمصرف درج میشود. بنابراین این مسیر از نظر
+        محصول فقطخواندنی است، نه یک GET بدون اثر جانبی (TASK-PM-01D-M4-F). مجوز
+        master.product.update لازم است؛ master.product.view یا خروجی CSV مجوز
+        نوشتن گروهی نیست.
       requestBody:
         required: true
         content:
@@ -894,12 +896,12 @@ paths:
   /products/bulk-maintenance/operations/{operationId}:
     get:
       tags: [products]
-      summary: وضعیت بایدار و تطبیق نتیجهٔ یک عملیات نگهداشت گروهی
+      summary: وضعیت بایدار و واقعاً فقطخواندنی یک عملیات نگهداشت گروهی
       description: >-
         وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده،
-        کهنه، منقضی، ثبتشده، ردشده یا نامشخص. وضعیتهای نامشخص/پذیرفتهشده تنها
-        با شواهد ممیزی و تاریخچهای تطبیق داده میشوند و هرگز نتیجهٔ ثبت نشده
-        موفق اعلام نمیشود.
+        کهنه، منقضی، ثبتشده، ردشده یا نامشخص. این GET هیچ گذار وضعیت یا تطبیق
+        شواهد انجام نمیدهد (TASK-PM-01D-M4-F)؛ تطبیق فقط با اکشن صریح
+        POST /operations/{operationId}/reconcile ممکن است.
       parameters:
         - name: operationId
           in: path
@@ -908,6 +910,31 @@ paths:
       responses:
         '200':
           description: وضعیت بایدار عملیات و نتیجهٔ تطبیق در صورت نیاز
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/bulk-maintenance/operations/{operationId}/reconcile:
+    post:
+      tags: [products]
+      summary: اکشن صریح تطبیق شواهد operation-bound یک عملیات (TASK-PM-01D-M4-F)
+      description: >-
+        فقط برای وضعیتهای نامشخص/پذیرفتهشده، شواهد سرور-کنترلشدهٔ ۰۰۶۳
+        (ممیزی الزامی، تاریخچهٔ ۰۰۶۰ و جدول شواهد) را بهصورت کامل، سازگار،
+        بدون تکرار و بدون اتصال به عملیات/شرکت/بازیگر دیگر بررسی میکند. ناقص،
+        ناسازگار، تکراری، جداافتاده یا شواهد عملیات دیگر ⇒ fail-closed نامشخص.
+        GET وضعیت هرگز تغییری نمیدهد. مجوز master.product.update لازم است.
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: نتیجهٔ تطبیق قطعی (committed/rolled_back) یا نامشخص failclosed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }

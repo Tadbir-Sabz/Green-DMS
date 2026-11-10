@@ -1,6 +1,10 @@
 # TASK-PM-01D-M4 — نگهداشت گروهی کنترل‌شدهٔ کالای مرکزی
 
 این سند گزارش پیادهسازی، مرزهای امنیتی و شواهد اعتبارسنجی مایلستون M4 است.
+
+> **یادداشت F:** این سند تاریخ M4 تا SHA `6bffef3` را حفظ میکند. برخی جزئیات
+> §۴ دربارهٔ `request_id=operation_id`، `GET` تطبیقدهنده، DDL زمان اجرا و down بیقید
+> بعدها در F اصلاح شدند؛ §۱۰ و `TASK-PM-01D-M4-F_IMPLEMENTATION.md` مرجع جاریاند.
 مرجع نهایی رفتار، کد و تستهای مخزن است؛ متن صفحه، کش مرورگر و نتیجهٔ درون
 حافظه معتبر نیستند. M4 فقط یک **عملیات محدود و همه یا هیچ** روی گزینش
 کنونی کالاهای مرکزی اضافه میکند. این رفتار با اتمیّت «هر دسته» در import مصوب
@@ -229,3 +233,28 @@ network partition/ACK loss واقعی، بررسی دستی responsive/a11y/cons
 پارتیشن و `git diff --check` نیز سبزاند. نتیجهٔ CI دقیق SHA نهایی، پس از push
 این رفع، در بدنهٔ PR #14 و گزارش پایانی ثبت میشود؛ شواهد محلی ادعای معادل
 production یا سبزشدن CI نیست.
+
+
+## ۱۰) اصلاحات F پس از گزارش R
+
+گزارش فقطخواندنی `TASK-PM-01D-M4-R` با حکم `FAIL` نشان داد هدر قابلجعل
+`x-request-id` میتواند تطبیق M4 را فریب دهد، `recordRequired` زیر `dms_app`
+تلاش DDL میکرد، `0062.down` دفتر پرشده را حذف میکرد و RLS/grantها در نقش
+production-equivalent اثبات نشده بودند. F بدون بازنویسی تاریخ M4، این موارد را
+در لایهٔ افزودنی `0063` و سرویس/تستها اصلاح کرد:
+
+- شواهد `audit_log.bulk_operation_id`،
+  `product_catalog_history.bulk_operation_id` و
+  `product_bulk_history_event` جایگزین `request_id` کلاینت شدند؛
+- `GET /operations/{id}` واقعاً فقطخواندنی شد و اکشن صریح
+  `POST /operations/{id}/reconcile` اضافه شد؛
+- `AuditService.recordRequired` دیگر `fn_ensure_partitions` صدا نمیکند؛ کمبود
+  پارتیشن `AuditPartitionMissingError` و rollback کامل میدهد؛
+- `0062.down` و `0063.down` روی دادهٔ پرشده fail-closed شدند؛
+- قفل به `company+operation` محدود، توکن زمان-ثابت و GUC فقطتراکنشی شد؛
+- سوئیت واقعی `dms_app`، OpenAPI/کلاینت/UI و اسناد F همتراز شدند.
+
+شواهد دقیق، ماتریس حکم `PASS WITH FINDINGS` خودارزیابی، `UNVERIFIED`ها و اینکه
+حکم R تا بازبینی مستقل پابرجاست، در `TASK-PM-01D-M4-F_IMPLEMENTATION.md` و
+`evidence/task-pm-01d-m4-f/VERIFICATION.txt` است. SHA نهایی و CI دقیق F پس از
+push در بدنهٔ PR #14 ثبت میشود؛ اینجا یک هش خودارجاعی کهنه درج نشده است.

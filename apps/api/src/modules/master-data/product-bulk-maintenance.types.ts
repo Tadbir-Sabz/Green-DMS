@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { QueryResultRow } from 'pg';
 import { BadRequestException } from '@nestjs/common';
 import { isUUID } from 'class-validator';
@@ -436,6 +436,15 @@ export const hashBulkPreview = (record: BulkPreviewRecord, changes: BulkChanges)
   sha256(canonicalJson({ preview: record.items, expected_versions: record.expected_versions, changes }));
 
 export const hashBulkPreviewToken = (token: string): string => sha256(token);
+
+/**
+ * مقایسهٔ زمان-ثابت هش نشانهٔ پیشنمایش (TASK-PM-01D-M4-F، LOW).
+ * طول ثابت ۶۴ نویسهای hex است؛ اگر طولها فرق کنند، بدون مقایسهٔ محتوا رد میشود.
+ */
+export const bulkPreviewTokensEqual = (a: string, b: string): boolean => {
+  if (!/^[a-f0-9]{64}$/.test(a) || !/^[a-f0-9]{64}$/.test(b)) return false;
+  return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+};
 
 export const previewExpiryIso = (now: Date = new Date()): string =>
   new Date(now.getTime() + BULK_PREVIEW_TTL_MS).toISOString();

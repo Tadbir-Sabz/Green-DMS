@@ -261,21 +261,24 @@ export default function BulkMaintenancePage(): React.JSX.Element {
     if (data.status === 'committed') void loadProducts(q, status);
   };
 
-  const onRefreshStatus = async (): Promise<void> => {
+  const onReconcile = async (): Promise<void> => {
     const operationId = result?.operation_id ?? preview?.operation_id;
     if (!operationId) return;
     setStatusLoading(true);
     setStatusError(null);
-    const { data, error } = await api.GET('/products/bulk-maintenance/operations/{operationId}', {
-      params: { path: { operationId } },
-    });
+    // TASK-PM-01D-M4-F: GET وضعیت واقعاً فقطخواندنی است؛ تطبیق شواهد و هر
+    // گذار وضعیت بایدار فقط با اکشن صریح POST انجام میشود.
+    const { data, error } = await api.POST(
+      '/products/bulk-maintenance/operations/{operationId}/reconcile',
+      { params: { path: { operationId } } },
+    );
     setStatusLoading(false);
     if (error) {
       setStatusError(faError(error));
       return;
     }
     if (data) setResult(data);
-    else setStatusError('وضعیت عملیات دریافت نشد.');
+    else setStatusError('نتیجهٔ تطبیق دریافت نشد.');
   };
 
   const onResetWorkflow = (): void => {
@@ -546,8 +549,9 @@ export default function BulkMaintenancePage(): React.JSX.Element {
           )}
         </div>
         <p className="text-xs text-ink-muted">
-          پیشنمایش فقطخواندنی است و هیچ تغییری در کالا یا تاریخچه ثبت نمیکند. اجرا فقط پس از
-          تأیید صریح و با همان نشانه و شناسه عملیات انجام میشود.
+          پیشنمایش هیچ تغییری در کالا، تاریخچه یا ممیزی ثبت نمیکند؛ تنها یک رکورد پایدار
+          عملیات در دفتر سرور ایجاد میشود. اجرا فقط پس از تأیید صریح و با همان نشانه و
+          شناسه عملیات انجام میشود.
         </p>
       </form>
 
@@ -757,10 +761,10 @@ export default function BulkMaintenancePage(): React.JSX.Element {
             <button
               type="button"
               className={btnGhost}
-              onClick={() => void onRefreshStatus()}
+              onClick={() => void onReconcile()}
               disabled={statusLoading}
             >
-              {statusLoading ? 'در حال بازخوانی…' : 'بازخوانی وضعیت'}
+              {statusLoading ? 'در حال تطبیق…' : 'تطبیق شواهد و بازخوانی'}
             </button>
             <button type="button" className={btnGhost} onClick={onResetWorkflow} disabled={busy}>
               پیشنمایش تازه

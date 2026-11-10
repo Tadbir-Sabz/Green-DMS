@@ -57,6 +57,26 @@ export interface RejectInput {
   result?: BulkOperationResult;
 }
 
+export interface AuditEvidenceStats {
+  total: number;
+  valid: number;
+  invalid: number;
+}
+
+export interface BoundEvidenceStats {
+  history_rows: number;
+  history_distinct_products: number;
+  history_invalid: number;
+  history_unexpected_products: number;
+  evidence_rows: number;
+  evidence_distinct_products: number;
+  evidence_distinct_history: number;
+  evidence_invalid: number;
+  evidence_unexpected_products: number;
+  evidence_mismatch: number;
+  cross_operation_evidence: number;
+}
+
 /** Durable, tenant-RLS ledger for M4 previews, acceptance, commits and reconciliation. */
 @Injectable()
 export class ProductBulkMaintenanceRepository {
@@ -226,7 +246,7 @@ export class ProductBulkMaintenanceRepository {
             message_fa = 'نتیجه با شواهد ممیزی و تاریخچهای تطبیق داده شد.',
             updated_at = now()
         where company_id = $1 and id = $2 and actor_user_id = $3
-          and status = 'unknown'
+          and status in ('accepted','unknown')
         returning *`,
       [companyId, operationId, actorUserId, JSON.stringify(result)],
     );
@@ -247,77 +267,103 @@ export class ProductBulkMaintenanceRepository {
             message_fa = 'هیچ تغییری ثبت نشد؛ تراکنش با شواهد بررسی و رد شد.',
             updated_at = now()
         where company_id = $1 and id = $2 and actor_user_id = $3
-          and status = 'unknown'
+          and status in ('accepted','unknown')
         returning *`,
       [companyId, operationId, actorUserId, JSON.stringify(result)],
     );
     return rows[0] ?? null;
   }
 
-  async auditEvidenceCount(
+  /**
+   * TASK-PM-01D-M4-F: ممیزی الزامی فقط با ستون سرور-کنترلشدهٔ
+   * audit_log.bulk_operation_id سنجیده میشود. request_id کلاینت، مقادیر
+   * after_data، بازیگر لحظهٔ خواندن و شمارهٔ نسخهها هرگز مبنای مالکیت نیستند.
+   */
+  async auditEvidenceStats(
     companyId: string,
     operationId: string,
+    actorUserId: string,
     since: string,
     client?: Runner,
-  ): Promise<number> {
-    const { rows } = await runner(this.pool, client).query<{ n: number }>(
-      `select count(*)::int as n from audit_log
-        where company_id = $1 and request_id = $2 and entity_type = 'product'
-          and action = 'update' and at >= $3::timestamptz`,
-      [companyId, operationId, since],
+  ): Promise<AuditEvidenceStats> {
+    const { rows } = await runner(this.pool, client).query<AuditEvidenceStats>(
+      `select count(*)::int as total,
+              count(*) filter (where company_id = $1 and actor_user_id = $3)::int as valid,
+              count(*) filter (where company_id is distinct from $1
+                                 or actor_user_id is distinct from $3)::int as invalid
+         from audit_log
+        where bulk_operation_id = $2 and entity_type = 'product' and action = 'update'
+          and at >= $4::timestamptz`,
+      [companyId, operationId, actorUserId, since],
     );
-    return rows[0]?.n ?? 0;
+    return rows[0] ?? { total: 0, valid: 0, invalid: 0 };
   }
 
   /**
-   * Reconciliation evidence: one 0060 UPDATE per eligible product, by this
-   * actor, from exactly the preview row_version, with the server-stored changes
-   * present in after_data. This avoids mistaking unrelated concurrent edits for
-   * a committed bulk operation.
+   * تمام شواهد ۰۰۶۰/۰۰۶۳ِ دقیقاً همین عملیات: کامل، سازگار، بدون تکرار،
+   * بدون محصول ناخواسته، بدون اتصال به عملیات/شرکت/بازیگر دیگر.
    */
-  async historyMatchedCount(
+  async boundEvidenceStats(
     companyId: string,
-    productIds: readonly string[],
-    since: string,
+    operationId: string,
     actorUserId: string,
-    changes: BulkChanges,
-    expectedVersions: Record<string, number>,
-    client?: Runner,
-  ): Promise<number> {
-    const { rows } = await runner(this.pool, client).query<{ n: number }>(
-      `select count(distinct h.product_id)::int as n
-        from product_catalog_history h
-        where h.company_id = $1 and h.entity_type = 'product' and h.action = 'UPDATE'
-          and h.product_id = any($2::uuid[]) and h.at >= $3::timestamptz
-          and h.actor_user_id = $4::uuid
-          and h.after_data @> $5::jsonb
-          and coalesce(($6::jsonb->>(h.product_id::text))::int, -1)
-              = (h.before_data->>'row_version')::int`,
-      [
-        companyId,
-        [...productIds],
-        since,
-        actorUserId,
-        JSON.stringify(changes),
-        JSON.stringify(expectedVersions),
-      ],
-    );
-    return rows[0]?.n ?? 0;
-  }
-
-  async historyEvidenceCount(
-    companyId: string,
     productIds: readonly string[],
     since: string,
     client?: Runner,
-  ): Promise<number> {
-    const { rows } = await runner(this.pool, client).query<{ n: number }>(
-      `select count(*)::int as n from product_catalog_history
-        where company_id = $1 and entity_type = 'product' and action = 'UPDATE'
-          and product_id = any($2::uuid[]) and at >= $3::timestamptz`,
-      [companyId, [...productIds], since],
+  ): Promise<BoundEvidenceStats> {
+    const { rows } = await runner(this.pool, client).query<BoundEvidenceStats>(
+      `with bound_history as (
+         select * from product_catalog_history where bulk_operation_id = $2
+       ), bound_evidence as (
+         select * from product_bulk_history_event where bulk_operation_id = $2
+       ), cross_evidence as (
+         select count(*)::int as n
+           from product_bulk_history_event e
+           join bound_history h on h.id = e.history_id
+          where e.bulk_operation_id <> $2
+       )
+       select
+         (select count(*)::int from bound_history) as history_rows,
+         (select count(distinct product_id)::int from bound_history) as history_distinct_products,
+         (select count(*) filter (
+            where company_id is distinct from $1 or actor_user_id is distinct from $3
+               or product_id is null or entity_type <> 'product' or action <> 'UPDATE'
+               or at < $5::timestamptz)::int from bound_history) as history_invalid,
+         (select count(*) filter (
+            where product_id is null or not (product_id = any($4::uuid[])))::int
+            from bound_history) as history_unexpected_products,
+         (select count(*)::int from bound_evidence) as evidence_rows,
+         (select count(distinct product_id)::int from bound_evidence) as evidence_distinct_products,
+         (select count(distinct history_id)::int from bound_evidence) as evidence_distinct_history,
+         (select count(*) filter (
+            where company_id is distinct from $1 or actor_user_id is distinct from $3
+               or product_id is null or created_at < $5::timestamptz)::int
+            from bound_evidence) as evidence_invalid,
+         (select count(*) filter (
+            where product_id is null or not (product_id = any($4::uuid[])))::int
+            from bound_evidence) as evidence_unexpected_products,
+         (select count(*)::int from bound_evidence e
+            join bound_history h on h.id = e.history_id
+           where e.company_id is distinct from h.company_id
+              or e.actor_user_id is distinct from h.actor_user_id
+              or e.product_id is distinct from h.product_id
+              or e.bulk_operation_id is distinct from h.bulk_operation_id) as evidence_mismatch,
+         (select n from cross_evidence) as cross_operation_evidence`,
+      [companyId, operationId, actorUserId, [...productIds], since],
     );
-    return rows[0]?.n ?? 0;
+    return rows[0] ?? {
+      history_rows: 0,
+      history_distinct_products: 0,
+      history_invalid: 0,
+      history_unexpected_products: 0,
+      evidence_rows: 0,
+      evidence_distinct_products: 0,
+      evidence_distinct_history: 0,
+      evidence_invalid: 0,
+      evidence_unexpected_products: 0,
+      evidence_mismatch: 0,
+      cross_operation_evidence: 0,
+    };
   }
 
   async productVersions(
@@ -337,11 +383,26 @@ export class ProductBulkMaintenanceRepository {
   }
 }
 
-/** Per-operation transaction lock; complements the company-wide CatalogAccess lock. */
-export const lockBulkOperation = async (client: Runner, operationId: string): Promise<void> => {
+/** Company- و operation-scoped transaction lock; مکمل قفل شرکتی CatalogAccess. */
+export const lockBulkOperation = async (
+  client: Runner,
+  companyId: string,
+  operationId: string,
+): Promise<void> => {
   await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
-    `product-bulk:${operationId}`,
+    `product-bulk:${companyId}:${operationId}`,
   ]);
+};
+
+/**
+ * زمینهٔ فقط-تراکنشی و سرور-کنترلشدهٔ همبستگی. هیچ هدر/payload کلاینتی به
+ * app.bulk_operation_id راه ندارد؛ با COMMIT/ROLLBACK خودبهخود پاک میشود.
+ */
+export const setBulkOperationContext = async (
+  client: Runner,
+  operationId: string,
+): Promise<void> => {
+  await client.query("select set_config('app.bulk_operation_id', $1, true)", [operationId]);
 };
 
 export const setBulkLocalTimeouts = async (client: Runner): Promise<void> => {

@@ -6,6 +6,7 @@ import {
   BulkMaintenanceInputError,
   buildBulkDiffs,
   buildBulkPreviewRecord,
+  bulkPreviewTokensEqual,
   canonicalJson,
   hashBulkPreviewToken,
   hashBulkRequest,
@@ -146,5 +147,16 @@ describe('TASK-PM-01D-M4 bulk maintenance field policy', () => {
     expect(hashBulkRequest([id2, id1], changes)).toBe(hashBulkRequest([id1, id2], changes));
     expect(hashBulkPreviewToken('token')).toHaveLength(64);
     expect(hashBulkPreviewToken('token')).not.toBe(hashBulkPreviewToken('other'));
+  });
+
+  it('compares preview-token hashes in constant time and rejects malformed hashes', () => {
+    const a = hashBulkPreviewToken('token');
+    const b = hashBulkPreviewToken('token');
+    const c = hashBulkPreviewToken('other');
+    expect(bulkPreviewTokensEqual(a, b)).toBe(true);
+    expect(bulkPreviewTokensEqual(a, c)).toBe(false);
+    expect(bulkPreviewTokensEqual(a.slice(0, 63), b)).toBe(false);
+    expect(bulkPreviewTokensEqual('z'.repeat(64), b)).toBe(false);
+    expect(bulkPreviewTokensEqual('', '')).toBe(false);
   });
 });

@@ -114,6 +114,9 @@ const execute = (operationId: string, previewToken: string, confirm = true, toke
 const getStatus = (operationId: string, token?: string) =>
   fx.api(token).get(statusUrl(operationId));
 
+const reconcile = (operationId: string, token?: string) =>
+  fx.api(token).post(`${statusUrl(operationId)}/reconcile`);
+
 const versions = async (ids: string[]): Promise<Map<string, number>> => {
   const { rows } = await fx.pool.query(
     `select id, row_version::int as row_version from product where id = any($1::uuid[])`,
@@ -125,7 +128,7 @@ const versions = async (ids: string[]): Promise<Map<string, number>> => {
 const auditCount = async (operationId: string): Promise<number> => {
   const { rows } = await fx.pool.query(
     `select count(*)::int as n from audit_log
-      where request_id = $1 and entity_type = 'product' and action = 'update'`,
+      where bulk_operation_id = $1 and entity_type = 'product' and action = 'update'`,
     [operationId],
   );
   return (rows[0] as { n: number }).n;
@@ -214,7 +217,7 @@ describe('POST /products/bulk-maintenance/preview — authorization and field po
     expect(await historyCount([p.id], 'تازه')).toBe(0);
   });
 
-  it('creates an exact read-only preview without product writes, history or audit', async () => {
+  it('creates an exact product-read-only preview; only a durable ledger row is inserted', async () => {
     const ps = await mkProducts(2);
     const ids = ps.map((p) => p.id);
     const before = await versions(ids);
@@ -310,7 +313,7 @@ describe('POST /products/bulk-maintenance/execute — transaction, replay and ev
     expect(await historyCount(ids, 'نام نهایی')).toBe(2);
     expect(await auditCount(pre.body.operation_id)).toBe(1);
     const audit = await fx.pool.query(
-      `select after_data from audit_log where request_id = $1`,
+      `select after_data from audit_log where bulk_operation_id = $1`,
       [pre.body.operation_id],
     );
     const payload = (audit.rows[0] as { after_data: Record<string, unknown> }).after_data;
@@ -459,7 +462,7 @@ describe('POST /products/bulk-maintenance/execute — transaction, replay and ev
   });
 });
 
-describe('GET /products/bulk-maintenance/operations/:id — unknown outcome reconciliation', () => {
+describe('reconciliation — read-only GET and explicit POST /operations/:id/reconcile', () => {
   it('fails closed on ambiguous evidence and never blindly reruns', async () => {
     const [p] = await mkProducts(1);
     const pre = await preview([p.id], { name: 'نام نامشخص' }).expect(200);
@@ -509,7 +512,10 @@ describe('GET /products/bulk-maintenance/operations/:id — unknown outcome reco
         where id = $1`,
       [preCommitted.body.operation_id],
     );
-    const reconciled = await getStatus(preCommitted.body.operation_id).expect(200);
+    const readOnlyStatus = await getStatus(preCommitted.body.operation_id).expect(200);
+    expect(readOnlyStatus.body.status).toBe('unknown');
+    expect(readOnlyStatus.body.reconciled).toBe(false);
+    const reconciled = await reconcile(preCommitted.body.operation_id).expect(200);
     expect(reconciled.body.status).toBe('committed');
     expect(reconciled.body.reconciled).toBe(true);
     expect(reconciled.body.updated_count).toBe(1);

@@ -63,6 +63,7 @@ export class ProductBulkMaintenanceController {
     return this.service.execute(dto, user, meta);
   }
 
+  /** genuinely read-only status (TASK-PM-01D-M4-F): no ledger state transition. */
   @Get('operations/:operationId')
   @RequirePermissions('master.product.update')
   operationStatus(
@@ -70,5 +71,16 @@ export class ProductBulkMaintenanceController {
     @CurrentUser() user: AuthContext,
   ): Promise<BulkOperationResult> {
     return this.service.operationStatus(params.operationId, user);
+  }
+
+  /** explicit, audited reconciliation action; GET above never mutates. */
+  @Post('operations/:operationId/reconcile')
+  @RequirePermissions('master.product.update')
+  @HttpCode(HttpStatus.OK)
+  reconcileOperation(
+    @Param() params: BulkMaintenanceOperationParamsDto,
+    @CurrentUser() user: AuthContext,
+  ): Promise<BulkOperationResult> {
+    return this.service.reconcileOperation(params.operationId, user);
   }
 }
