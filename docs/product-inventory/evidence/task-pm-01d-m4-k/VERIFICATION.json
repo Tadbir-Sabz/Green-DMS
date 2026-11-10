@@ -1,0 +1,172 @@
+{
+  "task": "TASK-PM-01D-M4-K",
+  "title": "Final Acceptance Ledger Reconciliation",
+  "utc_date": "2026-11-10",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN",
+    "draft": true,
+    "base": "main"
+  },
+  "required_starting_sha": "39355a377fe66f3fd8c2bae996c8ec92211bd4db",
+  "j_exact_target_sha": "39355a377fe66f3fd8c2bae996c8ec92211bd4db",
+  "final_k_sha": "recorded in PR #14 body and final chat report; not hardcoded in this self-referential tree",
+  "backup": {
+    "directory": "/home/user/pm01dm4k-backup",
+    "tar": "/home/user/pm01dm4k-backup.tar.gz",
+    "includes": ["modified repository files", "raw PR body", "PR JSON", "IDENTITY.txt", "SHA256SUMS.txt"]
+  },
+  "j_review": {
+    "classification": "independent, read-only, chat-only source",
+    "durable_report": "docs/product-inventory/evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md",
+    "metadata": "docs/product-inventory/evidence/task-pm-01d-m4-j/REVIEW_METADATA.json",
+    "overall_verdict": "PASS WITH FINDINGS",
+    "scope": "isolated M4 technical acceptance only",
+    "product_master": "BLOCKED",
+    "production_deployment": "NOT AUTHORIZED"
+  },
+  "scope_resolution": {
+    "r_agg_mandatory_row_retained": true,
+    "A_current_isolated_m4_technical_correctness": "PASS WITH FINDINGS",
+    "B_historical_evidence_completeness": "UNVERIFIED",
+    "C_production_topology_and_operational_authorization": "UNVERIFIED",
+    "owner_approval_invented": false,
+    "authoritative_sources": [
+      "docs/product-inventory/TASK-PM-01D-M4_IMPLEMENTATION.md:199-210",
+      "docs/product-inventory/GAP_REGISTER.md:220-227",
+      "docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md:288-299",
+      "docs/product-inventory/TASK-PM-01D-M4-F_INDEPENDENT_REVIEW_REQUEST.md:75-81",
+      "docs/product-inventory/TASK-PM-01D-M4-I_IMPLEMENTATION.md:7",
+      "docs/product-inventory/M4_ACCEPTANCE_MATRIX.md:64-84"
+    ],
+    "conclusion": "authoritative M4 scope documents establish production topology/operator authorization as separate production-release gates and exact original R IDs as historical-evidence completeness, not current-code M4 technical prerequisites; I-stage broader R-AGG wording is preserved as an evidence-ledger formulation, not an owner-approved prerequisite"
+  },
+  "historical_verdicts_preserved": {
+    "R": "FAIL (CRITICAL 0 / HIGH 1 / MEDIUM 3 / LOW 3) at 6bffef38fc4ce007798e68d4c7959729c76100e2",
+    "F_R": "FAIL (CRITICAL 0 / HIGH 0 / MEDIUM 2 / LOW 2) at 74e71172055d6cad482305db1834300c62fb53f5",
+    "G_R": "narrow VERIFIED SAFE for F-R-01/F-R-02 at 2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c; M4-G acceptance UNVERIFIED; Product Master BLOCKED; overall PASS WITH FINDINGS with 4 LOW caveats",
+    "H": "PASS WITH FINDINGS at 8c40105f8c5b38660a605078207ac5bd90215359",
+    "I": "final chat readiness UNVERIFIED; I readiness line preserved in matrix section 7"
+  },
+  "r_agg": {
+    "mandatory_m4_acceptance_row_retained": true,
+    "current_isolated_m4_technical_correctness": "PASS WITH FINDINGS",
+    "historical_evidence_completeness": "UNVERIFIED",
+    "production_topology_and_operational_authorization": "UNVERIFIED",
+    "original_R_report": "chat-only; no standalone report or exact original seven IDs/grouping",
+    "seven_reconstructed_current_state_findings": {
+      "R-REC-01": "PASS",
+      "R-REC-02": "PASS",
+      "R-REC-03": "PASS",
+      "R-REC-04": "PASS",
+      "R-REC-05": "PASS",
+      "R-REC-06": "PASS",
+      "R-REC-07": "PASS"
+    },
+    "reconstructed_ids_are_original_ids": false
+  },
+  "f_r_current_state": {
+    "F-R-01": "PASS",
+    "F-R-02": "PASS",
+    "F-R-03": "PASS for technical capability; production scheduling/archival/retention UNVERIFIED",
+    "F-R-04": "PASS"
+  },
+  "mandatory_m4_a_category": {
+    "A-01..A-20": "PASS",
+    "B-01..B-08": "PASS",
+    "A-14": "NOT APPLICABLE",
+    "A-20": "updated with exact SHA, exact-SHA CI IDs and J review"
+  },
+  "product_master": {
+    "C-01..C-04": "NOT APPLICABLE to M4",
+    "full_acceptance": "BLOCKED",
+    "G-03": "PARTIAL / VERIFIED=NO",
+    "PM-B1..PM-B8": "OPEN / NOT APPROVED",
+    "whole_file_atomicity_Q1_Q5": "OPEN / NOT APPROVED"
+  },
+  "production_release": {
+    "D-01": "UNVERIFIED",
+    "D-02": "UNVERIFIED",
+    "D-03a": "PASS",
+    "D-03b": "UNVERIFIED",
+    "D-05": "UNVERIFIED",
+    "D-06": "UNVERIFIED",
+    "D-07": "NOT APPLICABLE",
+    "deployment": "NOT AUTHORIZED"
+  },
+  "exact_sha_ci": {
+    "head_sha": "39355a377fe66f3fd8c2bae996c8ec92211bd4db",
+    "check_runs": {
+      "total": 8,
+      "completed_success": 8,
+      "ids": [129980469451, 129980470263, 129980472444, 129980472808, 129980472963, 129980473065, 129980473154, 129980481452]
+    },
+    "workflow_runs": {
+      "total": 4,
+      "completed_success": 4,
+      "ids": {
+        "e2e": 42859214454,
+        "migrations": 42859214511,
+        "release_image": 42859214519,
+        "ci": 42859215185
+      }
+    },
+    "gh_pr_checks_exit": 0,
+    "earlier_sha_green_transferred": false
+  },
+  "j_limitations": [
+    "raw per-test CI log counts could not be independently retrieved; external blob log returned EOF",
+    "local PG16.2 trust-auth is not CI- or production-equivalent",
+    "exact production topology, object owner and operator authorization remain UNVERIFIED",
+    "production retention/scheduling, external archive, manual RTL/a11y/console, network/ACK/pool and ACCESS EXCLUSIVE operational impact remain UNVERIFIED"
+  ],
+  "factual_corrections": [
+    "TASK-PM-01D-M4-I_IMPLEMENTATION.md:40 now says cleanup filters by expires_at cutoff, not operation creation time",
+    "M4_ACCEPTANCE_MATRIX.md A-20 now cites exact SHA 39355a377fe66f3fd8c2bae996c8ec92211bd4db, exact CI IDs and J review"
+  ],
+  "validation": {
+    "scope": "documentation, evidence-index, link/path, JSON, consistency and protected-path checks only",
+    "db_backed_tests_rerun": false,
+    "database_roles_or_grants_changed": false,
+    "changed_files": {
+      "expected": 8,
+      "actual": 8,
+      "unexpected": 0,
+      "missing": 0
+    },
+    "protected_paths_changed": 0,
+    "git_diff_check_exit": 0,
+    "json_ok": {
+      "docs/product-inventory/evidence/task-pm-01d-m4-j/REVIEW_METADATA.json": true,
+      "docs/product-inventory/evidence/task-pm-01d-m4-k/VERIFICATION.json": true
+    },
+    "cjk_codepoint_hits_on_changed_files": 0,
+    "added_line_code_path_candidates": 199,
+    "markdown_links_checked": 0,
+    "unresolved_link_path_errors": 0,
+    "j_report_sections_A_through_H_present": true,
+    "j_final_verdict_statements_present": true,
+    "j_reconstructed_id_limitation_present": true,
+    "historical_verdicts_preserved": true,
+    "i_verification_files_unchanged": true,
+    "local_pg_roles_all_no_login": true,
+    "greendms_k_leftover_databases": 0,
+    "post_push_final_sha_agreement": "verified at final protocol; exact SHA recorded in PR #14 body and final chat report",
+    "k_final_sha_ci": "recorded in PR #14 body and final chat report; not hardcoded in this self-referential tree"
+  },
+  "unresolved_evidence_or_owner_decisions": [
+    "original standalone R report / exact seven original IDs and verbatim grouping",
+    "accessible final-SHA raw CI DB-backed per-test logs",
+    "exact production topology, object owner, password-auth/PostGIS equivalence, operator/owner sign-off",
+    "production S3/MinIO grade, external archive, retention/scheduling, manual RTL/a11y/console, real network/ACK/pool and ACCESS EXCLUSIVE operational impact",
+    "G-03 two-person binding, PM-B1..PM-B8, whole-file atomicity Q1-Q5, domain registry/membership/lifecycle, full Product Master acceptance",
+    "explicit approval / merge / release / deployment authorization"
+  ],
+  "current_final_verdicts": {
+    "m4_technical_acceptance": "PASS WITH FINDINGS",
+    "product_master_acceptance": "BLOCKED",
+    "production_deployment": "NOT AUTHORIZED"
+  }
+}
