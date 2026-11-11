@@ -200,3 +200,33 @@ implementation; then add the company-scoped registry, lifecycle and actor-domain
 assignment with domain-aware RLS and up/down/up evidence, and only afterwards
 activate membership/availability and the blocked 400/503 endpoints. Do not weaken
 the B1 separation boundary or the B2 read-surface parity.
+
+---
+
+## 10. Exact-SHA CI on the first B2 push — infrastructure disclosure
+
+Ordinary fast-forward push `dad4ce8..42e21a4` (`42e21a4d29bfd379e3e2781f641b50a1b8d7e462`),
+six SHA views in agreement. `gh pr checks 14 --watch` returned `EXIT=1`: **4 checks
+green, 4 failed**. The green checks cover every changed path that needs no external
+download: Static checks (typecheck, OpenAPI, contract drift), Unit tests (no DB/no
+MinIO, including the new DB-free parity suite), the migrations up/down/up workflow,
+and the release-image boot smoke workflow.
+
+All 4 failures occurred at **external dependency-install steps before any test
+step ran**, with every subsequent test/diagnostic step `skipped`:
+`sudo apt-get install postgresql-client` (Integration Postgres, Integration MinIO),
+`sudo apt-get install postgresql postgresql-client` (Init credential hygiene), and
+`npx playwright install --with-deps chromium` (Playwright E2E). The same install
+steps were green on the unchanged baseline `dad4ce8` at 2026-11-11T06:09:17Z and
+on `c382d6a` at 2026-11-10T18:38:00Z, so this is a transient external
+package-mirror/CDN outage, not a B2 regression. Job-log blobs are unreachable
+(`EOF`), `gh run rerun --failed` is refused, and the REST `rerun-failed-jobs`
+endpoint returns `403 Resource not accessible by integration`; neither workflow
+has a `workflow_dispatch` trigger.
+
+**Verdict:** the 4 unavailable checks are `FAIL (CI infrastructure)` /
+`UNVERIFIED`, **not** a B2 `FAIL`. No B2 test step executed in them. This is
+recorded in `evidence/task-pm-02/VERIFICATION-B2.*`; a follow-up ordinary commit
+retriggers CI and its outcome is recorded in the PR #14 body. No workflow file, CI
+configuration, secret, or infrastructure setting was modified to alter this
+result, and the earlier historical CI verdicts are left untouched.

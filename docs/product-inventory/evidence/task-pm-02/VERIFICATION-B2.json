@@ -26,12 +26,39 @@
     "review_comments": 0,
     "issue_comments": 1,
     "issue_comment_is_approval": false,
-    "unrelated_issues": [11, 12],
+    "unrelated_issues": [
+      11,
+      12
+    ],
     "tracked_approval_document": false,
     "iam_security_signoff": false,
     "git_log_approval": false,
-    "decisions_open_not_approved": ["PM-B1", "PM-B2", "PM-B3", "PM-B4", "PM-B5", "PM-B6", "PM-B7", "PM-B8", "Q1", "Q2", "Q3", "Q4", "Q5", "G-03"],
-    "blocked": ["registry", "lifecycle", "assignment", "membership", "migrations", "domain_rls", "domain_apis", "ui_activation"],
+    "decisions_open_not_approved": [
+      "PM-B1",
+      "PM-B2",
+      "PM-B3",
+      "PM-B4",
+      "PM-B5",
+      "PM-B6",
+      "PM-B7",
+      "PM-B8",
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4",
+      "Q5",
+      "G-03"
+    ],
+    "blocked": [
+      "registry",
+      "lifecycle",
+      "assignment",
+      "membership",
+      "migrations",
+      "domain_rls",
+      "domain_apis",
+      "ui_activation"
+    ],
     "note": "TASK-PM-02_IMPLEMENTATION.md §8 is a recommendation, not an approval."
   },
   "implemented": {
@@ -43,7 +70,11 @@
       "GET /products/export (ProductExportController.export)",
       "GET /products/import/report/{id} (ProductImportController.report)"
     ],
-    "guard_order": ["AuthGuard", "PermissionsGuard", "DomainBoundaryGuard"],
+    "guard_order": [
+      "AuthGuard",
+      "PermissionsGuard",
+      "DomainBoundaryGuard"
+    ],
     "domain_context_routes_deliberately_unguarded": true,
     "operational_domain_authority_registered": false,
     "openapi_400_added_to": "/products/import/report/{id}",
@@ -52,18 +83,63 @@
     "migration_or_rls_change": false
   },
   "gates": [
-    { "command": "node scripts/openapi-check.mjs", "exit": 0, "result": "202 paths / 285 operations / 154 schemas / 3 webhooks" },
-    { "command": "node scripts/contract-drift.mjs", "exit": 0, "result": "285 spec == 285 code; drift 0/0/0/0" },
-    { "command": "node scripts/check-test-partition.mjs", "exit": 0, "result": "86 files; declared == computed; new parity file UNIT" },
-    { "command": "npm run typecheck", "exit": 0 },
-    { "command": "npm run build", "exit": 0 },
-    { "command": "npm run test -w apps/web", "exit": 0, "result": "18 files / 94 tests" },
-    { "command": "vitest run focused DB-free boundary tests", "exit": 0, "result": "3 files / 25 tests" },
-    { "command": "vitest run --print unit partition", "exit": 0, "result": "30 files / 373 tests" },
-    { "command": "vitest run test/product-domain-boundary.api.test.ts", "exit": 0, "result": "1 file / 19 tests" },
-    { "command": "vitest run 7 targeted DB-backed files", "exit": 0, "result": "7 files / 146 tests" },
-    { "command": "npm run test:migrations", "exit": 0, "result": "up/down/up, 1029 identical objects" },
-    { "command": "git diff --check", "exit": 0 }
+    {
+      "command": "node scripts/openapi-check.mjs",
+      "exit": 0,
+      "result": "202 paths / 285 operations / 154 schemas / 3 webhooks"
+    },
+    {
+      "command": "node scripts/contract-drift.mjs",
+      "exit": 0,
+      "result": "285 spec == 285 code; drift 0/0/0/0"
+    },
+    {
+      "command": "node scripts/check-test-partition.mjs",
+      "exit": 0,
+      "result": "86 files; declared == computed; new parity file UNIT"
+    },
+    {
+      "command": "npm run typecheck",
+      "exit": 0
+    },
+    {
+      "command": "npm run build",
+      "exit": 0
+    },
+    {
+      "command": "npm run test -w apps/web",
+      "exit": 0,
+      "result": "18 files / 94 tests"
+    },
+    {
+      "command": "vitest run focused DB-free boundary tests",
+      "exit": 0,
+      "result": "3 files / 25 tests"
+    },
+    {
+      "command": "vitest run --print unit partition",
+      "exit": 0,
+      "result": "30 files / 373 tests"
+    },
+    {
+      "command": "vitest run test/product-domain-boundary.api.test.ts",
+      "exit": 0,
+      "result": "1 file / 19 tests"
+    },
+    {
+      "command": "vitest run 7 targeted DB-backed files",
+      "exit": 0,
+      "result": "7 files / 146 tests"
+    },
+    {
+      "command": "npm run test:migrations",
+      "exit": 0,
+      "result": "up/down/up, 1029 identical objects"
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    }
   ],
   "full_db_run": {
     "files_selected": 55,
@@ -72,7 +148,12 @@
     "tests_total": 1109,
     "tests_passed": 1092,
     "tests_failed": 17,
-    "failing_files": ["customers.api.test.ts", "geofences.api.test.ts", "tours.api.test.ts", "postgres-init-role.api.test.ts"],
+    "failing_files": [
+      "customers.api.test.ts",
+      "geofences.api.test.ts",
+      "tours.api.test.ts",
+      "postgres-init-role.api.test.ts"
+    ],
     "baseline_control": {
       "method": "reversible git stash push -u, run same 4 files on pristine dad4ce8, git stash pop",
       "baseline_tests_total": 80,
@@ -91,10 +172,90 @@
     "redis": "ECONNREFUSED 127.0.0.1:6379 (historically expected, nonfatal)"
   },
   "verdicts": {
-    "PASS": ["baseline durability", "backup integrity", "gate inspection", "decision package", "read-surface parity", "guard ordering", "no blanket rejection", "contract/client/test consistency", "local static + DB-free + native-PG gates", "baseline control"],
+    "PASS": [
+      "baseline durability",
+      "backup integrity",
+      "gate inspection",
+      "decision package",
+      "read-surface parity",
+      "guard ordering",
+      "no blanket rejection",
+      "contract/client/test consistency",
+      "local static + DB-free + native-PG gates",
+      "baseline control"
+    ],
     "FAIL": [],
-    "UNVERIFIED": ["production topology / PostGIS+password-auth equivalence", "manual RTL/a11y/console", "independent Agent-2 review", "raw per-test CI job logs", "exact-final-SHA CI (pending push)"],
-    "BLOCKED": ["PM-B1", "PM-B2", "PM-B4", "PM-B3", "PM-B5", "PM-B6", "PM-B7", "PM-B8", "Q1..Q5", "G-03", "registry", "lifecycle", "assignment", "membership", "migrations", "domain RLS", "domain APIs", "UI activation", "full Product Master acceptance"],
+    "UNVERIFIED": [
+      "production topology / PostGIS+password-auth equivalence",
+      "manual RTL/a11y/console",
+      "independent Agent-2 review",
+      "raw per-test CI job logs",
+      "4 CI checks that never reached a test step (external install-step failure)"
+    ],
+    "BLOCKED": [
+      "PM-B1",
+      "PM-B2",
+      "PM-B4",
+      "PM-B3",
+      "PM-B5",
+      "PM-B6",
+      "PM-B7",
+      "PM-B8",
+      "Q1..Q5",
+      "G-03",
+      "registry",
+      "lifecycle",
+      "assignment",
+      "membership",
+      "migrations",
+      "domain RLS",
+      "domain APIs",
+      "UI activation",
+      "full Product Master acceptance"
+    ],
     "production_deployment": "NOT AUTHORIZED"
+  },
+  "ci_first_push": {
+    "sha": "42e21a4d29bfd379e3e2781f641b50a1b8d7e462",
+    "gh_pr_checks_exit": 1,
+    "checks_passed": 4,
+    "checks_failed": 4,
+    "green": [
+      "Static checks (typecheck, OpenAPI, contract drift)",
+      "Unit tests (no DB, no MinIO)",
+      "migrations up/down/up workflow",
+      "release-image workflow"
+    ],
+    "failed_jobs": [
+      {
+        "job_id": 130581857658,
+        "name": "Integration (Postgres) — API + tenant isolation",
+        "failed_step": "Install PostgreSQL client (psql for test migrations)",
+        "tests_ran": false
+      },
+      {
+        "job_id": 130581857675,
+        "name": "Integration (MinIO) — attachment round-trip",
+        "failed_step": "Install PostgreSQL client (psql for test migrations)",
+        "tests_ran": false
+      },
+      {
+        "job_id": 130581857070,
+        "name": "Init credential hygiene",
+        "failed_step": "Install PostgreSQL server + client",
+        "tests_ran": false
+      },
+      {
+        "job_id": 130581860470,
+        "name": "Playwright E2E",
+        "failed_step": "install Playwright chromium",
+        "tests_ran": false
+      }
+    ],
+    "root_cause": "external apt mirror / Playwright browser CDN install failure; all test steps skipped",
+    "baseline_control": "same install steps green on dad4ce8 at 2026-11-11T06:09:17Z (runs 42970426618, 42970426694) and c382d6a at 2026-11-10T18:38:00Z",
+    "rerun": "403 Resource not accessible by integration; no workflow_dispatch trigger",
+    "attributable_to_b2": false,
+    "verdict": "FAIL (CI infrastructure) / UNVERIFIED; not a B2 code regression"
   }
 }

@@ -90,7 +90,55 @@ VERDICTS
               local static/DB-free/native-PG gates, baseline control for environmental failures.
   FAIL ....... none attributable to B2.
   UNVERIFIED . production topology / PostGIS+password-auth equivalence, manual RTL/a11y/console,
-              independent Agent-2 review, raw per-test CI job logs, exact-final-SHA CI (pending push).
+              independent Agent-2 review, raw per-test CI job logs (blobs EOF), and the 4 CI
+              checks that never reached a test step (external install-step failure; see below).
   BLOCKED .... PM-B1/PM-B2/PM-B4 (and B3/B5-B8, Q1-Q5, G-03) owner decisions; registry, lifecycle,
               assignment, membership, migrations, domain RLS, domain APIs, UI activation;
               full Product Master acceptance. Production deployment NOT AUTHORIZED.
+
+EXACT-FINAL-SHA CI — first B2 push 42e21a4d29bfd379e3e2781f641b50a1b8d7e462
+  Ordinary fast-forward push dad4ce8..42e21a4; six SHA views agreed. `gh pr checks 14 --watch`
+  EXIT=1 (4 checks pass / 4 fail). All 4 workflow runs created at 2026-11-11T14:23:22Z.
+
+  PASS (4 checks, 2 whole workflows green):
+    Static checks (typecheck, OpenAPI, contract drift) .. run 43037985285 / job 130581857755 (1m17s)
+    Unit tests (no DB, no MinIO) ........................ run 43037985285 / job 130581857493 (54s)
+    up -> down -> up on empty DB ........................ run 43037985303 (workflow success, 1m0s)
+    Release image boot smoke (isolated compose) ......... run 43037985430 (workflow success, 3m59s)
+  => typecheck, OpenAPI check, contract drift, test partition, the DB-free unit suite
+     (including the new B2 parity tests), migration up/down/up and image boot all ran green
+     on the exact pushed SHA.
+
+  FAIL (4 checks) — ALL at EXTERNAL dependency-install steps, BEFORE any test executed:
+    Integration (Postgres) — API + tenant isolation
+      job 130581857658: step 5 "Install PostgreSQL client (psql for test migrations)" FAILURE;
+      steps 6 "Run npm ci", 7 "API integration tests", 8 "failure diagnostic" all SKIPPED.
+    Integration (MinIO) — attachment round-trip
+      job 130581857675: step 5 same apt install FAILURE; steps 6/7/8/10 SKIPPED.
+    Init credential hygiene — disposable PostgreSQL with statement logging
+      job 130581857070: step 3 "Install PostgreSQL server + client" FAILURE; steps 4/5 SKIPPED.
+    Playwright E2E (isolated docker stack)
+      job 130581860470: step 6 "install Playwright chromium"
+      (`npx playwright install --with-deps chromium`) FAILURE; test steps 7..16 SKIPPED.
+  Step definitions: .github/workflows/ci.yml:160-163, :243-246, :475-479;
+                    .github/workflows/e2e.yml:70-71. These are `sudo apt-get update/install`
+                    and a browser-binary download — no repository file is consumed.
+
+  Baseline control: the SAME apt/playwright install steps succeeded on dad4ce8 at
+    2026-11-11T06:09:17Z (CI run 42970426618 success; e2e run 42970426694 success) and on
+    c382d6a at 2026-11-10T18:38:00Z (runs 42877166977 / 42877166761 success). The failure
+    window is therefore external package-mirror/CDN availability, not a B2 code change.
+
+  Rerun attempts (session token cannot rerun jobs):
+    gh run rerun 43037985285 --failed ..... "cannot be rerun; its workflow file may be broken"
+    gh run rerun 43037985790 --failed ..... same
+    gh api -X POST .../actions/runs/{id}/rerun-failed-jobs ... 403 "Resource not accessible by integration"
+    The workflows have no workflow_dispatch trigger (ci.yml/e2e.yml: push main + pull_request main).
+  Raw job-log blobs: `gh run view --job=... --log-failed` -> EOF
+    (results-receiver.actions.githubusercontent.com not reachable from this sandbox).
+
+  CONCLUSION: no B2 test step ran in the 4 failed jobs; no B2 code regression is indicated.
+  The 4 green checks cover every changed source/test/doc path that can be checked without
+  external apt/browser downloads. A follow-up ordinary commit retriggers CI; its outcome is
+  recorded in the PR #14 body. Verdict for the unavailable checks: FAIL (CI infrastructure) /
+  UNVERIFIED, NOT a B2 FAIL.
