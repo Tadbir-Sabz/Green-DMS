@@ -1,0 +1,235 @@
+{
+  "task": "TASK-PM-02-C2",
+  "title": "مدیریت دادههای مرجع کالا (برند / واحد اندازهگیری / دستهبندی)",
+  "baseline_sha": "aa0028a02631728383533fbcd18461017fe29037",
+  "implementation_commit": "8199a6f8aa89480cd4f97d8ff51f93c3c99146ba",
+  "branch": "arena/be5eaff3-green-dms",
+  "pr": 14,
+  "pr_state": "OPEN / DRAFT",
+  "base": "main",
+  "checkpoint": {
+    "path": "/home/user/pm02-c2-checkpoint.tar.gz",
+    "sha256": "47e27a3cea42bc1bb309c0c61f96ddb6f47358d508c4af2dca19c2b41de408f4",
+    "files": 2854,
+    "checksum_mismatches": 0,
+    "recreated": false
+  },
+  "pr_body_baseline": {
+    "chars": 90234,
+    "bytes": 95140,
+    "sha256": "158ab809b2af4034584c04e8ffc2685816a05ce9d9eac161b630bd56d47ee984"
+  },
+  "environment": {
+    "node": "v22.22.3",
+    "npm": "10.9.8",
+    "postgres": "16.2 local trust-auth 127.0.0.1:55432",
+    "psql": "/tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql",
+    "limitations": "no PostGIS, no Redis, no real MinIO/S3, no Playwright browser binary; not CI/production equivalent"
+  },
+  "final_sha_policy": "Exact final SHA, six SHA views and workflow conclusions are recorded in PR #14 body and the final chat report, not as a self-referential hash inside this repository.",
+  "gates": [
+    {
+      "id": "G01",
+      "name": "baseline fetch/pull/branch/PR/remote SHA agreement",
+      "result": "PASS",
+      "evidence": "git fetch exit 0; git pull --ff-only Already up to date; HEAD=origin=ls-remote=PR head=aa0028a02631728383533fbcd18461017fe29037; clean/diffcheck 0"
+    },
+    {
+      "id": "G02",
+      "name": "recoverable checkpoint preserved",
+      "result": "PASS",
+      "evidence": "/home/user/pm02-c2-checkpoint.tar.gz sha256=47e27a3c... 2854 files, sha256sum -c 0 mismatches; not recreated"
+    },
+    {
+      "id": "G03",
+      "name": "module eligibility and C1-appendix reconciliation",
+      "result": "PASS",
+      "evidence": "GAP_REGISTER G-06 open item 'complete UI for uom/category/brand'; target design §A group/brand existing unchanged, §0 no domain decision, §F ordinary master.product.* + audit; C1 'BLOCKED (deliberately not done)' verified as C1-scope wording, not an owner decision"
+    },
+    {
+      "id": "G04",
+      "name": "no owner decision consumed; domain boundary intact",
+      "result": "PASS",
+      "evidence": "PM-B1..PM-B8/Q1..Q5/G-03 unchanged; no registry/membership/lifecycle/assignment/domain RLS/provider; DomainBoundaryGuard on all 7 route families; x-domain-id rejected 400 in HTTP and live evidence"
+    },
+    {
+      "id": "G05",
+      "name": "migration 0065 additive and reversible",
+      "result": "PASS",
+      "evidence": "migrations/0065_reference_data_admin.{up,down}.sql; columns/indexes/comments only; uq_brand_name, category code uniqueness, uom.code uniqueness and decimal_places 0..4 preserved; no backfill of legacy NULL brand codes"
+    },
+    {
+      "id": "G06",
+      "name": "backend route family, ordinary RBAC, fail-closed audit",
+      "result": "PASS",
+      "evidence": "/reference-data/{history,brands,brands/{id},units,units/{id},categories,categories/{id}}; read master.product.view, write master.product.update via CatalogAccess.write; AuditService.recordRequired; no new permissions/roles/seeds/RLS/grants"
+    },
+    {
+      "id": "G07",
+      "name": "product create/update server-side reference validation",
+      "result": "PASS",
+      "evidence": "ProductService.assertRequires active company category/brand and active global UOM; invalid_category/invalid_brand/invalid_uom Persian 400; D4/optimistic lock unchanged"
+    },
+    {
+      "id": "G08",
+      "name": "D3 precision and no implicit unit conversion",
+      "result": "PASS",
+      "evidence": "decimal_places 0..4 in rules, DTO, DB check and UI; unit code lowercased before regex and immutable after create; factor_to_base/base_uom_id sensitivity unchanged"
+    },
+    {
+      "id": "G09",
+      "name": "category hierarchy, cycle prevention and safe reassignment",
+      "result": "PASS",
+      "evidence": "root filter, ancestors/children/detail, max depth 12, wouldCreateCycle, active parent/reassign target, category_in_use without reassign_to, atomic reassign_to in API and live preview"
+    },
+    {
+      "id": "G10",
+      "name": "OpenAPI validity, contract/code drift and generated client",
+      "result": "PASS",
+      "evidence": "node scripts/openapi-check.mjs 211 paths/304 operations/174 schemas/3 webhooks; contract-drift 0 (304/304); schema.ts +726 lines via openapi-typescript 7.13.0"
+    },
+    {
+      "id": "G11",
+      "name": "unknown body/query fields rejected before silent whitelist",
+      "result": "PASS",
+      "evidence": "controller RawRequest.body + assertBody(): unsupported_request_field 400; service unknownQueryKeys(): unsupported_query_parameter 400; both covered by HTTP and live evidence"
+    },
+    {
+      "id": "G12",
+      "name": "focused C2 backend unit + HTTP tests",
+      "result": "PASS",
+      "evidence": "cd apps/api && npx vitest run test/reference-data-rules.test.ts test/reference-data.api.test.ts -> 2 files / 16 tests PASS (7 rules + 9 API); /tmp/pm02c2-api-tests6.log"
+    },
+    {
+      "id": "G13",
+      "name": "focused C2 web component tests",
+      "result": "PASS",
+      "evidence": "cd apps/web && npx vitest run 3 reference-data test files -> 17/17 PASS (6 lib + 4 selectors + 7 page); /tmp/pm02c2-web-tests3.log"
+    },
+    {
+      "id": "G14",
+      "name": "full web suite",
+      "result": "PASS",
+      "evidence": "22 files / 118 tests PASS (C1 baseline 19/101); /tmp/pm02c2-web-full.log"
+    },
+    {
+      "id": "G15",
+      "name": "full DB-free API unit partition",
+      "result": "PASS",
+      "evidence": "32 files / 389 tests PASS (C1 baseline 31/382); /tmp/pm02c2-api-unit-final.log"
+    },
+    {
+      "id": "G16",
+      "name": "executed-contract API test",
+      "result": "PASS",
+      "evidence": "test/contract.api.test.ts 80/80 PASS; /tmp/pm02c2-contract-api-final.log"
+    },
+    {
+      "id": "G17",
+      "name": "root typecheck",
+      "result": "PASS",
+      "evidence": "npm run typecheck exit 0 across packages/contracts, packages/api-client, apps/api, apps/web; /tmp/pm02c2-typecheck-final.log"
+    },
+    {
+      "id": "G18",
+      "name": "root production build",
+      "result": "PASS",
+      "evidence": "npm run build exit 0 (packages + API + Next); /tmp/pm02c2-build-final.log"
+    },
+    {
+      "id": "G19",
+      "name": "test partition and diffcheck",
+      "result": "PASS",
+      "evidence": "node scripts/check-test-partition.mjs 90 files declared==computed; git diff --check exit 0; /tmp/pm02c2-static-checks.log"
+    },
+    {
+      "id": "G20",
+      "name": "migration up -> down -> up on empty local PostgreSQL",
+      "result": "PASS",
+      "evidence": "npm run test:migrations exit 0 with TEST_DB=greendms_c2_migtest; 1033 identical objects in both up passes; temp DB removed; /tmp/pm02c2-migrations-final.log"
+    },
+    {
+      "id": "G21",
+      "name": "migrations-security reconciliation with 0065",
+      "result": "PASS",
+      "evidence": "test/migrations-security.test.ts 8/8 PASS after intentional last-migration update from 0064 to 0065; isolated 0064 down restores exact pre-0064 catalog including 0065; /tmp/pm02c2-migsec.log"
+    },
+    {
+      "id": "G22",
+      "name": "full DB-backed API suite + pristine-baseline regression control",
+      "result": "PASS (no regression) / FAIL (local environment)",
+      "evidence": "90 files / 1524 tests -> 85 files / 1505 tests PASS, 5 files / 19 tests FAIL; detached worktree at aa0028a... reproduced identical 5 files / 19 test titles (identical=True); PostGIS, local trust-auth, Tour contract and missing real MinIO; /tmp/pm02c2-api-full2.log + /tmp/pm02c2-baseline-tests.log"
+    },
+    {
+      "id": "G23",
+      "name": "same-origin live preview end-to-end",
+      "result": "PASS",
+      "evidence": "Next:3000 rewrite -> API:4000 -> native PG + local S3 stub; page 200, login 200, brand/unit/category create/update/deactivate, cycle 409, product with 3 references 201, inactive brand 400, safe delete + reassign_to 200, audit history, unknown body/query/domain header 400; evidence/task-pm-02/VERIFICATION-C2-LIVE.txt + /tmp/pm02c2-live7.log"
+    },
+    {
+      "id": "G24",
+      "name": "manual browser RTL/a11y/console review",
+      "result": "UNVERIFIED",
+      "evidence": "no Playwright browser binary in sandbox; 17 jsdom component tests and curl-verified same-origin preview only; no fabricated screenshot"
+    },
+    {
+      "id": "G25",
+      "name": "production MinIO/S3 round-trip",
+      "result": "UNVERIFIED",
+      "evidence": "local fake S3 stub on 127.0.0.1:9100 is not browser-reachable or production-equivalent; C1 limitation unchanged"
+    },
+    {
+      "id": "G26",
+      "name": "C1 exact-final-SHA CI",
+      "result": "UNVERIFIED / PENDING",
+      "evidence": "aa0028a... 4 workflow runs / 8 check-runs queued or conclusion=null; never PASS; no artificial CI-trigger commits"
+    },
+    {
+      "id": "G27",
+      "name": "C2 exact-final-SHA CI",
+      "result": "UNVERIFIED / PENDING",
+      "evidence": "exact final SHA/workflow conclusions recorded in PR #14 body and final chat report; queued/null never reported as PASS; no workflow/secret/config change"
+    },
+    {
+      "id": "G28",
+      "name": "PM-B1..PM-B8 / Q1..Q5 / G-03 / domain authority",
+      "result": "BLOCKED",
+      "evidence": "no signed owner decision, approval reference, signatory, IAM/Security sign-off, accepted examples, cutover/backfill policy or concrete acceptance tests"
+    },
+    {
+      "id": "G29",
+      "name": "full Product Master acceptance / production deployment",
+      "result": "BLOCKED / NOT AUTHORIZED",
+      "evidence": "PR #14 OPEN/DRAFT; no merge/approve/release/deploy; production DB/system untouched"
+    },
+    {
+      "id": "G30",
+      "name": "PR #14 state and evidence preservation contract",
+      "result": "PASS",
+      "evidence": "PR #14 OPEN/DRAFT, base main, 0 approvals; baseline body 90234 chars/95140 bytes sha256=158ab809...; additive C2 section appended via REST PATCH preserving that prefix verbatim; exact final SHA/CI recorded there"
+    }
+  ],
+  "verdicts": {
+    "brand": "PASS",
+    "unit": "PASS",
+    "category": "PASS",
+    "failures": "NONE after reconciliation",
+    "blocked": "owner-gated domain authority, Q1..Q5, G-03, full acceptance, deployment",
+    "unverified": "exact-final-SHA CI, manual browser/a11y/console, production MinIO/S3, CI/production equivalence",
+    "development": "PASS",
+    "next_module_recommendation": "TASK-PM-02-C3 — extend the product-media UX to other attachment owner types under the same central RBAC/audit/B2 boundary; owner-gated PM-B1/B2/B4 registry spike and G-13 whole-file import remain BLOCKED until signed decisions."
+  },
+  "artifacts": {
+    "implementation_report": "docs/product-inventory/TASK-PM-02-C2_IMPLEMENTATION.md",
+    "verification_json": "docs/product-inventory/VERIFICATION-C2.json",
+    "verification_txt": "docs/product-inventory/VERIFICATION-C2.txt",
+    "live_evidence": "docs/product-inventory/evidence/task-pm-02/VERIFICATION-C2-LIVE.txt",
+    "logs": "/tmp/pm02c2-api-tests6.log, /tmp/pm02c2-web-tests3.log, /tmp/pm02c2-web-full.log, /tmp/pm02c2-api-unit-final.log, /tmp/pm02c2-contract-api-final.log, /tmp/pm02c2-static-checks.log, /tmp/pm02c2-typecheck-final.log, /tmp/pm02c2-build-final.log, /tmp/pm02c2-migrations-final.log, /tmp/pm02c2-migsec.log, /tmp/pm02c2-api-full2.log, /tmp/pm02c2-baseline-tests.log, /tmp/pm02c2-live7.log"
+  },
+  "notes": [
+    "First full DB run had 6 failed files / 26 failed tests because migrations-security.test.ts hardcoded 0064 as the last migration; the test was intentionally reconciled to 0065 and the final full run returned to the exact 5/19 baseline-environmental failures.",
+    "The Arabic-Yeh normalization expectation was aligned with the actual normalizeText rule; unit codes are lowercased before regex; setup-pg-guard.ts now absorbs benign PG 57P01 teardown errors.",
+    "Redis ECONNREFUSED 6379 and [PG_POOL] idle client error warnings remain benign local-environment noise.",
+    "No generated artifacts, screenshots or large datasets were committed; only source, contracts, tests and small text evidence are tracked."
+  ]
+}

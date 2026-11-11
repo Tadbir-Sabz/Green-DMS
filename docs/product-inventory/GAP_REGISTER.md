@@ -260,3 +260,25 @@ whole-file atomicity، PM-B1..PM-B8، Q1..Q5، تأیید دونفره G-03، ح
 تا بازبینی مستقل متمرکز، و پذیرش کامل Product Master. استقرار تولید همچنان
 `NOT AUTHORIZED` و PR #14 `OPEN / DRAFT` است. جزئیات:
 `TASK-PM-02-C1_IMPLEMENTATION.md` و `VERIFICATION-C1.{txt,json}`.
+
+
+---
+
+## یادداشت H — TASK-PM-02-C2: بستهشدن «مدیریت کامل UI برای uom/category/brand»، نه G-06 کامل
+
+C2 صفحهٔ مدیریت یکپارچهٔ برند/واحد/دسته، API، مهاجرت افزودنی `0065`،
+انتخابگرهای فرم کالا، ستونهای برند/واحد در فهرست و تستهای بکاند/وب/زنده را
+تحویل داد. بنابراین **فقط** عبارت «مدیریت کامل UI برای uom/category/brand» از
+یادداشت G یعنی باقیماندهٔ G-06 برطرف شد. وضعیت G-06 همچنان
+**`IMPLEMENTED WITH GAPS`** است، زیرا «تکمیل import سایر حوزهها / مرکز مشترک
+P8 (G-13)» و تصمیمات Q1..Q5 باقیاند؛ هیچ متن تاریخی G-06/G-13/M3/M4/F بازنویسی
+نشد.
+
+این یادداشت هیچیک از موارد زیر را نمیبندد: خروجی CSV محصول M3، **نبود
+round-trip کامل import**، whole-file atomicity، PM-B1..PM-B8، Q1..Q5، تأیید
+دونفره G-03، حکم R (`FAIL`) تا بازبینی مستقل متمرکز، پذیرش کامل Product Master،
+مرورگر دستی/a11y/console، MinIO production و CI نهایی دقیقSHA. استقرار تولید
+همچنان `NOT AUTHORIZED` و PR #14 `OPEN / DRAFT` است. همسنجی «BLOCKED عمداً
+انجام نشد» پیوست C1 بهعنوان محدودهٔ C1 (نه تصمیم مالک) در
+`TASK-PM-02-C2_IMPLEMENTATION.md` §2 ثبت شد. شواهد:
+`VERIFICATION-C2.{txt,json}` و `evidence/task-pm-02/VERIFICATION-C2-LIVE.txt`.

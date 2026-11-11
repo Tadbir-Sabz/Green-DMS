@@ -61,3 +61,10 @@ No approval record, signatory, resolution number, domain ID, permission code or 
 ## 6. Deliberately not done in PM-02
 
 No domain registry, membership table, lifecycle state machine, domain permission, actor assignment, domain RLS, backfill, downstream cutover, G-03 Product Master binding, whole-file import behaviour change, D1–D5 change, PR readiness change, merge/approve/release/deploy, production DB/infrastructure/secret change, or M4 verdict change. Full Product Master acceptance remains **BLOCKED**.
+
+
+---
+
+## 7. Additive reconciliation after the baseline map
+
+This section preserves §1–6 exactly as written at baseline `c382d6a...`. It only records that the later independent C1 (product media) and C2 (brand/UOM/category reference-data management) slices have been delivered. C2 closed the G-06 item "complete UI for uom/category/brand" with `0065`, `/reference-data/*`, generated client changes, Persian RTL management UI, product-form selectors and active-reference server validation. C1's table wording "brand/UOM ... BLOCKED (deliberately not done)" was a C1 scope statement, not an owner decision; it is reconciled in `TASK-PM-02-C2_IMPLEMENTATION.md` §2. G-13/whole-file import, PM-B1..PM-B8, Q1..Q5, G-03, domain registry/RLS/assignment/lifecycle and full acceptance remain **BLOCKED / OPEN / NOT APPROVED**; production deployment remains **NOT AUTHORIZED**. PR #14 remains `OPEN / DRAFT`. No section above is rewritten.

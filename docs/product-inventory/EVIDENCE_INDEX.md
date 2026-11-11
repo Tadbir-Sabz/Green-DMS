@@ -409,3 +409,36 @@
   HTTP بهترتیب `domain_context_not_supported` و `domain_property_rejected` (۴۰۰) دادند.
   PM-B1..PM-B8 / Q1..Q5 / G-03 و پذیرش کامل `BLOCKED`؛ PR #14 `OPEN / DRAFT`؛
   CI روی SHA نهایی تا اجرای واقعی `UNVERIFIED / PENDING`.
+
+
+---
+
+## TASK-PM-02-C2 — مدیریت دادههای مرجع کالا (شواهد تازه)
+
+- گزارش اصلی: `TASK-PM-02-C2_IMPLEMENTATION.md`؛ کارنامهٔ ۳۰ دروازه:
+  `VERIFICATION-C2.txt` / `VERIFICATION-C2.json`؛ شاهد زندهٔ همانمبدأ:
+  `evidence/task-pm-02/VERIFICATION-C2-LIVE.txt`.
+- کد: `migrations/0065_reference_data_admin.{up,down}.sql`،
+  `reference-data.{rules,repository,service,controller}.ts`، سیمکشی
+  `master-data.module.ts`، `product.repository.ts` / `product.service.ts`،
+  `packages/contracts/openapi.yaml`، `packages/api-client/src/schema.ts`،
+  `apps/web/src/app/products/reference-data/*`، صفحات `products`/`new`/`[id]`/
+  `settings` و `products-lib.ts`.
+- تستها: `reference-data-rules.test.ts` (۷)، `reference-data.api.test.ts` (۹)،
+  `reference-data-lib.test.ts` (۶)، `reference-selectors.test.tsx` (۴)،
+  `page.test.tsx` (۷)، بهروزرسانی آگاهانهٔ `migrations-security.test.ts` و نگهبان
+  `setup-pg-guard.ts`.
+- نتایج: متمرکز بکاند ۱۶/۱۶؛ متمرکز وب ۱۷/۱۷؛ وب کامل ۲۲/۱۱۸؛ واحد بیدادهٔ API
+  ۳۲/۳۸۹؛ قرارداد اجراشده ۸۰/۸۰؛ OpenAPI ۲۱۱/۳۰۴/۱۷۴/۳ و drift=۰؛ کلاینت +۷۲۶؛
+  typecheck/build ریشه؛ پارتیشن ۹۰ فایل؛ diffcheck صفر؛ مهاجرت up/down/up با
+  ۱۰۳۳ شیء یکسان؛ اجرای کامل DB ۸۵/۹۰ فایل و ۱۵۰۵/۱۵۲۴ تست با کنترل مبنای
+  `aa0028a…` عیناً همان ۵/۱۹ شکست محیطی (`identical=True`).
+- مرز: `DomainBoundaryGuard` و رد `x-domain-id` / بدنه/پارامتر ناشناخته؛ بدون
+  مجوز/نقش/seed/RLS/grant/دامنه تازه؛ PM-B1..PM-B8 / Q1..Q5 / G-03 و پذیرش
+  کامل `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14 `OPEN / DRAFT`.
+- همسنجی: عبارت «برند/UOM … BLOCKED» در C1 محدودهٔ همان کامیت بود، نه تصمیم
+  مالک؛ پیوستهای C2 در پنج سند بالادستی/گزارش/ثبت مالک/شکافها/شاخص شواهد و
+  راهنمای اپراتور بهصورت افزودنی ثبت شدند. `M4_ACCEPTANCE_MATRIX.md` و احکام
+  تاریخی M4 دستنخورده ماندند.
+- محدودیتهای صریح: CI نهایی دقیقSHA، مرورگر دستی/RTL/a11y/console، MinIO/S3
+  production و معادل CI/تولید `UNVERIFIED`؛ هیچ اسکرینشات ساختگی ثبت نشد.
