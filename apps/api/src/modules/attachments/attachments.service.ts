@@ -45,9 +45,31 @@ const ALLOWED_TYPES = new Set(
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/**
+ * نام فایلِ multipart: multer/busboy در برخی نسخهها `filename*` را latin1
+ * تعبیر میکند، پس «نمای-اصلی.png» به «ÙÙØ§Û-Ø§ØµÙÛ.png» تبدیل میشود
+ * (TASK-PM-02-C1 — UX فارسیمحور). فقط وقتی رفتوبرگشت دقیقاً همان بایتها را
+ * بدهد بازکدگذاری میکنیم؛ نام درستِ یونیکد و نام ASCII دستنخورده میمانند.
+ * محتوای فایل، SHA-256، allowlist و زنجیرهٔ مالکیت هیچ تغییری نمیکنند.
+ */
+export function decodeUploadFileName(name: string): string {
+  const input = name ?? '';
+  if (!/[^\x00-\x7f]/.test(input)) return input;
+  try {
+    const bytes = Buffer.from(input, 'latin1');
+    const decoded = bytes.toString('utf8');
+    if (!decoded.includes('\uFFFD') && Buffer.from(decoded, 'utf8').equals(bytes)) {
+      return decoded;
+    }
+  } catch {
+    /* نام نامعتبر ⇒ همان ورودی، بدون تغییر */
+  }
+  return input;
+}
+
 /** پاک‌سازی نام فایل: حذف control char و جداکنندهٔ مسیر تا key ذخیره‌سازی امن بماند */
 function sanitizeFileName(name: string): string {
-  const cleaned = (name ?? '')
+  const cleaned = decodeUploadFileName(name ?? '')
     // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1f\x7f]/g, '')
     .replace(/[/\\]/g, '_')

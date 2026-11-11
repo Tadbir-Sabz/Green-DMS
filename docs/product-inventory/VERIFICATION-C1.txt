@@ -1,0 +1,53 @@
+TASK-PM-02-C1 — کارنامهٔ راستیآزمایی
+مبنا: deefa05b89de62da7a34fb920626a0adca920f57
+شاخه: arena/be5eaff3-green-dms · PR #14 OPEN/DRAFT
+
+G01  PASS                   git fetch + git pull --ff-only
+      شاهد: Already up to date; PULL_EXIT=0; HEAD=deefa05...
+G02  PASS                   exact repo/branch/PR/remote SHA + expected SHA agreement
+      شاهد: origin=https://github.com/Tadbir-Sabz/Green-DMS.git; PR #14 head=deefa05...; ls-remote identical
+G03  PASS                   recoverable checkpoint / preservation
+      شاهد: /home/user/pm02-c1-checkpoint.tar.gz sha256=fe76589e... 2844 files sha256sum -c exit 0
+G04  PASS                   worktree + diffcheck cleanliness at baseline
+      شاهد: porcelain=0, git diff --check=0
+G05  PASS                   module eligibility (approved design, no owner decision)
+      شاهد: target design §0 L24, §A L38, §B4 L130, §F L199; GAP_REGISTER G-06/M4 note
+G06  PASS                   backend end-to-end functionality
+      شاهد: ProductMediaService/Controller: 3 routes, §B4 primary rule, path-derived owner, transactional audit
+G07  PASS                   frontend RTL integration
+      شاهد: ProductMediaTab 10th tab, upload/list/download/refresh, read-only view; outside disabled fieldset
+G08  PASS                   OpenAPI validity + contract/code drift + generated client
+      شاهد: 204 paths/288 ops/156 schemas/3 webhooks; drift 0 (288==288); schema.ts +233/-0
+G09  PASS                   focused unit + HTTP integration tests
+      شاهد: product-media-rules 9/9; product-media.api 8/8; combined 2 files/17 tests; real AppModule+native PG
+G10  PASS                   full DB-free API unit suite
+      شاهد: 31 files / 382 tests (B2 baseline 30 / 373)
+G11  PASS                   full web suite
+      شاهد: 19 files / 101 tests (B2 baseline 18 / 94)
+G12  PASS                   root typecheck + Next production build
+      شاهد: npm run typecheck exit 0; npm run build -w apps/web exit 0
+G13  PASS                   test partition + diffcheck
+      شاهد: 88 files declared==computed; git diff --check exit 0
+G14  PASS                   migrations / database schema changes
+      شاهد: zero new migrations; no table/column/RLS/grant/enum/seed change (§A requires none)
+G15  PASS                   B1 boundary + B2 fail-closed parity + D4/import isolation
+      شاهد: DomainBoundaryGuard on all 3 new routes; 400 domain_property_rejected / domain_context_not_supported in HTTP tests
+G16  UNVERIFIED / PENDING   B2 final-SHA CI
+      شاهد: runs 43040312220/43040312368/43040312421/43040312489 queued; conclusion null
+G17  UNVERIFIED / PENDING   C1 final-SHA CI
+      شاهد: to be recorded after ordinary commit/push; queued is never PASS
+G18  UNVERIFIED             manual browser RTL/a11y/console + production MinIO round-trip
+      شاهد: no browser automation installed; jsdom component coverage instead
+G19  BLOCKED                PM-B1..PM-B8 / Q1..Q5 / G-03 / domain registry+RLS+assignment
+      شاهد: no signed owner decision, IAM/Security sign-off, approved examples or cutover policy
+G20  BLOCKED / NOT AUTHORIZED full Product Master acceptance / production deployment
+      شاهد: PR #14 remains OPEN/DRAFT; no merge/approve/release/deploy
+
+احکام کلی:
+  development: PASS
+  security: PASS
+  ci_exact_final_sha: UNVERIFIED / PENDING
+  owner_gated_scope: BLOCKED
+  independent_agent2_review: NOT REQUIRED (ordinary non-boundary development; no contradictory evidence)
+G21  PASS                   live preview end-to-end through same-origin web proxy
+      شاهد: Next dev:3000 + API:4000 + PG بومی + استاب S3:9100؛ ورود/نمای خالی/آپلود نام فارسی/فهرست/URL تازه/۴۰۰ مرز/صفحه ۲۰۰ همگی PASS

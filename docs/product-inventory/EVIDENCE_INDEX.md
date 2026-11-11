@@ -385,3 +385,27 @@
   اسناد M4 و `M4_ACCEPTANCE_MATRIX.md` دستنخورده ماندند. PM-B1..PM-B8 و Q1..Q5
   `OPEN / NOT APPROVED`؛ پذیرش کامل `BLOCKED`؛ استقرار تولید `NOT AUTHORIZED`؛
   PR #14 `OPEN / DRAFT`؛ بدون merge/approve/release/deploy.
+
+---
+
+## TASK-PM-02-C1 — مرکز تصاویر و اسناد کالا (شواهد تازه)
+
+- گزارش اصلی: `TASK-PM-02-C1_IMPLEMENTATION.md`؛ کارنامهٔ دروازهها:
+  `VERIFICATION-C1.txt` / `VERIFICATION-C1.json` (۲۰ دروازه با نتیجه و شاهد).
+- کد: `apps/api/src/modules/master-data/product-media.{rules,service,controller}.ts`،
+  `apps/api/src/modules/master-data/master-data.module.ts`،
+  `apps/api/src/modules/attachments/{attachments.module,attachments.service}.ts`،
+  `apps/web/src/app/products/[id]/{product-media.tsx,product-media.test.tsx,page.tsx}`،
+  `apps/web/src/lib/api.ts`، `packages/contracts/openapi.yaml`،
+  `packages/api-client/src/schema.ts`.
+- تستها: `apps/api/test/product-media-rules.test.ts` (۹، بیداده)،
+  `apps/api/test/product-media.api.test.ts` (۸، HTTP واقعی + PostgreSQL بومی)،
+  `apps/web/src/app/products/[id]/product-media.test.tsx` (۷، jsdom).
+- نتایج: واحد قواعد ۹/۹؛ ترکیب C1 بکاند ۲ فایل/۱۷ تست؛ واحد بیدادهٔ کامل API
+  ۳۱ فایل/۳۸۲ تست؛ وب ۱۹ فایل/۱۰۱ تست؛ `npm run typecheck` و `npm run build -w apps/web`
+  سبز؛ OpenAPI ۲۰۴ مسیر/۲۸۸ عملیات/۱۵۶ اسکیما/۳ webhook؛ drift=۰؛ پارتیشن تست ۸۸ فایل
+  declared==computed؛ `git diff --check` صفر. **بدون مهاجرت تازه**.
+- مرز: `DomainBoundaryGuard` روی ۳ مسیر تازه؛ `x-domain-id` و `?available=true` در تست
+  HTTP بهترتیب `domain_context_not_supported` و `domain_property_rejected` (۴۰۰) دادند.
+  PM-B1..PM-B8 / Q1..Q5 / G-03 و پذیرش کامل `BLOCKED`؛ PR #14 `OPEN / DRAFT`؛
+  CI روی SHA نهایی تا اجرای واقعی `UNVERIFIED / PENDING`.

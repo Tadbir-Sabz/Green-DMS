@@ -1020,6 +1020,124 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/media:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: فهرست تصاویر و اسناد کالا + تصویرِ اصلی خودکار (§B4 طراحی هدف)
+      description: >-
+        نمای محصولمحورِ ضمیمههای `owner_type='product'` (بازاستفاده از زنجیرهٔ
+        مالکیت راستیآزمایشدهٔ §A). تصویرِ اصلی v1 نخستین «تصویر» بر اساس
+        `created_at` است و در لحظهٔ خواندن محاسبه میشود؛ هیچ ستون `is_primary`
+        یا `sort_order` و هیچ مهاجرت تازهای وجود ندارد. برچسب UI دقیقاً
+        «اصلی (خودکار)» است. اسناد PDF هرگز تصویرِ اصلی نمیشوند. این نما هیچ
+        هویت، عضویت، وضعیت یا دسترسپذیری دامنهای برنمیگرداند؛ کلیدها و هدر
+        `x-domain-id` دامنهای مانند سایر سطوح خواندنی کاتالوگ (B2) با ۴۰۰ رد
+        میشوند. خطاهای ممکن: `invalid_id`، `product_not_found`،
+        `domain_property_rejected`، `domain_context_not_supported`، `forbidden`.
+      responses:
+        '200':
+          description: تصاویر/اسناد کالا همراه URL امضاشدهٔ کوتاهعمر
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductMediaView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (کد storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      tags: [products]
+      summary: بارگذاری تصویر/سند کالا (multipart/form-data — فقط فیلد file)
+      description: >-
+        مالک (`owner_type='product'`, `owner_id={id}`) و شرکت فقط از مسیر و
+        نشست سرور مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`،
+        `uploaded_by` یا `storage_key` در بدنه با ۴۰۰
+        `product_media_owner_scope_rejected` رد میشود، نه اینکه بیصدا حذف شود.
+        مجوزها: `master.product.update` (§F) و `attachment.upload`؛ هر دو دوباره
+        از پایگاهداده بازاعتبارسنجی میشوند. همان خط لولهٔ `POST /attachments`
+        (سقف حجم، allowlist، امضای بایتی، SHA-256، کلید نامفضاشده به شرکت،
+        URL امضاشده) دوباره استفاده میشود، بیآنکه قرارداد آن تغییر کند. آپلود،
+        ثبت metadata و رویداد `audit_log` با `action=create` و
+        `entity_type=product_media` در یک تراکنشاند؛ شکست ممیزی ⇒ rollback و
+        پاکسازی شیء آپلودشده. حذف ضمیمه در v1 وجود ندارد (مسیر حذف مصوبی نیست).
+        خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`،
+        `unverifiable_content_type`، `content_type_mismatch`،
+        `malformed_content`، `product_media_owner_scope_rejected`،
+        `product_not_found`، `forbidden`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: >-
+                    بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp،
+                    application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی
+                    پذیرفته نمیشود.
+      responses:
+        '201':
+          description: فایل ذخیره و metadata + رویداد ممیزی ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductMediaItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413':
+          description: حجم فایل بیش از حد مجاز (file_too_large)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: نوع/امضای محتوای فایل پذیرفته نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /products/{id}/media/{mediaId}/url:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+      - { name: mediaId, in: path, required: true, schema: { type: string, format: uuid }, description: شناسهٔ ضمیمهٔ همین کالا }
+    get:
+      tags: [products]
+      summary: URL امضاشدهٔ تازه برای تصویر/سند دقیقاً همین کالا
+      description: >-
+        علاوه بر زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر صریحاً
+        `owner_id = {id}` و `company_id` نشست را قید میزند؛ ضمیمهٔ کالای دیگر
+        حتی در همان شرکت ۴۰۴ `media_not_found` میگیرد. URL کوتاهعمر است و
+        bucket هرگز عمومی نمیشود. مجوزها: `master.product.view` و
+        `attachment.view`.
+      responses:
+        '200':
+          description: URL امضاشدهٔ دانلود و عمر آن به ثانیه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentUrl' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
   /products/barcodes/{barcodeId}:
     parameters:
       - { name: barcodeId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -7883,6 +8001,78 @@ components:
       properties:
         url: { type: string, format: uri, description: URL امضاشدهٔ دانلود }
         expires_in: { type: integer, description: عمرِ URL به ثانیه }
+    ProductMediaItem:
+      type: object
+      description: >-
+        یک تصویر/سند کالا؛ همان schemas.Attachment بهعلاوهٔ دستهبندی و نشانگر
+        تصویرِ اصلی که فقط در لحظهٔ خواندن محاسبه شده است (§B4 — بدون ستون DB).
+      required:
+        - id
+        - owner_type
+        - owner_id
+        - file_name
+        - content_type
+        - size_bytes
+        - sha256
+        - url
+        - created_at
+        - kind
+        - kind_label_fa
+        - is_primary
+        - primary_label_fa
+      properties:
+        id: { type: string, format: uuid }
+        owner_type: { type: string, enum: [product] }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
+        sha256: { type: string, description: اثرِ انگشت SHA-256 محتوای فایل }
+        url: { type: string, format: uri, description: URL امضاشدهٔ کوتاهعمر }
+        created_at: { type: string, format: date-time }
+        kind: { type: string, enum: [image, document] }
+        kind_label_fa: { type: string, description: «تصویر» یا «سند» }
+        is_primary: { type: boolean, description: فقط نخستین تصویر بر اساس created_at مقدار true دارد }
+        primary_label_fa: { type: [string, 'null'], description: «اصلی (خودکار)» یا null }
+    ProductMediaView:
+      type: object
+      description: >-
+        نمای مرکز تصاویر/اسناد یک کالای مرکزی. صرفاً کاتالوگ مرکزی؛ هیچ فیلد
+        دامنهای، عضویت، وضعیت عرضه یا دسترسپذیری دامنهای ندارد.
+      required:
+        - product_id
+        - product_code
+        - product_name
+        - items
+        - primary_image
+        - counts
+        - primary_image_rule
+        - primary_image_label_fa
+        - primary_image_note_fa
+        - message_fa
+      properties:
+        product_id: { type: string, format: uuid }
+        product_code: { type: string }
+        product_name: { type: string }
+        items:
+          type: array
+          description: قدیمیترین ضمیمه اول (ترتیب قطعی created_at سپس id)
+          items: { $ref: '#/components/schemas/ProductMediaItem' }
+        primary_image:
+          oneOf:
+            - { $ref: '#/components/schemas/ProductMediaItem' }
+            - { type: 'null' }
+        counts:
+          type: object
+          required: [images, documents, total]
+          properties:
+            images: { type: integer, minimum: 0 }
+            documents: { type: integer, minimum: 0 }
+            total: { type: integer, minimum: 0 }
+        primary_image_rule: { type: string, enum: [first_image_by_created_at] }
+        primary_image_label_fa: { type: string, description: برچسب مصوب §B4 }
+        primary_image_note_fa: { type: string, description: محدودیت مستند جابهجایی خودکار تصویرِ اصلی }
+        message_fa: { type: string }
     SettingEntry:
       type: object
       required: [key, value]

@@ -1789,6 +1789,188 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{id}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * فهرست تصاویر و اسناد کالا + تصویرِ اصلی خودکار (§B4 طراحی هدف)
+         * @description نمای محصولمحورِ ضمیمههای `owner_type='product'` (بازاستفاده از زنجیرهٔ مالکیت راستیآزمایشدهٔ §A). تصویرِ اصلی v1 نخستین «تصویر» بر اساس `created_at` است و در لحظهٔ خواندن محاسبه میشود؛ هیچ ستون `is_primary` یا `sort_order` و هیچ مهاجرت تازهای وجود ندارد. برچسب UI دقیقاً «اصلی (خودکار)» است. اسناد PDF هرگز تصویرِ اصلی نمیشوند. این نما هیچ هویت، عضویت، وضعیت یا دسترسپذیری دامنهای برنمیگرداند؛ کلیدها و هدر `x-domain-id` دامنهای مانند سایر سطوح خواندنی کاتالوگ (B2) با ۴۰۰ رد میشوند. خطاهای ممکن: `invalid_id`، `product_not_found`، `domain_property_rejected`، `domain_context_not_supported`، `forbidden`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تصاویر/اسناد کالا همراه URL امضاشدهٔ کوتاهعمر */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductMediaView"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (کد storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * بارگذاری تصویر/سند کالا (multipart/form-data — فقط فیلد file)
+         * @description مالک (`owner_type='product'`, `owner_id={id}`) و شرکت فقط از مسیر و نشست سرور مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`، `uploaded_by` یا `storage_key` در بدنه با ۴۰۰ `product_media_owner_scope_rejected` رد میشود، نه اینکه بیصدا حذف شود. مجوزها: `master.product.update` (§F) و `attachment.upload`؛ هر دو دوباره از پایگاهداده بازاعتبارسنجی میشوند. همان خط لولهٔ `POST /attachments` (سقف حجم، allowlist، امضای بایتی، SHA-256، کلید نامفضاشده به شرکت، URL امضاشده) دوباره استفاده میشود، بیآنکه قرارداد آن تغییر کند. آپلود، ثبت metadata و رویداد `audit_log` با `action=create` و `entity_type=product_media` در یک تراکنشاند؛ شکست ممیزی ⇒ rollback و پاکسازی شیء آپلودشده. حذف ضمیمه در v1 وجود ندارد (مسیر حذف مصوبی نیست). خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`، `unverifiable_content_type`، `content_type_mismatch`، `malformed_content`، `product_media_owner_scope_rejected`، `product_not_found`، `forbidden`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp، application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی پذیرفته نمیشود.
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description فایل ذخیره و metadata + رویداد ممیزی ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductMediaItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description حجم فایل بیش از حد مجاز (file_too_large) */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description نوع/امضای محتوای فایل پذیرفته نشد */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/media/{mediaId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+                /** @description شناسهٔ ضمیمهٔ همین کالا */
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * URL امضاشدهٔ تازه برای تصویر/سند دقیقاً همین کالا
+         * @description علاوه بر زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر صریحاً `owner_id = {id}` و `company_id` نشست را قید میزند؛ ضمیمهٔ کالای دیگر حتی در همان شرکت ۴۰۴ `media_not_found` میگیرد. URL کوتاهعمر است و bucket هرگز عمومی نمیشود. مجوزها: `master.product.view` و `attachment.view`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                    /** @description شناسهٔ ضمیمهٔ همین کالا */
+                    mediaId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description URL امضاشدهٔ دانلود و عمر آن به ثانیه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUrl"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products/barcodes/{barcodeId}": {
         parameters: {
             query?: never;
@@ -13905,6 +14087,57 @@ export interface components {
             url: string;
             /** @description عمرِ URL به ثانیه */
             expires_in: number;
+        };
+        /** @description یک تصویر/سند کالا؛ همان schemas.Attachment بهعلاوهٔ دستهبندی و نشانگر تصویرِ اصلی که فقط در لحظهٔ خواندن محاسبه شده است (§B4 — بدون ستون DB). */
+        ProductMediaItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            owner_type: "product";
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            /** @description اثرِ انگشت SHA-256 محتوای فایل */
+            sha256: string;
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ کوتاهعمر
+             */
+            url: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            kind: "image" | "document";
+            /** @description «تصویر» یا «سند» */
+            kind_label_fa: string;
+            /** @description فقط نخستین تصویر بر اساس created_at مقدار true دارد */
+            is_primary: boolean;
+            /** @description «اصلی (خودکار)» یا null */
+            primary_label_fa: string | null;
+        };
+        /** @description نمای مرکز تصاویر/اسناد یک کالای مرکزی. صرفاً کاتالوگ مرکزی؛ هیچ فیلد دامنهای، عضویت، وضعیت عرضه یا دسترسپذیری دامنهای ندارد. */
+        ProductMediaView: {
+            /** Format: uuid */
+            product_id: string;
+            product_code: string;
+            product_name: string;
+            /** @description قدیمیترین ضمیمه اول (ترتیب قطعی created_at سپس id) */
+            items: components["schemas"]["ProductMediaItem"][];
+            primary_image: components["schemas"]["ProductMediaItem"] | null;
+            counts: {
+                images: number;
+                documents: number;
+                total: number;
+            };
+            /** @enum {string} */
+            primary_image_rule: "first_image_by_created_at";
+            /** @description برچسب مصوب §B4 */
+            primary_image_label_fa: string;
+            /** @description محدودیت مستند جابهجایی خودکار تصویرِ اصلی */
+            primary_image_note_fa: string;
+            message_fa: string;
         };
         /** @description تنظیم با دامنه — حوزه‌ها فقط محدوده خود را می‌بینند (ماژول ۱۱) */
         SettingEntry: {

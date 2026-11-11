@@ -98,3 +98,24 @@ guard. No registry, lifecycle, assignment, membership, migration, RLS, domain
 API, UI activation, permission vocabulary, backfill or cutover was added;
 `OPERATIONAL_DOMAIN_AUTHORITY` remains unregistered and `DomainCatalogGate`
 remains fail-closed. No decision semantics were invented or weakened.
+
+---
+
+## 6 — TASK-PM-02-C1: هیچ تصمیم مالکی مصرف یا دور زده نشد
+
+C1 «مرکز تصاویر و اسناد کالا» را پیادهسازی کرد، زیرا §0 طراحی هدف صریحاً تصویر را
+جزو مواردی میداند که «تصمیمِ دامنهای نمیخواهند» و §A/§B4/§F معنای آن را بستهاند
+(بازاستفاده از `owner_type='product'`، تصویرِ اصلی = نخستین بر اساس `created_at`،
+RBAC عادی `master.product.*` + audit). بنابراین این کار **نه** به PM-B1 (هویت دامنه)،
+**نه** به PM-B2 (چرخهٔ حیات)، **نه** به PM-B4 (اختیار/انتساب) و **نه** به
+PM-B3/B5–B8 نیاز داشت و هیچیک را بهصورت پیشفرض نساخت.
+
+همهٔ درخواستهای ثبتشده در §5 و بستهٔ `TASK-PM-02-B2_OWNER_DECISION_PACKAGE.md`
+همچنان **باز / تأییدنشده**اند: هیچ سند امضاشده، مرجع تصویب، نقش پاسخگو، امضای
+IAM/Security، نمونهٔ پذیرش یا سیاست cutover/backfill تازهای در PR/issue/بررسیها پدیدار
+نشد. C1 هیچ جدول/ستون/مهاجرت/RLS/گرانت/seed/مجوز/`domain_id`/عضویت/چرخهٔ حیات/
+دسترسپذیری/انتساب/بازگردانی دادهای اضافه نکرد و `OPERATIONAL_DOMAIN_AUTHORITY` ثبت
+نشده باقی ماند. `DomainCatalogGate` و مسیرهای ۴۰۰/۵۰۳ دامنهای بدون تغییر و fail-closedاند.
+
+نتیجه: C1 برای توسعهٔ عادی **UNBLOCKED**؛ کل حوزهٔ دامنهای و پذیرش کامل Product Master
+همچنان **BLOCKED** تا دریافت بستهٔ تصمیم امضاشدهٔ مالک.

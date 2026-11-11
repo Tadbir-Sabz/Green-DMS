@@ -9,6 +9,11 @@ import { OrderCreationLock } from '../sales/order-creation-lock';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { PricingModule } from '../pricing/pricing.module';
+// TASK-PM-02-C1: بازاستفاده از زنجیرهٔ مالکیت و استوریجِ verified ضمیمهها
+// (§A طراحی هدف) بهجای ساختن لایهٔ ذخیرهسازی/RLS تازه.
+import { AttachmentsModule } from '../attachments/attachments.module';
+import { ProductMediaController } from './product-media.controller';
+import { ProductMediaService } from './product-media.service';
 import { MasterDataController } from './master-data.controller';
 import { MasterDataRepository } from './master-data.repository';
 import { PackagingController } from './packaging.controller';
@@ -58,7 +63,7 @@ import {
  * (گاردهای کنترلر در همین ماژول نمونه‌سازی می‌شوند و به providerهای آن نیاز دارند).
  */
 @Module({
-  imports: [IdentityRbacModule, PricingModule],
+  imports: [IdentityRbacModule, PricingModule, AttachmentsModule],
   controllers: [
     CatalogFoundationController,
     MasterDataController,
@@ -69,6 +74,7 @@ import {
     ProductBarcodeController,
     ProductCatalogController,
     ProductExportController,
+    ProductMediaController,
     ProductBulkMaintenanceController,
     ProductController,
     PackagingController,
@@ -93,6 +99,7 @@ import {
     ProductService,
     { provide: PRODUCT_SERVICE, useExisting: ProductService },
     ProductExportService,
+    ProductMediaService,
     ProductBulkMaintenanceService,
     ProductBulkMaintenanceRepository,
     MasterDataRepository,

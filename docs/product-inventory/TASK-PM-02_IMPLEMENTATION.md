@@ -230,3 +230,36 @@ recorded in `evidence/task-pm-02/VERIFICATION-B2.*`; a follow-up ordinary commit
 retriggers CI and its outcome is recorded in the PR #14 body. No workflow file, CI
 configuration, secret, or infrastructure setting was modified to alter this
 result, and the earlier historical CI verdicts are left untouched.
+
+---
+
+## 11 — TASK-PM-02-C1: مرکز تصاویر و اسناد کالا (DEVELOPMENT)
+
+پس از B2، نخستین قابلیت مستقلِ واجدشرایط طبق §0 (تصویر «تصمیم دامنهای نمیخواهد»)،
+§A («بازاستفاده از `attachment.owner_type='product'` … بدونِ مهاجرت … UX ندارد»)،
+§B4 («اصلی (خودکار)» = نخستین بر اساس `created_at`) و §F (RBAC عادی
+`master.product.*` + audit) پیادهسازی شد. شکاف صریح «نبود UI محصولمحور برای ضمائم»
+(G-06 / یادداشت M4) هدف قرار گرفت؛ هیچ ماژول شمارهدار دلخواهی انتخاب نشد.
+
+**تحویل:** `ProductMediaController`/`ProductMediaService`/`product-media.rules.ts`
+(۳ مسیر: `GET|POST /products/{id}/media`، `GET /products/{id}/media/{mediaId}/url`)؛
+مالک/شرکت فقط از مسیر و نشست، رد صریح فیلدهای مالکیتی کلاینت، مجوزهای دوتایی
+`master.product.*` + `attachment.*` در route و دوباره در DB، ممیزی `product_media`
+در همان تراکنش با پاکسازی اورفان، و `DomainBoundaryGuard` روی هر سه مسیر (همسانی B2).
+تصویرِ اصلی در لحظه محاسبه میشود؛ **هیچ مهاجرت، ستون `is_primary`/`sort_order`، RLS،
+grant، مجوز یا جدول تازهای** اضافه نشد. همچنین نقص نام فایل فارسی multipart
+(latin1 busboy) با `decodeUploadFileName` رفع شد.
+
+**قرارداد/کلاینت:** +۲ مسیر/ +۳ عملیات/ +۲ اسکیما (۲۰۴/۲۸۸/۱۵۶/۳)؛ `contract-drift=0`؛
+`schema.ts` فقط +۲۳۳ خط بدون حذف. **فرانتاند:** تب دهم «تصاویر و اسناد» با آپلود،
+شمارش، کارت تصویر/سند، برچسب مصوب، تازهسازی URL، حالتهای خطا/موفقیت، تاریخ جلالی و
+دسترسی خواندن برای نشستهای فقطخواندنی.
+
+**نتایج محلی:** واحد قواعد ۹/۹، HTTP بومی ۸/۸ (مجموع ۲ فایل/۱۷ تست)، واحد بیدادهٔ
+کامل ۳۱/۳۸۲، وب ۱۹/۱۰۱، typecheck و build وب، OpenAPI/drift/partition/diffcheck
+همگی `PASS`. جزئیات: `TASK-PM-02-C1_IMPLEMENTATION.md` و `VERIFICATION-C1.{txt,json}`.
+
+C1 وارد هیچیک از PM-B1..PM-B8، Q1..Q5، G-03، عضویت/registry/RLS/انتساب/چرخهٔ حیات
+دامنه، backfill/cutover یا حذف ضمیمه نشد؛ پذیرش کامل `BLOCKED`، استقرار تولید
+`NOT AUTHORIZED`، PR #14 همچنان `OPEN / DRAFT`. CI روی SHA نهایی C1 تا اجرای واقعی
+`UNVERIFIED / PENDING` است و `queued` هرگز `PASS` گزارش نمیشود.

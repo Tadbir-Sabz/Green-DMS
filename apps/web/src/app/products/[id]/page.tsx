@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { CatalogHistory, DomainIntegrationStatus } from './catalog-evidence';
+import { ProductMediaTab } from './product-media';
 import { useParams, useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
 import { api, getToken } from '@/lib/api';
@@ -52,12 +53,13 @@ import {
  */
 
 type Uom = components['schemas']['Uom'];
-type TabKey = 'identity' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle' | 'history' | 'domain';
+type TabKey = 'identity' | 'media' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle' | 'history' | 'domain';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'history', label: 'تاریخچه' },
   { key: 'domain', label: 'عرضه در دامنه' },
   { key: 'identity', label: 'مشخصات' },
+  { key: 'media', label: 'تصاویر و اسناد' },
   { key: 'attributes', label: 'صفات و variant' },
   { key: 'aliases', label: 'نام‌های جایگزین' },
   { key: 'barcodes', label: 'بارکد‌ها' },
@@ -72,6 +74,9 @@ export default function ProductDetailPage(): React.JSX.Element {
   const router = useRouter();
   const auth = useAuth();
   const canWrite = auth.hasPermission('master.product.update');
+  // C1: آپلود تصویر/سند علاوه بر مجوز محصول، مجوز ضمیمه را هم میخواهد؛
+  // مشاهده/دانلود برای نشستهای فقطخواندنی همچنان در دسترس میماند.
+  const canUpload = canWrite && auth.hasPermission('attachment.upload');
   const [ready, setReady] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -150,6 +155,7 @@ export default function ProductDetailPage(): React.JSX.Element {
 
       {tab === 'history' && <CatalogHistory productId={id} />}
       {tab === 'domain' && <DomainIntegrationStatus productId={id} />}
+      {tab === 'media' && <ProductMediaTab productId={id} canUpload={canUpload} />}
       {!canWrite && <p className='mb-4 text-sm text-ink-muted'>این نشست فقط دسترسی خواندن کاتالوگ دارد.</p>}
       <fieldset disabled={!canWrite} className='min-w-0'>
       {tab === 'identity' && <IdentityTab product={product} onSaved={loadProduct} onNotice={setNotice} />}

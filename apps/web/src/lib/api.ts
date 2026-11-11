@@ -1,6 +1,7 @@
 "use client";
 
 import { createApiClient, type RefreshContext } from '@dms/api-client';
+import type { components } from '@dms/api-client';
 
 // پیش‌فرض «مسیر نسبیِ هم‌مبدأ» است (نه http://localhost:4000). دلیل: وقتی وب پشت
 // پروکسی سرو می‌شود (محیط پیش‌نمایش یا تولیدِ ریموت)، مرورگرِ کاربر روی localhost
@@ -199,6 +200,42 @@ export async function uploadAttachment(
     throw new Error(errorMessage(err));
   }
   return (await res.json()) as UploadedAttachment;
+}
+
+/** پاسخ POST /products/{id}/media — همان schemas.ProductMediaItem قرارداد */
+export type UploadedProductMedia = components['schemas']['ProductMediaItem'];
+
+/**
+ * بارگذاری تصویر/سندِ کالا (TASK-PM-02-C1) با fetch خامِ multipart.
+ *
+ * برخلاف `uploadAttachment`، هیچ فیلد مالکیتی ارسال نمیشود: سرور `owner_type`
+ * و `owner_id` را فقط از مسیر و نشست مشتق میکند و ارسال آنها را ۴۰۰ میگیرد.
+ * همان زیرساخت توکن/تازهسازی نشست (یکبار refresh روی ۴۰۱) بهکار میرود.
+ */
+export async function uploadProductMedia(
+  file: File,
+  productId: string,
+): Promise<UploadedProductMedia> {
+  const send = (token: string | null) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return fetch(`${BASE_URL}/products/${encodeURIComponent(productId)}/media`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+  };
+
+  let res = await send(getToken());
+  if (res.status === 401) {
+    const ok = await refresh({ tokenSent: getToken() });
+    if (ok) res = await send(getToken());
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => undefined);
+    throw new Error(errorMessage(err));
+  }
+  return (await res.json()) as UploadedProductMedia;
 }
 
 /**
