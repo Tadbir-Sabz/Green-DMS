@@ -447,6 +447,10 @@
 
 ## TASK-PM-02-C3 — ضمائم سازمانی (Enterprise-Wide Entity Attachments)
 
+- Git: کامیت معمولی `8b538da734b8d2c9797ef90a21584891c95e57cc` (۲۸ فایل /
+  ۳٬۳۵۵+/۱۸۰−، push `19d412a..8b538da`) و کامیت دوم شواهد Git؛ نتیجهٔ CI
+  دقیقSHA و شش نمای نهایی بهصورت افزودنی در بدنهٔ PR #14 / گزارش نهایی چت،
+  بدون commit پساCI یا trigger مصنوعی.
 - مبنا: `19d412a966bd612694a08b58e133f71d9c6ba3fa` (C2)؛ شش نمای SHA در ابتدا
   `ALL_AGREE=True`، worktree پاک، diffcheck صفر. چکپوینت قابل بازیابی
   `/home/user/pm02-c3-checkpoint.tar.gz` (sha256

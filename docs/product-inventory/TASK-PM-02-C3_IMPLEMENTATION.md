@@ -193,14 +193,19 @@ release. G-06 همچنان `IMPLEMENTED WITH GAPS` است (G-13 و Q1..Q5 باز
 
 ## ۸) Git، CI و PR
 
-بهصورت **commit معمولی** روی همان شاخه ثبت و `git push origin arena/be5eaff3-green-dms`
-شد (جزئیات SHA/پیام در `VERIFICATION-C3.txt`). PR #14 همچنان `OPEN / DRAFT` با
-base `main`، بدون review/approve. نتیجهٔ CI دقیقاً روی SHA نهایی C3 **جداگانه**
-از CI تاریخی C2 (`19d412a…` = PASS) و C1 (`aa0028a…` = NOT PASS، شکست
-زیرساختی `psql install`) در بدنهٔ PR و گزارش نهایی چت ثبت میشود؛
-`queued`/`in_progress`/`null` هرگز `PASS` اعلام نمیشود. هیچ commit مصنوعی
-برای trigger کردن CI ساخته نشد. شش نمای SHA پیش از اتمام دوباره همسنجی میشود.
-بدنهٔ PR بهصورت **افزودنی** و با حفظ بایتبهبایت تمام شواهد پیشین بهروز شد.
+دو **commit معمولی** روی همان شاخه ساخته و با `git push origin arena/be5eaff3-green-dms`
+(fast-forward) منتشر شدند: `8b538da734b8d2c9797ef90a21584891c95e57cc`
+(پیادهسازی + شواهد نخستین؛ ۲۸ فایل / ۳٬۳۵۵+/۱۸۰−؛ push `19d412a..8b538da`)
+و کامیت دوم (تکمیل شواهد Git). PR #14 همچنان `OPEN / DRAFT` با base `main`،
+بدون review/approve. چون نوشتن نتیجهٔ CI داخل فایلهای مخزن **پس از** اجرای
+CI، SHA نهایی را تغییر میداد، نتیجهٔ CI دقیقاً روی SHA نهایی، شش نمای نهایی
+و احکام هر موجودیت بهصورت **افزودنی در بدنهٔ PR و گزارش نهایی چت** ثبت
+میشوند؛ `VERIFICATION-C3.txt` سیاست و شواهد Git را نگه میدارد. CI تاریخی C2
+(`19d412a…` = PASS) و C1 (`aa0028a…` = NOT PASS، شکست زیرساختی
+`psql install`) جداگانهاند. `queued`/`in_progress`/`null`/`cancelled` هرگز
+`PASS` اعلام نمیشود. هیچ commit مصنوعی برای trigger کردن CI و هیچ commit
+پساCIای ساخته نشد. بدنهٔ PR بهصورت **افزودنی** و با حفظ بایتبهبایت تمام
+شواهد پیشین بهروز شد.
 
 ---
 

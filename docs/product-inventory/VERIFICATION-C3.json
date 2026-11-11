@@ -41,15 +41,34 @@
     "approved_owner_types_total": 9,
     "verifiable_owner_types_total": 8,
     "entity_attachment_supported_owner_types": [
-      "invoice", "sales_order", "return_request", "stock_count",
-      "receipt", "journal_entry", "pod"
+      "invoice",
+      "sales_order",
+      "return_request",
+      "stock_count",
+      "receipt",
+      "journal_entry",
+      "pod"
     ],
     "implemented_ui_owner_types": [
-      "invoice", "sales_order", "return_request", "stock_count", "journal_entry"
+      "invoice",
+      "sales_order",
+      "return_request",
+      "stock_count",
+      "journal_entry"
     ],
-    "backend_ready_ui_deferred": ["receipt", "pod"],
+    "backend_ready_ui_deferred": [
+      "receipt",
+      "pod"
+    ],
     "preserved_existing_product_media_c1": "product",
-    "rejected": ["other", "brand", "product_category", "warehouse", "uom", "any invented owner type"],
+    "rejected": [
+      "other",
+      "brand",
+      "product_category",
+      "warehouse",
+      "uom",
+      "any invented owner type"
+    ],
     "new_owner_types_invented": false,
     "new_migration": false,
     "new_permission_role_grant_seed_rls": false,
@@ -61,9 +80,15 @@
     "shared_controller": "apps/api/src/modules/attachments/entity-attachments.controller.ts",
     "shared_module": "apps/api/src/modules/attachments/entity-attachments.module.ts",
     "reused_infrastructure": [
-      "AttachmentsService", "AttachmentsRepository", "StorageService",
-      "ownerTenantSql", "checkFileContent", "attachment RLS/FORCE RLS",
-      "DomainBoundaryGuard", "AuditService.recordRequired", "PG_POOL"
+      "AttachmentsService",
+      "AttachmentsRepository",
+      "StorageService",
+      "ownerTenantSql",
+      "checkFileContent",
+      "attachment RLS/FORCE RLS",
+      "DomainBoundaryGuard",
+      "AuditService.recordRequired",
+      "PG_POOL"
     ],
     "additive_hook": "AttachmentsService.upload(..., hooks?: UploadHooks) with optional onObjectStored(storageKey)",
     "routes": [
@@ -73,16 +98,29 @@
     ],
     "owner_and_company_derivation": "URL path + authenticated session only; never client-supplied",
     "authorization_layers": [
-      "AuthGuard", "PermissionsGuard attachment.view|upload",
-      "database permission recheck", "RLS/FORCE RLS", "ownerTenantSql ownership chain"
+      "AuthGuard",
+      "PermissionsGuard attachment.view|upload",
+      "database permission recheck",
+      "RLS/FORCE RLS",
+      "ownerTenantSql ownership chain"
     ],
     "audit": "audit_log entity_type=entity_attachment / action=create in the same transaction as attachment row",
     "audit_url_or_storage_key_leakage": 0,
     "orphan_cleanup": "rollback + storage.remove on failed attachment insert, signed URL generation or required audit",
     "signed_url_ttl_seconds_default": 300,
     "unsupported_client_fields": "explicit 400 (body/query/domain header), never silently stripped",
-    "forbidden_controls": ["delete", "archive", "primary-image selection", "retention policy"],
-    "existing_api_compatibility": ["POST /attachments", "GET /attachments", "GET /attachments/{id}/url", "GET/POST /products/{id}/media"]
+    "forbidden_controls": [
+      "delete",
+      "archive",
+      "primary-image selection",
+      "retention policy"
+    ],
+    "existing_api_compatibility": [
+      "POST /attachments",
+      "GET /attachments",
+      "GET /attachments/{id}/url",
+      "GET/POST /products/{id}/media"
+    ]
   },
   "frontend": {
     "single_shared_component": "apps/web/src/components/EntityAttachments.tsx",
@@ -97,9 +135,17 @@
       "/gl": "journal_entry"
     },
     "features": [
-      "Persian-first RTL", "counts", "metadata", "real byte progress",
-      "loading/empty/error/retry", "fresh scoped signed URL", "secure preview/download",
-      "responsive layout", "accessible controls", "Persian errors", "read-only when permission absent"
+      "Persian-first RTL",
+      "counts",
+      "metadata",
+      "real byte progress",
+      "loading/empty/error/retry",
+      "fresh scoped signed URL",
+      "secure preview/download",
+      "responsive layout",
+      "accessible controls",
+      "Persian errors",
+      "read-only when permission absent"
     ],
     "decorative_controls": false,
     "fabricated_screenshots": false
@@ -113,8 +159,10 @@
     "contract_drift": "0 / 307 operations",
     "generated_client": "packages/api-client/src/schema.ts (+244 lines), packages rebuilt",
     "new_schemas": [
-      "EntityAttachmentOwnerType", "EntityAttachmentCounts",
-      "EntityAttachmentItem", "EntityAttachmentView"
+      "EntityAttachmentOwnerType",
+      "EntityAttachmentCounts",
+      "EntityAttachmentItem",
+      "EntityAttachmentView"
     ]
   },
   "automated_tests": {
@@ -134,8 +182,11 @@
       "files": "87 / 92 PASS",
       "tests": "1521 / 1540 PASS",
       "failing_files": [
-        "attachments.api.test.ts", "customers.api.test.ts", "geofences.api.test.ts",
-        "postgres-init-role.api.test.ts", "tours.api.test.ts"
+        "attachments.api.test.ts",
+        "customers.api.test.ts",
+        "geofences.api.test.ts",
+        "postgres-init-role.api.test.ts",
+        "tours.api.test.ts"
       ],
       "failing_titles": 19,
       "clean_baseline_comparison": "identical=True vs pristine C2 baseline /tmp/pm02c2-baseline-tests.log",
@@ -160,14 +211,29 @@
     "fresh_url": "PASS expires_in=300",
     "cross_owner_url": "404 entity_attachment_not_found",
     "explicit_rejections": [
-      "brand", "product", "other", "invalid uuid", "missing owner",
-      "client owner_id/company_id", "unknown body field", "x-domain-id",
-      "?available=true", "?foo=1", "forged bytes"
+      "brand",
+      "product",
+      "other",
+      "invalid uuid",
+      "missing owner",
+      "client owner_id/company_id",
+      "unknown body field",
+      "x-domain-id",
+      "?available=true",
+      "?foo=1",
+      "forged bytes"
     ],
     "unauthenticated": "401",
     "generic_attachments_regression": "GET /attachments 200",
     "product_media_c1_regression": "GET /products/{id}/media 200, first_image_by_created_at preserved",
-    "web_pages_200": ["/attachments-center", "/orders", "/invoices", "/returns", "/stock-count", "/gl"],
+    "web_pages_200": [
+      "/attachments-center",
+      "/orders",
+      "/invoices",
+      "/returns",
+      "/stock-count",
+      "/gl"
+    ],
     "audit_rows": 5,
     "audit_url_or_storage_key_leakage": 0,
     "verdict": "PASS",
@@ -175,23 +241,43 @@
   },
   "ci": {
     "exact_final_c3_sha": "PENDING",
-    "implementation_commit_ci": "PENDING",
+    "implementation_commit_ci": "queued/inaccessible at time of writing; NOT reported as PASS",
     "c2_exact_sha_ci": "PASS at 19d412a966bd612694a08b58e133f71d9c6ba3fa",
     "c1_delayed_exact_sha_ci": "NOT PASS at aa0028a02631728383533fbcd18461017fe29037 (infrastructure failure)",
     "queued_cancelled_inaccessible_never_reported_as_pass": true,
-    "artificial_ci_trigger_commits": false
+    "artificial_ci_trigger_commits": false,
+    "exact_final_sha": "authoritative result recorded additively in PR #14 body and final chat report (no post-CI file change)",
+    "implementation_commit_workflow_runs": {
+      "43098136071": "e2e queued",
+      "43098136057": "release-image queued",
+      "43098136277": "CI queued",
+      "43098136624": "migrations queued"
+    }
   },
-  "final_sha_views": "PENDING — six views rechecked after the final ordinary commit",
+  "final_sha_views": "recorded additively in PR #14 body and final chat report after final ordinary push; no post-CI commit",
   "boundaries": {
     "blocked": [
-      "PM-B1..PM-B8", "Q1..Q5", "G-03", "domain registry/lifecycle/membership/assignment",
-      "domain-scoped RLS/migrations/APIs/UI activation", "unapproved backfill/cutover",
-      "whole-file import", "whole Product Master acceptance"
+      "PM-B1..PM-B8",
+      "Q1..Q5",
+      "G-03",
+      "domain registry/lifecycle/membership/assignment",
+      "domain-scoped RLS/migrations/APIs/UI activation",
+      "unapproved backfill/cutover",
+      "whole-file import",
+      "whole Product Master acceptance"
     ],
-    "not_authorized": ["merge", "approve", "release", "deploy", "production infrastructure change"],
+    "not_authorized": [
+      "merge",
+      "approve",
+      "release",
+      "deploy",
+      "production infrastructure change"
+    ],
     "unverified": [
-      "manual browser RTL/a11y/console", "Playwright browser run (browsers unavailable)",
-      "production-equivalent MinIO/S3 round-trip", "production CI topology equivalence for local trust-auth PG"
+      "manual browser RTL/a11y/console",
+      "Playwright browser run (browsers unavailable)",
+      "production-equivalent MinIO/S3 round-trip",
+      "production CI topology equivalence for local trust-auth PG"
     ],
     "deployment": "NOT AUTHORIZED"
   },
@@ -207,5 +293,16 @@
     "production_storage_and_manual_browser": "UNVERIFIED",
     "fail": "NONE"
   },
-  "next_recommended_module": "TASK-PM-02-C4 — read-only multi-entity attachment import/export center with M4 preview + audit history pattern; no migration, deletion, domain semantics or whole-file import change. Recommendation only, not approval."
+  "next_recommended_module": "TASK-PM-02-C4 — read-only multi-entity attachment import/export center with M4 preview + audit history pattern; no migration, deletion, domain semantics or whole-file import change. Recommendation only, not approval.",
+  "git_evidence": {
+    "implementation_commit": "8b538da734b8d2c9797ef90a21584891c95e57cc",
+    "implementation_commit_message": "feat(pm-02-c3): shared enterprise attachments for five operational entities",
+    "implementation_commit_files": 28,
+    "implementation_commit_insertions": 3355,
+    "implementation_commit_deletions": 180,
+    "push": "19d412a..8b538da  arena/be5eaff3-green-dms -> arena/be5eaff3-green-dms",
+    "evidence_commit": "ordinary second commit on the same branch; its SHA is the final C3 SHA recorded in PR #14 body",
+    "post_ci_commit": "none (would change the exact SHA under test)",
+    "artificial_ci_trigger_commit": "none"
+  }
 }
