@@ -14,6 +14,7 @@ import { RequirePermissions } from '../identity-rbac/require-permissions.decorat
 import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 import { ExportProductsQueryDto } from './product-export.dto';
 import { ProductExportService } from './product-export.service';
+import { DomainBoundaryGuard } from './domain-boundary.guard';
 
 /**
  * GET /api/v1/products/export — filtered Product Master CSV snapshot.
@@ -24,8 +25,16 @@ import { ProductExportService } from './product-export.service';
 export class ProductExportController {
   constructor(private readonly service: ProductExportService) {}
 
+  // TASK-PM-02-B2 — read-surface parity with the central CRUD boundary.
+  // The global ValidationPipe has `whitelist: true`; without this guard a
+  // `?available=true` / `?domain_id=…` export request would have the unknown
+  // query key *silently dropped* and would return a FULL central CSV snapshot
+  // while the caller believed it had asked for domain-scoped data. The guard
+  // rejects such keys (and any `x-domain-id` header) with 400 before the pipe
+  // runs. It creates no domain identity, membership, availability or authority.
   @Get('export')
   @RequirePermissions('master.product.view')
+  @UseGuards(DomainBoundaryGuard)
   async export(
     @Query() query: ExportProductsQueryDto,
     @CurrentUser() user: AuthContext,

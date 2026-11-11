@@ -132,3 +132,71 @@ The exact final commit SHA, its 8/8 check-run IDs and 4/4 workflow-run IDs, and 
 | Production deployment | **NOT AUTHORIZED** |
 
 **One recommended next increment:** `TASK-PM-02-B2 — owner-approved operational-domain authority spike`, i.e. obtain written PM-B1/PM-B2/PM-B4 decisions plus IAM/security sign-off, then implement a company-scoped additive registry and actor-to-domain assignment with RLS/least-privilege grants and up/down/up evidence. Only after that should membership/availability (PM-B5/B6/B7/B8) and the blocked 400/503 endpoints be activated. It must not begin before explicit approval evidence exists, and it must not weaken the PM-02-B1 separation boundary.
+
+---
+
+## 9. TASK-PM-02-B2 — decision package + fail-closed read-surface parity
+
+**This is NOT the §8 owner-approved authority spike.** A fresh inspection of the
+durable GitHub state at baseline `dad4ce8a41b66fedd06ef66b5bbfa25e4e86d31a`
+confirmed the decision gate is still failed closed: PR #14 reviews `0`, review
+comments `0`, one non-approval independent-review request, unrelated issues
+`#11`/`#12`, no tracked owner decision or IAM/Security sign-off, no approval in
+`git log --all`. PM-B1..PM-B8, Q1..Q5 and G-03 remain `OPEN / NOT APPROVED`.
+Accordingly no registry, lifecycle, assignment, membership, migration, RLS,
+domain API or UI activation was implemented.
+
+**Deliverable 1 — decision package.** `TASK-PM-02-B2_OWNER_DECISION_PACKAGE.md`
+consolidates the exact unresolved questions, alternatives, advice-only
+recommendations, consequences, precisely blocked implementation elements and
+required acceptance evidence for PM-B1 (identity), PM-B2 (lifecycle) and PM-B4
+(authority/assignment), plus the signed seven-column artifact that unblocks them.
+It is a decision request, not an approval.
+
+**Deliverable 2 — independent, non-gated engineering.** The approved
+central/domain separation boundary from B1 covered writes, import validate/commit
+and `domain-scope`, but not central READ surfaces. Because `validationPipeOptions`
+uses `whitelist: true` without `forbidNonWhitelisted`, a `?available=true` or
+`?domain_id=…` key on a read was silently discarded and an unchanged FULL central
+page/CSV returned to a caller believing it had requested domain-scoped data —
+most serious on `GET /products/export`. B2 attaches the SAME
+`DomainBoundaryGuard` (after `AuthGuard, PermissionsGuard`) to
+`GET /products`, `GET /products/{id}`, `GET /products/export` and
+`GET /products/import/report/{id}`. It rejects domain-owned query keys and any
+`x-domain-id` header with `400` before pipes, audits key names only, and fails
+closed if auditing fails. Domain-context routes in `CatalogFoundationController`
+that deliberately read `@Headers("x-domain-id")` are intentionally NOT guarded —
+no blanket rejection. No new domain identity, membership, availability, state,
+permission or authority is created.
+
+Contract/client: documented `400` on `/products/import/report/{id}`, added the
+B2 boundary note to `Error.code`, regenerated `packages/api-client/src/schema.ts`
+deterministically. Counts unchanged: 202 paths / 285 operations / 154 schemas /
+3 webhooks; drift 0/0/0/0; partition 86 files, computed == declared.
+
+Tests: 6 new DB-free guard cases, a new 4-case structural parity suite
+(`product-domain-boundary-read-parity.test.ts`, unit-classified), 7 new real-HTTP
+cases on `product-domain-boundary.api.test.ts`. Local results — focused unit
+3/25, full unit partition 30/373, web 18/94, boundary HTTP 1/19, targeted DB
+regression 7/146, migrations up/down/up 1029 identical objects,
+typecheck/OpenAPI/drift/partition/root build/`git diff --check` all PASS. Full DB
+run: 51/55 files and 1092/1109 tests green; the 4 failing files / 17 tests
+(`customers`, `geofences`, `tours`, `postgres-init-role`) were reproduced
+identically on the pristine baseline via a reversible `git stash` and are local
+PostGIS/trust-auth environment artefacts, not B2 regressions.
+
+| Area | Verdict |
+| --- | --- |
+| Owner decisions PM-B1/B2/B4 (and B3/B5–B8, Q1–Q5, G-03) | **BLOCKED** |
+| Registry / lifecycle / assignment / membership / migrations / domain RLS / domain APIs / UI activation | **BLOCKED** — deliberately not implemented |
+| Decision package, gate inspection, backup integrity, read-surface parity, contract/client/test consistency | **PASS** |
+| Production topology/PostGIS+password-auth equivalence, manual RTL/a11y/console, independent Agent-2 review, raw per-test CI logs | **UNVERIFIED** |
+| Full Product Master acceptance | **BLOCKED** |
+| Production deployment | **NOT AUTHORIZED** |
+
+**One recommendation (unchanged):** obtain the signed PM-B1/PM-B2/PM-B4 package
+with IAM/Security sign-off and approved examples before any domain-authority
+implementation; then add the company-scoped registry, lifecycle and actor-domain
+assignment with domain-aware RLS and up/down/up evidence, and only afterwards
+activate membership/availability and the blocked 400/503 endpoints. Do not weaken
+the B1 separation boundary or the B2 read-surface parity.

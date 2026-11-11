@@ -207,3 +207,97 @@ describe('TASK-PM-02 central/domain boundary over real HTTP + native PostgreSQL'
     expect(String(JSON.stringify(entry.after_data))).not.toContain(marker);
   });
 });
+
+/**
+ * TASK-PM-02-B2 — HTTP واقعی روی PostgreSQL بومی: همسانی مرز روی سطوح خواندنی.
+ * بدون نگهبان، `whitelist: true` کلید `?available=true` را بیتصدا حذف میکرد و
+ * همان نمای مرکزی کامل (بهویژه خروجی CSV) به مشتری «دامنهای» برمیگشت.
+ */
+describe('TASK-PM-02-B2 central read/export/report boundary over real HTTP', () => {
+  it('POSITIVE: a normal central list read with legitimate filters is unchanged (200)', async () => {
+    const p = await createProduct(fx, { code: 'PM02B2-READ-1', name: 'کالای خواندنی' });
+    const res = await fx.api()
+      .get('/api/v1/products')
+      .query({ q: 'PM02B2-READ-1', sort: 'code_asc', status: 'active' })
+      .expect(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].id).toBe(p.id);
+    // نمای مرکزی همچنان هیچ ویژگی دامنهای برنمیگرداند.
+    expect(res.body).not.toHaveProperty('domains');
+    expect(res.body.items[0]).not.toHaveProperty('domain_availability');
+    expect(res.body.items[0]).not.toHaveProperty('available');
+  });
+
+  it('NEGATIVE: ?available=true on GET /products is 400, not a silently central page', async () => {
+    const res = await fx.api()
+      .get('/api/v1/products')
+      .query({ q: 'PM02B2-READ-1', available: 'true' })
+      .expect(400);
+    expect(res.body.code).toBe('domain_property_rejected');
+    expect(res.body.details.fields).toContain('available');
+    expect(res.body.details.source).toBe('query');
+    expect(res.body).not.toHaveProperty('items');
+  });
+
+  it('NEGATIVE: a domain_id query key on GET /products/export never yields a full central CSV', async () => {
+    const res = await fx.api()
+      .get('/api/v1/products/export')
+      .query({ q: 'PM02B2-READ-1', domain_id: randomUUID() })
+      .expect(400);
+    expect(res.body.code).toBe('domain_property_rejected');
+    expect(res.body.details.fields).toContain('domain_id');
+    expect(res.body.details.source).toBe('query');
+    expect(String(res.headers['content-type'] ?? '')).not.toMatch(/text\/csv/);
+    expect(res.headers['x-product-export-row-count']).toBeUndefined();
+  });
+
+  it('NEGATIVE: x-domain-id cannot scope a central product detail read', async () => {
+    const p = await createProduct(fx, { code: 'PM02B2-READ-2', name: 'کالای جزئیات' });
+    const res = await fx.api()
+      .get(`/api/v1/products/${p.id}`)
+      .set('x-domain-id', randomUUID())
+      .expect(400);
+    expect(res.body.code).toBe('domain_context_not_supported');
+    expect(res.body.details.source).toBe('x-domain-id');
+    // خواندن بدون هدر همچنان 200 است (رد شدن فقط به زمینهٔ دامنه مربوط است).
+    await fx.api().get(`/api/v1/products/${p.id}`).expect(200);
+  });
+
+  it('NEGATIVE: x-domain-id cannot scope a central import report read', async () => {
+    const res = await fx.api()
+      .get(`/api/v1/products/import/report/${randomUUID()}`)
+      .set('x-domain-id', randomUUID())
+      .expect(400);
+    expect(res.body.code).toBe('domain_context_not_supported');
+    expect(res.body.details.source).toBe('x-domain-id');
+  });
+
+  it('POSITIVE: a plain CSV export still succeeds with no domain query keys', async () => {
+    await createProduct(fx, { code: 'PM02B2-READ-3', name: 'کالای صادراتی' });
+    const res = await fx.api()
+      .get('/api/v1/products/export')
+      .query({ q: 'PM02B2-READ-3', sort: 'code_asc' })
+      .expect(200);
+    expect(String(res.headers['content-type'])).toMatch(/text\/csv/);
+    expect(String(res.text)).toContain('PM02B2-READ-3');
+  });
+
+  it('audits rejected read-surface attempts with actor, surface and field names', async () => {
+    await fx.api()
+      .get('/api/v1/products/export')
+      .query({ q: 'x', availability: 'active' })
+      .expect(400);
+    const audit = await fx.pool.query<{ action: string; after_data: unknown; actor_user_id: string }>(
+      `select action, after_data, actor_user_id::text from audit_log
+        where action = 'domain_boundary_rejected' order by at desc limit 5`,
+    );
+    expect(audit.rows.length).toBeGreaterThan(0);
+    const entry = audit.rows.find((r) => String(JSON.stringify(r.after_data)).includes('/products/export'));
+    expect(entry).toBeTruthy();
+    expect(entry!.actor_user_id).toBeTruthy();
+    const after = entry!.after_data as { source?: string; fields?: string[]; code?: string };
+    expect(after.source).toBe('query');
+    expect(after.fields).toContain('availability');
+    expect(after.code).toBe('domain_property_rejected');
+  });
+});

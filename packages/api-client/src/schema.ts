@@ -2030,7 +2030,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** گزارشِ import انجام‌شده */
+        /**
+         * گزارشِ import انجام‌شده
+         * @description گزارشِ مرکزی و شرکتـمحورِ یک دستهٔ import. زمینهٔ دامنه (`x-domain-id`) پذیرفته نیست؛ TASK-PM-02-B2 همان نگهبان مرز مرکزی/دامنهای سطوح نوشتنی را روی این خواندن نیز اعمال میکند (fail-closed، بدون ایجاد هویت یا اختیار دامنه).
+         */
         get: {
             parameters: {
                 query?: never;
@@ -2051,6 +2054,7 @@ export interface paths {
                         "application/json": components["schemas"]["ImportResult"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -11614,6 +11618,13 @@ export interface components {
              *     - `domain_context_not_supported`: هدر `x-domain-id` روی عملیات
              *       کاتالوگ مرکزی ارسال شده است. شناسهٔ ارسالی مشتری اثبات هویت دامنه
              *       نیست و نمای مرکزی را دامنهای نمیکند.
+             *
+             *     **همسانی سطوح خواندنی مرکزی (TASK-PM-02-B2)** — فهرست، جزئیات،
+             *     خروجی CSV و گزارش import نیز همین مرز را اعمال میکنند: کلید query
+             *     دامنهای ناشناخته پیش از حذف بیصدای `whitelist` رد میشود، بنابراین
+             *     درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
+             *     «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
+             *     عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict

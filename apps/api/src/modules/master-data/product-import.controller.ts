@@ -63,8 +63,13 @@ export class ProductImportController {
     return this.service.commitImport(user.companyId, dto, meta, user.userId);
   }
 
+  // TASK-PM-02-B2 — read-surface parity. An import report is a central,
+  // company-scoped read; a client-supplied `x-domain-id` must not be allowed to
+  // imply domain-scoped meaning (it is not proof of domain identity). The guard
+  // rejects it with 400 before the handler runs; it grants no domain authority.
   @Get('report/:id')
   @RequirePermissions('master.product.import')
+  @UseGuards(DomainBoundaryGuard)
   report(@CurrentUser('companyId') companyId: string, @Param('id') id: string) {
     return this.service.getImport(companyId, id);
   }

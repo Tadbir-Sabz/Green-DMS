@@ -344,3 +344,44 @@
 - تستها: واحد خالص ۷/۷، نگهبان ۸/۸، نمای scope ۹/۹ (مجموع ۲۴ بیداده)، HTTP بومی روی PostgreSQL ۱۶.۲ یکبارمصرف ۱۲/۱۲ (شامل رد `domain_id` بدون اثر، سرستون فارسی/انگلیسی، `x-domain-id` ۴۰۰، بیننده ۴۰۳، کالای شرکت دیگر ۴۰۴، ردیف `audit_log` بدون مقدار خام)، وب ۹۴/۹۴ (۱۸ فایل)، واحد API بیداده ۳۶۳/۳۶۳ (۲۹ فایل)، ۶۴ مهاجرت up/down/up با دقیقاً ۱۰۲۹ شیء یکسان، typecheck/OpenAPI/drift/partition/root build/`git diff --check` همگی PASS.
 - مرزها: بدون مهاجرت، جدول دامنه، گرانت/RLS/نقش/seed تازه، ارائهدهنده، مجوز دامنهای، عضویت، lifecycle، backfill، cutover، تغییر §E، تغییر G-03/D4، تغییر D1–D5، تغییر ۰۰۶۰..۰۰۶۴، تغییر پیکربندی CI، تغییر آمادگی PR، merge/approve/release/deploy یا دسترسی به DB/زیرساخت/secret تولید. PM-B1..PM-B8 و Q1..Q5 همچنان `OPEN / NOT APPROVED`؛ پذیرش کامل Product Master `BLOCKED`؛ استقرار تولید `NOT AUTHORIZED`.
 - بهروزرسانی همراستا: `PRODUCT_MASTER_TARGET_DESIGN.md` (پیوست TASK-PM-02) و `TASK-PM-01_PRODUCT_MASTER_SPEC.md` §12. `M4_ACCEPTANCE_MATRIX.md` و سایر اسناد M4 دستنخورده ماندند.
+
+---
+
+## TASK-PM-02-B2 — بستهٔ تصمیم مالک و همسانی سطوح خواندنی مرکزی
+
+- `TASK-PM-02-B2_OWNER_DECISION_PACKAGE.md`: بستهٔ فشردهٔ درخواست تصمیم برای سه
+  گلوگاه PM-B1 (هویت دامنه)، PM-B2 (چرخهٔ حیات) و PM-B4 (اختیار/انتساب)؛ پرسش
+  دقیق، گزینهها، توصیهٔ فقطمشاورهای، پیامدها، فهرست دقیق عناصر مسدود (رجیستری،
+  مهاجرت، FK، نگاشت/backfill، ماشین حالت، ماتریس اختیار، انتساب، مجوزها، RLS،
+  API/UI دامنهای)، شواهد پذیرش، قالب جدول هفتستونی امضاشده، شواهد دروازهٔ بسته،
+  و احکام PASS/FAIL/UNVERIFIED/BLOCKED. وضعیت همهٔ تصمیمها `OPEN / NOT APPROVED`.
+- `evidence/task-pm-02/VERIFICATION-B2.txt` و `VERIFICATION-B2.json`: دفتر
+  فرمان/نتیجهٔ محلی B2، پشتیبان `/home/user/pm02-b2-backup.tar.gz` با sha256
+  `0ae60fac33f3a6f35e25f35834ba745586af6fa9316577bfdb35a981857540e8`، و اثبات
+  اینکه ۴ فایل/۱۷ تست ناکام محیطی (PostGIS/trust-auth) عیناً روی مبنای دستنخورده
+  نیز ناکاماند و رگرسیون B2 نیستند.
+- کد تغییریافته (فقط-parity، بدون معنای دامنهای): `product.controller.ts`
+  (`list`/`get`)، `product-export.controller.ts` (`export`)،
+  `product-import.controller.ts` (`report/:id`) همگی `@UseGuards(DomainBoundaryGuard)`
+  گرفتند؛ ترتیب `AuthGuard, PermissionsGuard` پیش از نگهبان مرز حفظ شد. مسیرهای
+  `CatalogFoundationController` که `@Headers("x-domain-id")` میخوانند بدون نگهبان
+  ماندند؛ `OPERATIONAL_DOMAIN_AUTHORITY` همچنان ثبت نشده است.
+- قرارداد/کلاینت: `openapi.yaml` خطای `400` روی `GET /products/import/report/{id}`
+  و توضیح مرز B2 در `Error.code`؛ `packages/api-client/src/schema.ts` با
+  openapi-typescript ۷٫۱۳٫۰ بازتولید شد (تولید قطعی، ۱۲+/۱− خط). شمارشها بدون
+  تغییر: ۲۰۲ مسیر / ۲۸۵ عملیات / ۱۵۴ اسکیما / ۳ وب هوک.
+- تستهای نو: `product-domain-boundary-guard.test.ts` (+۶ مورد خواندنی بیداده)،
+  `product-domain-boundary-read-parity.test.ts` (جدید، ۴ مورد ساختاری بیداده:
+  پوشش ۵ handler، ترتیب نگهبانها، نبود رد سراسری مسیرهای زمینهٔ دامنه، نبود
+  ارائهدهنده)، `product-domain-boundary.api.test.ts` (+۷ مورد HTTP واقعی).
+  نتایج محلی: واحد بیدادهٔ متمرکز ۳/۲۵، پارتیشن کامل بیداده ۳۰/۳۷۳، وب ۱۸/۹۴،
+  مرز HTTP بومی ۱/۱۹، رگرسیون هدفمند DB ۷/۱۴۶، مهاجرت up/down/up دقیقاً ۱۰۲۹
+  شیء یکسان، typecheck/OpenAPI/drift/partition/root build/`git diff --check`
+  همگی PASS. اجرای کامل DB ۵۱/۵۵ فایل و ۱۰۹۲/۱۱۰۹ تست؛ ۴ فایل/۱۷ تست ناکام
+  (`customers`/`geofences`/`tours`/`postgres-init-role`) عیناً روی مبنای
+  `dad4ce8…` بازتولید شدند ← محدودیت محیط محلی، نه رگرسیون.
+- بهروزرسانی همراستا: `TASK-PM-02_OWNER_DECISION_REGISTER.md` §5،
+  `PRODUCT_MASTER_TARGET_DESIGN.md` پیوست B2، `TASK-PM-02_IMPLEMENTATION.md` §9.
+  اسناد M4 و `M4_ACCEPTANCE_MATRIX.md` دستنخورده ماندند. PM-B1..PM-B8 و Q1..Q5
+  `OPEN / NOT APPROVED`؛ پذیرش کامل `BLOCKED`؛ استقرار تولید `NOT AUTHORIZED`؛
+  PR #14 `OPEN / DRAFT`؛ بدون merge/approve/release/deploy.

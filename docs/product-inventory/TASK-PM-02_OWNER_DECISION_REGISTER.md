@@ -52,3 +52,49 @@
 ## 4. Isolation of decisions from implementation
 
 Every row above answers **"can implementation proceed?"** with `YES` for independent, approved central-only work and `NO` for the owner-gated semantics. PM-02 therefore implemented the central/domain separation boundary and its explicit projection without touching any blocked decision. No `approved` word is applied to PM-B1..PM-B8, Q1..Q5 or a Product Master G-03 binding. Full Product Master acceptance remains **BLOCKED**; production deployment remains **NOT AUTHORIZED**.
+
+---
+
+## 5. TASK-PM-02-B2 — consolidated owner-decision package (gate unchanged)
+
+**Status preservation:** PM-B1..PM-B8, Q1..Q5 and the Product Master G-03
+two-person binding all remain **OPEN / NOT APPROVED**. Full Product Master
+acceptance remains **BLOCKED**; production deployment **NOT AUTHORIZED**.
+
+`TASK-PM-02-B2_OWNER_DECISION_PACKAGE.md` is a single concise decision *request*
+for the three gating items, with the exact unresolved question, 2–3 alternatives,
+a clearly-labelled recommendation, consequences, the precise implementation
+elements blocked, and required acceptance evidence for each:
+
+| ID | Gating question | Recommended alternative (advice only) | Hard blocker for |
+|---|---|---|---|
+| PM-B1 | What is an operational catalog domain, its stable company-scoped ID/code/name, its owner, and whether any existing object may be reused or must be explicitly mapped | New explicit company-scoped registry with audited mappings | registry table/migration, `domain_id` FKs, mapping/backfill, provider `resolve`/`list`, domain identity in `AuthContext`/OpenAPI, cross-company registry tests |
+| PM-B2 | Lifecycle states, legal transitions, who may change them, versioning, post-retirement reads, and effect on memberships/in-flight operations | Explicit versioned state machine with an approved transition table | status/state columns and enums, transition endpoints/guards, activation/retirement, optimistic concurrency, lifecycle-aware membership validity, retention |
+| PM-B4 | Central vs. domain authority, who assigns/revokes users, whether delegation is allowed, assignment source, and missing-context fail-closed rules | Split central/domain authority matrix with explicit revocable actor-domain assignment + IAM sign-off | authority matrix/`authorize` resolver, assignment table/source, revocation/expiry, domain-scoped permission vocabulary, least-privilege grants, server-side membership writes |
+
+PM-B3/B5–B8, Q1–Q5, G-03 and TASK-24Z open policy items are listed as blocked
+but non-gating for the first increment. The unblocking artifact is the signed,
+referenced seven-column decision table (decision ID, document number/date,
+organizational approval reference, chosen option, approved examples, IAM/Security
+sign-off, acceptance evidence) plus rationale, named signatory, accepted
+security/privacy consequences, cutover/backfill policy and concrete tests.
+
+**Gate evidence re-verified at B2 baseline `dad4ce8…`:** PR #14 reviews `0`,
+review comments `0`, one non-approval independent-review *request* comment,
+issues `#11`/`#12` unrelated, no tracked sign-off document or approval reference,
+no `git log --all` approval. `TASK-PM-02_IMPLEMENTATION.md` §8 is a
+recommendation, not an approval. Silence, tests, recommendations and historical
+docs are not approvals.
+
+**What B2 did (independent, non-gated):** extended the already-approved
+`DomainBoundaryGuard` to central READ surfaces (`GET /products`,
+`GET /products/{id}`, `GET /products/export`, `GET /products/import/report/{id}`)
+so that domain-owned query keys are rejected with `400` *before* the
+`whitelist:true` pipe silently strips them; documented `400` on the import-report
+operation; regenerated the TS client; added DB-free unit/structural tests and
+real-HTTP/native-PostgreSQL negative + positive tests. Domain-context routes that
+intentionally read `@Headers("x-domain-id")` are deliberately **not** given the
+guard. No registry, lifecycle, assignment, membership, migration, RLS, domain
+API, UI activation, permission vocabulary, backfill or cutover was added;
+`OPERATIONAL_DOMAIN_AUTHORITY` remains unregistered and `DomainCatalogGate`
+remains fail-closed. No decision semantics were invented or weakened.

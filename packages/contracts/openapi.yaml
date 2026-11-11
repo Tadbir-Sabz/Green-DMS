@@ -1125,12 +1125,17 @@ paths:
     get:
       tags: [products]
       summary: گزارشِ import انجام‌شده
+      description: >-
+        گزارشِ مرکزی و شرکتـمحورِ یک دستهٔ import. زمینهٔ دامنه (`x-domain-id`)
+        پذیرفته نیست؛ TASK-PM-02-B2 همان نگهبان مرز مرکزی/دامنهای سطوح نوشتنی را
+        روی این خواندن نیز اعمال میکند (fail-closed، بدون ایجاد هویت یا اختیار دامنه).
       responses:
         '200':
           description: گزارش
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -5853,6 +5858,13 @@ components:
             - `domain_context_not_supported`: هدر `x-domain-id` روی عملیات
               کاتالوگ مرکزی ارسال شده است. شناسهٔ ارسالی مشتری اثبات هویت دامنه
               نیست و نمای مرکزی را دامنهای نمیکند.
+
+            **همسانی سطوح خواندنی مرکزی (TASK-PM-02-B2)** — فهرست، جزئیات،
+            خروجی CSV و گزارش import نیز همین مرز را اعمال میکنند: کلید query
+            دامنهای ناشناخته پیش از حذف بیصدای `whitelist` رد میشود، بنابراین
+            درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
+            «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
+            عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
           examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported']
         message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
         details:

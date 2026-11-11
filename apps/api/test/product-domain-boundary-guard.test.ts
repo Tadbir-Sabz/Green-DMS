@@ -161,4 +161,97 @@ describe('TASK-PM-02 DomainBoundaryGuard — server-side enforcement (DB-free)',
     const req = request({ body: undefined, query: undefined, headers: {} });
     await expect(guard.canActivate(context(req))).resolves.toBe(true);
   });
+
+  // TASK-PM-02-B2 — central READ surfaces carry the very same guard. The global
+  // ValidationPipe uses `whitelist: true`, so a domain-owned query key sent to a
+  // read would otherwise be silently stripped and an unchanged CENTRAL page/CSV
+  // would be returned to a caller that believed it asked for domain-scoped data.
+  describe('TASK-PM-02-B2 central read/export/report parity (DB-free)', () => {
+    const read = (overrides: Record<string, unknown> = {}) =>
+      request({
+        method: 'GET',
+        path: '/api/v1/products',
+        body: undefined,
+        query: { sort: 'code_asc', q: 'شیر', status: 'active' },
+        ...overrides,
+      });
+
+    it('POSITIVE: a plain central list read with legitimate query keys passes untouched', async () => {
+      const req = read();
+      await expect(guard.canActivate(context(req))).resolves.toBe(true);
+      expect(audit.recordRequired).not.toHaveBeenCalled();
+      expect(client.query).not.toHaveBeenCalled();
+      expect(req.query).toEqual({ sort: 'code_asc', q: 'شیر', status: 'active' });
+    });
+
+    it('NEGATIVE: ?available=true on GET /products is rejected before whitelist stripping', async () => {
+      const req = read({ query: { q: 'شیر', available: 'true' } });
+      await expect(guard.canActivate(context(req))).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: DOMAIN_PROPERTY_REJECTED,
+          details: { source: 'query', fields: ['available'] },
+        },
+      });
+      expect(audit.recordRequired).toHaveBeenCalledTimes(1);
+    });
+
+    it('NEGATIVE: a camelCase domainId query on GET /products/export is rejected', async () => {
+      const req = read({
+        path: '/api/v1/products/export',
+        query: { q: 'شیر', domainId: 'A' },
+      });
+      await expect(guard.canActivate(context(req))).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: DOMAIN_PROPERTY_REJECTED,
+          details: { source: 'query', fields: ['domainId'] },
+        },
+      });
+      expect(audit.recordRequired.mock.calls[0][0].after.surface).toBe('GET /api/v1/products/export');
+    });
+
+    it('NEGATIVE: a Persian availability query key on a product detail read is rejected', async () => {
+      const req = read({
+        path: '/api/v1/products/p1',
+        query: { 'دسترسپذیری': 'فعال' },
+      });
+      await expect(guard.canActivate(context(req))).rejects.toMatchObject({
+        status: 400,
+        response: {
+          code: DOMAIN_PROPERTY_REJECTED,
+          details: { source: 'query' },
+        },
+      });
+    });
+
+    it('NEGATIVE: x-domain-id never scopes a central detail or import-report read', async () => {
+      for (const path of ['/api/v1/products/p1', '/api/v1/products/import/report/r1']) {
+        const req = read({
+          path,
+          query: {},
+          headers: { 'x-domain-id': '00000000-0000-4000-8000-000000000011', 'user-agent': 'vitest' },
+        });
+        await expect(guard.canActivate(context(req))).rejects.toMatchObject({
+          status: 400,
+          response: {
+            code: DOMAIN_CONTEXT_NOT_SUPPORTED,
+            details: { source: 'x-domain-id', fields: [] },
+          },
+        });
+      }
+      expect(audit.recordRequired).toHaveBeenCalledTimes(2);
+    });
+
+    it('FAIL-CLOSED: a rejected read stays rejected even if the audit transaction fails', async () => {
+      audit.recordRequired.mockRejectedValueOnce(new Error('audit unavailable'));
+      const req = read({ query: { q: 'شیر', membership: 'A' } });
+      await expect(guard.canActivate(context(req))).rejects.toMatchObject({
+        status: 400,
+        response: { code: DOMAIN_PROPERTY_REJECTED },
+      });
+      expect(client.query.mock.calls.some((c) => String(c[0]).toLowerCase().includes('rollback'))).toBe(true);
+      expect(client.release).toHaveBeenCalledTimes(1);
+    });
+  });
 });
