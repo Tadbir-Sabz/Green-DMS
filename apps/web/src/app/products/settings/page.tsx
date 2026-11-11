@@ -98,9 +98,14 @@ export default function CatalogSettings() {
     <main dir="rtl" className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">خانواده‌ها و گروه‌های کالا</h1>
-        <Link className={btnGhost} href="/products">
-          بازگشت به کاتالوگ
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link className={btnGhost} href="/products/reference-data">
+            مدیریت کامل برند، واحد و دسته
+          </Link>
+          <Link className={btnGhost} href="/products">
+            بازگشت به کاتالوگ
+          </Link>
+        </div>
       </header>
       <p className="text-sm text-ink-muted">
         خانواده هویت مشترک variantهاست؛ گروه برای دسته‌بندی مرکزی است. تغییر نام

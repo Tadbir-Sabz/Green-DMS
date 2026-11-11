@@ -13,8 +13,10 @@ import {
 } from './export';
 import { AppLoader } from '@/components/AppShell';
 import {
+  type Brand,
   type Category,
   type Product,
+  type Unit,
   type ScanResult,
   DIST_LABEL,
   STATUS_LABEL,
@@ -49,6 +51,8 @@ export default function ProductsPage(): React.JSX.Element {
 
   const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -67,6 +71,23 @@ export default function ProductsPage(): React.JSX.Element {
       return categories.find((c) => c.id === id)?.name ?? '—';
     },
     [categories],
+  );
+
+  const brandName = useCallback(
+    (id: string | null | undefined): string => {
+      if (!id) return '—';
+      return brands.find((b) => b.id === id)?.name ?? '—';
+    },
+    [brands],
+  );
+
+  const unitLabel = useCallback(
+    (id: string | null | undefined): string => {
+      if (!id) return '—';
+      const unit = units.find((u) => u.id === id);
+      return unit ? `${unit.code} — ${unit.title}` : '—';
+    },
+    [units],
   );
 
   const load = useCallback(async (query: string, st: string, cursor?: string) => {
@@ -92,7 +113,21 @@ export default function ProductsPage(): React.JSX.Element {
     }
     setReady(true);
     void load('', '');
-    void api.GET('/product-categories').then(({ data }) => setCategories(data?.items ?? []));
+    // همهٔ مراجع (فعال و غیرفعال) برای نمایش درست مقادیر تاریخی کالاها.
+    void Promise.all([
+      api.GET('/reference-data/categories', { params: { query: { limit: 200 } } }),
+      api.GET('/reference-data/brands', { params: { query: { limit: 200 } } }),
+      api.GET('/reference-data/units', { params: { query: { limit: 200 } } }),
+    ]).then(([cats, brds, unts]) => {
+      const failure = cats.error ?? brds.error ?? unts.error;
+      if (failure) {
+        setListError(faError(failure));
+        return;
+      }
+      setCategories(cats.data?.items ?? []);
+      setBrands(brds.data?.items ?? []);
+      setUnits(unts.data?.items ?? []);
+    });
   }, [router, load]);
 
   /** خروجی CSV از همان فیلترهای جاری فهرست — snapshot فقط-خواندنی سرور */
@@ -237,6 +272,8 @@ export default function ProductsPage(): React.JSX.Element {
               <th className={thCls}>نام</th>
               <th className={thCls}>نام لاتین</th>
               <th className={thCls}>گروه</th>
+              <th className={thCls}>برند</th>
+              <th className={thCls}>واحد پایه</th>
               <th className={thCls}>وضعیت</th>
               <th className={thCls}>نوع توزیع</th>
               <th className={thCls}>حداقل سفارش</th>
@@ -267,6 +304,8 @@ export default function ProductsPage(): React.JSX.Element {
                     {p.name_latin ?? '—'}
                   </td>
                   <td className={`${tdCls} text-ink-muted`}>{categoryName(p.category_id)}</td>
+                  <td className={`${tdCls} text-ink-muted`}>{brandName(p.brand_id)}</td>
+                  <td className={`${tdCls} text-ink-muted`}>{unitLabel(p.base_uom_id)}</td>
                   <td className={tdCls}>
                     <span className={statusBadgeCls(p.status)}>{STATUS_LABEL[p.status] ?? p.status}</span>
                   </td>

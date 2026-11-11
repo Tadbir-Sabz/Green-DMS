@@ -1138,6 +1138,291 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  # ─────────────── TASK-PM-02-C2: مدیریت دادههای مرجع ───────────────
+  /reference-data/history:
+    get:
+      tags: [products]
+      summary: تاریخچهٔ ممیزی دادههای مرجع (برند/واحد/دسته)
+      parameters:
+        - { name: entity_type, in: query, required: false, schema: { type: string, enum: [brand, uom, product_category] } }
+        - { name: entity_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: رویدادهای ممیزی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceHistoryList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reference-data/brands:
+    get:
+      tags: [products]
+      summary: فهرست برندهای شرکت با جستوجو، فیلتر وضعیت، شمارش استفاده و صفحهبندی
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: صفحهای از برندها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrandList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ایجاد برند (کد و نام یکتا در هر شرکت)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrandCreate' }
+      responses:
+        '201':
+          description: برند ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Brand' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/brands/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: جزئیات برند + کالاهای متصل
+      responses:
+        '200':
+          description: جزئیات برند
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrandDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: ویرایش برند (نام/نام لاتین/کد/وضعیت)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrandUpdate' }
+      responses:
+        '200':
+          description: برند بهروزشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Brand' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [products]
+      summary: حذف امن برند (فقط اگر به کالایی متصل نباشد)
+      responses:
+        '200':
+          description: نتیجهٔ حذف
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceMutationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/units:
+    get:
+      tags: [products]
+      summary: فهرست واحدهای اندازهگیری (مرجع سراسری) با جستوجو/فیلتر/شمارش استفاده
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: صفحهای از واحدها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnitList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ایجاد واحد اندازهگیری (کد سراسری یکتا؛ دقت اعشار ۰..۴ طبق D3)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnitCreate' }
+      responses:
+        '201':
+          description: واحد ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Unit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/units/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: جزئیات واحد + کالاهای متصل
+      responses:
+        '200':
+          description: جزئیات واحد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnitDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: ویرایش واحد (کد تغییرناپذیر است)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnitUpdate' }
+      responses:
+        '200':
+          description: واحد بهروزشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Unit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [products]
+      summary: حذف امن واحد (فقط اگر به کالا/بستهبندی متصل نباشد)
+      responses:
+        '200':
+          description: نتیجهٔ حذف
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceMutationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/categories:
+    get:
+      tags: [products]
+      summary: فهرست دستهبندیهای درختی شرکت با جستوجو/فیلتر/شمارش استفاده
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, required: false, schema: { type: boolean } }
+        - { name: parent_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: root, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: صفحهای از دستهبندیها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ایجاد دستهبندی (کد یکتا؛ والد اختیاری؛ جلوگیری از حلقه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryCreate' }
+      responses:
+        '201':
+          description: دستهبندی ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCategory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/categories/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: جزئیات دستهبندی + زنجیرهٔ والدها، فرزندان و کالاها
+      responses:
+        '200':
+          description: جزئیات دستهبندی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: ویرایش/جابهجایی دستهبندی (حلقه و عمق بررسی میشود)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryUpdate' }
+      responses:
+        '200':
+          description: دستهبندی بهروزشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCategory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [products]
+      summary: حذف امن دستهبندی؛ reassign_to وابستگان را پیش از حذف منتقل میکند
+      parameters:
+        - { name: reassign_to, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: نتیجهٔ حذف/انتساب
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceMutationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /products/barcodes/{barcodeId}:
     parameters:
       - { name: barcodeId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -6389,6 +6674,14 @@ components:
         code: { type: string }
         name: { type: string }
         parent_id: { type: [string, 'null'], format: uuid, description: والد در سلسله‌مراتب }
+        name_latin: { type: [string, 'null'] }
+        parent_name: { type: [string, 'null'] }
+        cost_method: { type: string, enum: [moving_avg, fifo, standard] }
+        is_active: { type: boolean }
+        product_count: { type: integer, minimum: 0 }
+        child_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
     Unit:
       type: object
@@ -6399,6 +6692,13 @@ components:
         code: { type: string, examples: ['pcs', 'box', 'carton'] }
         title: { type: string }
         decimal_places: { type: integer, minimum: 0, maximum: 4 }
+        symbol: { type: [string, 'null'], maxLength: 16 }
+        title_latin: { type: [string, 'null'], maxLength: 64 }
+        is_active: { type: boolean }
+        product_count: { type: integer, minimum: 0 }
+        packaging_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
     PriceList:
       type: object
@@ -8073,6 +8373,168 @@ components:
         primary_image_label_fa: { type: string, description: برچسب مصوب §B4 }
         primary_image_note_fa: { type: string, description: محدودیت مستند جابهجایی خودکار تصویرِ اصلی }
         message_fa: { type: string }
+
+    # ─────────── TASK-PM-02-C2: دادههای مرجع ───────────
+    ReferenceProduct:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string }
+    ReferenceAuditEvent:
+      type: object
+      required: [id, action, entity_type, at]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        entity_type: { type: string, enum: [brand, uom, product_category] }
+        entity_id: { type: [string, 'null'] }
+        actor_user_id: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+        before_data: {}
+        after_data: {}
+    ReferenceHistoryList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ReferenceAuditEvent' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ReferenceMutationResult:
+      type: object
+      required: [deleted, message_fa]
+      properties:
+        deleted: { type: boolean }
+        message_fa: { type: string }
+        reassigned:
+          type: object
+          properties:
+            children: { type: integer }
+            products: { type: integer }
+    Brand:
+      type: object
+      required: [id, name, is_active, product_count]
+      description: برند شرکتمحور (جدول brand موجود ۰۰۰۵ + ستونهای ۰۰۶۵)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: [string, 'null'], maxLength: 64, description: ردیفهای قدیمی ممکن است بدون کد باشند }
+        name: { type: string }
+        name_latin: { type: [string, 'null'] }
+        is_active: { type: boolean }
+        product_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    BrandCreate:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        is_active: { type: boolean, default: true }
+    BrandUpdate:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        is_active: { type: boolean }
+    BrandDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Brand' }
+        - type: object
+          required: [usage_count, products]
+          properties:
+            usage_count: { type: integer }
+            products: { type: array, items: { $ref: '#/components/schemas/ReferenceProduct' } }
+    BrandList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Brand' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    UnitList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Unit' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    UnitCreate:
+      type: object
+      required: [code, title]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 16 }
+        title: { type: string, minLength: 1, maxLength: 64 }
+        symbol: { type: [string, 'null'], maxLength: 16 }
+        title_latin: { type: [string, 'null'], maxLength: 64 }
+        decimal_places: { type: integer, minimum: 0, maximum: 4, default: 0 }
+        is_active: { type: boolean, default: true }
+    UnitUpdate:
+      type: object
+      description: کد واحد تغییرناپذیر است؛ ارسال code پاسخ ۴۰۰ صریح میگیرد
+      properties:
+        code: { type: string, maxLength: 16 }
+        title: { type: string, minLength: 1, maxLength: 64 }
+        symbol: { type: [string, 'null'], maxLength: 16 }
+        title_latin: { type: [string, 'null'], maxLength: 64 }
+        decimal_places: { type: integer, minimum: 0, maximum: 4 }
+        is_active: { type: boolean }
+    UnitDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Unit' }
+        - type: object
+          required: [usage_count, products]
+          properties:
+            usage_count: { type: integer }
+            products: { type: array, items: { $ref: '#/components/schemas/ReferenceProduct' } }
+    CategoryList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ProductCategory' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    CategoryAncestor:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+    CategoryCreate:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        parent_id: { type: [string, 'null'], format: uuid }
+        is_active: { type: boolean, default: true }
+    CategoryUpdate:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        parent_id: { type: [string, 'null'], format: uuid, description: null = انتقال به ریشه }
+        is_active: { type: boolean }
+    CategoryDetail:
+      allOf:
+        - { $ref: '#/components/schemas/ProductCategory' }
+        - type: object
+          required: [ancestors, children, products]
+          properties:
+            ancestors: { type: array, items: { $ref: '#/components/schemas/CategoryAncestor' } }
+            children: { type: array, items: { $ref: '#/components/schemas/ProductCategory' } }
+            products: { type: array, items: { $ref: '#/components/schemas/ReferenceProduct' } }
     SettingEntry:
       type: object
       required: [key, value]

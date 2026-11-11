@@ -14,6 +14,10 @@ import { PricingModule } from '../pricing/pricing.module';
 import { AttachmentsModule } from '../attachments/attachments.module';
 import { ProductMediaController } from './product-media.controller';
 import { ProductMediaService } from './product-media.service';
+// TASK-PM-02-C2: مدیریت دادههای مرجع (برند/واحد/دسته) روی همان جداول ۰۰۰۵.
+import { ReferenceDataController } from './reference-data.controller';
+import { ReferenceDataService } from './reference-data.service';
+import { ReferenceDataRepository } from './reference-data.repository';
 import { MasterDataController } from './master-data.controller';
 import { MasterDataRepository } from './master-data.repository';
 import { PackagingController } from './packaging.controller';
@@ -75,6 +79,9 @@ import {
     ProductCatalogController,
     ProductExportController,
     ProductMediaController,
+    // مسیرهای /reference-data/* پیش از ProductController فرستاده میشوند تا هیچ
+    // تداخلی با :id محصول نداشته باشند (هرچند پیشوندشان متفاوت است).
+    ReferenceDataController,
     ProductBulkMaintenanceController,
     ProductController,
     PackagingController,
@@ -100,6 +107,8 @@ import {
     { provide: PRODUCT_SERVICE, useExisting: ProductService },
     ProductExportService,
     ProductMediaService,
+    ReferenceDataService,
+    ReferenceDataRepository,
     ProductBulkMaintenanceService,
     ProductBulkMaintenanceRepository,
     MasterDataRepository,

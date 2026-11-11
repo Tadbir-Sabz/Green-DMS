@@ -7,10 +7,8 @@ import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
 import {
-  type Category,
   type DuplicateCheckResult,
   type ProductFamily,
-  type Unit,
   btnGhost,
   btnPrimary,
   errorCls,
@@ -20,6 +18,7 @@ import {
   panelCls,
   selectCls,
 } from '../products-lib';
+import { ReferenceSelectors, type ReferenceSelection } from '../reference-data/reference-selectors';
 
 /**
  * ویزارد ساختِ کالا (D1):
@@ -36,6 +35,7 @@ const EMPTY_FORM = {
   family_id: '',
   category_id: '',
   base_uom_id: '',
+  brand_id: '',
   barcode: '',
   barcode_kind: 'gs1_ean13' as string,
   distribution_kind: 'both' as 'cold' | 'warm' | 'both',
@@ -53,8 +53,6 @@ export default function NewProductPage(): React.JSX.Element {
   const [ready, setReady] = useState(false);
 
   const [form, setForm] = useState(EMPTY_FORM);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
   const [families, setFamilies] = useState<ProductFamily[]>([]);
 
   const [famForm, setFamForm] = useState({ code: '', name: '' });
@@ -67,21 +65,18 @@ export default function NewProductPage(): React.JSX.Element {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const loadRefs = useCallback(async () => {
-    const [cats, unts, fams] = await Promise.all([
-      api.GET('/product-categories'),
-      api.GET('/units'),
-      api.GET('/product-families'),
-    ]);
-    const catItems = cats.data?.items ?? [];
-    setCategories(catItems);
-    setUnits(unts.data?.items ?? []);
-    setFamilies(fams.data ?? []);
-    setForm((f) => ({
-      ...f,
-      category_id: f.category_id || (catItems[0]?.id ?? ''),
-      base_uom_id: f.base_uom_id || ((unts.data?.items ?? [])[0]?.id ?? ''),
-    }));
+  /**
+   * خانوادهها همچنان از مسیر قدیمی میآیند. سه مرجع برند/واحد/دسته را
+   * `ReferenceSelectors` با قرارداد /reference-data/* و فقط گزینههای فعال
+   * بارگذاری میکند (خطا/تلاش مجدد/حالت خالی همانجاست).
+   */
+  const loadFamilies = useCallback(async () => {
+    const { data, error } = await api.GET('/product-families');
+    if (error) {
+      setFormError(faError(error));
+      return;
+    }
+    setFamilies(data ?? []);
   }, []);
 
   useEffect(() => {
@@ -90,8 +85,8 @@ export default function NewProductPage(): React.JSX.Element {
       return;
     }
     setReady(true);
-    void loadRefs();
-  }, [router, loadRefs]);
+    void loadFamilies();
+  }, [router, loadFamilies]);
 
   /** بررسیِ زندهٔ تکرار — با تأخیر ۴۰۰ms بعد از تایپ */
   const scheduleDupCheck = (next: typeof EMPTY_FORM): void => {
@@ -154,6 +149,7 @@ export default function NewProductPage(): React.JSX.Element {
         name_latin: form.name_latin.trim() || null,
         category_id: form.category_id,
         base_uom_id: form.base_uom_id,
+        brand_id: form.brand_id || null,
         family_id: form.family_id || null,
         distribution_kind: form.distribution_kind,
         min_order_qty: form.min_order_qty ? Number(form.min_order_qty) : 1,
@@ -238,38 +234,23 @@ export default function NewProductPage(): React.JSX.Element {
                 placeholder="خالی = تولیدِ خودکارِ SKU-XXXXXX"
               />
             </label>
-            <label className="text-sm">
-              گروه کالا *
-              <select
-                className={`${selectCls} mt-1`}
-                value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                required
-              >
-                {categories.length === 0 && <option value="">— گروهی ثبت نشده —</option>}
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
-              واحد پایه *
-              <select
-                className={`${selectCls} mt-1`}
-                value={form.base_uom_id}
-                onChange={(e) => setForm({ ...form, base_uom_id: e.target.value })}
-                required
-              >
-                {units.length === 0 && <option value="">— واحدی ثبت نشده —</option>}
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.code} — {u.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ReferenceSelectors
+              mode="create"
+              disabled={false}
+              value={{
+                category_id: form.category_id,
+                base_uom_id: form.base_uom_id,
+                brand_id: form.brand_id,
+              }}
+              onChange={(next: ReferenceSelection) =>
+                setForm({
+                  ...form,
+                  category_id: next.category_id,
+                  base_uom_id: next.base_uom_id,
+                  brand_id: next.brand_id,
+                })
+              }
+            />
             <label className="text-sm">
               خانواده (محورِ variant)
               <select

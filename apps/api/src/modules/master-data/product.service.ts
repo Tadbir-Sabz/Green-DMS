@@ -190,16 +190,24 @@ export class ProductService {
     companyId: string,
     dto: CreateProductDto | UpdateProductDto,
   ): Promise<void> {
-    if (dto.category_id && !(await this.repo.categoryExists(companyId, dto.category_id))) {
+    if (dto.category_id && !(await this.repo.activeCategoryExists(companyId, dto.category_id))) {
       throw new BadRequestException({
         code: 'invalid_category',
-        message_fa: 'دسته‌بندی انتخاب‌شده برای این شرکت تعریف نشده است.',
+        message_fa: 'دسته‌بندی انتخاب‌شده برای این شرکت تعریف نشده یا غیرفعال است؛ دسته‌ای فعال انتخاب کنید.',
       });
     }
-    if (dto.base_uom_id && !(await this.repo.uomExists(dto.base_uom_id))) {
+    if (dto.base_uom_id && !(await this.repo.activeUomExists(dto.base_uom_id))) {
       throw new BadRequestException({
         code: 'invalid_uom',
-        message_fa: 'واحد اندازه‌گیری انتخاب‌شده معتبر نیست.',
+        message_fa: 'واحد اندازه‌گیری انتخاب‌شده معتبر نیست یا غیرفعال است؛ واحدی فعال انتخاب کنید.',
+      });
+    }
+    // TASK-PM-02-C2: برند نیز (مانند دسته/واحد) باید در همان شرکت و فعال باشد.
+    if (dto.brand_id !== undefined && dto.brand_id !== null &&
+        !(await this.repo.activeBrandExists(companyId, dto.brand_id))) {
+      throw new BadRequestException({
+        code: 'invalid_brand',
+        message_fa: 'برند انتخاب‌شده برای این شرکت تعریف نشده یا غیرفعال است؛ برندی فعال انتخاب کنید.',
       });
     }
     if (dto.family_id && !(await this.masterRepo.familyExists(companyId, dto.family_id))) {

@@ -1971,6 +1971,575 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reference-data/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تاریخچهٔ ممیزی دادههای مرجع (برند/واحد/دسته) */
+        get: {
+            parameters: {
+                query?: {
+                    entity_type?: "brand" | "uom" | "product_category";
+                    entity_id?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description رویدادهای ممیزی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceHistoryList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست برندهای شرکت با جستوجو، فیلتر وضعیت، شمارش استفاده و صفحهبندی */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از برندها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ایجاد برند (کد و نام یکتا در هر شرکت) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BrandCreate"];
+                };
+            };
+            responses: {
+                /** @description برند ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Brand"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/brands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** جزئیات برند + کالاهای متصل */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description جزئیات برند */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** حذف امن برند (فقط اگر به کالایی متصل نباشد) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ حذف */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceMutationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** ویرایش برند (نام/نام لاتین/کد/وضعیت) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BrandUpdate"];
+                };
+            };
+            responses: {
+                /** @description برند بهروزشده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Brand"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
+    "/reference-data/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست واحدهای اندازهگیری (مرجع سراسری) با جستوجو/فیلتر/شمارش استفاده */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از واحدها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnitList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ایجاد واحد اندازهگیری (کد سراسری یکتا؛ دقت اعشار ۰..۴ طبق D3) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UnitCreate"];
+                };
+            };
+            responses: {
+                /** @description واحد ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Unit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/units/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** جزئیات واحد + کالاهای متصل */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description جزئیات واحد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnitDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** حذف امن واحد (فقط اگر به کالا/بستهبندی متصل نباشد) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ حذف */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceMutationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** ویرایش واحد (کد تغییرناپذیر است) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UnitUpdate"];
+                };
+            };
+            responses: {
+                /** @description واحد بهروزشده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Unit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/reference-data/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست دستهبندیهای درختی شرکت با جستوجو/فیلتر/شمارش استفاده */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    parent_id?: string;
+                    root?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از دستهبندیها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ایجاد دستهبندی (کد یکتا؛ والد اختیاری؛ جلوگیری از حلقه) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryCreate"];
+                };
+            };
+            responses: {
+                /** @description دستهبندی ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCategory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** جزئیات دستهبندی + زنجیرهٔ والدها، فرزندان و کالاها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description جزئیات دستهبندی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** حذف امن دستهبندی؛ reassign_to وابستگان را پیش از حذف منتقل میکند */
+        delete: {
+            parameters: {
+                query?: {
+                    reassign_to?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ حذف/انتساب */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceMutationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** ویرایش/جابهجایی دستهبندی (حلقه و عمق بررسی میشود) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryUpdate"];
+                };
+            };
+            responses: {
+                /** @description دستهبندی بهروزشده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCategory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
     "/products/barcodes/{barcodeId}": {
         parameters: {
             query?: never;
@@ -12210,6 +12779,17 @@ export interface components {
              * @description والد در سلسله‌مراتب
              */
             parent_id?: string | null;
+            name_latin?: string | null;
+            parent_name?: string | null;
+            /** @enum {string} */
+            cost_method?: "moving_avg" | "fifo" | "standard";
+            is_active?: boolean;
+            product_count?: number;
+            child_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
         };
         /** @description واحد اندازه‌گیری — داده مرجع سراسری (جدول uom) */
         Unit: {
@@ -12223,6 +12803,15 @@ export interface components {
             code: string;
             title: string;
             decimal_places?: number;
+            symbol?: string | null;
+            title_latin?: string | null;
+            is_active?: boolean;
+            product_count?: number;
+            packaging_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
         };
         /** @description لیست قیمت؛ قیمت مشتری‌محور در `customer_price` اولویت دارد */
         PriceList: {
@@ -14138,6 +14727,143 @@ export interface components {
             /** @description محدودیت مستند جابهجایی خودکار تصویرِ اصلی */
             primary_image_note_fa: string;
             message_fa: string;
+        };
+        ReferenceProduct: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            status?: string;
+        };
+        ReferenceAuditEvent: {
+            id: string;
+            action: string;
+            /** @enum {string} */
+            entity_type: "brand" | "uom" | "product_category";
+            entity_id?: string | null;
+            actor_user_id?: string | null;
+            /** Format: date-time */
+            at: string;
+            before_data?: unknown;
+            after_data?: unknown;
+        };
+        ReferenceHistoryList: {
+            items: components["schemas"]["ReferenceAuditEvent"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        ReferenceMutationResult: {
+            deleted: boolean;
+            message_fa: string;
+            reassigned?: {
+                children?: number;
+                products?: number;
+            };
+        };
+        /** @description برند شرکتمحور (جدول brand موجود ۰۰۰۵ + ستونهای ۰۰۶۵) */
+        Brand: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description ردیفهای قدیمی ممکن است بدون کد باشند */
+            code?: string | null;
+            name: string;
+            name_latin?: string | null;
+            is_active: boolean;
+            product_count: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        BrandCreate: {
+            code: string;
+            name: string;
+            name_latin?: string | null;
+            /** @default true */
+            is_active: boolean;
+        };
+        BrandUpdate: {
+            code?: string;
+            name?: string;
+            name_latin?: string | null;
+            is_active?: boolean;
+        };
+        BrandDetail: components["schemas"]["Brand"] & {
+            usage_count: number;
+            products: components["schemas"]["ReferenceProduct"][];
+        };
+        BrandList: {
+            items: components["schemas"]["Brand"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        UnitList: {
+            items: components["schemas"]["Unit"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        UnitCreate: {
+            code: string;
+            title: string;
+            symbol?: string | null;
+            title_latin?: string | null;
+            /** @default 0 */
+            decimal_places: number;
+            /** @default true */
+            is_active: boolean;
+        };
+        /** @description کد واحد تغییرناپذیر است؛ ارسال code پاسخ ۴۰۰ صریح میگیرد */
+        UnitUpdate: {
+            code?: string;
+            title?: string;
+            symbol?: string | null;
+            title_latin?: string | null;
+            decimal_places?: number;
+            is_active?: boolean;
+        };
+        UnitDetail: components["schemas"]["Unit"] & {
+            usage_count: number;
+            products: components["schemas"]["ReferenceProduct"][];
+        };
+        CategoryList: {
+            items: components["schemas"]["ProductCategory"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        CategoryAncestor: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+        };
+        CategoryCreate: {
+            code: string;
+            name: string;
+            name_latin?: string | null;
+            /** Format: uuid */
+            parent_id?: string | null;
+            /** @default true */
+            is_active: boolean;
+        };
+        CategoryUpdate: {
+            code?: string;
+            name?: string;
+            name_latin?: string | null;
+            /**
+             * Format: uuid
+             * @description null = انتقال به ریشه
+             */
+            parent_id?: string | null;
+            is_active?: boolean;
+        };
+        CategoryDetail: components["schemas"]["ProductCategory"] & {
+            ancestors: components["schemas"]["CategoryAncestor"][];
+            children: components["schemas"]["ProductCategory"][];
+            products: components["schemas"]["ReferenceProduct"][];
         };
         /** @description تنظیم با دامنه — حوزه‌ها فقط محدوده خود را می‌بینند (ماژول ۱۱) */
         SettingEntry: {

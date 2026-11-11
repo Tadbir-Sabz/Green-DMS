@@ -9,9 +9,9 @@ import { useParams, useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
+import { ReferenceSelectors, type ReferenceSelection } from '../reference-data/reference-selectors';
 import {
   type BundleComponent,
-  type Category,
   type Product,
   type ProductAlias,
   type ProductAttributeDef,
@@ -20,7 +20,6 @@ import {
   type ProductFamily,
   type ProductPackaging,
   type ProductRelation,
-  type Unit,
   ALIAS_KIND_LABEL,
   ATTR_KIND_LABEL,
   BARCODE_KIND_LABEL,
@@ -188,6 +187,7 @@ function IdentityTab({
     family_id: product.family_id ?? '',
     category_id: product.category_id,
     base_uom_id: product.base_uom_id,
+    brand_id: product.brand_id ?? '',
     status: product.status,
     distribution_kind: product.distribution_kind,
     min_order_qty: String(product.min_order_qty ?? 1),
@@ -201,25 +201,25 @@ function IdentityTab({
   const [confirmSensitive, setConfirmSensitive] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
   const [families, setFamilies] = useState<ProductFamily[]>([]);
 
+  // برند/واحد/دسته را ReferenceSelectors با قرارداد /reference-data/* میگیرد؛
+  // در حالت ویرایش، مقدار تاریخی غیرفعال هم نمایش داده میشود ولی قابلانتخاب مجدد نیست.
   useEffect(() => {
-    void Promise.all([api.GET('/product-categories'), api.GET('/units'), api.GET('/product-families')]).then(
-      ([cats, unts, fams]) => {
-        setCategories(cats.data?.items ?? []);
-        setUnits(unts.data?.items ?? []);
-        setFamilies(fams.data ?? []);
-      },
-    );
+    void api.GET('/product-families').then(({ data, error }) => {
+      if (error) setErr(faError(error));
+      else setFamilies(data ?? []);
+    });
   }, []);
 
   // D4 — فیلدهای حساس: تغییرِشان نیازمندِ تأییدِ صریح است
+  const categoryChanged = form.category_id !== product.category_id;
+  const uomChanged = form.base_uom_id !== product.base_uom_id;
+  const brandChanged = form.brand_id !== (product.brand_id ?? '');
   const sensitiveChanged =
     form.status !== product.status ||
     (form.tax_code_id || null) !== (product.tax_code_id ?? null) ||
-    form.base_uom_id !== product.base_uom_id;
+    uomChanged;
 
   const submit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -232,8 +232,11 @@ function IdentityTab({
         name: form.name.trim(),
         name_latin: form.name_latin.trim() || null,
         family_id: form.family_id || null,
-        category_id: form.category_id,
-        base_uom_id: form.base_uom_id,
+        // فقط مراجعی که واقعاً تغییر کردهاند ارسال میشوند: ویرایش سایر فیلدهای
+        // یک کالای قدیمی با مرجع غیرفعال، نباید به اجبار ارجاع را عوض کند.
+        ...(categoryChanged ? { category_id: form.category_id } : {}),
+        ...(uomChanged ? { base_uom_id: form.base_uom_id } : {}),
+        ...(brandChanged ? { brand_id: form.brand_id || null } : {}),
         status: form.status as 'active' | 'blocked' | 'discontinued',
         distribution_kind: form.distribution_kind as 'cold' | 'warm' | 'both',
         min_order_qty: form.min_order_qty ? Number(form.min_order_qty) : 1,
@@ -281,26 +284,23 @@ function IdentityTab({
           کد کالا (SKU)
           <input className={`${inputCls} mt-1 font-mono`} dir="ltr" value={product.code} disabled title="کدِ SKU پس از ثبت تغییرناپذیر است" />
         </label>
-        <label className="text-sm">
-          گروه کالا *
-          <select className={`${selectCls} mt-1`} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} required>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          واحد پایه * <span className="text-xs text-warning-ink">(حساس — D4)</span>
-          <select className={`${selectCls} mt-1`} value={form.base_uom_id} onChange={(e) => setForm({ ...form, base_uom_id: e.target.value })} required>
-            {units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.code} — {u.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ReferenceSelectors
+          mode="edit"
+          disabled={false}
+          value={{
+            category_id: form.category_id,
+            base_uom_id: form.base_uom_id,
+            brand_id: form.brand_id,
+          }}
+          onChange={(next: ReferenceSelection) =>
+            setForm({
+              ...form,
+              category_id: next.category_id,
+              base_uom_id: next.base_uom_id,
+              brand_id: next.brand_id,
+            })
+          }
+        />
         <label className="text-sm">
           خانواده (محورِ variant)
           <select className={`${selectCls} mt-1`} value={form.family_id} onChange={(e) => setForm({ ...form, family_id: e.target.value })}>

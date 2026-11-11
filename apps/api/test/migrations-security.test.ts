@@ -193,10 +193,10 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-PM-01D-M4-G: 0064 (بازیابی پارتیشن ممیزی با هویت مالک اشیاء) آخرین
-    // مهاجرت است. با افزودنِ مهاجرتِ تازه این خط عمداً باید بهروزرسانی شود —
-    // تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0064_audit_partition_recovery.up.sql');
+    // TASK-PM-02-C2: 0065 (مدیریت دادههای مرجع کالا) آخرین مهاجرت است؛
+    // ۰۰۶۴ پیشتر آخرین بود. با افزودنِ مهاجرتِ تازه این خط عمداً باید
+    // بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
+    expect(files[files.length - 1]).toBe('0065_reference_data_admin.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -310,13 +310,15 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     expect(rows[0].parents).toBe(3);
   });
 
-  it('0064 down: exact 0042 catalog state is restored on an isolated DB', async () => {
+  it('0064 down: exact pre-0064 catalog state (including 0065) is restored on an isolated DB', async () => {
     const dbName = `greendms_g_down_${uid()}`;
     const isolatedUrl = new URL(adminUrl);
     isolatedUrl.pathname = `/${dbName}`;
     let isolated: pg.Pool | undefined;
     await adminPool.query(`create database "${dbName}"`);
     try {
+      // مبنای «پیش از ۰۰۶۴» شامل همهٔ مهاجرتهای دیگر — از جمله ۰۰۶۵ — است؛
+      // ۰۰۶۴ فقط وضعیت تابع نگهداشت پارتیشن/کامنت طرحواره را تغییر میدهد.
       const files = readdirSync(path.join(ROOT, 'migrations'))
         .filter((f) => f.endsWith('.up.sql') && !f.startsWith('0064_'))
         .sort();
@@ -335,7 +337,7 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
       expect(hardened.schema_comment).toContain('TASK-PM-01D-M4-G');
 
       // بدنه، prosecdef/proconfig، ترتیبِ دقیقِ proacl، comment تابع و comment
-      // طرحوارهٔ public باید بایتبهبایت با وضعیت پس از ۰۰۴۲ یکی باشند.
+      // طرحوارهٔ public باید بایتبهبایت با وضعیت مبنای پیش از ۰۰۶۴ یکی باشند.
       runSqlFileOn(dbName, down64);
       const restored = await maintenanceFunctionState(isolated);
       expect(restored).toEqual(baseline);

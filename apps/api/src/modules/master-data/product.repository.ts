@@ -190,6 +190,36 @@ export class ProductRepository {
     return rows.length > 0;
   }
 
+  /**
+   * TASK-PM-02-C2 — مراجع فرم کالا باید موجود **و فعال** باشند.
+   * رکوردهای غیرفعال همچنان برای کالاها/اسناد قدیمی خواندنیاند، ولی انتخاب
+   * آنها در فرمهای ساخت/ویرایش جدید مجاز نیست. قیود موجود (RLS/company_id)
+   * عیناً حفظ شدند؛ هیچ مجوز یا جدول تازهای اضافه نشد.
+   */
+  async activeCategoryExists(companyId: string, categoryId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      'select 1 from product_category where id = $1 and company_id = $2 and is_active',
+      [categoryId, companyId],
+    );
+    return rows.length > 0;
+  }
+
+  async activeBrandExists(companyId: string, brandId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      'select 1 from brand where id = $1 and company_id = $2 and is_active',
+      [brandId, companyId],
+    );
+    return rows.length > 0;
+  }
+
+  async activeUomExists(uomId: string): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      'select 1 from uom where id = $1 and is_active',
+      [uomId],
+    );
+    return rows.length > 0;
+  }
+
   async insert(companyId: string, dto: CreateProductDto & { code: string }): Promise<ProductRow> {
     const { rows } = await this.pool.query<ProductRow>(
       `insert into product (company_id, code, name, name_latin, family_id, category_id, base_uom_id,

@@ -1,0 +1,56 @@
+TASK-PM-02-C2 — شاهد زندهٔ همانمبدأ (Same-origin preview → Next rewrite → API)
+زمان اجرا: 2026-11-11T17:46:53Z
+پایه: http://127.0.0.1:3000/api/v1 (مرورگر/سند، بدون localhost مستقیم به API)
+
+POST   /auth/login                                                                                     → 200
+  ✓ نشست معتبر و توکن دریافت شد (توکن در شاهد ذخیره نشد).
+
+GET    /reference-data/brands?limit=200                                                                → 200
+GET    /reference-data/units?limit=200                                                                 → 200
+GET    /reference-data/categories?limit=200                                                            → 200
+GET    /reference-data/history?limit=5                                                                 → 200
+
+POST   /reference-data/brands                                                                          → 201
+GET    /reference-data/brands/5a3f9b9b-25d1-45f3-a3ae-b23bb5d19b04                                     → 200
+POST   /reference-data/brands                                                                          → 400
+  ✓ رد فیلد ناشناختهٔ بدنه: 'unsupported_request_field'
+PATCH  /reference-data/brands/5a3f9b9b-25d1-45f3-a3ae-b23bb5d19b04                                     → 200
+POST   /products                                                                                       → 400
+PATCH  /reference-data/brands/5a3f9b9b-25d1-45f3-a3ae-b23bb5d19b04                                     → 200
+
+POST   /reference-data/units                                                                           → 201
+PATCH  /reference-data/units/535ecbef-8279-421d-874a-075f2b9127fb                                      → 400
+PATCH  /reference-data/units/535ecbef-8279-421d-874a-075f2b9127fb                                      → 200
+GET    /reference-data/units/535ecbef-8279-421d-874a-075f2b9127fb                                      → 200
+
+POST   /reference-data/categories                                                                      → 201
+POST   /reference-data/categories                                                                      → 201
+PATCH  /reference-data/categories/669a6960-728f-4618-a371-c767aef7aad4                                 → 409
+  ✓ جلوگیری از حلقهٔ سلسلهمراتب: 'category_cycle'
+GET    /reference-data/categories?root=true&limit=200                                                  → 200
+GET    /reference-data/categories/5e67131c-6e61-40f8-817e-035b91bc9c34                                 → 200
+
+POST   /products                                                                                       → 201
+PATCH  /reference-data/brands/5a3f9b9b-25d1-45f3-a3ae-b23bb5d19b04                                     → 200
+POST   /products                                                                                       → 400
+  ✓ رد برند غیرفعال هنگام ساخت کالا: 'invalid_brand'
+PATCH  /reference-data/brands/5a3f9b9b-25d1-45f3-a3ae-b23bb5d19b04                                     → 200
+GET    /products?limit=10                                                                              → 200
+  ✓ کالای ساختهشده در فهرست محصولات: True
+
+DELETE /reference-data/categories/5e67131c-6e61-40f8-817e-035b91bc9c34                                 → 409
+  ✓ حذف بدون انتساب رد شد: 'category_in_use'
+DELETE /reference-data/categories/5e67131c-6e61-40f8-817e-035b91bc9c34?reassign_to=669a6960-728f-4618-a371-c767aef7aad4 → 200
+GET    /reference-data/categories/669a6960-728f-4618-a371-c767aef7aad4                                 → 200
+  ✓ کالا به دستهٔ مقصد منتقل شد: 1
+  ✓ جزئیات مقصد، زنجیرهٔ والدها/فرزندان و کالاها از همان قرارداد خوانده شد.
+
+GET    /reference-data/brands?bogus=1                                                                  → 400
+  ✓ رد پارامتر ناشناختهٔ پرسوجو: 'unsupported_query_parameter'
+GET    /reference-data/history?entity_type=brand&limit=20                                              → 200
+  ✓ رویداد ممیزی برند ثبت شد: True
+GET   /reference-data/brands + x-domain-id                → 400
+  ✓ هدر دامنهای B2 در مسیر مرکزی رد شد: 400
+
+نتیجه: PASS — چرخهٔ واقعی ساخت/ویرایش/غیرفعالسازی/حذف امن/انتساب/ممیزی/یکپارچگی محصول
+محدوده: همانمبدأ localhost پیشنمایش داخلی؛ معادل مرورگر دستی/تولید اثبات نشد.

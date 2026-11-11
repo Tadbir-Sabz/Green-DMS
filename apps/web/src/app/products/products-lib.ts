@@ -30,6 +30,14 @@ export type BulkMaintenanceOperationItem = components['schemas']['BulkMaintenanc
 export type BulkMaintenanceChanges = components['schemas']['BulkMaintenanceChanges'];
 export type Category = components['schemas']['ProductCategory'];
 export type Unit = components['schemas']['Unit'];
+// TASK-PM-02-C2 — انواع تولیدشده از قرارداد مدیریت دادههای مرجع
+export type Brand = components['schemas']['Brand'];
+export type BrandDetail = components['schemas']['BrandDetail'];
+export type UnitDetail = components['schemas']['UnitDetail'];
+export type CategoryDetail = components['schemas']['CategoryDetail'];
+export type ReferenceProduct = components['schemas']['ReferenceProduct'];
+export type ReferenceAuditEvent = components['schemas']['ReferenceAuditEvent'];
+export type ReferenceMutationResult = components['schemas']['ReferenceMutationResult'];
 
 /** کلاس‌های ثابتِ فرم — هم‌سبک با صفحات موجود (RTL، تایپوگرافی فارسی) */
 export const inputCls =
