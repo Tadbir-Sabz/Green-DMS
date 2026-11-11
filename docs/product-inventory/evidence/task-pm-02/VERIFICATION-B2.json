@@ -257,5 +257,33 @@
     "rerun": "403 Resource not accessible by integration; no workflow_dispatch trigger",
     "attributable_to_b2": false,
     "verdict": "FAIL (CI infrastructure) / UNVERIFIED; not a B2 code regression"
+  },
+  "ci_final_sha_recheck_2026_11_11_c1": {
+    "recorded_at_sandbox_utc": "2026-11-11T16:00:00Z",
+    "head_sha": "deefa05b89de62da7a34fb920626a0adca920f57",
+    "runs": {
+      "43040312220": {
+        "name": "CI",
+        "status": "completed",
+        "conclusion": "cancelled"
+      },
+      "43040312421": {
+        "name": "e2e",
+        "status": "completed",
+        "conclusion": "cancelled"
+      },
+      "43040312489": {
+        "name": "release-image",
+        "status": "completed",
+        "conclusion": "cancelled"
+      },
+      "43040312368": {
+        "name": "database migrations",
+        "status": "queued",
+        "conclusion": null
+      }
+    },
+    "verdict": "UNVERIFIED / CANCELLED (3) + QUEUED (1); never PASS",
+    "note": "Additive C1-era recheck; all earlier B2 evidence and verdicts are unchanged."
   }
 }

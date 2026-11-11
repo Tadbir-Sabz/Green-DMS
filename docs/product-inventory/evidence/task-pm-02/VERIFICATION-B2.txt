@@ -142,3 +142,13 @@ EXACT-FINAL-SHA CI — first B2 push 42e21a4d29bfd379e3e2781f641b50a1b8d7e462
   external apt/browser downloads. A follow-up ordinary commit retriggers CI; its outcome is
   recorded in the PR #14 body. Verdict for the unavailable checks: FAIL (CI infrastructure) /
   UNVERIFIED, NOT a B2 FAIL.
+
+ADDENDUM (C1-era recheck, 2026-11-11T16:00:00Z; additive, preserves all above):
+  Exact-final-SHA runs for deefa05... were rechecked while C1 was pushed:
+    43040312220 CI             completed / cancelled
+    43040312421 e2e            completed / cancelled
+    43040312489 release-image  completed / cancelled
+    43040312368 migrations     queued / conclusion null
+  Verdict updated from "UNVERIFIED / PENDING" to
+  "UNVERIFIED / CANCELLED (3) + QUEUED (1)" — still never PASS.
+  No workflow, secret, infrastructure setting or historical verdict was rewritten.

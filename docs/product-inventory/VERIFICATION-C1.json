@@ -98,20 +98,20 @@
     {
       "id": "G16",
       "name": "B2 final-SHA CI",
-      "result": "UNVERIFIED / PENDING",
-      "evidence": "runs 43040312220/43040312368/43040312421/43040312489 queued; conclusion null"
+      "result": "UNVERIFIED / CANCELLED (3) + QUEUED (1)",
+      "evidence": "rechecked 2026-11-11T16:00Z: 43040312220 CI cancelled, 43040312421 e2e cancelled, 43040312489 release-image cancelled, 43040312368 migrations still queued; never PASS"
     },
     {
       "id": "G17",
       "name": "C1 final-SHA CI",
       "result": "UNVERIFIED / PENDING",
-      "evidence": "to be recorded after ordinary commit/push; queued is never PASS"
+      "evidence": "implementation commit aa2fba23d4688b5b741235e5a55ed71492f9d483: 4 runs 43053200836/43053200543/43053201194/43053200591 and 8 check-runs queued, conclusion null after 180s bounded watch (EXIT=124); final evidence commit recorded in PR #14 body"
     },
     {
       "id": "G18",
       "name": "manual browser RTL/a11y/console + production MinIO round-trip",
       "result": "UNVERIFIED",
-      "evidence": "no browser automation installed; jsdom component coverage instead"
+      "evidence": "no Playwright browser binary available in sandbox; 7 jsdom component tests + curl-verified same-origin live preview instead; thumbnail needs browser-reachable MinIO/S3"
     },
     {
       "id": "G19",
@@ -130,6 +130,36 @@
       "name": "live preview end-to-end through same-origin web proxy",
       "result": "PASS",
       "evidence": "Next dev:3000 + API:4000 + native PG + local S3:9100; login 200, empty media 200, Persian-filename upload 201 (is_primary), list 200, fresh URL 200 (ttl 300), ?available=true 400, page 200; preview https://3000-i2hc8membf15gd6pw6m1m.e2b.app"
+    },
+    {
+      "id": "G22",
+      "name": "root build (packages + API + Next)",
+      "result": "PASS",
+      "evidence": "npm run build EXIT=0; /tmp/pm02c1-root-build.log"
+    },
+    {
+      "id": "G23",
+      "name": "migrations up -> down -> up on empty local PostgreSQL",
+      "result": "PASS",
+      "evidence": "npm run test:migrations EXIT=0; 1029 identical objects on both up passes; TEST_DB=greendms_ci_c1; /tmp/pm02c1-migrations.log"
+    },
+    {
+      "id": "G24",
+      "name": "full DB-backed API suite + pristine-baseline regression control",
+      "result": "PASS (no C1 regression) / FAIL (local environment)",
+      "evidence": "88 files / 1508 tests -> 83 files / 1489 tests PASS, 5 files / 19 tests FAIL (EXIT=1); detached worktree at deefa05 reproduced exactly the same 5 files and the same 19 test titles (identical=True); failures are PostGIS, local trust auth, Tour contract and missing real MinIO; both new C1 test files PASS 8/8 and 9/9"
+    },
+    {
+      "id": "G25",
+      "name": "six SHA views + PR state after ordinary push",
+      "result": "PASS",
+      "evidence": "all six views aa2fba23d4688b5b741235e5a55ed71492f9d483; PR #14 OPEN / DRAFT, base main; 0 reviews, 0 review comments, 1 non-approval issue comment"
+    },
+    {
+      "id": "G26",
+      "name": "git diff --check after final evidence edits",
+      "result": "PASS",
+      "evidence": "git diff --check EXIT=0; CJK/BOM/trailing-whitespace scan ISSUES 0"
     }
   ],
   "verdicts": {
@@ -138,5 +168,33 @@
     "ci_exact_final_sha": "UNVERIFIED / PENDING",
     "owner_gated_scope": "BLOCKED",
     "independent_agent2_review": "NOT REQUIRED (ordinary non-boundary development; no contradictory evidence)"
+  },
+  "implementation_commit": "aa2fba23d4688b5b741235e5a55ed71492f9d483",
+  "ci_implementation_sha": {
+    "runs": [
+      "43053200836",
+      "43053200543",
+      "43053201194",
+      "43053200591"
+    ],
+    "check_runs": 8,
+    "status": "queued",
+    "conclusion": null,
+    "verdict": "UNVERIFIED / PENDING"
+  },
+  "full_db_run": {
+    "files": 88,
+    "tests": 1508,
+    "files_passed": 83,
+    "tests_passed": 1489,
+    "files_failed": 5,
+    "tests_failed": 19,
+    "exit": 1,
+    "baseline_sha": "deefa05b89de62da7a34fb920626a0adca920f57",
+    "baseline_identical_failures": true,
+    "c1_test_files": {
+      "product-media.api.test.ts": "8/8 PASS",
+      "product-media-rules.test.ts": "9/9 PASS"
+    }
   }
 }

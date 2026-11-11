@@ -139,18 +139,29 @@ grant، نقش، مجوز، enum، seed، ارائهدهندهٔ authority یا 
 | `node scripts/contract-drift.mjs` | **PASS** drift=۰ (کد↔سند ۲۸۸/۲۸۸) |
 | `node scripts/check-test-partition.mjs` | **PASS** declared==computed، ۸۸ فایل |
 | `git diff --check` | **PASS** ۰ |
+| `npm run build` (همهٔ ورکاسپیسها: packages + API + Next) | **PASS** |
+| `npm run test:migrations` (up → down → up روی PG بومی) | **PASS** ۱۰۲۹ شیء یکسان |
+| مجموعهٔ کامل DB-backed API + کنترل مبنای پاک | **PASS** عدم رگرسیون / **FAIL** محیط محلی (توضیح زیر) |
 
 تستهای سرتاسری API شامل: نمای خالی، آپلود تصویر + ردیف ممیزی + برچسب اصلی،
 ترتیب قدیمیتریناول و «PDF/تصویر دوم اصلی نمیشوند»، محدودسازی URL به همان کالا،
 رد فیلدهای مالکیتی کلاینت، همسانی fail-closed مرز B2 (`x-domain-id` و `?available=true`)،
 کالای شرکت دیگر/ناموجود، MIMEUnsupported/امضای جعلی، ۴۰۱، و ۴۰۳ برای کاربر بیمجوز.
-MinIO/S3 در این تستها با `vi.spyOn` روی **همان نمونهٔ `StorageService`** جایگزین شد؛
-round-trip واقعی MinIO همچنان در `apps/api/test/attachments.api.test.ts` پوشش دارد. اجرای کامل
-DB-backed روی محیط محلی بهدلیل mهایت PostGIS/احراز هویت/قرارداد ۴ فایل ناکام دارد
-(همان ۴ فایل روی مبنای پاک `dad4ce8` نیز ناکاماند) → `UNVERIFIED` محیطی، نه رگرسیون C1.
+MinIO/S3 در تستهای تازهٔ C1 با `vi.spyOn` روی **همان نمونهٔ `StorageService`**
+جایگزین شد؛ round-trip واقعی MinIO همچنان در `apps/api/test/attachments.api.test.ts`
+پوشش دارد. اجرای کامل DB-backed نیز انجام شد (`DATABASE_URL` + `PSQL` روی PostgreSQL
+بومی ۱۶.۲): ۸۸ فایل / ۱۵۰۸ تست → ۸۳ فایل و ۱۴۸۹ تست **PASS**، ۵ فایل و ۱۹ تست
+**FAIL** (`EXIT=1`). برای تفکیک رگرسیون از محیط، همان ۵ فایل روی یک worktree جداگانهٔ
+**مبنای پاک `deefa05…`** با همان متغیرها اجرا شد: دقیقاً همان ۵ فایل و همان ۱۹ عنوان
+شکست (مقایسهٔ دوتایی `identical=True`، بدون حتی یک تفاوت). علل محیطی: PostGIS/هندسه،
+احراز هویت trust محلی، قرارداد Tour، و نبود MinIO/S3 واقعی برای round-trip ضمائم.
+دو فایل تازهٔ C1 در همان اجرای کامل ✓ ۸/۸ و ✓ ۹/۹ بودند. نتیجه: **PASS** برای
+«عدم رگرسیون C1»، **UNVERIFIED** برای معادل CI/تولید؛ `queued` یا شکست محیطی هرگز
+بهعنوان `PASS` C1 گزارش نمیشود.
 
-**UNVERIFIED:** بررسیدستی RTL/a11y/console در مرورگر واقعی، CI روی SHA نهایی تا اجرای واقعی،
-و round-trip MinIO در محیط تولید. **BLOCKED:** PM-B1..PM-B8 / Q1..Q5 / G-03 و پذیرش کامل Product Master.
+**UNVERIFIED:** بررسیدستی RTL/a11y/console در مرورگر واقعی، CI روی SHA نهایی تا اجرای
+واقعی، و round-trip MinIO در محیط تولید. **BLOCKED:** PM-B1..PM-B8 / Q1..Q5 / G-03
+و پذیرش کامل Product Master.
 
 ---
 
@@ -200,21 +211,37 @@ DB-backed روی محیط محلی بهدلیل mهایت PostGIS/احراز ه�
 
 ## ۸) CI / SHA نهایی
 
-پس از push، شش نمای SHA (HEAD محلی، `origin/<branch>`، `git ls-remote`، head PR،
-خروجی push، و `git rev-parse HEAD~0`) و وضعیت workflowها روی **SHA نهایی C1** در بدنهٔ
-PR #14 و `VERIFICATION-C1.*` ثبت میشود. تا پیش از اجرای واقعی workflow، CI
-`UNVERIFIED / PENDING` است؛ `queued` هرگز `PASS` گزارش نمیشود. CI مبنای
-`deefa05…` (B2) همچنان `UNVERIFIED / PENDING` و چهار run آن در صفاند.
-هیچ commit مصنوعی برای trigger کردن CI، هیچ merge/approve/release/deploy، و هیچ
-تغییر workflow/secret/زیرساخت انجام نشد.
+کامیت پیادهسازی C1: `aa2fba23d4688b5b741235e5a55ed71492f9d483` (معمولی،
+۲۲ فایل / ۲۴۰۲+/۴−) و push معمولی `deefa05..aa2fba2` (بدون
+amend/force/reset/rebase). شش نمای SHA بلافاصله پس از push همگی
+`aa2fba2…` بودند: HEAD محلی، `origin/<branch>`، `git ls-remote`، head PR #14،
+`git rev-parse HEAD~0` و `git show -s --format=%H HEAD` (`ALL_AGREE=True`).
+PR #14 همچنان `OPEN / DRAFT` با base `main` است.
+
+روی همان SHA چهار workflow ایجاد شد: `43053200836` (CI)، `43053200543` (e2e)،
+`43053201194` (مهاجرتهای پایگاهداده) و `43053200591` (release-image).
+پس از `gh pr checks 14 --watch` محدود ۱۸۰ ثانیهای (`EXIT=124`) و بازخوانی
+check-runs، هر ۸ check-run همچنان `queued / conclusion=null` است →
+**CI روی SHA پیادهسازی: `UNVERIFIED / PENDING`**؛ `queued` هرگز `PASS` نیست.
+کامیت نهایی شواهد (همین بهروزرسانی) SHA تازهای دارد و شناسهٔ آن، شش نمای SHA
+و وضعیت workflowهایش در بدنهٔ PR #14 ثبت میشود؛ تا اجرای واقعی workflow هیچ
+نتیجهای `PASS` اعلام نمیشود.
+
+بازخوانی CI مبنای B2 `deefa05…` در زمان C1: سه run `43040312220` (CI)،
+`43040312421` (e2e) و `43040312489` (release-image) اکنون
+`completed/cancelled` و `43040312368` (مهاجرتها) همچنان `queued` است. حکم B2
+بدون حذف یا بازنویسی شواهد تاریخی به `UNVERIFIED / CANCELLED (3) + QUEUED (1)`
+بهروز شد؛ همچنان هرگز `PASS` نیست. هیچ workflow/secret/زیرساختی تغییر نکرد؛
+هیچ merge/approve/release/deploy انجام نشد.
 
 ---
 
 ## ۹) کامیت / push
 
 کامیت معمولی (بدون amend/force/reset/rebase) و fast-forward push به
-`arena/be5eaff3-green-dms`؛ شناسهها و خروجی دقیق در بدنهٔ PR #14 و گزارش نهایی
-درج میشود تا از دوراهی «گزارش قبل از کامیت» اجتناب شود. PR همچنان `OPEN / DRAFT`.
+`arena/be5eaff3-green-dms` انجام شد؛ شناسهٔ دقیق در §8 و بدنهٔ PR #14 درج شد
+تا از دوراهی «گزارش قبل از کامیت» اجتناب شود. شش نمای SHA و `git diff --check`
+پس از ویرایش نهایی نیز پاکاند. PR همچنان `OPEN / DRAFT`.
 
 ---
 
@@ -245,9 +272,12 @@ registry/عضویت/RLS/مهاجرت دامنهای، backfill/cutover، و پذ
 | فرانتاند RTL و یکپارچگی واقعی | **PASS** |
 | تستهای واحد/HTTP/وب/typecheck/build | **PASS** |
 | امنیت، مجوز، جداسازی اجارها، B2 parity | **PASS** |
+| build ریشه + چرخه up/down/up مهاجرتها | **PASS** |
+| مجموعهٔ کامل DB-backed با کنترل مبنای پاک | **PASS** عدم رگرسیون / **UNVERIFIED** معادل CI |
+| پیشنمایش زنده از پروکسی هممبدأ وب | **PASS** |
 | مهاجرتهای دامنهای / حذف ضمیمه / برند-UOM / import round-trip | **BLOCKED** (عمداً انجام نشد) |
 | PM-B1..PM-B8، Q1..Q5، G-03، پذیرش کامل | **BLOCKED** |
-| CI روی SHA نهایی C1 تا اجرای واقعی | **UNVERIFIED / PENDING** |
-| CI روی `deefa05…` (B2) | **UNVERIFIED / PENDING** |
+| CI روی SHA پیادهسازی C1 تا اجرای واقعی | **UNVERIFIED / PENDING** (۴ run / ۸ check-run در صف) |
+| CI روی `deefa05…` (B2) | **UNVERIFIED / CANCELLED (3) + QUEUED (1)** |
 | بررسیدستی مرورگر/a11y/console و round-trip MinIO تولید | **UNVERIFIED** |
 | merge / approve / release / deploy | **انجام نشد** (ممنوع) |
