@@ -64,6 +64,11 @@ describe("Persian RTL operational-domain integration decision screen", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByText("دامنه الف")).toBeNull();
     expect(screen.getAllByText(/فعال بودن مرکزی/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/ستونها و فیلدهای عضویت،/),
+    ).toBeTruthy();
+    expect(screen.getByText("x-domain-id")).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("shows a permission state and sends no domain request without view permission", async () => {

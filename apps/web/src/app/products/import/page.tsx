@@ -144,6 +144,12 @@ export default function ImportPage(): React.JSX.Element {
           {' — '}سرستون‌های فارسی («کد کالا»، «نام»، «گروه»، «واحد»، …) هم پذیرفته می‌شوند. حداکثر ۱۰٬۰۰۰ ردیف.
           ردیفِ بدونِ <span className="font-mono" dir="ltr">category_code</span> یا <span className="font-mono" dir="ltr">base_uom_code</span> خطا می‌گیرد.
         </p>
+        <p className="mb-3 text-xs text-ink-muted">
+          ستون‌های عضویت، دسترسپذیری، فعالسازی یا شناسهٔ دامنه (مانند «دامنه»،
+          «وضعیت عرضه» یا <span className="font-mono" dir="ltr">domain_id</span>)
+          در کاتالوگ مرکزی پذیرفته نمی‌شوند؛ فایل پیش از هر نوشتنی رد می‌شود،
+          زیرا وضعیت عرضه در دامنه ویژگی سراسری کالا نیست.
+        </p>
         <div className="flex flex-wrap items-end gap-3">
           <input
             ref={fileRef}

@@ -2,6 +2,9 @@ import { CatalogFoundationController, CatalogFoundationService } from './catalog
 import { ProductPackagingService } from './product-packaging.service';
 import { CatalogAccess } from './catalog-access.service';
 import { DomainCatalogGate } from './domain-catalog.contract';
+import { DomainBoundaryGuard } from './domain-boundary.guard';
+import { ProductDomainScopeController } from './product-domain-scope.controller';
+import { ProductDomainScopeService } from './product-domain-scope.service';
 import { OrderCreationLock } from '../sales/order-creation-lock';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
@@ -62,6 +65,7 @@ import {
     // نکته: کنترلرهای Product Master باید قبل از ProductController ثبت شوند تا
     // مسیرهای literal زیرمجموعهٔ /products (مثل duplicate-check) قبل از ':id' match شوند.
     ProductImportController,
+    ProductDomainScopeController,
     ProductBarcodeController,
     ProductCatalogController,
     ProductExportController,
@@ -78,6 +82,8 @@ import {
     CatalogAccess,
     OrderCreationLock,
     DomainCatalogGate,
+    DomainBoundaryGuard,
+    ProductDomainScopeService,
     CatalogFoundationService,
     ProductPackagingService,
     ProductMasterRepository,

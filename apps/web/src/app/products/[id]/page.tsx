@@ -149,7 +149,7 @@ export default function ProductDetailPage(): React.JSX.Element {
       </div>
 
       {tab === 'history' && <CatalogHistory productId={id} />}
-      {tab === 'domain' && <DomainIntegrationStatus />}
+      {tab === 'domain' && <DomainIntegrationStatus productId={id} />}
       {!canWrite && <p className='mb-4 text-sm text-ink-muted'>این نشست فقط دسترسی خواندن کاتالوگ دارد.</p>}
       <fieldset disabled={!canWrite} className='min-w-0'>
       {tab === 'identity' && <IdentityTab product={product} onSaved={loadProduct} onNotice={setNotice} />}

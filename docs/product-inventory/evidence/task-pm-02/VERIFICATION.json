@@ -1,0 +1,116 @@
+{
+  "task": "TASK-PM-02",
+  "increment": "PM-02-B1 — Central/domain separation boundary + explicit domain-scope projection",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN",
+    "draft": true,
+    "base": "main"
+  },
+  "required_baseline_sha": "c382d6a822fdf52b711f168f1778443a70194a24",
+  "final_sha": "recorded in PR #14 body and final chat report; not hardcoded in this self-referential tree",
+  "backup": {
+    "directory": "/home/user/pm02-backup",
+    "tar": "/home/user/pm02-backup.tar.gz",
+    "tar_sha256": "3deb84dd66de0f250e22a3d6886d095e538133e4cc95a30a70d49737cd69ebc2",
+    "tracked_files_copied": 2826,
+    "checksum_entries": 2837,
+    "copied_file_mismatches": 0
+  },
+  "capability": {
+    "server_side_boundary": "DomainBoundaryGuard rejects domain-owned JSON keys, query keys, CSV header names and x-domain-id on central product create/update/delete and product CSV import validate/commit, before DTO whitelist stripping; audited with transaction-local tenant GUCs",
+    "read_projection": "GET /products/{id}/domain-scope returns central lifecycle facts with domain_context/domain_membership/domain_availability='unresolved', available=false and central_status_is_domain_availability=false; never infers availability from product.status",
+    "migrations_added": 0,
+    "domain_tables_added": 0,
+    "domain_permissions_added": 0,
+    "authority_provider_registered": false,
+    "global_activation_substitute_added": false,
+    "g03_or_d4_semantics_changed": false
+  },
+  "contracts": {
+    "openapi_baseline": "201 paths / 284 operations / 153 schemas / 3 webhooks",
+    "openapi_final": "202 paths / 285 operations / 154 schemas / 3 webhooks",
+    "new_path": "GET /products/{id}/domain-scope",
+    "new_schema": "ProductDomainScope",
+    "new_error_codes": [
+      "domain_property_rejected",
+      "domain_context_not_supported"
+    ],
+    "generated_client": "packages/api-client/src/schema.ts (+92 lines)",
+    "contract_drift": "0 code-only / 0 spec-only / 0 enum / 0 required"
+  },
+  "tests": {
+    "baseline": {
+      "api_unit": "26 files / 339 tests PASS",
+      "web": "17 files / 88 tests PASS",
+      "typecheck": "EXIT=0",
+      "openapi": "EXIT=0",
+      "partition": "81 files EXIT=0",
+      "root_build": "EXIT=0",
+      "diff_check": "EXIT=0",
+      "selected_native_pg_product_master_regression": "7 files / 85 tests PASS",
+      "contract_api_test": "1 file / 80 tests PASS (real app routes + AJV response schemas)"
+    },
+    "final": {
+      "api_unit": "29 files / 363 tests PASS",
+      "web": "18 files / 94 tests PASS",
+      "typecheck": "EXIT=0",
+      "openapi": "EXIT=0",
+      "partition": "85 files EXIT=0, declared == computed",
+      "contract_drift": "EXIT=0",
+      "root_build": "EXIT=0",
+      "migrations": "64 up/down/up, exactly 1029 identical objects, EXIT=0",
+      "diff_check": "EXIT=0",
+      "post_document_gate": "all static gates rerun on final change set: EXIT=0; 0 new unresolved doc links; 0 CJK/trailing-whitespace/BOM/secret findings; 0 protected-path changes"
+    },
+    "new_focused": {
+      "product-domain-boundary-unit.test.ts": "7/7 PASS",
+      "product-domain-boundary-guard.test.ts": "8/8 PASS",
+      "product-domain-scope.test.ts": "9/9 PASS",
+      "product-domain-boundary.api.test.ts": "12/12 PASS (real HTTP + disposable native PostgreSQL 16.2)",
+      "catalog-evidence.test.tsx": "7/7 PASS",
+      "domain-integration/page.test.tsx": "5/5 PASS",
+      "import/page.test.tsx": "3/3 PASS (new file)"
+    },
+    "local_limitations": [
+      "PostgreSQL 16.2 trust-auth at 127.0.0.1:55432 is not CI- or production-equivalent",
+      "Redis unavailable locally (ECONNREFUSED 127.0.0.1:6379); known non-failure",
+      "PG_POOL idle-client 57P01 teardown notices; known non-failure",
+      "manual visual/responsive/RTL/accessibility/console review UNVERIFIED"
+    ]
+  },
+  "owner_decisions": {
+    "pm_b1_to_pm_b8": "OPEN / NOT APPROVED",
+    "q1_to_q5": "OPEN / NOT APPROVED",
+    "g03_product_master_two_person_binding": "OPEN / NOT APPROVED",
+    "full_product_master_acceptance": "BLOCKED",
+    "production_deployment": "NOT AUTHORIZED"
+  },
+  "boundaries": {
+    "pr_14": "OPEN / DRAFT, base main, readiness unchanged",
+    "m4_verdicts": "unchanged; M4 acceptance work not repeated",
+    "forbidden_actions_not_performed": [
+      "merge",
+      "approve",
+      "release",
+      "deploy",
+      "force-push",
+      "force-with-lease",
+      "destructive reset",
+      "rebase",
+      "history rewrite",
+      "production/shared DB change",
+      "secret change",
+      "CI trigger change",
+      "external service call"
+    ]
+  },
+  "verdict": {
+    "pm_02_b1_implementation": "PASS",
+    "exact_final_sha_ci": "recorded in PR #14 body and final chat report",
+    "full_product_master_acceptance": "BLOCKED",
+    "production_deployment": "NOT AUTHORIZED"
+  }
+}

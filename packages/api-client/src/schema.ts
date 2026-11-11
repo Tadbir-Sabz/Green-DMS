@@ -11115,6 +11115,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{id}/domain-scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * نمای صریح جدایی هویت مرکزی کالا از عضویت و دسترسپذیری دامنهای
+         * @description TASK-PM-02: پاسخی خواندنی و بیداده در سطح **هویت مرکزی**. چرخهٔ حیات
+         *     مرکزی کالا نمایش داده میشود، ولی `domain_context`، `domain_membership`
+         *     و `domain_availability` همیشه `unresolved` و `available` همیشه `false`
+         *     است. وضعیت `active` مرکزی هرگز به معنی عرضه در دامنه یا فعال بودن در
+         *     همهٔ دامنهها نیست. هیچ عضویت، فهرست دامنه، تاریخچه یا دادهٔ ساختگی
+         *     برگردانده نمیشود. ارسال هدر `x-domain-id` یا پارامتر دامنهای با خطای
+         *     `domain_context_not_supported` / `domain_property_rejected` رد میشود.
+         *     مجوز `master.product.view`، RLS شرکت و قید صریح `company_id` اعمال
+         *     میشوند؛ کالای شرکت دیگر ۴۰۴ یکسان میگیرد تا وجودش افشا نشود.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description مرز مرکزی/دامنهای کالا؛ بدون هیچ نتیجهگیری دامنهای */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductDomainScope"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operational-domains": {
         parameters: {
             query?: never;
@@ -11550,11 +11605,22 @@ export interface components {
              *     - `approver_not_authorized`: تصمیم‌گیرنده نقش/کارمندِ آن مرحله نیست (`403`).
              *     - `amount_band_mismatch`: مبلغِ درخواست با باندِ گامِ ورودی نمی‌خواند.
              *     - `duplicate_decision`: برای این مرحله قبلاً تصمیم ثبت شده است.
+             *
+             *     **مرز مرکزی/دامنهای Product Master (TASK-PM-02)** — همگی `400`
+             *     - `domain_property_rejected`: ویژگی عضویت، دسترسپذیری، فعالسازی یا
+             *       هویت دامنهای در بدنه، query یا سرستون CSV یک عملیات کاتالوگ مرکزی
+             *       ارسال شده است؛ هیچ نوشتهای انجام نشد. `details.fields` نام فیلدها
+             *       و `details.owner_decisions` تصمیمهای باز مالک را میدهد.
+             *     - `domain_context_not_supported`: هدر `x-domain-id` روی عملیات
+             *       کاتالوگ مرکزی ارسال شده است. شناسهٔ ارسالی مشتری اثبات هویت دامنه
+             *       نیست و نمای مرکزی را دامنهای نمیکند.
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict
              * @example request_already_converted
              * @example approval_chain_required
+             * @example domain_property_rejected
+             * @example domain_context_not_supported
              */
             code: string;
             /** @description پیام فارسی آماده نمایش به کاربر */
@@ -14023,6 +14089,32 @@ export interface components {
         };
         DomainCatalogUnavailable: components["schemas"]["DomainCatalogContractStatus"] & {
             operation: string;
+        };
+        ProductDomainScope: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            /** @enum {string} */
+            central_status: "active" | "blocked" | "discontinued";
+            central_status_label_fa: string;
+            /** @enum {string} */
+            domain_context: "unresolved";
+            /** @enum {string} */
+            domain_membership: "unresolved";
+            /** @enum {string} */
+            domain_availability: "unresolved";
+            /** @constant */
+            available: false;
+            /** @enum {string} */
+            state: "domain_identity_unresolved";
+            /** @constant */
+            central_status_is_domain_availability: false;
+            message_fa: string;
+            decision_document: string;
+            /** Format: uri */
+            decision_document_url: string;
+            owner_decisions: components["schemas"]["DomainOwnerDecision"][];
         };
         ProductFamily: {
             /** Format: uuid */

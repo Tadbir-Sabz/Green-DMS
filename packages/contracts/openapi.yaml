@@ -5537,6 +5537,32 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /products/{id}/domain-scope:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: نمای صریح جدایی هویت مرکزی کالا از عضویت و دسترسپذیری دامنهای
+      description: |
+        TASK-PM-02: پاسخی خواندنی و بیداده در سطح **هویت مرکزی**. چرخهٔ حیات
+        مرکزی کالا نمایش داده میشود، ولی `domain_context`، `domain_membership`
+        و `domain_availability` همیشه `unresolved` و `available` همیشه `false`
+        است. وضعیت `active` مرکزی هرگز به معنی عرضه در دامنه یا فعال بودن در
+        همهٔ دامنهها نیست. هیچ عضویت، فهرست دامنه، تاریخچه یا دادهٔ ساختگی
+        برگردانده نمیشود. ارسال هدر `x-domain-id` یا پارامتر دامنهای با خطای
+        `domain_context_not_supported` / `domain_property_rejected` رد میشود.
+        مجوز `master.product.view`، RLS شرکت و قید صریح `company_id` اعمال
+        میشوند؛ کالای شرکت دیگر ۴۰۴ یکسان میگیرد تا وجودش افشا نشود.
+      responses:
+        '200':
+          description: مرز مرکزی/دامنهای کالا؛ بدون هیچ نتیجهگیری دامنهای
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductDomainScope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /operational-domains:
     get:
       tags: [products]
@@ -5818,7 +5844,16 @@ components:
             - `approver_not_authorized`: تصمیم‌گیرنده نقش/کارمندِ آن مرحله نیست (`403`).
             - `amount_band_mismatch`: مبلغِ درخواست با باندِ گامِ ورودی نمی‌خواند.
             - `duplicate_decision`: برای این مرحله قبلاً تصمیم ثبت شده است.
-          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required']
+
+            **مرز مرکزی/دامنهای Product Master (TASK-PM-02)** — همگی `400`
+            - `domain_property_rejected`: ویژگی عضویت، دسترسپذیری، فعالسازی یا
+              هویت دامنهای در بدنه، query یا سرستون CSV یک عملیات کاتالوگ مرکزی
+              ارسال شده است؛ هیچ نوشتهای انجام نشد. `details.fields` نام فیلدها
+              و `details.owner_decisions` تصمیمهای باز مالک را میدهد.
+            - `domain_context_not_supported`: هدر `x-domain-id` روی عملیات
+              کاتالوگ مرکزی ارسال شده است. شناسهٔ ارسالی مشتری اثبات هویت دامنه
+              نیست و نمای مرکزی را دامنهای نمیکند.
+          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported']
         message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
         details:
           type: object
@@ -8041,6 +8076,40 @@ components:
           required: [operation]
           properties:
             operation: { type: string }
+    ProductDomainScope:
+      type: object
+      required:
+        - product_id
+        - scope
+        - central_status
+        - central_status_label_fa
+        - domain_context
+        - domain_membership
+        - domain_availability
+        - available
+        - state
+        - central_status_is_domain_availability
+        - message_fa
+        - decision_document
+        - decision_document_url
+        - owner_decisions
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        central_status: { type: string, enum: [active, blocked, discontinued] }
+        central_status_label_fa: { type: string }
+        domain_context: { type: string, enum: [unresolved] }
+        domain_membership: { type: string, enum: [unresolved] }
+        domain_availability: { type: string, enum: [unresolved] }
+        available: { type: boolean, const: false }
+        state: { type: string, enum: [domain_identity_unresolved] }
+        central_status_is_domain_availability: { type: boolean, const: false }
+        message_fa: { type: string }
+        decision_document: { type: string }
+        decision_document_url: { type: string, format: uri }
+        owner_decisions:
+          type: array
+          items: { $ref: '#/components/schemas/DomainOwnerDecision' }
     ProductFamily:
       type: object
       required: [id, code, name]

@@ -1,0 +1,117 @@
+TASK-PM-02-B1 — durable local verification ledger
+=================================================
+UTC/local clock during local PostgreSQL checks: 2026-11-11 (sandbox PG); session date 2026-11-07.
+Repository: Tadbir-Sabz/Green-DMS
+Branch: arena/be5eaff3-green-dms
+Required baseline SHA: c382d6a822fdf52b711f168f1778443a70194a24
+PR #14 at baseline: OPEN / DRAFT, base main, head == baseline SHA.
+
+Pre-change durability
+---------------------
+git fetch origin arena/be5eaff3-green-dms                          FETCH_EXIT=0
+local HEAD / origin/arena/be5eaff3-green-dms / git ls-remote /
+GitHub branch ref / PR #14 head                                  c382d6a822fdf52b711f168f1778443a70194a24 (5/5)
+PR body: 64938 chars / 69638 bytes / sha256 b49df47b871679775c44a763704886a8c3bf4955bbcc18bc4607571f08c993da
+git status --porcelain                                            0 lines
+git diff --check                                                  EXIT=0
+backup: /home/user/pm02-backup/ (2826 tracked files, repo.bundle,
+        PR/branch/status/log/diffcheck snapshots, IDENTITY.json,
+        SHA256SUMS.txt with 2837 entries), 0 copied-file mismatches
+backup tar: /home/user/pm02-backup.tar.gz
+tar sha256: 3deb84dd66de0f250e22a3d6886d095e538133e4cc95a30a70d49737cd69ebc2
+
+Baseline checks (before any edit)
+---------------------------------
+node scripts/check-test-partition.mjs                              EXIT=0, 81 test files
+npm run typecheck                                                 EXIT=0 (contracts, api-client, api, web)
+npm run openapi:check                                             EXIT=0, 201 paths / 284 ops / 153 schemas / 3 webhooks
+node scripts/contract-drift.mjs                                   EXIT=0, 0 code-only / 0 spec-only / 0 enum / 0 required
+npm run test:web                                                  EXIT=0, 17 files / 88 tests
+vitest run $(node scripts/check-test-partition.mjs --print unit)  EXIT=0, 26 files / 339 tests
+
+Focused new suites (after implementation)
+-----------------------------------------
+apps/api/test/product-domain-boundary-unit.test.ts                7/7 PASS
+apps/api/test/product-domain-boundary-guard.test.ts               8/8 PASS
+apps/api/test/product-domain-scope.test.ts                        9/9 PASS
+  combined run: 3 files / 24 tests, EXIT=0
+apps/api/test/product-domain-boundary.api.test.ts                12/12 PASS
+  command: DATABASE_URL='postgres://postgres@127.0.0.1:55432/postgres'
+           PSQL='/tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql'
+           JWT_SECRET='local_only_secret_not_for_production'
+           REDIS_HOST=127.0.0.1 REDIS_PORT=6379
+           ../../node_modules/.bin/vitest run test/product-domain-boundary.api.test.ts
+  native PostgreSQL 16.2, disposable DB greendms_pm02_boundary, real HTTP via supertest.
+  Known non-failures in log: Redis ECONNREFUSED 127.0.0.1:6379 (3 notices),
+  PG_POOL idle-client 57P01 teardown notices (2). Local trust-auth is NOT
+  CI- or production-equivalent.
+apps/web/src/app/products/[id]/catalog-evidence.test.tsx         7/7 PASS
+apps/web/src/app/products/domain-integration/page.test.tsx       5/5 PASS
+apps/web/src/app/products/import/page.test.tsx                   3/3 PASS (new file)
+
+Final static / regression gate
+------------------------------
+node scripts/check-test-partition.mjs                              EXIT=0, 85 test files, declared == computed
+node scripts/contract-drift.mjs                                   EXIT=0, 0/0/0/0
+npm run openapi:check                                             EXIT=0, 202 paths / 285 ops / 154 schemas / 3 webhooks
+npm run typecheck                                                 EXIT=0 (5/5 workspaces)
+vitest run $(check-test-partition --print unit)                   EXIT=0, 29 files / 363 tests
+npm run test:web                                                  EXIT=0, 18 files / 94 tests
+npm run build (root)                                              EXIT=0
+npm run test:migrations (64 up/down/up)                           EXIT=0, exactly 1029 identical objects
+git diff --check                                                  EXIT=0
+npm run generate -w packages/api-client                           EXIT=0, schema.ts +92 lines
+
+Selected native-PostgreSQL Product Master regression (same local PG env)
+-----------------------------------------------------------------------
+vitest run test/products.api.test.ts
+         test/product-catalog-foundation.test.ts
+         test/product-bulk-maintenance.api.test.ts
+         test/product-export.api.test.ts
+         test/product-master-core.test.ts
+         test/product-master-security.test.ts
+         test/product-domain-boundary.api.test.ts                  7 files / 85 tests PASS
+  products.api 22/22, product-catalog-foundation 9/9,
+  product-bulk-maintenance.api 12/12, product-export.api 5/5,
+  product-master-core 15/15, product-master-security 10/10,
+  product-domain-boundary.api 12/12.
+vitest run test/contract.api.test.ts                                1 file / 80 tests PASS
+  (real app route coverage + AJV 2020-12 response-schema validation
+   for the new /products/{id}/domain-scope path/schema)
+
+Boundary preservation checks
+----------------------------
+master-data.module.ts contains DomainCatalogGate, DomainBoundaryGuard,
+ProductDomainScopeController and ProductDomainScopeService; it does NOT contain
+"provide: OPERATIONAL_DOMAIN_AUTHORITY".
+domain-catalog.contract.ts, catalog-foundation.controller.ts 400/503 fail-closed
+routes, product-sensitivity.ts, all confirm_sensitive guards, approval tables,
+approval bindings, D1-D5, 0060/0061/0062/0063/0064, CI configuration and
+M4_ACCEPTANCE_MATRIX.md were NOT modified.
+No migration, grant, RLS policy, role, seed, backfill, provider registration,
+domain state, permission vocabulary, PR readiness change, merge/approve/release/
+deploy, production DB/infrastructure/secret or external service change.
+
+Post-document final gate (after all docs/evidence were written)
+---------------------------------------------------------------
+All checks rerun on the final 28-file change set; logs /tmp/pm02-final2-*.txt:
+  check-test-partition.mjs --check                       EXIT=0, 85 files, declared == computed
+  contract-drift.mjs                                     EXIT=0, 0/0/0/0
+  npm run openapi:check                                  EXIT=0, 202/285/154/3
+  npm run typecheck                                      EXIT=0 (5 workspaces)
+  npm run build                                          EXIT=0
+  npm run test:web                                       EXIT=0, 18 files / 94 tests
+  DB-free API unit (29 files)                             EXIT=0, 29 files / 363 tests
+  git diff --check                                       EXIT=0
+  VERIFICATION.json parsed as valid JSON                 EXIT=0
+  changed-doc path/link scan                             69 resolved, 0 NEW unresolved
+    (4 unresolved references are pre-existing EVIDENCE_INDEX.md historical
+     entries at lines 93/125/292/301, present verbatim in HEAD; none added)
+  CJK characters / trailing whitespace / BOM / secrets  0 / 0 / 0 / 0
+  protected paths (migrations/, .github/, *.sql, common/, database/) changed: 0
+
+Exact-final-SHA CI
+------------------
+Recorded in PR #14 body and the final chat report after the ordinary push; not
+hardcoded in this self-referential tree. Five-way SHA agreement, clean worktree
+and git diff --check are re-verified at completion.

@@ -9,10 +9,12 @@ import {
   errorCls,
   faError,
   panelCls,
+  statusBadgeCls,
   warnCls,
 } from "../products-lib";
 
 type HistoryPage = components["schemas"]["ProductCatalogHistoryPage"];
+type ProductDomainScope = components["schemas"]["ProductDomainScope"];
 const ACTION: Record<string, string> = {
   INSERT: "ایجاد",
   UPDATE: "ویرایش",
@@ -146,53 +148,103 @@ export function CatalogHistory({ productId }: { productId: string }) {
   );
 }
 
-export function DomainIntegrationStatus() {
-  const [message, setMessage] = useState("");
-  const [decisionCount, setDecisionCount] = useState<number | null>(null);
+export function DomainIntegrationStatus({ productId }: { productId: string }) {
+  const [scope, setScope] = useState<ProductDomainScope | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => {
-    let live = true;
-    void api
-      .GET("/product-domain-integration")
-      .then(({ data, error: err }) => {
-        if (!live) return;
-        if (err || !data) {
-          setError(faError(err));
-          return;
-        }
-        setMessage(data.message_fa);
-        setDecisionCount(data.owner_decisions?.length ?? null);
-      })
-      .catch(() => {
-        if (live) setError("دریافت وضعیت اتصال دامنه ناموفق بود.");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data, error: err } = await api.GET("/products/{id}/domain-scope", {
+        params: { path: { id: productId } },
       });
-    return () => {
-      live = false;
-    };
-  }, []);
+      if (err) {
+        setScope(null);
+        setError(faError(err));
+        return;
+      }
+      // پاسخ بدون بدنه ⇒ وضعیت خالی صادقانه، نه خطا و نه دادهٔ ساختگی.
+      if (!data) {
+        setScope(null);
+        setError("");
+        return;
+      }
+      setScope(data);
+    } catch {
+      setScope(null);
+      setError("دریافت مرز مرکزی/دامنهای ناموفق بود.");
+    } finally {
+      setLoading(false);
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   return (
-    <section className={panelCls}>
-      <h2 className="mb-3 font-semibold">کاتالوگ دامنه عملیاتی</h2>
+    <section className={panelCls} aria-labelledby="domain-scope-title">
+      <h2 id="domain-scope-title" className="mb-3 font-semibold">
+        مرز کاتالوگ مرکزی و دامنه عملیاتی
+      </h2>
       {error ? (
-        <p role="alert" className={errorCls}>
-          {error}
+        <div role="alert" className={errorCls}>
+          <p>{error}</p>
+          <button
+            type="button"
+            className={`${btnGhost} mt-3`}
+            onClick={() => void load()}
+          >
+            تلاش دوباره
+          </button>
+        </div>
+      ) : loading ? (
+        <p role="status">در حال دریافت مرز مرکزی/دامنهای…</p>
+      ) : !scope ? (
+        <p role="status" className={warnCls}>
+          پاسخ معتبری دریافت نشد؛ هیچ وضعیت دامنهای فرض نمیشود.
         </p>
-      ) : message ? (
-        <p className={warnCls}>{message}</p>
       ) : (
-        <p role="status">در حال دریافت وضعیت اتصال…</p>
+        <>
+          <div className="grid gap-3 md:grid-cols-2">
+            <article className="rounded-lg border border-line bg-surface-alt p-3">
+              <h3 className="text-sm font-semibold">
+                وضعیت مرکزی کالا (سراسری شرکت)
+              </h3>
+              <p className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={statusBadgeCls(scope.central_status)}>
+                  {scope.central_status_label_fa}
+                </span>
+                <span className="font-mono text-xs text-ink-muted" dir="ltr">
+                  {scope.central_status}
+                </span>
+              </p>
+              <p className="mt-2 text-sm leading-7 text-ink-muted">
+                این وضعیت، چرخهٔ حیات مرکزی کالاست و به هیچ دامنهای اختصاص
+                ندارد.
+              </p>
+            </article>
+            <article className="rounded-lg border border-warning-line bg-warning-soft p-3">
+              <h3 className="text-sm font-semibold">عرضه در دامنه عملیاتی</h3>
+              <p className={`mt-2 ${warnCls}`}>تعیین نشده</p>
+              <p className="mt-2 text-sm leading-7 text-ink-muted">
+                {scope.message_fa}
+              </p>
+            </article>
+          </div>
+          <p className="mt-4 text-sm leading-7 text-ink-muted">
+            {scope.central_status_is_domain_availability === false &&
+              "فعال بودن مرکزی بهمعنای عرضه در تمام دامنهها نیست. "}
+            در این وضعیت امکان افزودن یا تغییر عضویت دامنه وجود ندارد. هیچ دامنه
+            یا دسترسی عرضهای از روی شرکت، شعبه یا دامنه قیمتگذاری ساخته نشده
+            است. تعداد تصمیمهای باز مالک:{" "}
+            <bdi>{scope.owner_decisions.length}</bdi>.
+          </p>
+        </>
       )}
-      <p className="mt-4 text-sm text-ink-muted">
-        در این وضعیت امکان افزودن یا تغییر عضویت دامنه وجود ندارد. هیچ دامنه یا
-        دسترسی عرضهای از روی شرکت، شعبه یا دامنه قیمتگذاری ساخته نشده است.
-        {decisionCount !== null && (
-          <> تعداد تصمیمهای باز مالک: <bdi>{decisionCount}</bdi>.</>
-        )}
-      </p>
-      <Link
-        className={`${btnGhost} mt-4`}
-        href="/products/domain-integration"
-      >
+      <Link className={`${btnGhost} mt-4`} href="/products/domain-integration">
         جزئیات تصمیمها و وضعیت
       </Link>
     </section>

@@ -215,6 +215,14 @@ export default function DomainIntegrationPage() {
                     </p>
                   </article>
                 </div>
+                <p className="text-sm leading-7 text-ink-muted">
+                  مرز سرور نیز همین جدایی را نگه میدارد: ستونها و فیلدهای عضویت،
+                  دسترسپذیری یا فعالسازی دامنه در ایجاد و ویرایش کالا و در فایل
+                  ورود گروهی پذیرفته نمیشوند و هدر <bdi dir="ltr">x-domain-id</bdi>
+                  روی عملیات کاتالوگ مرکزی رد میشود. این کنترل فقط جلوی قاچاق
+                  ویژگی دامنهای به هویت سراسری را میگیرد و هیچ دامنه یا عضویتی
+                  نمیسازد.
+                </p>
               </section>
 
               <section aria-labelledby="decision-title" className="space-y-3">

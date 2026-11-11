@@ -297,3 +297,15 @@ import + ادامه» و پروندهٔ باز «همه یا هیچ بودن ک�
 تغییر D1–D5، ستون تازه در `0060`، تغییر `0061`، صف یا merge اضافه نشد.
 PM-B1..PM-B8 همچنان **OPEN / NOT APPROVED** هستند. M4 نمیتواند بهعنوان تأیید
 مالک، جایگزین G-03 دونفره یا مجوز فعالسازی دامنه خوانده شود.
+
+---
+
+## TASK-PM-02 — پیوست مرز سروریشدهٔ مرکزی/دامنهای (بدون تغییر مصوبات)
+
+PM-02 پیش از هر پیادهسازی، وضعیت واقعی کد را بازخوانی کرد (`TASK-PM-02_IMPLEMENTATION_MAP.md`) و یک قابلیت مستقل با معنای مصوب افزود؛ هیچ تصمیم PM-B1..PM-B8، Q1..Q5 یا اتصال دونفرهٔ G-03 به Product Master تأیید یا اجرا نشد.
+
+قابلیت `PM-02-B1`: (۱) نگهبان سروریشدهٔ `DomainBoundaryGuard` روی نوشتنهای مرکزی کالا (`POST/PATCH/DELETE /products`) و اعتبارسنجی/اجرای CSV، پیش از `ValidationPipe`، هر کلید عضویت/دسترسپذیری/فعالسازی/شناسهٔ دامنه (انگلیسی و فارسی)، هر سرستون دامنهای CSV و هدر `x-domain-id` را صریحاً با کدهای `domain_property_rejected` / `domain_context_not_supported` رد و ممیزی میکند؛ فقط نام کلیدها بررسی میشود، نه مقادیر. (۲) `GET /products/{id}/domain-scope` با مجوز `master.product.view` و بازاعتبارسنجی از پایگاهداده، چرخهٔ حیات **مرکزی** کالا را نشان میدهد ولی `domain_context`، `domain_membership` و `domain_availability` را همیشه `unresolved`، `available` را `false` و `central_status_is_domain_availability` را `false` برمیگرداند. وضعیت `active` یا `blocked` مرکزی هرگز به دسترسپذیری دامنهای تعبیر نمیشود.
+
+هیچ مهاجرت، جدول دامنه، RLS/گرانت تازه، ارائهدهندهٔ `OPERATIONAL_DOMAIN_AUTHORITY`، مجوز دامنهای، انتساب کاربر، عضویت، ماشین حالت، تاریخچهٔ دامنهای، backfill یا cutover اضافه نشد. مسیرهای ۴۰۰/۵۰۳ fail-closed، `DomainCatalogGate`، D1–D5، `product-sensitivity.ts`، تأیید صریح `confirm_sensitive`، جداول و اتصالهای approval، §E و مهاجرتهای ۰۰۶۰..۰۰۶۴ بدون تغییر ماندند. قرارداد OpenAPI و کلاینت TS، سه صفحهٔ فارسی RTL، ۲۴ تست بیدادهٔ API، ۱۲ تست HTTP روی PostgreSQL بومی و تستهای وب همراستا شدند. جزئیات در `TASK-PM-02_IMPLEMENTATION.md` و `evidence/task-pm-02/VERIFICATION.*`.
+
+PM-B1..PM-B8 و Q1..Q5 همچنان **OPEN / NOT APPROVED**؛ پذیرش کامل Product Master **BLOCKED**؛ استقرار تولید **مجاز نیست**. PR #14 همچنان `OPEN / DRAFT` است.

@@ -6,6 +6,7 @@ import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 import { ProductMasterService } from './product-master.service';
+import { DomainBoundaryGuard } from './domain-boundary.guard';
 
 export class ImportValidateDto {
   @IsString()
@@ -45,6 +46,7 @@ export class ProductImportController {
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('master.product.import')
+  @UseGuards(DomainBoundaryGuard)
   validate(@CurrentUser('companyId') companyId: string, @Body() dto: ImportValidateDto) {
     return this.service.validateImport(companyId, dto.csv);
   }
@@ -52,6 +54,7 @@ export class ProductImportController {
   @Post('commit')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('master.product.import')
+  @UseGuards(DomainBoundaryGuard)
   commit(
     @CurrentUser() user: AuthContext,
     @Body() dto: ImportCommitDto,
