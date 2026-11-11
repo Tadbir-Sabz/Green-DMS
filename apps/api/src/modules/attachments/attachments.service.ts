@@ -33,6 +33,17 @@ export interface UploadContext {
   companyId: string;
 }
 
+/**
+ * TASK-PM-02-C3 — قلاب افزودنی (اختیاری) برای لایهٔ هماهنگکنندهٔ ضمائم سازمانی.
+ * دقیقاً پس از موفقیت `storage.put` و پیش از ثبت ردیف فراخوانی میشود تا لایهٔ
+ * بالاتر کلید شیء را داشته باشد و بتواند در صورت شکست **هر** گام بعدی (ثبت DB،
+ * صدور URL امضاشده یا ممیزی تراکنشی) شیء اورفان را پاک کند. اختیاری است؛
+ * فراخوانهای تاریخی (`POST /attachments` و C1) بدون تغییر میمانند.
+ */
+export interface UploadHooks {
+  onObjectStored?: (storageKey: string) => void;
+}
+
 /** سقف حجم (پیش‌فرض ۸ مگابایت)، عمر URL دانلود (پیش‌فرض ۵ دقیقه) و انواع مجاز — با env */
 export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 8 * 1024 * 1024);
 export const DOWNLOAD_URL_TTL = Number(process.env.ATTACHMENT_URL_TTL ?? 300);
@@ -167,6 +178,7 @@ export class AttachmentsService {
     file: UploadedFile | undefined,
     meta: UploadAttachmentDto,
     ctx: UploadContext,
+    hooks?: UploadHooks,
   ): Promise<AttachmentView> {
     if (!file || !file.buffer || file.buffer.length === 0) {
       throw new BadRequestException({
@@ -207,6 +219,8 @@ export class AttachmentsService {
     const key = `${ctx.companyId}/${meta.owner_type}/${meta.owner_id}/${sha256}-${randomUUID()}-${fileName}`;
 
     await this.storage.put(key, file.buffer, contentType);
+    // لایهٔ C3 از این کلید برای پاکسازی اورفان هنگام شکست ممیزی/URL استفاده میکند.
+    hooks?.onObjectStored?.(key);
 
     let row: AttachmentRow;
     try {

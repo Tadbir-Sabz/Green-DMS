@@ -1,0 +1,211 @@
+{
+  "task": "TASK-PM-02-C3",
+  "title": "Enterprise-Wide Entity Attachments",
+  "role": "Agent-1 (Arena.ai) — Lead Developer / Architect / Full-Stack Executor",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "branch_base_commit": "6b4429ba7e55f7e02f407e63f2b2b2e197fad1fa",
+  "pull_request": {
+    "number": 14,
+    "state_before_c3": "OPEN / DRAFT",
+    "base": "main",
+    "head_before_c3": "19d412a966bd612694a08b58e133f71d9c6ba3fa",
+    "body_before_c3": {
+      "characters": 99372,
+      "bytes": 104384,
+      "sha256": "934870e313bd76357d2a5a241454364762b37de2c320c91c44467db952a4052d"
+    },
+    "additive_body_update_required": true,
+    "merge_approve_release_deploy": "NOT AUTHORIZED / NOT PERFORMED"
+  },
+  "baseline_recovery": {
+    "expected_c2_sha": "19d412a966bd612694a08b58e133f71d9c6ba3fa",
+    "fetch_pull_ff_only": "Already up to date",
+    "six_sha_views_all_agree": true,
+    "working_tree_clean": true,
+    "git_diff_check": 0,
+    "checkpoint_tar": "/home/user/pm02-c3-checkpoint.tar.gz",
+    "checkpoint_sha256": "75d2cf6fed6d0ebfbb6b6dbd00272e97a08bc9b22b988329b2c935918eb2dd5e",
+    "checkpoint_integrity": "sha256sum -c: OK",
+    "checkpoint_bundle": "/home/user/pm02-c3-checkpoint.bundle (git bundle --all)",
+    "checkpoint_files": 2873,
+    "historical_evidence_preserved": true
+  },
+  "eligibility": {
+    "source_of_truth": [
+      "apps/api/src/modules/attachments/attachments.dto.ts ATTACHMENT_OWNER_TYPES",
+      "apps/api/src/modules/attachments/owner-scope.ts ownerTenantSql",
+      "packages/contracts/openapi.yaml AttachmentOwnerType enum",
+      "migrations 0002 / 0035 / 0036 / 0041"
+    ],
+    "approved_owner_types_total": 9,
+    "verifiable_owner_types_total": 8,
+    "entity_attachment_supported_owner_types": [
+      "invoice", "sales_order", "return_request", "stock_count",
+      "receipt", "journal_entry", "pod"
+    ],
+    "implemented_ui_owner_types": [
+      "invoice", "sales_order", "return_request", "stock_count", "journal_entry"
+    ],
+    "backend_ready_ui_deferred": ["receipt", "pod"],
+    "preserved_existing_product_media_c1": "product",
+    "rejected": ["other", "brand", "product_category", "warehouse", "uom", "any invented owner type"],
+    "new_owner_types_invented": false,
+    "new_migration": false,
+    "new_permission_role_grant_seed_rls": false,
+    "new_domain_semantics": false
+  },
+  "architecture": {
+    "shared_rules": "apps/api/src/modules/attachments/entity-attachments.rules.ts",
+    "shared_service": "apps/api/src/modules/attachments/entity-attachments.service.ts",
+    "shared_controller": "apps/api/src/modules/attachments/entity-attachments.controller.ts",
+    "shared_module": "apps/api/src/modules/attachments/entity-attachments.module.ts",
+    "reused_infrastructure": [
+      "AttachmentsService", "AttachmentsRepository", "StorageService",
+      "ownerTenantSql", "checkFileContent", "attachment RLS/FORCE RLS",
+      "DomainBoundaryGuard", "AuditService.recordRequired", "PG_POOL"
+    ],
+    "additive_hook": "AttachmentsService.upload(..., hooks?: UploadHooks) with optional onObjectStored(storageKey)",
+    "routes": [
+      "GET  /entity-attachments/{ownerType}/{ownerId}",
+      "POST /entity-attachments/{ownerType}/{ownerId}",
+      "GET  /entity-attachments/{ownerType}/{ownerId}/{attachmentId}/url"
+    ],
+    "owner_and_company_derivation": "URL path + authenticated session only; never client-supplied",
+    "authorization_layers": [
+      "AuthGuard", "PermissionsGuard attachment.view|upload",
+      "database permission recheck", "RLS/FORCE RLS", "ownerTenantSql ownership chain"
+    ],
+    "audit": "audit_log entity_type=entity_attachment / action=create in the same transaction as attachment row",
+    "audit_url_or_storage_key_leakage": 0,
+    "orphan_cleanup": "rollback + storage.remove on failed attachment insert, signed URL generation or required audit",
+    "signed_url_ttl_seconds_default": 300,
+    "unsupported_client_fields": "explicit 400 (body/query/domain header), never silently stripped",
+    "forbidden_controls": ["delete", "archive", "primary-image selection", "retention policy"],
+    "existing_api_compatibility": ["POST /attachments", "GET /attachments", "GET /attachments/{id}/url", "GET/POST /products/{id}/media"]
+  },
+  "frontend": {
+    "single_shared_component": "apps/web/src/components/EntityAttachments.tsx",
+    "compatibility_wrapper": "apps/web/src/components/Attachments.tsx",
+    "upload_helper": "apps/web/src/lib/api.ts uploadEntityAttachment (XHR progress, 401 refresh/retry)",
+    "navigation_center": "/attachments-center",
+    "real_module_integrations": {
+      "/orders/[id]": "sales_order",
+      "/invoices": "invoice",
+      "/returns": "return_request",
+      "/stock-count": "stock_count",
+      "/gl": "journal_entry"
+    },
+    "features": [
+      "Persian-first RTL", "counts", "metadata", "real byte progress",
+      "loading/empty/error/retry", "fresh scoped signed URL", "secure preview/download",
+      "responsive layout", "accessible controls", "Persian errors", "read-only when permission absent"
+    ],
+    "decorative_controls": false,
+    "fabricated_screenshots": false
+  },
+  "contracts": {
+    "openapi_paths": 213,
+    "openapi_operations": 307,
+    "openapi_schemas": 178,
+    "openapi_webhooks": 3,
+    "openapi_check": "PASS",
+    "contract_drift": "0 / 307 operations",
+    "generated_client": "packages/api-client/src/schema.ts (+244 lines), packages rebuilt",
+    "new_schemas": [
+      "EntityAttachmentOwnerType", "EntityAttachmentCounts",
+      "EntityAttachmentItem", "EntityAttachmentView"
+    ]
+  },
+  "automated_tests": {
+    "focused_entity_attachments_api": "PASS 2 files / 16 tests",
+    "focused_web": "PASS 2 files / 14 tests (includes compatibility-wrapper read-only authorization test)",
+    "full_web": "PASS 24 files / 132 tests",
+    "api_db_free_unit": "PASS 33 files / 395 tests",
+    "contract_api": "PASS 80 / 80",
+    "migrations_security": "PASS 8 / 8",
+    "targeted_regressions": {
+      "product_media_c1": "PASS 8 / 8",
+      "reference_data_c2": "PASS 9 / 9",
+      "attachment_owner_scope": "PASS 19 / 19",
+      "attachments_api": "2 baseline-identical failures (real MinIO/S3 environmental)"
+    },
+    "full_api_db_suite": {
+      "files": "87 / 92 PASS",
+      "tests": "1521 / 1540 PASS",
+      "failing_files": [
+        "attachments.api.test.ts", "customers.api.test.ts", "geofences.api.test.ts",
+        "postgres-init-role.api.test.ts", "tours.api.test.ts"
+      ],
+      "failing_titles": 19,
+      "clean_baseline_comparison": "identical=True vs pristine C2 baseline /tmp/pm02c2-baseline-tests.log",
+      "verdict": "environmental baseline failures; NOT a local full-DB PASS claim"
+    },
+    "root_typecheck": "PASS",
+    "root_build": "PASS (includes /attachments-center)",
+    "test_partition": "92 files, declared == computed",
+    "migration_cycle": "PASS up/down/up, 1033 identical objects, temporary DB dropped",
+    "git_diff_check": 0
+  },
+  "live_integration": {
+    "evidence_file": "docs/product-inventory/evidence/task-pm-02/VERIFICATION-C3-LIVE.txt",
+    "evidence_sha256": "2ba5538759473479167d268551dbfceaa70fafe7a39f6a68bd9f88895f0a1fdc",
+    "mode": "same-origin http://127.0.0.1:3000/api/v1 -> Next rewrite -> built API",
+    "preview_api_process": "api-server-6ef2e929",
+    "login": "c1_admin / Demo!pass123",
+    "fixture": "preview DB only, not committed; five owner rows in greendms_c1_preview",
+    "empty_views": "200 for invoice, sales_order, return_request, stock_count, journal_entry",
+    "real_uploads": "5 x 201 (4 PNG + 1 PDF), SHA-256 stored, bounded signed URL returned",
+    "list_counts": "PASS {'images':0,'documents':1,'total':1}",
+    "fresh_url": "PASS expires_in=300",
+    "cross_owner_url": "404 entity_attachment_not_found",
+    "explicit_rejections": [
+      "brand", "product", "other", "invalid uuid", "missing owner",
+      "client owner_id/company_id", "unknown body field", "x-domain-id",
+      "?available=true", "?foo=1", "forged bytes"
+    ],
+    "unauthenticated": "401",
+    "generic_attachments_regression": "GET /attachments 200",
+    "product_media_c1_regression": "GET /products/{id}/media 200, first_image_by_created_at preserved",
+    "web_pages_200": ["/attachments-center", "/orders", "/invoices", "/returns", "/stock-count", "/gl"],
+    "audit_rows": 5,
+    "audit_url_or_storage_key_leakage": 0,
+    "verdict": "PASS",
+    "no_signed_urls_stored_in_evidence": true
+  },
+  "ci": {
+    "exact_final_c3_sha": "PENDING",
+    "implementation_commit_ci": "PENDING",
+    "c2_exact_sha_ci": "PASS at 19d412a966bd612694a08b58e133f71d9c6ba3fa",
+    "c1_delayed_exact_sha_ci": "NOT PASS at aa0028a02631728383533fbcd18461017fe29037 (infrastructure failure)",
+    "queued_cancelled_inaccessible_never_reported_as_pass": true,
+    "artificial_ci_trigger_commits": false
+  },
+  "final_sha_views": "PENDING — six views rechecked after the final ordinary commit",
+  "boundaries": {
+    "blocked": [
+      "PM-B1..PM-B8", "Q1..Q5", "G-03", "domain registry/lifecycle/membership/assignment",
+      "domain-scoped RLS/migrations/APIs/UI activation", "unapproved backfill/cutover",
+      "whole-file import", "whole Product Master acceptance"
+    ],
+    "not_authorized": ["merge", "approve", "release", "deploy", "production infrastructure change"],
+    "unverified": [
+      "manual browser RTL/a11y/console", "Playwright browser run (browsers unavailable)",
+      "production-equivalent MinIO/S3 round-trip", "production CI topology equivalence for local trust-auth PG"
+    ],
+    "deployment": "NOT AUTHORIZED"
+  },
+  "per_entity_verdicts": {
+    "sales_order": "PASS (implementation + automated tests + live preview; exact-final-SHA CI in PR/final report)",
+    "invoice": "PASS (implementation + automated tests + live preview; exact-final-SHA CI in PR/final report)",
+    "return_request": "PASS (implementation + automated tests + live preview; exact-final-SHA CI in PR/final report)",
+    "stock_count": "PASS (implementation + automated tests + live preview; exact-final-SHA CI in PR/final report)",
+    "journal_entry": "PASS (implementation + automated tests + live preview; exact-final-SHA CI in PR/final report)",
+    "receipt": "PASS (backend shared layer), UI DEFERRED",
+    "pod": "PASS (backend shared layer), UI DEFERRED",
+    "brand_category_warehouse_uom": "BLOCKED / NOT AUTHORIZED",
+    "production_storage_and_manual_browser": "UNVERIFIED",
+    "fail": "NONE"
+  },
+  "next_recommended_module": "TASK-PM-02-C4 — read-only multi-entity attachment import/export center with M4 preview + audit history pattern; no migration, deletion, domain semantics or whole-file import change. Recommendation only, not approval."
+}

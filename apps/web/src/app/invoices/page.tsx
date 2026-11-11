@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/DataTable";
+import { EntityAttachmentLauncher } from "@/components/EntityAttachments";
 import { SalesGuard } from "@/components/auth/guards";
 import { ExportButtons } from "@/components/reports/ExportButtons";
 import { formatMoney } from "@/lib/format";
@@ -92,6 +93,19 @@ function InvoicesInner() {
       key: "moadian",
       header: "مؤدیان",
       render: (i) => <span className="text-xs text-ink-muted">{i.moadian_status ? MOADIAN_FA[i.moadian_status] ?? i.moadian_status : "—"}</span>,
+    },
+    {
+      // TASK-PM-02-C3: ضمائم فاکتور روی همان لایهٔ مشترک (مالک = invoice)
+      key: "attachments",
+      header: "ضمائم",
+      align: "end",
+      render: (i) => (
+        <EntityAttachmentLauncher
+          ownerType="invoice"
+          ownerId={i.id ?? ""}
+          label={`فاکتور ${i.doc_number ?? ""}`}
+        />
+      ),
     },
   ];
 

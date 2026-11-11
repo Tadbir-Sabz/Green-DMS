@@ -442,3 +442,36 @@
   تاریخی M4 دستنخورده ماندند.
 - محدودیتهای صریح: CI نهایی دقیقSHA، مرورگر دستی/RTL/a11y/console، MinIO/S3
   production و معادل CI/تولید `UNVERIFIED`؛ هیچ اسکرینشات ساختگی ثبت نشد.
+
+---
+
+## TASK-PM-02-C3 — ضمائم سازمانی (Enterprise-Wide Entity Attachments)
+
+- مبنا: `19d412a966bd612694a08b58e133f71d9c6ba3fa` (C2)؛ شش نمای SHA در ابتدا
+  `ALL_AGREE=True`، worktree پاک، diffcheck صفر. چکپوینت قابل بازیابی
+  `/home/user/pm02-c3-checkpoint.tar.gz` (sha256
+  `75d2cf6fed6d0ebfbb6b6dbd00272e97a08bc9b22b988329b2c935918eb2dd5e`،
+  `sha256sum -c` → `OK`) و `/home/user/pm02-c3-checkpoint.bundle`.
+- کد: قواعد خالص/سرویس/کنترلر/ماژول `entity-attachments.*`، قلاب اختیاری
+  `UploadHooks` در `attachments.service.ts`، سیمکشی `app.module.ts`،
+  `packages/contracts/openapi.yaml` (+۳ مسیر / ۴ اسکیما)، کلاینت بازتولیدشده،
+  `EntityAttachments.tsx`، `uploadEntityAttachment`، نگهدارندهٔ سازگاری،
+  پنج صفحهٔ واقعی، `/attachments-center` و `navigation.ts`.
+- ماتریس واجدشرایطبودن، معماری، مرزها، نتایج و احکام جداگانه:
+  `TASK-PM-02-C3_IMPLEMENTATION.md`؛ شواهد ساختاریافته
+  `VERIFICATION-C3.{txt,json}`؛ شاهد زندهٔ همانمبدأ
+  `evidence/task-pm-02/VERIFICATION-C3-LIVE.txt`؛ راهنمای اپراتور §۸.
+- تستها: متمرکز API ۲/۱۶، متمرکز وب ۲/۱۴، وب کامل ۲۴/۱۳۲، واحد بیدادهٔ API ۳۳/۳۹۵،
+  قرارداد ۸۰/۸۰، امنیت مهاجرتها ۸/۸، رگرسیون C1/C2/مالکیت ۸/۸، ۹/۹، ۱۹/۱۹،
+  OpenAPI ۲۱۳/۳۰۷/۱۷۸/۳ و drift=۰، typecheck/build ریشه، پارتیشن ۹۲ فایل،
+  up/down/up ۱۰۳۳ شیء، اجرای کامل DB ۸۷/۹۲ و ۱۵۲۱/۱۵۴۰ با ۵/۱۹ شکست
+  محیطی عیناً همان مبنای پاک C2 (`identical=True`).
+- شاهد زنده: پنج آپلود واقعی، فهرست/شمارش، URL تازه (۳۰۰ ثانیه)، ۴۰۴ مالک
+  دیگر، رد انواع اختراعی/محصول/`other`/تزریق مالک/هدر دامنه/کوئری/امضای جعلی،
+  رگرسیون API قدیم و C1، شش صفحهٔ وب ۲۰۰؛ DB: ۵ رویداد ممیزی، صفر نشت
+  URL/`storage_key` در `after_data`.
+- مرز: بدون مهاجرت، مجوز، نقش، grant، seed، RLS، نوع مالک یا معنای دامنهای
+  تازه؛ بدون حذف/بایگانی/اصلی/نگهداشت؛ PM-B1..PM-B8 / Q1..Q5 / G-03 و
+  پذیرش کامل Product Master `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14
+  `OPEN / DRAFT`. مرورگر دستی RTL/a11y/console و MinIO/S3 production
+  `UNVERIFIED`؛ هیچ اسکرینشات ساختگی ثبت نشد.

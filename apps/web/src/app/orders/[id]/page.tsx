@@ -232,8 +232,8 @@ function OrderDetailInner() {
         />
       </div>
 
-      {/* اسناد/مدرک تحویل (POD) — مالکیت: sales_order با شناسهٔ همین سفارش */}
-      <Attachments ownerType="sales_order" ownerId={id} title="اسناد و مدرک تحویل (POD)" />
+      {/* TASK-PM-02-C3: جزء مشترک ضمائم سازمانی — مالک sales_order دقیقاً همین سفارش */}
+      <Attachments ownerType="sales_order" ownerId={id} title="اسناد و ضمائم سفارش فروش" />
     </div>
   );
 }

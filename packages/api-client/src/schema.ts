@@ -9429,6 +9429,199 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entity-attachments/{ownerType}/{ownerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند. */
+                ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                /** @description شناسهٔ رکورد مالک در همان شرکت نشست */
+                ownerId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * فهرست مشترک ضمائم یک موجودیت واجدشرایط + شمارش و برچسب فارسی
+         * @description همان خط لولهٔ `GET /attachments` (زنجیرهٔ مالکیت `ownerTenantSql`، RLS/FORCE RLS، URL امضاشدهٔ کوتاهعمر) دوباره استفاده میشود، ولی مالک فقط از مسیر و نشست مشتق میگردد. مجوز `attachment.view` در گارد route و دوباره از روی DB بررسی میشود. هیچ فیلد دامنهای، عضویت، وضعیت عرضه، `is_primary` یا `sort_order`ای برگردانده نمیشود؛ هدر `x-domain-id` و کلیدهای دامنهای/مالکیتی در کوئری صریحاً ۴۰۰ میگیرند (همسانی B2). خطاها: `unsupported_owner_type`، `invalid_owner_id`، `owner_not_found`، `owner_scope_denied`، `entity_attachment_owner_scope_rejected`، `unsupported_request_field`، `domain_property_rejected`، `domain_context_not_supported`، `forbidden`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند. */
+                    ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                    /** @description شناسهٔ رکورد مالک در همان شرکت نشست */
+                    ownerId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نمای یکسان ضمائم موجودیت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EntityAttachmentView"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * بارگذاری امن ضمیمه برای یک موجودیت (multipart — فقط فیلد file)
+         * @description مالک (`owner_type`, `owner_id`) و `company_id` فقط از مسیر و نشست سرور مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`، `uploaded_by`، `storage_key` یا فیلد دامنهای در بدنه/کوئری با ۴۰۰ صریح رد میشود، نه حذف بیصدا. مجوز `attachment.upload` در گارد route و دوباره از DB بررسی میشود؛ RLS/FORCE RLS و زنجیرهٔ مالکیت والد دستنخوردهاند. همان خط لولهٔ `POST /attachments` (سقف حجم، allowlist، امضای بایتی، SHA-256، کلید نامفضاشده به شرکت، URL امضاشده) دوباره استفاده میشود. ثبت ردیف `attachment` و رویداد `audit_log` با `action=create` و `entity_type=entity_attachment` در **یک تراکنش**اند؛ شکست ممیزی، شکست ثبت DB یا شکست صدور URL ⇒ rollback و پاکسازی شیء آپلودشده تا فایل اورفان باقی نماند. URL امضاشده هرگز وارد ممیزی یا لاگ نمیشود. حذف/بایگانی/انتخاب تصویر اصلی/سیاست نگهداشت تعریف نشدهاند. خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`، `unverifiable_content_type`، `content_type_mismatch`، `malformed_content`، `extension_mismatch`، `unsupported_owner_type`، `owner_not_found`، `owner_scope_denied`، `entity_attachment_owner_scope_rejected`، `unsupported_request_field`، `forbidden`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند. */
+                    ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                    /** @description شناسهٔ رکورد مالک در همان شرکت نشست */
+                    ownerId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp، application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی یا دامنهای پذیرفته نمیشود.
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description فایل ذخیره، metadata ثبت و رویداد ممیزی در همان تراکنش نوشته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EntityAttachmentItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description حجم فایل بیش از حد مجاز (file_too_large) */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description نوع/امضای محتوای فایل پذیرفته نشد */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description ذخیرهسازی شیء پیکربندی نشده یا در دسترس نیست */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-attachments/{ownerType}/{ownerId}/{attachmentId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                ownerId: string;
+                /** @description شناسهٔ ضمیمهٔ دقیقاً همین رکورد */
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * URL امضاشدهٔ تازه برای ضمیمهٔ دقیقاً همین موجودیت
+         * @description علاوه بر راستیآزمایی زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر صریحاً `owner_type` و `owner_id` مسیر و `company_id` نشست را قید میزند؛ ضمیمهٔ رکوردی دیگر حتی در همان شرکت ۴۰۴ `entity_attachment_not_found` میگیرد. URL کوتاهعمر است و bucket هرگز عمومی نمیشود. مجوز `attachment.view` در دو لایه بررسی میشود.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                    ownerId: string;
+                    /** @description شناسهٔ ضمیمهٔ دقیقاً همین رکورد */
+                    attachmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description URL امضاشدهٔ دانلود و عمر آن به ثانیه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUrl"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bi/kpi": {
         parameters: {
             query?: never;
@@ -14676,6 +14869,57 @@ export interface components {
             url: string;
             /** @description عمرِ URL به ثانیه */
             expires_in: number;
+        };
+        /**
+         * @description انواع مالک مصوب C3 — دقیقاً همان enum تاریخی `Attachment.owner_type` منهای `product` (نمای محصولمحور C1) و `other` (راستیآزماییناپذیر، fail-closed). همگی در `owner-scope.ts` زنجیرهٔ مالکیت اجارهای دارند.
+         * @enum {string}
+         */
+        EntityAttachmentOwnerType: "invoice" | "sales_order" | "return_request" | "stock_count" | "receipt" | "journal_entry" | "pod";
+        EntityAttachmentCounts: {
+            images: number;
+            documents: number;
+            total: number;
+        };
+        /** @description همان `schemas.Attachment` بهعلاوهٔ دستهبندی تصویر/سند که فقط در لحظهٔ خواندن محاسبه میشود. هیچ `is_primary`، `sort_order`، `domain_id` یا وضعیت ذخیرهشدهای وجود ندارد. */
+        EntityAttachmentItem: {
+            /** Format: uuid */
+            id: string;
+            owner_type: components["schemas"]["EntityAttachmentOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            /** @description اثر انگشت SHA-256 محتوای فایل */
+            sha256: string;
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ کوتاهعمر
+             */
+            url: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            kind: "image" | "document";
+            /** @description «تصویر» یا «سند» */
+            kind_label_fa: string;
+        };
+        /** @description نمای مشترک ضمائم یک موجودیت واجدشرایط — شکل یکسان برای فاکتور، سفارش، مرجوعی، انبارگردانی، سند حسابداری، رسید پرداخت و POD. صرفاً کاتالوگ مرکزی/عملیاتی؛ هیچ فیلد دامنهای، عضویت یا دسترسپذیری دامنهای ندارد. */
+        EntityAttachmentView: {
+            owner_type: components["schemas"]["EntityAttachmentOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            /** @description برچسب فارسی مصوب موجودیت */
+            owner_label_fa: string;
+            /** @description نشانی صفحهٔ مدیریت موجودیت برای ناوبری */
+            module_path: string;
+            /** @description جدیدترین ضمیمه اول (ترتیب قطعی created_at سپس id) */
+            items: components["schemas"]["EntityAttachmentItem"][];
+            counts: components["schemas"]["EntityAttachmentCounts"];
+            /** @description محدودیتهای مصوب (بدون حذف/بایگانی/انتخاب اصلی) */
+            note_fa: string;
+            /** @description یادآوری مرز مرکزی/دامنهای */
+            message_fa: string;
         };
         /** @description یک تصویر/سند کالا؛ همان schemas.Attachment بهعلاوهٔ دستهبندی و نشانگر تصویرِ اصلی که فقط در لحظهٔ خواندن محاسبه شده است (§B4 — بدون ستون DB). */
         ProductMediaItem: {

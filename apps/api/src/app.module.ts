@@ -27,6 +27,9 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
+// TASK-PM-02-C3: لایهٔ مشترک ضمائم سازمانی (فاکتور/سفارش/مرجوعی/انبارگردانی/
+// سند حسابداری/رسید پرداخت/POD) روی همان AttachmentsModule موجود.
+import { EntityAttachmentsModule } from './modules/attachments/entity-attachments.module';
 
 /**
  * ریشه اپ API — چیدمان ماژول‌ها دقیقاً Core Modules سند §۳.۳:
@@ -74,6 +77,8 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     SettingsModule,
     // ضمیمه‌ها و مدرک تحویل (POD) روی آبجکت‌استوریج MinIO/S3
     AttachmentsModule,
+    // لایهٔ مشترک C3 — همان سرویسها، مالک از مسیر، ممیزی تراکنشی
+    EntityAttachmentsModule,
   ],
   providers: [
     // قرارداد Error با request_id برای همهٔ استثناها — باگ‌ها فقط در سمت سرور لاگ می‌شوند

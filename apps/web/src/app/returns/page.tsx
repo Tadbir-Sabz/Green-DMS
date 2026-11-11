@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, getToken } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { EntityAttachments } from "@/components/EntityAttachments";
 
 /**
  * مرجوعی‌ها — /returns (فاز D):
@@ -425,6 +426,15 @@ export default function ReturnsPage() {
               {decisionError && (
                 <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{decisionError}</div>
               )}
+
+              {/* TASK-PM-02-C3: اسناد و تصاویر دلیل مرجوعی، متصل به همین درخواست */}
+              <div className="border-t border-line pt-3">
+                <EntityAttachments
+                  ownerType="return_request"
+                  ownerId={current.id}
+                  showNavigation={false}
+                />
+              </div>
 
               <div className="border-t border-line pt-3">
                 <div className="text-ink-muted mb-2">اقلام</div>

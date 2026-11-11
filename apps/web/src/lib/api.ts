@@ -202,6 +202,65 @@ export async function uploadAttachment(
   return (await res.json()) as UploadedAttachment;
 }
 
+/** پاسخ POST /entity-attachments/{ownerType}/{ownerId} — schemas.EntityAttachmentItem */
+export type UploadedEntityAttachment = components['schemas']['EntityAttachmentItem'];
+
+/**
+ * بارگذاری ضمیمهٔ سازمانی (TASK-PM-02-C3) با **پیشرفت واقعی** بایتها.
+ *
+ * `fetch` پیشرفت آپلود نمیدهد، پس از XMLHttpRequest و `xhr.upload.onprogress`
+ * استفاده میشود. مالک فقط در مسیر است: هیچ `owner_type`/`owner_id`/`company_id`
+ * در FormData فرستاده نمیشود و سرور ارسال آنها را ۴۰۰ میگیرد. ۴۰۱ → همان
+ * زیرساخت تازهسازی نشست (یکبار refresh) و تلاش مجدد. خطاها به پیام فارسی
+ * قرارداد Error تبدیل میشوند؛ URL امضاشده هرگز لاگ نمیشود.
+ */
+export async function uploadEntityAttachment(
+  file: File,
+  ownerType: string,
+  ownerId: string,
+  onProgress?: (percent: number) => void,
+): Promise<UploadedEntityAttachment> {
+  const send = (token: string | null): Promise<{ status: number; body: unknown }> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(
+        'POST',
+        `${BASE_URL}/entity-attachments/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`,
+      );
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
+      xhr.onload = () => {
+        let body: unknown;
+        try { body = JSON.parse(xhr.responseText); } catch { body = undefined; }
+        resolve({ status: xhr.status, body });
+      };
+      xhr.onerror = () => reject(new Error('ارتباط با سرور برقرار نشد. دوباره تلاش کنید.'));
+      xhr.onabort = () => reject(new Error('بارگذاری لغو شد.'));
+      const fd = new FormData();
+      fd.append('file', file);
+      xhr.send(fd);
+    });
+
+  onProgress?.(0);
+  let res = await send(getToken());
+  if (res.status === 401) {
+    const ok = await refresh({ tokenSent: getToken() });
+    if (ok) {
+      onProgress?.(0);
+      res = await send(getToken());
+    }
+  }
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(errorMessage(res.body));
+  }
+  onProgress?.(100);
+  return res.body as UploadedEntityAttachment;
+}
+
 /** پاسخ POST /products/{id}/media — همان schemas.ProductMediaItem قرارداد */
 export type UploadedProductMedia = components['schemas']['ProductMediaItem'];
 
