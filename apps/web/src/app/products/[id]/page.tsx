@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { CatalogHistory, DomainIntegrationStatus } from './catalog-evidence';
 import { ProductLifecycleTab } from './product-lifecycle';
+import { ProductRelationsTab } from './product-relations';
 import { ProductMediaTab } from './product-media';
 import { useParams, useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
@@ -20,11 +21,9 @@ import {
   type ProductBarcode,
   type ProductFamily,
   type ProductPackaging,
-  type ProductRelation,
   ALIAS_KIND_LABEL,
   ATTR_KIND_LABEL,
   BARCODE_KIND_LABEL,
-  RELATION_KIND_LABEL,
   STATUS_LABEL,
   btnDangerSmall,
   btnGhost,
@@ -165,7 +164,7 @@ export default function ProductDetailPage(): React.JSX.Element {
       {tab === 'aliases' && <AliasesTab productId={id} onNotice={setNotice} />}
       {tab === 'barcodes' && <BarcodesTab productId={id} onNotice={setNotice} />}
       {tab === 'packaging' && <PackagingTab productId={id} onNotice={setNotice} />}
-      {tab === 'relations' && <RelationsTab productId={id} onNotice={setNotice} />}
+      {tab === 'relations' && <ProductRelationsTab productId={id} />}
       {tab === 'bundle' && <BundleTab productId={id} onNotice={setNotice} />}
       </fieldset>
     </>
@@ -1026,139 +1025,6 @@ function PackagingTab({ productId, onNotice }: { productId: string; onNotice: (m
 /* ============================================================
  * تب روابط — جایگزین/مکمل (خودارجاع و حلقه ممنوع)
  * ============================================================ */
-function RelationsTab({ productId, onNotice }: { productId: string; onNotice: (msg: string | null) => void }) {
-  const [items, setItems] = useState<ProductRelation[]>([]);
-  const [candidates, setCandidates] = useState<Product[]>([]);
-  const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ related_id: '', kind: 'substitute', priority: '100' });
-  const [err, setErr] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const { data, error } = await api.GET('/products/{id}/relations', { params: { path: { id: productId } } });
-    if (!error) setItems((data ?? []) as ProductRelation[]);
-  }, [productId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const searchProducts = async (): Promise<void> => {
-    const { data, error } = await api.GET('/products', { params: { query: { q: search || undefined, limit: 20 } } });
-    if (!error) setCandidates(data?.items ?? []);
-  };
-
-  const add = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    setErr(null);
-    const { error } = await api.POST('/products/{id}/relations', {
-      params: { path: { id: productId } },
-      body: {
-        related_id: form.related_id,
-        kind: form.kind as 'substitute' | 'complement',
-        priority: form.priority ? Number(form.priority) : undefined,
-      },
-    });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    setForm({ related_id: '', kind: 'substitute', priority: '100' });
-    onNotice('رابطه ثبت شد.');
-    await load();
-  };
-
-  const remove = async (relationId: string): Promise<void> => {
-    setErr(null);
-    const { error } = await api.DELETE('/product-relations/{relationId}', { params: { path: { relationId } } });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    onNotice('رابطه حذف شد.');
-    await load();
-  };
-
-  return (
-    <div className="space-y-4">
-      {err && <p className={errorCls}>{err}</p>}
-      <form onSubmit={add} className={`${panelCls} space-y-3`}>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            جست‌وجوی کالا
-            <input className={`${inputCls} mt-1 w-56`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="کد یا نام" />
-          </label>
-          <button type="button" className={btnGhost} onClick={() => void searchProducts()}>
-            جست‌وجو
-          </button>
-          <label className="text-sm">
-            کالای مرتبط
-            <select className={`${selectCls} mt-1 w-64`} value={form.related_id} onChange={(e) => setForm({ ...form, related_id: e.target.value })} required>
-              <option value="">— انتخاب —</option>
-              {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            نوع رابطه
-            <select className={`${selectCls} mt-1 w-36`} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
-              <option value="substitute">جایگزین</option>
-              <option value="complement">مکمل</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            اولویت
-            <input type="number" min={0} className={`${inputCls} mt-1 w-24`} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} />
-          </label>
-          <button type="submit" className={btnPrimary}>
-            ثبت رابطه
-          </button>
-        </div>
-      </form>
-
-      <div className={tableWrapCls}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCls}>کد</th>
-              <th className={thCls}>نام</th>
-              <th className={thCls}>نوع رابطه</th>
-              <th className={thCls}>اولویت</th>
-              <th className={thCls}>عملیات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={5} className={`${tdCls} py-6 text-center text-ink-subtle`}>
-                  رابطه‌ای ثبت نشده است
-                </td>
-              </tr>
-            )}
-            {items.map((r) => (
-              <tr key={r.id} className="border-t border-line">
-                <td className={`${tdCls} font-mono text-xs`} dir="ltr">
-                  {r.related_code}
-                </td>
-                <td className={tdCls}>{r.related_name}</td>
-                <td className={`${tdCls} text-ink-muted`}>{RELATION_KIND_LABEL[r.kind] ?? r.kind}</td>
-                <td className={tdCls}>{r.priority}</td>
-                <td className={tdCls}>
-                  <button className={btnDangerSmall} onClick={() => void remove(r.id)}>
-                    حذف
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 /* ============================================================
  * تب ترکیبِ بسته — D5 (فقط تعریفِ کاتالوگی؛ تا P5 غیرقابل سفارش/فروش)
  * ============================================================ */

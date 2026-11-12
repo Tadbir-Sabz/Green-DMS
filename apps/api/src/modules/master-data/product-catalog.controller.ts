@@ -66,12 +66,6 @@ export class SetAttributeValuesDto {
   values: AttributeValueItemDto[];
 }
 
-export class CreateRelationDto {
-  @IsUUID('4') related_id: string;
-  @IsIn(['substitute', 'complement']) kind: string;
-  @IsOptional() @IsInt() @Min(0) priority?: number;
-}
-
 export class BundleItemDto {
   @IsUUID('4') component_product_id: string;
   @IsNumber() @Min(0.0001) qty: number;
@@ -199,33 +193,10 @@ export class ProductCatalogController {
   }
 
   // ---------- روابط ----------
-  @Get('products/:id/relations')
-  @RequirePermissions('master.product.view')
-  listRelations(@CurrentUser('companyId') companyId: string, @Param('id') id: string) {
-    return this.service.listRelations(companyId, id);
-  }
-
-  @Post('products/:id/relations')
-  @RequirePermissions('master.product.update')
-  addRelation(
-    @CurrentUser() user: AuthContext,
-    @Param('id') id: string,
-    @Body() dto: CreateRelationDto,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    return this.service.addRelation(user.companyId, id, dto.related_id, dto.kind, dto.priority ?? 100, meta, user.userId);
-  }
-
-  @Delete('product-relations/:relationId')
-  @RequirePermissions('master.product.update')
-  async removeRelation(
-    @CurrentUser() user: AuthContext,
-    @Param('relationId') relationId: string,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    await this.service.removeRelation(user.companyId, relationId, meta, user.userId);
-    return { deleted: true };
-  }
+  // TASK-PM-02-C6: سطحِ روابطِ کالا به `ProductRelationsController` منتقل شد
+  // (نمای کامل، تاریخچه، پیمایشِ محدود، افزودن/ویرایشِ اولویت/حذف با ممیزیِ
+  // fail-closed). این کنترلر فقط منابعِ خانواده/alias/صفات/bundle را نگه می‌دارد
+  // تا هیچ مسیرِ تکراری یا نسخهٔ قدیمیِ ضعیف‌تر در دسترس نماند.
 
   // ---------- bundle (D5 — فقط کاتالوگ) ----------
   @Get('products/:id/bundle')

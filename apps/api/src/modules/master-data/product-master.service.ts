@@ -29,7 +29,6 @@ import type {
   BarcodeRow,
   BundleRow,
   FamilyRow,
-  RelationRow,
 } from './product-master.repository';
 import { ProductMasterRepository } from './product-master.repository';
 import type { RequestMeta } from '../../common/request-meta';
@@ -474,64 +473,11 @@ export class ProductMasterService {
 
   // =================================================================
   // روابط (جایگزین/مکمل)
+  // TASK-PM-02-C6: این سطح به `ProductRelationsService`/`ProductRelationsController`
+  // منتقل شد (نمای کامل خروجی/ورودی، تاریخچهٔ ۰۰۶۰، پیمایشِ محدود، ویرایشِ
+  // اولویت، افزودن/حذف با ممیزیِ fail-closed، رد صریح فیلدهای کلاینتی).
+  // هیچ نسخهٔ تکراری یا ضعیف‌تر در این سرویس باقی نمانده است.
   // =================================================================
-  async listRelations(companyId: string, productId: string): Promise<RelationRow[]> {
-    return this.repo.listRelations(productId);
-  }
-
-  async addRelation(
-    companyId: string,
-    productId: string,
-    relatedId: string,
-    kind: string,
-    priority: number,
-    meta: RequestMeta,
-    actorUserId: string,
-  ): Promise<RelationRow> {
- return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
-    await this.access.assert(companyId, actorUserId, 'master.product.update');
-
-    if (!['substitute', 'complement'].includes(kind)) {
-      throw new BadRequestException({ code: 'invalid_kind', message_fa: 'نوعِ رابطه باید substitute یا complement باشد.' });
-    }
-    await this.assertProduct(companyId, productId);
-    await this.assertProduct(companyId, relatedId);
-    if (productId === relatedId) {
-      throw new BadRequestException({ code: 'self_relation', message_fa: 'ارجاعِ خودی در روابط مجاز نیست.' });
-    }
-    if (kind === 'substitute' && (await this.repo.substitutePathExists(productId, relatedId))) {
-      throw new BadRequestException({ code: 'relation_cycle', message_fa: 'این رابطه حلقهٔ جایگزینی ایجاد می‌کند.' });
-    }
-    try {
-      const row = await this.repo.insertRelation(companyId, productId, relatedId, kind, priority);
-      await this.audit.record({
-        companyId, actorUserId, action: 'create', entityType: 'product_relation', entityId: row.id,
-        after: row, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-      });
-      return row;
-    } catch (err) {
-      if ((err as { code?: string }).code === '23505') {
-        throw new ConflictException({ code: 'duplicate_relation', message_fa: 'این رابطه قبلاً ثبت شده است.' });
-      }
-      throw err;
-    }
-
- });
- }
-
-  async removeRelation(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
- return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
-    await this.access.assert(companyId, actorUserId, 'master.product.update');
-
-    const ok = await this.repo.deleteRelation(companyId, id);
-    if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'رابطه یافت نشد.' });
-    await this.audit.record({
-      companyId, actorUserId, action: 'delete', entityType: 'product_relation', entityId: id,
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-
- });
- }
 
   // =================================================================
   // bundle — کاتالوگ در P1 (D5)

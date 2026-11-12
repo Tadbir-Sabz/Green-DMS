@@ -1,0 +1,94 @@
+VERIFICATION — TASK-PM-02-C6 (روابط کالا‑به‑کالا: جایگزین/مکمل)
+================================================================================
+نوع: کارنامهٔ راستی‌آزمایی اجراشده روی درخت کاری همین شاخه (نه ادعا).
+همهٔ اعداد زیر از اجرای واقعی همین نشست می‌آیند؛ خروجی خام در /tmp و شاهد زنده در
+docs/product-inventory/evidence/task-pm-02/VERIFICATION-C6-LIVE.txt است.
+
+مبنا: 50a7a587b6e8542cf7217dde3922e88dc39da74a (پایان C5؛ HEAD = origin = ls-remote = head PR)
+چک‌پوینت پیش از نخستین نوشتن: /home/user/pm02-c6-checkpoint.tar.gz
+  bytes=3097272
+  sha256=1c1c199532c15b201404c12dd97ac3181592659705f5d2153c623697fc356e0e
+  sha256sum -c → OK
+bundle: /home/user/pm02-c6-checkpoint.bundle bytes=3205407 verify=complete history HEAD=50a7a58…
+بدنهٔ PR پیش از C6: characters=131474 bytes=146932
+  sha256=c8fb45a7211bbd49bc59ceb38d8124a15d1a6a524ec8531204e08a69a1a00610  (باید بایت‌به‌بایت حفظ شود)
+
+--------------------------------------------------------------------------------
+۱) ساخت و قرارداد
+--------------------------------------------------------------------------------
+npm run typecheck                  → PASS (0 error TS)
+npm run build                      → PASS (packages + api tsc + next build)
+node apps/api/dist/main.js         → PASS (Nest started، /api/health → 200، database=up)
+npm run openapi:check              → PASS  paths=228 operations=323 schemas=221 webhooks=3
+node scripts/contract-drift.mjs    → PASS  contract_ops=323 code_ops=323 shared=323 drift=0
+npx openapi-typescript …           → schema.ts بازتولید شد (مسیرهای relations/history/graph/{relationId})
+npm run build:packages             → PASS
+npm run test:migrations            → PASS  1033 objects identical across up/down/up
+node scripts/check-test-partition  → PASS  total_test_files=99 declared == computed
+git diff --check                   → clean (0)
+
+--------------------------------------------------------------------------------
+۲) تست‌ها
+--------------------------------------------------------------------------------
+product-relations-unit.test.ts      → 1 file / 9 tests PASS (بدون DATABASE_URL هم PASS)
+product-relations.api.test.ts       → 1 file / 14 tests PASS (PostgreSQL 16.2 واقعی)
+product-relations.test.tsx          → 1 file / 7 tests PASS (کامپوننت فارسی RTL)
+focused regression (C1..C6 + boundary + security) → 8 files / 62 tests PASS
+apps/web (full)                     → 27 files / 150 tests PASS
+apps/api full DB (بدون فایل C6)      → 94 passed / 4 failed files؛ 1574 passed / 17 failed tests
+  فایل‌های شکست‌خورده: attachments/customers/geofences/tours/postgres-init-role
+  مقایسه با مبنا /tmp/pm02c5-api-full.log: همان 5 فایل / 19 عنوان (پیش‌موجود، بدون رگرسیون C6)
+attachments.api.test.ts (تنها)      → 9/9 PASS
+توجه: «Full DB PASS» اعلام نمی‌شود؛ شکست‌های باقی‌مانده پیش‌موجود/محیطی‌اند.
+
+--------------------------------------------------------------------------------
+۳) شاهد زندهٔ همین‌مبدأ (HTTP روی پشتهٔ محلی، PostgreSQL واقعی)
+--------------------------------------------------------------------------------
+file   : docs/product-inventory/evidence/task-pm-02/VERIFICATION-C6-LIVE.txt
+bytes  : 10098
+sha256 : 6bff0d1b21ffcf6e00b9e2a8a56fd959c4b0a8debaf4945819a15ba09f43473f
+پوشش: نمای خالی با دو نوع مصوب و ۶ تصمیم باز (۲ BLOCKED / ۴ UNRESOLVED) → افزودن A→B بدون
+ساخت معکوس → نمای ورودی از B (editable=false) → self_relation 400 / duplicate_relation 409 /
+relation_cycle 400 / پذیرش حلقهٔ مکمل → forbidden_client_field (company_id، reciprocal) و
+validation_failed (kind نامعتبر) و unsupported_request_field (کوئری ناشناخته) →
+domain_context_not_supported (x-domain-id) و domain_property_rejected (کوئری و بدنه) →
+401 بی‌نشست / 404 ناموجود / 400 invalid_id → PATCH اولویت 200 + relation_unchanged 400 +
+unsupported_request_field 400 + تاریخچهٔ UPDATE → graph با technical_limits(3/100) و
+semantics_fa → هشدار کالای blocked بدون مسدودسازی → حذف 404 از کالای دیگر / 200 از کالای
+مبدأ + ممیزی delete + تاریخچهٔ INSERT,UPDATE,DELETE → بدون تغییر status/row_version کالا،
+بدون ردیف bundle، بدون ممیزی product → پوستهٔ وب 200 → بازگشت شمارش‌ها به مبنا.
+مبنا/پایان: product=4 · product_relation=0 · product_bundle=0 · audit_log(product_relation)=0
+no_leak: بدون before_data/after_data خام، کلید استوریج/امضا، دادهٔ تماس/هویتی یا زیرساخت.
+
+--------------------------------------------------------------------------------
+۴) کنترل‌های امنیتی راستی‌آزمایی‌شده
+--------------------------------------------------------------------------------
+AuthGuard → PermissionsGuard → DomainBoundaryGuard  (ترتیب)
+master.product.view برای خواندن؛ master.product.update برای نوشتن (بازاعتبارسنجی از DB)
+RLS + FORCE RLS روی product_relation (pg_class.relrowsecurity/relforcerowsecurity = true، pg_policy > 0)
+هویت/شرکت فقط از نشست؛ company_id/tenant/actor/permissions/before_data/after_data → 400
+یکنواختی 404 برای ناموجود/بین‌شرکتی/رابطهٔ کالای دیگر
+CatalogAccess.write (advisory lock شرکت + GUC) و recordRequired fail-closed
+تاریخچهٔ 0060 در همان تراکنش؛ مسیر تاریخچه بدون before/after خام
+بدون مهاجرت/grant/نقش/RLS/شرکت/دامنه/seed تازه؛ بدون تغییر ماژول‌های فروش/قیمت/موجودی/بسته
+
+--------------------------------------------------------------------------------
+۵) احکام
+--------------------------------------------------------------------------------
+IMPLEMENTABLE : substitute، complement (همان enum و شکل 0046؛ جهت‌دار؛ فقط کاتالوگی)
+BLOCKED       : جایگزینی خودکار در سند (C6-D1)، گسترش عملیاتی بسته/P5 (C6-D6)،
+                رابطهٔ دامنه‌ای PM-B1..PM-B8، نوع رابطهٔ سوم بدون تصویب مالک،
+                G-03/D4، حذف/بایگانی/نگهداشت، استقرار/ادغام/انتشار
+UNRESOLVED    : تقارن/معکوس خودکار (C6-D2)، حلقهٔ مکمل (C6-D3)،
+                کاردینالیتی/الزام حداقل (C6-D4)، مسدودسازی رابطه با کالای غیرفعال (C6-D5)
+UNVERIFIED    : بازبینی دستی مرورگر (RTL/a11y/console)، زیرساخت معادل تولید،
+                پذیرش نهایی Product Master، e2e مرورگری
+باقی‌ماندهٔ ثبت‌شده (خارج از دامنهٔ C6): مسیرهای bundle/alias/attribute در
+ProductCatalogController همچنان DomainBoundaryGuard/assertProduct کامل ندارند → ورودی C7.
+
+--------------------------------------------------------------------------------
+۶) شش نمای SHA و CI
+--------------------------------------------------------------------------------
+CI فقط روی SHA دقیق همین commit اجرا و ثبت می‌شود؛ شش نما (HEAD، origin/<branch>،
+ls-remote، head PR، مبنای اعلام‌شده، SHA پیام commit) باید هم‌خوان باشند.
+هیچ commit پس از CI ساخته نمی‌شود. merge/approve/release انجام نشد؛ PR #14 DRAFT است.

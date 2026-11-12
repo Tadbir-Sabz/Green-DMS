@@ -11,7 +11,11 @@ export type ProductBarcode = components['schemas']['ProductBarcode'];
 export type ProductPackaging = components['schemas']['ProductPackaging'];
 export type ProductAttributeDef = components['schemas']['ProductAttributeDef'];
 export type ProductAttributeValue = components['schemas']['ProductAttributeValue'];
-export type ProductRelation = components['schemas']['ProductRelation'];
+// TASK-PM-02-C6 — روابط کالا از قرارداد بازطراحی‌شدهٔ C6 تولید می‌شوند.
+export type ProductRelationsOverview = components['schemas']['ProductRelationsOverview'];
+export type ProductRelationItem = components['schemas']['ProductRelationItem'];
+export type ProductRelationHistory = components['schemas']['ProductRelationHistory'];
+export type ProductRelationGraph = components['schemas']['ProductRelationGraph'];
 export type BundleComponent = components['schemas']['BundleComponent'];
 export type ProductFamily = components['schemas']['ProductFamily'];
 export type ScanResult = components['schemas']['ScanResult'];

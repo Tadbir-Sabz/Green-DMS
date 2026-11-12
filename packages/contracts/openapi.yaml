@@ -1782,20 +1782,42 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: فهرست جایگزین/مکمل‌های کالا
+      summary: نمای مرکزی روابط کالا (جایگزین/مکمل) با جهت، وضعیت کالای مرتبط و سیاست‌های باز
+      description: >-
+        TASK-PM-02-C6 — فقط دو نوع مصوب مهاجرت ۰۰۴۶ (`substitute`, `complement`).
+        رابطه جهت‌دار و **فقط اطلاع‌رسان** است: هیچ جایگزینی خودکار، تغییر سند،
+        قیمت، موجودی یا دسترس‌پذیری دامنه‌ای از آن ساخته نمی‌شود. هر آیتم جهت
+        (`outgoing`/`incoming`)، وضعیت کالای مرتبط و هشدار فارسی را برمی‌گرداند.
+        `available_actions`/`editable`/`removable` فقط برای روابط خروجی true است
+        (مدل مصوب فقط رابطه از این کالا را ویرایش/حذف می‌کند).
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [substitute, complement] }
+        - name: direction
+          in: query
+          schema: { type: string, enum: [outgoing, incoming, both], default: both }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
       responses:
         '200':
-          description: روابط
+          description: نمای روابط
           content:
             application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ProductRelation' }
+              schema: { $ref: '#/components/schemas/ProductRelationsOverview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [products]
-      summary: ثبت رابطه (خودارجاع/حلقهٔ substitute ممنوع)
+      summary: افزودن رابطه کالا (خودارجاع/تکرار/حلقهٔ substitute ممنوع)
+      description: >-
+        مجوز `master.product.update`؛ شرکت فقط از نشست. بدنه فقط
+        `related_id`، `kind`، `priority` و `confirm_add` را می‌پذیرد؛ هر فیلد
+        شرکت/هویت/مجوز/ممیزی/دامنه یا فیلد تعریف‌نشده ۴۰۰ صریح می‌گیرد.
+        افزودن و ممیزی و تاریخچهٔ ۰۰۶۰ در یک تراکنش ثبت می‌شوند (fail-closed).
       requestBody:
         required: true
         content:
@@ -1806,30 +1828,106 @@ paths:
               properties:
                 related_id: { type: string, format: uuid }
                 kind: { type: string, enum: [substitute, complement] }
-                priority: { type: integer, minimum: 0, default: 100 }
+                priority: { type: integer, minimum: 0, maximum: 32767, default: 100 }
+                confirm_add: { type: boolean, description: 'تأیید صریح اپراتور برای افزودن رابطه' }
       responses:
         '201':
           description: رابطه ثبت شد
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProductRelation' }
+              schema: { $ref: '#/components/schemas/ProductRelationItem' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /product-relations/{relationId}:
+  /products/{id}/relations/history:
     parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: تاریخچهٔ تغییرناپذیر روابط این کالا (تریگر ۰۰۶۰)
+      description: >-
+        فقط رویدادهای `entity_type='product_relation'` همان شرکت که این کالا در
+        مبدأ یا مقصد آن‌ها است؛ خروجی فقط کنشگر، زمان و نوع/اولویت است و
+        before/after خام یا دادهٔ شخصی برنمی‌گرداند.
+      responses:
+        '200':
+          description: تاریخچه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelationHistory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/relations/graph:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: پیمایش فنی و محدود روابط خروجی (نگهبان فنی، نه قاعده کسب‌وکار)
+      description: >-
+        عمق حداکثر ۳ و حداکثر ۱۰۰ گره؛ فقط روابط خروجی دنبال می‌شوند. این مسیر
+        هیچ حکمی دربارهٔ مجاز بودن حلقه، تقارن یا اثر عملیاتی نمی‌دهد و صرفاً از
+        پردازش/پاسخ بی‌کران جلوگیری می‌کند.
+      parameters:
+        - name: depth
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 3, default: 1 }
+        - name: kind
+          in: query
+          schema: { type: string, enum: [substitute, complement] }
+      responses:
+        '200':
+          description: گراف محدود
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelationGraph' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/relations/{relationId}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
       - { name: relationId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [products]
+      summary: ویرایش اولویت رابطه (تنها فیلد قابل ویرایش در مدل مصوب)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority]
+              properties:
+                priority: { type: integer, minimum: 0, maximum: 32767 }
+      responses:
+        '200':
+          description: اولویت به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelationItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [products]
-      summary: حذف رابطه
+      summary: حذف رابطه (سیاست موجود ۰۰۴۶/سرویس)
+      description: >-
+        حذف فقط برای رابطهٔ خروجی همین کالا و با مجوز `master.product.update`؛
+        حذف و ممیزی و تاریخچه در یک تراکنش ثبت می‌شوند. حذف کالا، بایگانی یا
+        سیاست نگهداشت تازه‌ای ایجاد نمی‌کند.
       responses:
         '200':
           description: حذف شد
           content:
             application/json:
-              schema: { type: object, properties: { deleted: { type: boolean } } }
+              schema: { $ref: '#/components/schemas/ProductRelationDeleteResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -9546,17 +9644,180 @@ components:
         value_num: { type: [string, 'null'], description: 'رشتهٔ اعشاری از دیتابیس' }
         value_enum: { type: [string, 'null'] }
 
-    ProductRelation:
+    ProductRelationKind:
+      type: string
+      enum: [substitute, complement]
+      description: 'فقط دو نوع مصوب مهاجرت ۰۰۴۶؛ هیچ نوع تازه‌ای در C6 اضافه نشد.'
+
+    ProductRelationRelatedProduct:
       type: object
-      required: [id, product_id, related_id, kind]
+      required: [id, code, status, status_label_fa]
       properties:
-        id: { type: string, format: uuid, readOnly: true }
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: [string, 'null'] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        status_label_fa: { type: string }
+        warning_fa:
+          type: [string, 'null']
+          description: 'هشدار اطلاع‌رسان برای کالای غیرفعال؛ رابطه را مسدود نمی‌کند (بدون سند مصوب).'
+
+    ProductRelationItem:
+      type: object
+      required: [id, product_id, related_id, kind, kind_label_fa, priority, direction, related, editable, removable]
+      properties:
+        id: { type: string, format: uuid }
         product_id: { type: string, format: uuid }
         related_id: { type: string, format: uuid }
-        kind: { type: string, enum: [substitute, complement] }
+        kind: { $ref: '#/components/schemas/ProductRelationKind' }
+        kind_label_fa: { type: string }
+        priority: { type: integer, minimum: 0, maximum: 32767 }
+        direction: { type: string, enum: [outgoing, incoming], description: 'رابطه جهت‌دار است؛ رابطهٔ متقابل خودکار ساخته نمی‌شود.' }
+        related: { $ref: '#/components/schemas/ProductRelationRelatedProduct' }
+        created_at: { type: string }
+        editable: { type: boolean, description: 'فقط رابطهٔ خروجی قابل ویرایش است.' }
+        removable: { type: boolean, description: 'فقط رابطهٔ خروجی قابل حذف است.' }
+
+    ProductRelationKindSpec:
+      type: object
+      required: [kind, label_fa, meaning_fa, operational_effect_fa, cycle_policy]
+      properties:
+        kind: { $ref: '#/components/schemas/ProductRelationKind' }
+        label_fa: { type: string }
+        meaning_fa: { type: string }
+        operational_effect_fa: { type: string }
+        cycle_policy: { type: string, enum: [rejected_by_existing_rule, no_approved_rule] }
+
+    ProductRelationOwnerDecision:
+      type: object
+      required: [id, title_fa, status, detail_fa]
+      properties:
+        id: { type: string }
+        title_fa: { type: string }
+        status: { type: string, enum: [BLOCKED, UNRESOLVED] }
+        detail_fa: { type: string }
+
+    ProductRelationsOverview:
+      type: object
+      required: [product_id, product, scope, actor, kinds, items, counts, downstream_notes_fa, owner_decisions_fa]
+      properties:
+        product_id: { type: string, format: uuid }
+        product:
+          type: object
+          required: [id, code, status, status_label_fa]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [active, blocked, discontinued] }
+            status_label_fa: { type: string }
+        scope: { type: string, enum: [central] }
+        actor:
+          type: object
+          required: [can_view, can_update]
+          properties:
+            can_view: { type: boolean }
+            can_update: { type: boolean }
+            unavailable_reason_fa: { type: [string, 'null'] }
+        kinds:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationKindSpec' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationItem' }
+        counts:
+          type: object
+          required: [outgoing, incoming, substitute, complement, truncated]
+          properties:
+            outgoing: { type: integer }
+            incoming: { type: integer }
+            substitute: { type: integer }
+            complement: { type: integer }
+            truncated: { type: boolean }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationOwnerDecision' }
+
+    ProductRelationHistoryEvent:
+      type: object
+      required: [id, action, event_label_fa, actor_label_fa, at]
+      properties:
+        id: { type: string }
+        action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+        event_label_fa: { type: string }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label_fa: { type: string }
+        at: { type: string }
+        kind: { type: [string, 'null'] }
+        priority: { type: [integer, 'null'] }
+        before_kind: { type: [string, 'null'] }
+        before_priority: { type: [integer, 'null'] }
+        product_id: { type: [string, 'null'], format: uuid }
+        related_id: { type: [string, 'null'], format: uuid }
+
+    ProductRelationHistory:
+      type: object
+      required: [items, has_more, limit, source_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationHistoryEvent' }
+        has_more: { type: boolean }
+        limit: { type: integer }
+        source_fa: { type: string }
+
+    ProductRelationGraphNode:
+      type: object
+      required: [product_id, code, status, depth]
+      properties:
+        product_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: [string, 'null'] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        kind: { type: [string, 'null'] }
+        depth: { type: integer, minimum: 0 }
+        via_relation_id: { type: [string, 'null'], format: uuid }
+
+    ProductRelationGraphEdge:
+      type: object
+      required: [relation_id, from, to, kind, priority]
+      properties:
+        relation_id: { type: string, format: uuid }
+        from: { type: string, format: uuid }
+        to: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/ProductRelationKind' }
         priority: { type: integer }
-        related_code: { type: string, readOnly: true }
-        related_name: { type: string, readOnly: true }
+
+    ProductRelationGraph:
+      type: object
+      required: [product_id, scope, depth, nodes, edges, truncated, technical_limits]
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        depth: { type: integer }
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationGraphNode' }
+        edges:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationGraphEdge' }
+        truncated: { type: boolean }
+        technical_limits:
+          type: object
+          required: [max_depth, max_nodes, requested_depth]
+          properties:
+            max_depth: { type: integer }
+            max_nodes: { type: integer }
+            requested_depth: { type: integer }
+        semantics_fa: { type: string }
+
+    ProductRelationDeleteResult:
+      type: object
+      required: [deleted, relation_id]
+      properties:
+        deleted: { type: boolean, const: true }
+        relation_id: { type: string, format: uuid }
 
     BundleComponent:
       type: object

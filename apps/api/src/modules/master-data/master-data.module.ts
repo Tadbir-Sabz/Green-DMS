@@ -7,6 +7,8 @@ import { ProductDomainScopeController } from './product-domain-scope.controller'
 import { ProductDomainScopeService } from './product-domain-scope.service';
 // TASK-PM-02-C5: centralized, read/transition-only central product lifecycle.
 import { ProductLifecycleController } from './product-lifecycle.controller';
+import { ProductRelationsController } from './product-relations.controller';
+import { ProductRelationsService } from './product-relations.service';
 import { ProductLifecycleService } from './product-lifecycle.service';
 import { OrderCreationLock } from '../sales/order-creation-lock';
 import { Module } from '@nestjs/common';
@@ -79,6 +81,7 @@ import {
     ProductImportController,
     ProductDomainScopeController,
     ProductLifecycleController,
+    ProductRelationsController,
     ProductBarcodeController,
     ProductCatalogController,
     ProductExportController,
@@ -102,6 +105,7 @@ import {
     DomainBoundaryGuard,
     ProductDomainScopeService,
     ProductLifecycleService,
+    ProductRelationsService,
     CatalogFoundationService,
     ProductPackagingService,
     ProductMasterRepository,

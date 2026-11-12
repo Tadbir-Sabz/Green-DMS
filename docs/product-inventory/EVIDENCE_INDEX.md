@@ -581,3 +581,52 @@
   راهنمای اپراتور. PR #14 `OPEN / DRAFT`؛ مرورگر دستی RTL/a11y/console و زیرساخت معادل
   تولید `UNVERIFIED`؛ CI دقیقSHA و شش نمای نهایی به‌صورت افزودنی در بدنهٔ PR/گزارش چت
   ثبت می‌شود، **بدون commit پساCI**.
+
+## TASK-PM-02-C6 — روابط کالا‑به‑کالا: جایگزین و مکمل (شواهد تازه)
+
+- مبنا و بازیابی: `50a7a587b6e8542cf7217dde3922e88dc39da74a` (پایان C5)، شش نمای SHA
+  هم‌خوان، `Already up to date`، worktree پاک و `git diff --check=0`. چک‌پوینت
+  `/home/user/pm02-c6-checkpoint.tar.gz` (۳٬۰۹۷٬۲۷۲ بایت، sha256
+  `1c1c199532c15b201404c12dd97ac3181592659705f5d2153c623697fc356e0e`، `sha256sum -c OK`)
+  و bundle کامل `--all` (۳٬۲۰۵٬۴۰۷ بایت، complete history، HEAD `50a7a58…`). بدنهٔ PR پیش از
+  C6: ۱۳۱٬۴۷۴ نویسه / ۱۴۶٬۹۳۲ بایت با هش
+  `c8fb45a7211bbd49bc59ceb38d8124a15d1a6a524ec8531204e08a69a1a00610` بایت‌به‌بایت حفظ شد.
+- کاتالوگ: فقط دو نوع مصوب `0046` — `substitute` (سیاست حلقه = قاعدهٔ موجود) و
+  `complement` (بدون قاعدهٔ مصوب حلقه). هیچ نوع/جهت/کاردینالیتی/اثر عملیاتی تازه ساخته نشد؛
+  شش تصمیم باز به‌صورت `C6-D1..C6-D6` (۲ BLOCKED / ۴ UNRESOLVED) در API و UI اعلام می‌شوند.
+- کد: `product-relations.{rules,service,controller}.ts` (تازه)، حذف مسیرهای قدیمی
+  رابطه از `product-catalog.controller.ts` و `product-master.service.ts`، ثبت در
+  `master-data.module.ts`؛ ۴ مسیر بازطراحی‌شده + ۳ مسیر تازه OpenAPI و ۱۰ اسکیمای
+  `ProductRelation*`؛ کلاینت بازتولیدشده؛ تب فارسی RTL `product-relations.tsx` جایگزین
+  کامپوننت درون‌خطی. **بدون مهاجرت، مجوز، نقش، grant، seed، RLS، شرکت یا دامنهٔ تازه.**
+- امنیت: `AuthGuard → PermissionsGuard → DomainBoundaryGuard` روی کل سطح (شکاف پیش از C6:
+  این کنترلر گارد مرز دامنه نداشت)، `assertProduct`/۴۰۴ یکنواخت روی خواندن‌ها (شکاف پیشین:
+  کالای ناموجود/بین‌شرکتی ۲۰۰ توخالی می‌گرفت)، فیلدهای شرکت/هویت/مجوز/ممیزی/دامنه و
+  `reciprocal` صریحاً ۴۰۰، `CatalogAccess.write` با advisory lock + `recordRequired`
+  fail-closed، تاریخچهٔ `0060` در همان تراکنش.
+- قرارداد/ساخت: OpenAPI **۲۲۸ مسیر / ۳۲۳ عملیات / ۲۲۱ اسکیما / ۳ وب‌هوک**؛ drift
+  **۳۲۳/۳۲۳، انحراف ۰**؛ `npm run typecheck` (۰ خطا)، `npm run build`،
+  `node apps/api/dist/main.js` PASS؛ up/down/up **۱٬۰۳۳ شیء یکسان**؛ پارتیشن
+  **۹۹ فایل `declared == computed`**؛ `git diff --check=۰`.
+- تست‌ها: واحد بی‌دادهٔ C6 **۱/۹** (بدون `DATABASE_URL` هم PASS)، سرتاسری HTTP+PostgreSQL
+  **۱/۱۴**، کامپوننت وب **۱/۷**، رگرسیون هدفمند **۸ فایل/۶۲ تست**، وب کامل **۲۷/۱۵۰**،
+  API کامل DB بدون فایل C6 **۹۴/۹۸ فایل و ۱٬۵۷۴/۱٬۵۹۱ تست** با ۴ فایل/۱۷ عنوان شکست
+  **عیناً همان‌های مبنا** (`attachments/customers/geofences/tours/postgres-init-role`؛
+  `attachments` جداگانه ۹/۹ PASS). «Full DB PASS» اعلام نشد.
+- شاهد زندهٔ همین‌مبدأ: `evidence/task-pm-02/VERIFICATION-C6-LIVE.txt` (sha256
+  `6bff0d1b21ffcf6e00b9e2a8a56fd959c4b0a8debaf4945819a15ba09f43473f`، ۱۰٬۰۹۸ بایت):
+  نمای خالی با دو نوع/۶ تصمیم باز، افزودن A→B بدون ساخت معکوس، نمای ورودی از B،
+  `self_relation` ۴۰۰ / `duplicate_relation` ۴۰۹ / `relation_cycle` ۴۰۰ و پذیرش حلقهٔ مکمل،
+  شش ۴۰۰ صریح برای فیلد شرکت/`reciprocal`/نوع/کوئری/هدر و ویژگی دامنه، ۴۰۱/۴۰۴،
+  ویرایش اولویت با تاریخچهٔ UPDATE، سقف پیمایش، هشدار کالای مسدود، حذف با ممیزی و
+  تاریخچهٔ `INSERT,UPDATE,DELETE`، بدون هیچ تغییر در کالا/بسته/ممیزی product، و بازگشت
+  شمارش‌ها به مبنا (**product=4، product_relation=0، product_bundle=0، audit=0**).
+- **BLOCKED:** جایگزینی خودکار در سند (C6-D1)، گسترش عملیاتی بسته/P5 (C6-D6)،
+  PM-B1..PM-B8 / Q1..Q5 / G-13 / G-03، حذف/بایگانی/نگهداشت، هر مهاجرت/مجوز/نقش/grant/
+  RLS/شرکت/دامنه/seed تازه، تغییر رفتار قیمت/موجودی/COGS/سفارش/فاکتور/بارنامه، پذیرش کامل
+  Product Master و استقرار.
+- **UNRESOLVED (پیاده نشد):** تقارن/رابطهٔ معکوس خودکار (C6-D2)، حلقهٔ مکمل (C6-D3)،
+  کاردینالیتی/الزام حداقل–حداکثر (C6-D4)، مسدودسازی رابطه با کالای غیرفعال (C6-D5).
+- اسناد: `TASK-PM-02-C6_IMPLEMENTATION.md`، `VERIFICATION-C6.{txt,json}`، پیوست §۱۱
+  راهنمای اپراتور. PR #14 `OPEN / DRAFT`؛ مرورگر دستی RTL/a11y/console و زیرساخت معادل
+  تولید `UNVERIFIED`؛ CI دقیق‌SHA و شش نمای نهایی **بدون commit پساCI** ثبت می‌شود.

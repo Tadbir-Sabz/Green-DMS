@@ -3261,10 +3261,17 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** فهرست جایگزین/مکمل‌های کالا */
+        /**
+         * نمای مرکزی روابط کالا (جایگزین/مکمل) با جهت، وضعیت کالای مرتبط و سیاست‌های باز
+         * @description TASK-PM-02-C6 — فقط دو نوع مصوب مهاجرت ۰۰۴۶ (`substitute`, `complement`). رابطه جهت‌دار و **فقط اطلاع‌رسان** است: هیچ جایگزینی خودکار، تغییر سند، قیمت، موجودی یا دسترس‌پذیری دامنه‌ای از آن ساخته نمی‌شود. هر آیتم جهت (`outgoing`/`incoming`)، وضعیت کالای مرتبط و هشدار فارسی را برمی‌گرداند. `available_actions`/`editable`/`removable` فقط برای روابط خروجی true است (مدل مصوب فقط رابطه از این کالا را ویرایش/حذف می‌کند).
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    kind?: "substitute" | "complement";
+                    direction?: "outgoing" | "incoming" | "both";
+                    limit?: number;
+                };
                 header?: never;
                 path: {
                     id: components["parameters"]["idPath"];
@@ -3273,21 +3280,26 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description روابط */
+                /** @description نمای روابط */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductRelation"][];
+                        "application/json": components["schemas"]["ProductRelationsOverview"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
-        /** ثبت رابطه (خودارجاع/حلقهٔ substitute ممنوع) */
+        /**
+         * افزودن رابطه کالا (خودارجاع/تکرار/حلقهٔ substitute ممنوع)
+         * @description مجوز `master.product.update`؛ شرکت فقط از نشست. بدنه فقط `related_id`، `kind`، `priority` و `confirm_add` را می‌پذیرد؛ هر فیلد شرکت/هویت/مجوز/ممیزی/دامنه یا فیلد تعریف‌نشده ۴۰۰ صریح می‌گیرد. افزودن و ممیزی و تاریخچهٔ ۰۰۶۰ در یک تراکنش ثبت می‌شوند (fail-closed).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -3306,6 +3318,8 @@ export interface paths {
                         kind: "substitute" | "complement";
                         /** @default 100 */
                         priority?: number;
+                        /** @description تأیید صریح اپراتور برای افزودن رابطه */
+                        confirm_add?: boolean;
                     };
                 };
             };
@@ -3316,7 +3330,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductRelation"];
+                        "application/json": components["schemas"]["ProductRelationItem"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -3332,11 +3346,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product-relations/{relationId}": {
+    "/products/{id}/relations/history": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * تاریخچهٔ تغییرناپذیر روابط این کالا (تریگر ۰۰۶۰)
+         * @description فقط رویدادهای `entity_type='product_relation'` همان شرکت که این کالا در مبدأ یا مقصد آن‌ها است؛ خروجی فقط کنشگر، زمان و نوع/اولویت است و before/after خام یا دادهٔ شخصی برنمی‌گرداند.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تاریخچه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationHistory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/relations/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * پیمایش فنی و محدود روابط خروجی (نگهبان فنی، نه قاعده کسب‌وکار)
+         * @description عمق حداکثر ۳ و حداکثر ۱۰۰ گره؛ فقط روابط خروجی دنبال می‌شوند. این مسیر هیچ حکمی دربارهٔ مجاز بودن حلقه، تقارن یا اثر عملیاتی نمی‌دهد و صرفاً از پردازش/پاسخ بی‌کران جلوگیری می‌کند.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    depth?: number;
+                    kind?: "substitute" | "complement";
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description گراف محدود */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationGraph"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/relations/{relationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
                 relationId: string;
             };
             cookie?: never;
@@ -3344,12 +3456,16 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** حذف رابطه */
+        /**
+         * حذف رابطه (سیاست موجود ۰۰۴۶/سرویس)
+         * @description حذف فقط برای رابطهٔ خروجی همین کالا و با مجوز `master.product.update`؛ حذف و ممیزی و تاریخچه در یک تراکنش ثبت می‌شوند. حذف کالا، بایگانی یا سیاست نگهداشت تازه‌ای ایجاد نمی‌کند.
+         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    id: components["parameters"]["idPath"];
                     relationId: string;
                 };
                 cookie?: never;
@@ -3362,11 +3478,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
+                        "application/json": components["schemas"]["ProductRelationDeleteResult"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -3374,7 +3489,40 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /** ویرایش اولویت رابطه (تنها فیلد قابل ویرایش در مدل مصوب) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                    relationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        priority: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description اولویت به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
         trace?: never;
     };
     "/products/{id}/bundle": {
@@ -15854,18 +16002,157 @@ export interface components {
             value_num?: string | null;
             value_enum?: string | null;
         };
-        ProductRelation: {
+        /**
+         * @description فقط دو نوع مصوب مهاجرت ۰۰۴۶؛ هیچ نوع تازه‌ای در C6 اضافه نشد.
+         * @enum {string}
+         */
+        ProductRelationKind: "substitute" | "complement";
+        ProductRelationRelatedProduct: {
             /** Format: uuid */
-            readonly id: string;
+            id: string;
+            code: string;
+            name?: string | null;
+            /** @enum {string} */
+            status: "active" | "blocked" | "discontinued";
+            status_label_fa: string;
+            /** @description هشدار اطلاع‌رسان برای کالای غیرفعال؛ رابطه را مسدود نمی‌کند (بدون سند مصوب). */
+            warning_fa?: string | null;
+        };
+        ProductRelationItem: {
+            /** Format: uuid */
+            id: string;
             /** Format: uuid */
             product_id: string;
             /** Format: uuid */
             related_id: string;
+            kind: components["schemas"]["ProductRelationKind"];
+            kind_label_fa: string;
+            priority: number;
+            /**
+             * @description رابطه جهت‌دار است؛ رابطهٔ متقابل خودکار ساخته نمی‌شود.
+             * @enum {string}
+             */
+            direction: "outgoing" | "incoming";
+            related: components["schemas"]["ProductRelationRelatedProduct"];
+            created_at?: string;
+            /** @description فقط رابطهٔ خروجی قابل ویرایش است. */
+            editable: boolean;
+            /** @description فقط رابطهٔ خروجی قابل حذف است. */
+            removable: boolean;
+        };
+        ProductRelationKindSpec: {
+            kind: components["schemas"]["ProductRelationKind"];
+            label_fa: string;
+            meaning_fa: string;
+            operational_effect_fa: string;
             /** @enum {string} */
-            kind: "substitute" | "complement";
-            priority?: number;
-            readonly related_code?: string;
-            readonly related_name?: string;
+            cycle_policy: "rejected_by_existing_rule" | "no_approved_rule";
+        };
+        ProductRelationOwnerDecision: {
+            id: string;
+            title_fa: string;
+            /** @enum {string} */
+            status: "BLOCKED" | "UNRESOLVED";
+            detail_fa: string;
+        };
+        ProductRelationsOverview: {
+            /** Format: uuid */
+            product_id: string;
+            product: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name?: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "discontinued";
+                status_label_fa: string;
+            };
+            /** @enum {string} */
+            scope: "central";
+            actor: {
+                can_view: boolean;
+                can_update: boolean;
+                unavailable_reason_fa?: string | null;
+            };
+            kinds: components["schemas"]["ProductRelationKindSpec"][];
+            items: components["schemas"]["ProductRelationItem"][];
+            counts: {
+                outgoing: number;
+                incoming: number;
+                substitute: number;
+                complement: number;
+                truncated: boolean;
+            };
+            downstream_notes_fa: string[];
+            owner_decisions_fa: components["schemas"]["ProductRelationOwnerDecision"][];
+        };
+        ProductRelationHistoryEvent: {
+            id: string;
+            /** @enum {string} */
+            action: "INSERT" | "UPDATE" | "DELETE";
+            event_label_fa: string;
+            /** Format: uuid */
+            actor_user_id?: string | null;
+            actor_label_fa: string;
+            at: string;
+            kind?: string | null;
+            priority?: number | null;
+            before_kind?: string | null;
+            before_priority?: number | null;
+            /** Format: uuid */
+            product_id?: string | null;
+            /** Format: uuid */
+            related_id?: string | null;
+        };
+        ProductRelationHistory: {
+            items: components["schemas"]["ProductRelationHistoryEvent"][];
+            has_more: boolean;
+            limit: number;
+            source_fa: string;
+        };
+        ProductRelationGraphNode: {
+            /** Format: uuid */
+            product_id: string;
+            code: string;
+            name?: string | null;
+            /** @enum {string} */
+            status: "active" | "blocked" | "discontinued";
+            kind?: string | null;
+            depth: number;
+            /** Format: uuid */
+            via_relation_id?: string | null;
+        };
+        ProductRelationGraphEdge: {
+            /** Format: uuid */
+            relation_id: string;
+            /** Format: uuid */
+            from: string;
+            /** Format: uuid */
+            to: string;
+            kind: components["schemas"]["ProductRelationKind"];
+            priority: number;
+        };
+        ProductRelationGraph: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            depth: number;
+            nodes: components["schemas"]["ProductRelationGraphNode"][];
+            edges: components["schemas"]["ProductRelationGraphEdge"][];
+            truncated: boolean;
+            technical_limits: {
+                max_depth: number;
+                max_nodes: number;
+                requested_depth: number;
+            };
+            semantics_fa?: string;
+        };
+        ProductRelationDeleteResult: {
+            /** @constant */
+            deleted: true;
+            /** Format: uuid */
+            relation_id: string;
         };
         /** @description D5 — ترکیبِ کاتالوگیِ بسته؛ SKU بسته تا P5 غیرقابل سفارش/فروش/حرکت موجودی */
         BundleComponent: {
