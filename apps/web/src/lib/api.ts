@@ -11,6 +11,8 @@ import type { components } from '@dms/api-client';
 // (API_PROXY_TARGET، پیش‌فرض http://localhost:4000) — بدون نیاز به CORS.
 // برای صدا زدنِ مستقیمِ یک API روی دامنهٔ دیگر، NEXT_PUBLIC_API_URL را در زمان build ست کنید.
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "") + "/api/v1";
+/** پایهٔ همانمبدأ API برای درخواستهای خام C4 (multipart/باینری/صفحهدار). */
+export const API_BASE_URL = BASE_URL;
 
 export const TOKEN_KEY = 'dms.access_token';
 export const USERNAME_KEY = 'dms.username';
@@ -148,6 +150,9 @@ function refresh(ctx: RefreshContext): Promise<boolean> {
   }
   return refreshInFlight;
 }
+
+/** همان تازهمسازی یکبارهِ نشست، برای درخواستهای خام مرکز انتقال ضمائم. */
+export const refreshAccessToken = refresh;
 
 export const api = createApiClient({
   baseUrl: BASE_URL,

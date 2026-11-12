@@ -1,4 +1,4 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { Client } from 'minio';
 
 /** پیکربندی ذخیره‌سازی شیء — از متغیرهای محیطی MINIO_* (سازگار با هر S3-compatible) */
@@ -93,6 +93,45 @@ export class StorageService {
       'Content-Type': contentType,
     });
     this.logger.log(`stored ${key} (${body.length} bytes) in bucket "${bucket}"`);
+  }
+
+  /**
+   * خواندن محتوای بایتیک یک شیء موجود، با سقف حجم سختگیرانه — فقط برای
+   * صدور/بازسازی بستهٔ ضمائم مجاز (TASK-PM-02-C4). bucket عمومی، URL
+   * امضاشده یا ارائهدهندهٔ تازهای ایجاد نمیشود؛ همان MinIO/S3 مصوب است.
+   */
+  async get(key: string, maxBytes: number): Promise<Buffer> {
+    if (!Number.isInteger(maxBytes) || maxBytes <= 0) {
+      throw new BadRequestException({
+        code: 'invalid_storage_read_limit',
+        message_fa: 'سقف مجاز خواندن فایل معتبر نیست.',
+      });
+    }
+    const { bucket } = this.config();
+    const chunks: Buffer[] = [];
+    let total = 0;
+    try {
+      const stream = await this.getClient().getObject(bucket, key);
+      for await (const raw of stream) {
+        const chunk = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as Uint8Array);
+        total += chunk.length;
+        if (total > maxBytes) {
+          stream.destroy();
+          throw new BadRequestException({
+            code: 'attachment_too_large',
+            message_fa: 'حجم ضمیمهٔ ذخیرهشده بیش از سقف پشتیبانی بسته است.',
+          });
+        }
+        chunks.push(chunk);
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new ServiceUnavailableException({
+        code: 'storage_read_failed',
+        message_fa: 'خواندن فایل از ذخیرهسازی شیء ممکن نشد؛ هیچ بستهای ساخته نشد.',
+      });
+    }
+    return total === 0 ? Buffer.alloc(0) : Buffer.concat(chunks, total);
   }
 
   /** URL امضاشدهٔ GET با عمر کوتاه (پیش‌فرض ۵ دقیقه) برای دانلود امن بدون bucket عمومی. */

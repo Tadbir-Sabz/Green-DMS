@@ -12390,6 +12390,208 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/attachment-transfer/owner-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** انواع مالک مصوب ضمائم برای صدور/ورود بسته */
+        get: operations["attachmentTransferOwnerTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** رکوردهای مالک مجاز همان شرکت، با شمارش ضمائم */
+        get: operations["attachmentTransferOwners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/exports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * پیشنمایش بستهٔ صدور و تولید manifest/جمعکنترلها
+         * @description هیچ رکورد محصول، دادهٔ مرجع، شرکت یا پیکربندی دامنهای ساخته/تغییر نمیکند. manifest فقط مرجع مالک و فرادادهٔ فایل دارد؛ کلید استوریج، URL امضاشده و اطلاعات زیرساخت هرگز برگردانده نمیشود.
+         */
+        post: operations["attachmentTransferExportPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/exports/{operationId}/package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * دانلود امن بستهٔ ZIP صدور با اختیار تازه
+         * @description بسته از سابقهٔ ممیزی و ضمائم مجاز همان شرکت بازسازی و هش آن دوباره مقایسه میشود. پاسخ باینری همانمبدأ است؛ URL امضاشده یا کلید استوریج در بدنه/سرصفحه/تاریخچه وجود ندارد.
+         */
+        get: operations["attachmentTransferExportPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * بارگذاری و پیشنمایش امن بستهٔ ضمائم
+         * @description فقط بستهٔ ضمائم بازرسی میشود: یکپارچگی، مسیرها، MIME، امضای بایتی، مالکیت، تکراریها و نگاشت به رکورد موجود. هیچ اجرای ورود، ساخت مالک، جایگزینی، حذف یا انتساب شرکتی انجام نمیشود.
+         */
+        post: operations["attachmentTransferImportPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** بازخوانی پیشنمایش کوتاهعمر ورود */
+        get: operations["attachmentTransferImportStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/{operationId}/mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * نگاشت صریح فایلهای حلنشده به رکورد مالک موجود و مجاز
+         * @description فقط owner_id همان owner_type و همان شرکت تغییر میکند؛ نوع مالک، شرکت، دامنه و محتوای بسته تغییرناپذیر است. هر تغییر نگاشت، هش پیشنمایش را عوض میکند و هر تأیید پیشین را بیاعتبار میسازد.
+         */
+        post: operations["attachmentTransferUpdateMappings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/{operationId}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * دروازهٔ اجرای ورود —fail-closed تا تصمیم مصوب مالک
+         * @description معماری تأیید دونفرهٔ موجود برای این عملیات بستهای سیاست/اثرانگشت مصوب ندارد؛ بنابراین تلاش اجرا در ممیزی ثبت و با ۴۰۹ رد میشود. هیچ درج، بهروزرسانی، حذف یا جایگزینی ضمیمه انجام نمیشود.
+         */
+        post: operations["attachmentTransferExecute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تاریخچهٔ عملیات صدور/ورود و رویدادهای ممیزی */
+        get: operations["attachmentTransferHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/operations/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** جزئیات یک عملیات و manifest امن آن */
+        get: operations["attachmentTransferOperationDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/operations/{operationId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** لغو پیشنمایش ورود؛ حفظ سابقه و بدون حذف فیزیکی */
+        post: operations["attachmentTransferCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     invoicePosted: {
@@ -15711,6 +15913,275 @@ export interface components {
             is_mocked?: boolean;
             provider?: string | null;
         };
+        /**
+         * @description فقط انواع مالک مصوب C1/C3 دارای زنجیرهٔ راستیآزمایشدهٔ مالکیت؛ other، brand، product_category، warehouse، uom و انواع تازه ممنوعاند.
+         * @enum {string}
+         */
+        TransferOwnerType: "product" | "invoice" | "sales_order" | "return_request" | "stock_count" | "journal_entry" | "receipt" | "pod";
+        /** @description بدنهٔ خالی؛ مالک، شرکت، دامنه، تأییدکننده و توکن پذیرفته نمیشود. */
+        TransferEmptyRequest: Record<string, never>;
+        TransferSelection: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+        };
+        TransferExportPreviewRequest: {
+            selections: components["schemas"]["TransferSelection"][];
+        };
+        TransferOwnerTypeOption: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            label_fa: string;
+            module_path: string;
+            /** @enum {boolean} */
+            backend_supported: true;
+            /** @enum {string} */
+            ui_module: "product_media" | "operational_entity" | "backend_only";
+            note_fa: string;
+        };
+        TransferOwnerTypesResponse: {
+            items: components["schemas"]["TransferOwnerTypeOption"][];
+            note_fa: string;
+        };
+        TransferOwnerRecord: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            reference: string;
+            title_fa: string;
+            label_fa: string;
+            module_path: string;
+            attachment_count: number;
+        };
+        TransferOwnersResponse: {
+            items: components["schemas"]["TransferOwnerRecord"][];
+            note_fa: string;
+        };
+        /** @description فقط مرجع مالکیت و فرادادهٔ فایل؛ بدون storage_key/URL/اعتبارنامه */
+        TransferManifestFile: {
+            path: string;
+            /** Format: uuid */
+            attachment_id: string;
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            /** @enum {string} */
+            content_type: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+            size_bytes: number;
+            sha256: string;
+            crc32: number;
+            /** Format: date-time */
+            exported_at: string;
+        };
+        TransferChecksums: {
+            /** @enum {string} */
+            schema: "green-dms.attachment-transfer/1";
+            manifest_sha256: string;
+            package_sha256: string;
+            total_bytes: number;
+            file_count: number;
+        };
+        TransferManifest: {
+            /** @enum {string} */
+            schema: "green-dms.attachment-transfer/1";
+            /** Format: uuid */
+            operation_id: string;
+            /** Format: date-time */
+            created_at: string;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            file_count: number;
+            total_bytes: number;
+            files: components["schemas"]["TransferManifestFile"][];
+            checksums: components["schemas"]["TransferChecksums"];
+        };
+        TransferRejectedFile: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            /** Format: uuid */
+            attachment_id: string;
+            file_name: string;
+            reason_code: string;
+            message_fa: string;
+        };
+        TransferExportPreview: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            operation_type: "export";
+            /** @enum {string} */
+            phase: "preview";
+            /** @enum {string} */
+            execution_status: "completed";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            selections: components["schemas"]["TransferSelection"][];
+            file_count: number;
+            total_bytes: number;
+            estimated_package_size_bytes: number;
+            rejected_count: number;
+            rejected_files: components["schemas"]["TransferRejectedFile"][];
+            manifest: components["schemas"]["TransferManifest"] | null;
+            downloads_available: boolean;
+            note_fa: string;
+        };
+        TransferPreviewItem: {
+            path: string;
+            /** Format: uuid */
+            attachment_id: string;
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            sha256: string;
+            /** @enum {string} */
+            status: "accepted" | "rejected" | "duplicate" | "unresolved";
+            reason_code: string;
+            message_fa: string;
+        };
+        /** @description وضعیت دونفرهٔ fail-closed؛ تا زمان تصمیم/امضای مصوب برای سیاست و اثرانگشت بسته، هیچ تأییدکننده یا اجرای معتبری وجود ندارد. */
+        TransferApprovalStatus: {
+            /** @enum {string} */
+            status: "blocked";
+            /** @enum {string} */
+            reason_code: "approval_policy_missing";
+            message_fa: string;
+            /** @enum {string} */
+            operation: "attachment.import.execute";
+            mechanism: string;
+            fingerprint_supported: boolean;
+            required_dependency_fa: string;
+            /** Format: uuid */
+            initiator_user_id: string;
+            approver_user_id: null;
+            approved_at: null;
+            approved_package_sha256: null;
+            approved_mapping_sha256: null;
+            approved_preview_sha256: null;
+            current_package_sha256: string;
+            current_mapping_sha256: string;
+            current_preview_sha256: string;
+            approval_invalidated: boolean;
+            /** @enum {boolean} */
+            self_approval_forbidden: true;
+        };
+        TransferImportCounts: {
+            accepted: number;
+            rejected: number;
+            duplicate: number;
+            unresolved: number;
+        };
+        TransferImportPreview: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            operation_type: "import";
+            /** @enum {string} */
+            phase: "preview" | "approval";
+            /** @enum {string} */
+            execution_status: "blocked";
+            /** @enum {string} */
+            status: "approval_blocked";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            version: number;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            file_count: number;
+            total_bytes: number;
+            package_sha256: string;
+            manifest_sha256: string;
+            mapping_sha256: string;
+            preview_sha256: string;
+            items: components["schemas"]["TransferPreviewItem"][];
+            counts: components["schemas"]["TransferImportCounts"];
+            manifest: components["schemas"]["TransferManifest"];
+            approval: components["schemas"]["TransferApprovalStatus"];
+            execution: {
+                /** @enum {boolean} */
+                allowed: false;
+                /** @enum {string} */
+                reason_code: "approval_policy_missing";
+                message_fa: string;
+            };
+            note_fa: string;
+        };
+        TransferMappingOverride: {
+            path: string;
+            /** Format: uuid */
+            owner_id: string;
+        };
+        TransferMappingRequest: {
+            mapping_overrides: components["schemas"]["TransferMappingOverride"][];
+        };
+        TransferSafeFailure: {
+            code: string;
+            message_fa: string;
+        };
+        TransferAuditEvent: {
+            event_id: string;
+            action: string;
+            /** @enum {string} */
+            phase: "preview" | "approval" | "execution" | "download" | "failure" | "cancellation";
+            status: string;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            actor_user_id: string | null;
+            actor_label: string | null;
+            safe_failure: components["schemas"]["TransferSafeFailure"] | null;
+        };
+        TransferHistoryItem: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            operation_type: "export" | "import";
+            phase: string;
+            execution_status: string;
+            /** Format: uuid */
+            initiator_user_id: string | null;
+            initiator_label: string;
+            approver_user_id: null;
+            approver_label: string;
+            package_schema: string | null;
+            package_sha256: string | null;
+            manifest_sha256: string | null;
+            total_bytes: number;
+            estimated_package_size_bytes: number;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            file_count: number;
+            accepted_count: number;
+            rejected_count: number;
+            duplicate_count: number;
+            unresolved_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+            safe_failure: components["schemas"]["TransferSafeFailure"] | null;
+            events: components["schemas"]["TransferAuditEvent"][];
+        };
+        TransferOperationList: {
+            items: components["schemas"]["TransferHistoryItem"][];
+            note_fa: string;
+        };
+        TransferOperationDetail: components["schemas"]["TransferHistoryItem"] & {
+            manifest: components["schemas"]["TransferManifest"] | null;
+            note_fa: string;
+        };
+        TransferCancelResult: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            status: "cancelled";
+            note_fa: string;
+        };
     };
     responses: {
         /** @description درخواست نامعتبر (خطای اعتبارسنجی) */
@@ -15818,4 +16289,341 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    attachmentTransferOwnerTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description فهرست هشت نوع مالک دارای زنجیرهٔ راستیآزمایشده */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOwnerTypesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    attachmentTransferOwners: {
+        parameters: {
+            query?: {
+                entity_types?: components["schemas"]["TransferOwnerType"][];
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description فقط رکوردهای مجاز همان شرکت */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOwnersResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    attachmentTransferExportPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferExportPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description پیشنمایش و شناسهٔ عملیات صدور */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferExportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description خواندن ضمیمه از ذخیرهسازی ممکن نشد؛ بستهٔ ناقصی ساخته نشد */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attachmentTransferExportPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description بستهٔ ZIP کنترلشده */
+            200: {
+                headers: {
+                    /** @description هش SHA-256 یکپارچگی بسته */
+                    "X-Transfer-Package-Sha256"?: string;
+                    /** @description عدم ذخیرهسازی پاسخ */
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description بازسازی بسته از ذخیرهسازی ممکن نشد */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attachmentTransferImportPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description بستهٔ ZIP کنترلشده
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description پیشنمایش کامل پذیرفته/ردشده/تکراری/حلنشده و وضعیت تأیید */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description حجم بسته بیش از سقف مجاز */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description نوع یا پسوند بسته مجاز نیست */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attachmentTransferImportStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description پیشنمایش معتبر همان آغازکننده */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferImportPreview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    attachmentTransferUpdateMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferMappingRequest"];
+            };
+        };
+        responses: {
+            /** @description پیشنمایش تازه با هش نگاشت تازه */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    attachmentTransferExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferEmptyRequest"];
+            };
+        };
+        responses: {
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    attachmentTransferHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description تاریخچهٔ تراکنشی بدون کلید استوریج/URL/اعتبارنامه */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOperationList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    attachmentTransferOperationDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description وضعیت، رویدادها، شمارشها و manifest بدون اطلاعات زیرساخت */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOperationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    attachmentTransferCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferEmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description پیشنمایش لغو و رویداد لغو ثبت شد */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferCancelResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+}

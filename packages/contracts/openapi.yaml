@@ -123,6 +123,9 @@ tags:
   - name: integrations
     description: مؤدیان، پوز، پیامک و درگاه (ضمیمه D)
 
+  - name: attachment-transfer
+    description: صدور، بازرسی و تاریخچهٔ بستهٔ ضمائم چندموجودیتی (C4)
+
 paths:
 
   # ---------------- احراز هویت ----------------
@@ -6205,6 +6208,268 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
+  # ---------------- TASK-PM-02-C4 — مرکز انتقال ضمائم ----------------
+  /attachment-transfer/owner-types:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferOwnerTypes
+      summary: انواع مالک مصوب ضمائم برای صدور/ورود بسته
+      responses:
+        '200':
+          description: فهرست هشت نوع مالک دارای زنجیرهٔ راستیآزمایشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOwnerTypesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attachment-transfer/owners:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferOwners
+      summary: رکوردهای مالک مجاز همان شرکت، با شمارش ضمائم
+      parameters:
+        - name: entity_types
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 8
+            items: { $ref: '#/components/schemas/TransferOwnerType' }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50 } }
+      responses:
+        '200':
+          description: فقط رکوردهای مجاز همان شرکت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOwnersResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attachment-transfer/exports/preview:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferExportPreview
+      summary: پیشنمایش بستهٔ صدور و تولید manifest/جمعکنترلها
+      description: >-
+        هیچ رکورد محصول، دادهٔ مرجع، شرکت یا پیکربندی دامنهای ساخته/تغییر
+        نمیکند. manifest فقط مرجع مالک و فرادادهٔ فایل دارد؛ کلید استوریج،
+        URL امضاشده و اطلاعات زیرساخت هرگز برگردانده نمیشود.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferExportPreviewRequest' }
+      responses:
+        '200':
+          description: پیشنمایش و شناسهٔ عملیات صدور
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferExportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: خواندن ضمیمه از ذخیرهسازی ممکن نشد؛ بستهٔ ناقصی ساخته نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachment-transfer/exports/{operationId}/package:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferExportPackage
+      summary: دانلود امن بستهٔ ZIP صدور با اختیار تازه
+      description: >-
+        بسته از سابقهٔ ممیزی و ضمائم مجاز همان شرکت بازسازی و هش آن دوباره
+        مقایسه میشود. پاسخ باینری همانمبدأ است؛ URL امضاشده یا کلید استوریج
+        در بدنه/سرصفحه/تاریخچه وجود ندارد.
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: بستهٔ ZIP کنترلشده
+          headers:
+            X-Transfer-Package-Sha256:
+              description: هش SHA-256 یکپارچگی بسته
+              schema: { type: string, pattern: '^[a-f0-9]{64}$' }
+            Cache-Control:
+              description: عدم ذخیرهسازی پاسخ
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: بازسازی بسته از ذخیرهسازی ممکن نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachment-transfer/imports/preview:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferImportPreview
+      summary: بارگذاری و پیشنمایش امن بستهٔ ضمائم
+      description: >-
+        فقط بستهٔ ضمائم بازرسی میشود: یکپارچگی، مسیرها، MIME، امضای بایتی،
+        مالکیت، تکراریها و نگاشت به رکورد موجود. هیچ اجرای ورود، ساخت مالک،
+        جایگزینی، حذف یا انتساب شرکتی انجام نمیشود.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              additionalProperties: false
+              properties:
+                file: { type: string, format: binary, description: بستهٔ ZIP کنترلشده }
+      responses:
+        '200':
+          description: پیشنمایش کامل پذیرفته/ردشده/تکراری/حلنشده و وضعیت تأیید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferImportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: حجم بسته بیش از سقف مجاز
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: نوع یا پسوند بسته مجاز نیست
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachment-transfer/imports/{operationId}:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferImportStatus
+      summary: بازخوانی پیشنمایش کوتاهعمر ورود
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: پیشنمایش معتبر همان آغازکننده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferImportPreview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /attachment-transfer/imports/{operationId}/mappings:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferUpdateMappings
+      summary: نگاشت صریح فایلهای حلنشده به رکورد مالک موجود و مجاز
+      description: >-
+        فقط owner_id همان owner_type و همان شرکت تغییر میکند؛ نوع مالک، شرکت،
+        دامنه و محتوای بسته تغییرناپذیر است. هر تغییر نگاشت، هش پیشنمایش را
+        عوض میکند و هر تأیید پیشین را بیاعتبار میسازد.
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferMappingRequest' }
+      responses:
+        '200':
+          description: پیشنمایش تازه با هش نگاشت تازه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferImportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /attachment-transfer/imports/{operationId}/execute:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferExecute
+      summary: دروازهٔ اجرای ورود —fail-closed تا تصمیم مصوب مالک
+      description: >-
+        معماری تأیید دونفرهٔ موجود برای این عملیات بستهای سیاست/اثرانگشت مصوب
+        ندارد؛ بنابراین تلاش اجرا در ممیزی ثبت و با ۴۰۹ رد میشود. هیچ درج،
+        بهروزرسانی، حذف یا جایگزینی ضمیمه انجام نمیشود.
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferEmptyRequest' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /attachment-transfer/operations:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferHistory
+      summary: تاریخچهٔ عملیات صدور/ورود و رویدادهای ممیزی
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200 } }
+      responses:
+        '200':
+          description: تاریخچهٔ تراکنشی بدون کلید استوریج/URL/اعتبارنامه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOperationList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attachment-transfer/operations/{operationId}:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferOperationDetail
+      summary: جزئیات یک عملیات و manifest امن آن
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: وضعیت، رویدادها، شمارشها و manifest بدون اطلاعات زیرساخت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOperationDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /attachment-transfer/operations/{operationId}/cancel:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferCancel
+      summary: لغو پیشنمایش ورود؛ حفظ سابقه و بدون حذف فیزیکی
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferEmptyRequest' }
+      responses:
+        '200':
+          description: پیشنمایش لغو و رویداد لغو ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferCancelResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
 webhooks:
   invoicePosted:
     post:
@@ -9416,3 +9681,328 @@ components:
         heading_deg: { type: [number, 'null'] }
         is_mocked: { type: boolean }
         provider: { type: [string, 'null'] }
+    # ---------------- TASK-PM-02-C4 — انتقال ضمائم ----------------
+    TransferOwnerType:
+      type: string
+      description: >-
+        فقط انواع مالک مصوب C1/C3 دارای زنجیرهٔ راستیآزمایشدهٔ مالکیت؛
+        other، brand، product_category، warehouse، uom و انواع تازه ممنوعاند.
+      enum: [product, invoice, sales_order, return_request, stock_count, journal_entry, receipt, pod]
+    TransferEmptyRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+      description: بدنهٔ خالی؛ مالک، شرکت، دامنه، تأییدکننده و توکن پذیرفته نمیشود.
+    TransferSelection:
+      type: object
+      required: [owner_type, owner_id]
+      additionalProperties: false
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+    TransferExportPreviewRequest:
+      type: object
+      required: [selections]
+      additionalProperties: false
+      properties:
+        selections:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/TransferSelection' }
+    TransferOwnerTypeOption:
+      type: object
+      required: [owner_type, label_fa, module_path, backend_supported, ui_module, note_fa]
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        label_fa: { type: string }
+        module_path: { type: string }
+        backend_supported: { type: boolean, enum: [true] }
+        ui_module: { type: string, enum: [product_media, operational_entity, backend_only] }
+        note_fa: { type: string }
+    TransferOwnerTypesResponse:
+      type: object
+      required: [items, note_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerTypeOption' }
+        note_fa: { type: string }
+    TransferOwnerRecord:
+      type: object
+      required: [owner_type, owner_id, reference, title_fa, label_fa, module_path, attachment_count]
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        reference: { type: string }
+        title_fa: { type: string }
+        label_fa: { type: string }
+        module_path: { type: string }
+        attachment_count: { type: integer, minimum: 0 }
+    TransferOwnersResponse:
+      type: object
+      required: [items, note_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerRecord' }
+        note_fa: { type: string }
+    TransferManifestFile:
+      type: object
+      description: فقط مرجع مالکیت و فرادادهٔ فایل؛ بدون storage_key/URL/اعتبارنامه
+      required: [path, attachment_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, crc32, exported_at]
+      properties:
+        path: { type: string, pattern: '^files/[0-9]{4}-[a-f0-9]{12}\.(jpg|jpeg|png|webp|pdf)$' }
+        attachment_id: { type: string, format: uuid }
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string, maxLength: 200 }
+        content_type: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf] }
+        size_bytes: { type: integer, minimum: 1, maximum: 8388608 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        crc32: { type: integer, minimum: 0, maximum: 4294967295 }
+        exported_at: { type: string, format: date-time }
+    TransferChecksums:
+      type: object
+      required: [schema, manifest_sha256, package_sha256, total_bytes, file_count]
+      properties:
+        schema: { type: string, enum: ['green-dms.attachment-transfer/1'] }
+        manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        package_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        total_bytes: { type: integer, minimum: 0 }
+        file_count: { type: integer, minimum: 0 }
+    TransferManifest:
+      type: object
+      required: [schema, operation_id, created_at, entity_types, file_count, total_bytes, files, checksums]
+      properties:
+        schema: { type: string, enum: ['green-dms.attachment-transfer/1'] }
+        operation_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        file_count: { type: integer, minimum: 0 }
+        total_bytes: { type: integer, minimum: 0 }
+        files:
+          type: array
+          items: { $ref: '#/components/schemas/TransferManifestFile' }
+        checksums: { $ref: '#/components/schemas/TransferChecksums' }
+    TransferRejectedFile:
+      type: object
+      required: [owner_type, owner_id, attachment_id, file_name, reason_code, message_fa]
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        attachment_id: { type: string, format: uuid }
+        file_name: { type: string }
+        reason_code: { type: string }
+        message_fa: { type: string }
+    TransferExportPreview:
+      type: object
+      required: [operation_id, operation_type, phase, execution_status, created_at, expires_at, entity_types, selections, file_count, total_bytes, estimated_package_size_bytes, rejected_count, rejected_files, manifest, downloads_available, note_fa]
+      properties:
+        operation_id: { type: string, format: uuid }
+        operation_type: { type: string, enum: [export] }
+        phase: { type: string, enum: [preview] }
+        execution_status: { type: string, enum: [completed] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        selections:
+          type: array
+          items: { $ref: '#/components/schemas/TransferSelection' }
+        file_count: { type: integer, minimum: 0 }
+        total_bytes: { type: integer, minimum: 0 }
+        estimated_package_size_bytes: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        rejected_files:
+          type: array
+          items: { $ref: '#/components/schemas/TransferRejectedFile' }
+        manifest:
+          oneOf:
+            - { $ref: '#/components/schemas/TransferManifest' }
+            - { type: 'null' }
+        downloads_available: { type: boolean }
+        note_fa: { type: string }
+    TransferPreviewItem:
+      type: object
+      required: [path, attachment_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, status, reason_code, message_fa]
+      properties:
+        path: { type: string }
+        attachment_id: { type: string, format: uuid }
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, minimum: 0 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        status: { type: string, enum: [accepted, rejected, duplicate, unresolved] }
+        reason_code: { type: string }
+        message_fa: { type: string }
+    TransferApprovalStatus:
+      type: object
+      description: >-
+        وضعیت دونفرهٔ fail-closed؛ تا زمان تصمیم/امضای مصوب برای سیاست و
+        اثرانگشت بسته، هیچ تأییدکننده یا اجرای معتبری وجود ندارد.
+      required: [status, reason_code, message_fa, operation, mechanism, fingerprint_supported, required_dependency_fa, initiator_user_id, approver_user_id, approved_at, approved_package_sha256, approved_mapping_sha256, approved_preview_sha256, current_package_sha256, current_mapping_sha256, current_preview_sha256, approval_invalidated, self_approval_forbidden]
+      properties:
+        status: { type: string, enum: [blocked] }
+        reason_code: { type: string, enum: [approval_policy_missing] }
+        message_fa: { type: string }
+        operation: { type: string, enum: [attachment.import.execute] }
+        mechanism: { type: string }
+        fingerprint_supported: { type: boolean }
+        required_dependency_fa: { type: string }
+        initiator_user_id: { type: string, format: uuid }
+        approver_user_id: { type: 'null' }
+        approved_at: { type: 'null' }
+        approved_package_sha256: { type: 'null' }
+        approved_mapping_sha256: { type: 'null' }
+        approved_preview_sha256: { type: 'null' }
+        current_package_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        current_mapping_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        current_preview_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        approval_invalidated: { type: boolean }
+        self_approval_forbidden: { type: boolean, enum: [true] }
+    TransferImportCounts:
+      type: object
+      required: [accepted, rejected, duplicate, unresolved]
+      properties:
+        accepted: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        duplicate: { type: integer, minimum: 0 }
+        unresolved: { type: integer, minimum: 0 }
+    TransferImportPreview:
+      type: object
+      required: [operation_id, operation_type, phase, execution_status, status, created_at, expires_at, version, entity_types, file_count, total_bytes, package_sha256, manifest_sha256, mapping_sha256, preview_sha256, items, counts, manifest, approval, execution, note_fa]
+      properties:
+        operation_id: { type: string, format: uuid }
+        operation_type: { type: string, enum: [import] }
+        phase: { type: string, enum: [preview, approval] }
+        execution_status: { type: string, enum: [blocked] }
+        status: { type: string, enum: [approval_blocked] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        file_count: { type: integer, minimum: 1 }
+        total_bytes: { type: integer, minimum: 1 }
+        package_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        mapping_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        preview_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferPreviewItem' }
+        counts: { $ref: '#/components/schemas/TransferImportCounts' }
+        manifest: { $ref: '#/components/schemas/TransferManifest' }
+        approval: { $ref: '#/components/schemas/TransferApprovalStatus' }
+        execution:
+          type: object
+          required: [allowed, reason_code, message_fa]
+          properties:
+            allowed: { type: boolean, enum: [false] }
+            reason_code: { type: string, enum: [approval_policy_missing] }
+            message_fa: { type: string }
+        note_fa: { type: string }
+    TransferMappingOverride:
+      type: object
+      required: [path, owner_id]
+      additionalProperties: false
+      properties:
+        path: { type: string }
+        owner_id: { type: string, format: uuid }
+    TransferMappingRequest:
+      type: object
+      required: [mapping_overrides]
+      additionalProperties: false
+      properties:
+        mapping_overrides:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/TransferMappingOverride' }
+    TransferSafeFailure:
+      type: object
+      required: [code, message_fa]
+      properties:
+        code: { type: string }
+        message_fa: { type: string }
+    TransferAuditEvent:
+      type: object
+      required: [event_id, action, phase, status, at, actor_user_id, actor_label, safe_failure]
+      properties:
+        event_id: { type: string }
+        action: { type: string }
+        phase: { type: string, enum: [preview, approval, execution, download, failure, cancellation] }
+        status: { type: string }
+        at: { type: string, format: date-time }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label: { type: [string, 'null'] }
+        safe_failure:
+          oneOf:
+            - { $ref: '#/components/schemas/TransferSafeFailure' }
+            - { type: 'null' }
+    TransferHistoryItem:
+      type: object
+      required: [operation_id, operation_type, phase, execution_status, initiator_user_id, initiator_label, approver_user_id, approver_label, package_schema, package_sha256, manifest_sha256, total_bytes, estimated_package_size_bytes, entity_types, file_count, accepted_count, rejected_count, duplicate_count, unresolved_count, created_at, completed_at, safe_failure, events]
+      properties:
+        operation_id: { type: string, format: uuid }
+        operation_type: { type: string, enum: [export, import] }
+        phase: { type: string }
+        execution_status: { type: string }
+        initiator_user_id: { type: [string, 'null'], format: uuid }
+        initiator_label: { type: string }
+        approver_user_id: { type: 'null' }
+        approver_label: { type: string }
+        package_schema: { type: [string, 'null'] }
+        package_sha256: { type: [string, 'null'] }
+        manifest_sha256: { type: [string, 'null'] }
+        total_bytes: { type: integer, minimum: 0 }
+        estimated_package_size_bytes: { type: integer, minimum: 0 }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        file_count: { type: integer, minimum: 0 }
+        accepted_count: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        duplicate_count: { type: integer, minimum: 0 }
+        unresolved_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+        safe_failure:
+          oneOf:
+            - { $ref: '#/components/schemas/TransferSafeFailure' }
+            - { type: 'null' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/TransferAuditEvent' }
+    TransferOperationList:
+      type: object
+      required: [items, note_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferHistoryItem' }
+        note_fa: { type: string }
+    TransferOperationDetail:
+      allOf:
+        - { $ref: '#/components/schemas/TransferHistoryItem' }
+        - type: object
+          required: [manifest, note_fa]
+          properties:
+            manifest:
+              oneOf:
+                - { $ref: '#/components/schemas/TransferManifest' }
+                - { type: 'null' }
+            note_fa: { type: string }
+    TransferCancelResult:
+      type: object
+      required: [operation_id, status, note_fa]
+      properties:
+        operation_id: { type: string, format: uuid }
+        status: { type: string, enum: [cancelled] }
+        note_fa: { type: string }

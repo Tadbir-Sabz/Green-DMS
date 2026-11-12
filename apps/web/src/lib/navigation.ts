@@ -93,6 +93,8 @@ export const navGroups: NavGroup[] = [
       { href: "/staff", label: "پرسنل", icon: IconStaff, perm: "master.person.view", hint: "نیروی انسانی و پست سازمانی" },
       // TASK-PM-02-C3: ناوبری واحد برای همهٙ ماژولهای دارای قابلیت مشترک ضمائم
       { href: "/attachments-center", label: "مرکز اسناد و ضمائم", icon: IconClipboardCheck, perm: "attachment.view", hint: "دسترسی یکجا به ضمائم سفارش، فاکتور، مرجوعی، انبارگردانی و دفتر کل" },
+      // TASK-PM-02-C4: صدور/پیشنمایش ورود/تاریخچهٔ بستهٔ ضمائم، همان مجوز خواندن
+      { href: "/attachment-transfer", label: "مرکز انتقال ضمائم", icon: IconTransfer, perm: "attachment.view", hint: "بستهٔ کنترلشده، بازرسی امن، پیشنمایش و ممیزی چندموجودیتی" },
     ],
   },
   {
@@ -192,6 +194,7 @@ const SUBPATH_FA: Record<string, string> = {
   "/integrations/moadian": "سامانه مودیان",
   "/integrations/psp": "درگاه پرداخت",
   "/attachments-center": "مرکز اسناد و ضمائم",
+  "/attachment-transfer": "مرکز انتقال ضمائم",
 };
 
 /**

@@ -479,3 +479,53 @@
   پذیرش کامل Product Master `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14
   `OPEN / DRAFT`. مرورگر دستی RTL/a11y/console و MinIO/S3 production
   `UNVERIFIED`؛ هیچ اسکرینشات ساختگی ثبت نشد.
+
+
+---
+
+## TASK-PM-02-C4 — مرکز انتقال ضمائم چندموجودیتی (شواهد تازه)
+
+- مبنا و بازیابی: `8ca19b4dfa6fc9b255915c383c0530f7a67adf1d` (C3)، شش نمای SHA
+  `ALL_AGREE=True`، `Already up to date`، worktree پاک و diffcheck صفر. چکپوینت
+  `/home/user/pm02-c4-checkpoint.tar.gz` (sha256
+  `3a3aa375b3e871c8508e9ed1c00a4fb7553cdcb2afc9dfc95a697a8fc9fa49ab`،
+  `sha256sum -c OK`، ۲٬۸۸۷ فایل) و bundle کامل `--all`. بدنهٔ PR پیش از C4
+  ۱۱۲٬۹۸۵ نویسه / ۱۲۲٬۳۱۶ بایت با هش
+  `6ef4a5089c4caa552032ca86a9a1e9d54bd01944eebaa2a78bddfe4b8d310f4e` حفظ شد.
+- کد: `attachment-transfer.{rules,package,types,service,controller,module}.ts`،
+  `StorageService.get(key,maxBytes)` باندشده، ثبت در `app.module.ts`، ۱۱ مسیر
+  OpenAPI + تگ `attachment-transfer` + ۲۵ اسکیمای `Transfer*`، کلاینت تولیدشده
+  (+۸۱۰ خط)، `apps/web/src/lib/attachment-transfer.ts`،
+  `AttachmentTransferCenter.tsx`، صفحهٔ محافظتشدهٔ `/attachment-transfer`،
+  ناوبری `IconTransfer` و کارت پیوند در `/attachments-center`. **بدون مهاجرت،
+  مجوز، نقش، grant، seed، RLS، مالک، دامنه، ارائهدهنده یا سیاست نگهداشت تازه.**
+- قرارداد/ساخت: OpenAPI **۲۲۴ مسیر / ۳۱۸ عملیات / ۲۰۳ اسکیما / ۳ وبحوک**؛
+  drift **۳۱۸/۳۱۸ و انحراف ۰**؛ `build:packages`، typecheckـهای API/وب/کلاینت،
+  `next build` (شامل `/attachment-transfer`) و `node apps/api/dist/main.js` PASS؛
+  up/down/up **۱٬۰۳۳ شیء یکسان**؛ پارتیشن **۹۵ فایل** `declared == computed`؛
+  `git diff --check=۰`.
+- تستها: واحد C4 **۲/۱۷**، سرتاسری HTTP+PostgreSQL **۱/۷**، جزء وب **۱/۵**،
+  وب کامل **۲۵/۱۳۷**، واحد بیدادهٔ API **۳۵/۴۱۲**، رگرسیون هدفمند **۹/۱۰ فایل و
+  ۲۰۶/۲۰۸ تست** (۲ شکست مبنای محیطی `attachments.api` عیناً C3)، اجرای کامل DB
+  **۹۰/۹۵ فایل و ۱٬۵۴۵/۱٬۵۶۴ تست** با ۵ فایل/۱۹ عنوان شکست
+  `identical=True` نسبت به `/tmp/pm02c3-api-full.log`. «Full DB PASS» اعلام نشد.
+- شاهد زندهٔ همانمبدأ:
+  `evidence/task-pm-02/VERIFICATION-C4-LIVE.txt` (sha256
+  `409044cd7a3623e07a6299c861cb67f2588a6cd1b02c9666d7365af74ddca1ff`،
+  ۷٬۲۵۲ بایت). ۸ مالک مصوب، ۵ رکورد، بستهٔ ۵ فایل / ZIP ۳٬۵۱۵ بایت، دانلود
+  باینری با هش، پیشنمایش ۵ duplicate، `crc_mismatch`، تزریق `company_id` رد،
+  نگاشت نسخهٔ ۲ و بیاعتباری تأیید، تأیید جعلی ۴۰۰، اجرا `409 approval_required`،
+  `attachment` بدون تغییر (۶←۶)، ۷ رویداد ممیزی و **۰ نشت**؛ دو صفحهٔ وب ۲۰۰.
+- **BLOCKED:** اجرای ورود ضمائم. `FINGERPRINT_FIELDS`/`ENTITY_STATE_SQL` فقط سه
+  عملیات مصوب M4 را میشناسند؛ `attachment.import.execute` فقط نام وابستگی است،
+  `fingerprint_supported=false`، `submitForApproval` fail-closed،
+  `consumeApprovedBinding` در همان تراکنش لازم است. هیچ عملیات/اثرانگشت/سیاست/
+  زنجیره/مهاجرت/گرنت/RLS تازهای ساخته نشد؛ UI دکمهٔ اجرا ندارد.
+- Receipt/POD: بکند مصوب حفظ شد؛ صفحهای عملیاتی واجدشرایط یافت نشد
+  (`/payments` فقط بکند، `treasury` موقعیتها/بستنها، `waybills` فهرست/جزئیات
+  حوالهها) ⇒ UI اختصاصی **DEFERRED** با ثبت وابستگی دقیق.
+- اسناد: `TASK-PM-02-C4_IMPLEMENTATION.md`، `VERIFICATION-C4.{txt,json}`،
+  پیوست §۹ راهنمای اپراتور. PM-B1..PM-B8 / Q1..Q5 / G-03 / G-13 و پذیرش کامل
+  Product Master `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14 `OPEN / DRAFT`؛
+  مرورگر دستی RTL/a11y/console و MinIO/S3 production `UNVERIFIED`؛ CI دقیقSHA و
+  شش نمای نهایی بهصورت افزودنی در بدنهٔ PR/گزارش چت ثبت میشود، بدون commit پساCI.

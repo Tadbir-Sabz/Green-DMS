@@ -30,6 +30,8 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
 // TASK-PM-02-C3: لایهٔ مشترک ضمائم سازمانی (فاکتور/سفارش/مرجوعی/انبارگردانی/
 // سند حسابداری/رسید پرداخت/POD) روی همان AttachmentsModule موجود.
 import { EntityAttachmentsModule } from './modules/attachments/entity-attachments.module';
+// TASK-PM-02-C4: صدور/پیشنمایش ورود بستهٔ ضمائم، بدون مالک/مجوز/مهاجرت تازه.
+import { AttachmentTransferModule } from './modules/attachments/attachment-transfer.module';
 
 /**
  * ریشه اپ API — چیدمان ماژول‌ها دقیقاً Core Modules سند §۳.۳:
@@ -79,6 +81,8 @@ import { EntityAttachmentsModule } from './modules/attachments/entity-attachment
     AttachmentsModule,
     // لایهٔ مشترک C3 — همان سرویسها، مالک از مسیر، ممیزی تراکنشی
     EntityAttachmentsModule,
+    // مرکز انتقال C4 — بستهٔ کنترلشده، تاریخچهٔ audit_log، اجرای fail-closed
+    AttachmentTransferModule,
   ],
   providers: [
     // قرارداد Error با request_id برای همهٔ استثناها — باگ‌ها فقط در سمت سرور لاگ می‌شوند

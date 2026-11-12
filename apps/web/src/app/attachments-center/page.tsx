@@ -60,6 +60,22 @@ export default function AttachmentsCenterPage() {
 
       <Card>
         <CardBody>
+          <SectionTitle>مرکز انتقال ضمائم (C4)</SectionTitle>
+          <p className="mt-1 text-xs leading-6 text-ink-muted">
+            صدور بستهٔ کنترلشده، بارگذاری/بازرسی/پیشنمایش ورود و تاریخچهٔ ممیزی برای هشت نوع مالک
+            مصوب. اجرای ورود تا تصمیم مصوب مالک در معماری تأیید دونفره fail-closed است.
+          </p>
+          <Link
+            href="/attachment-transfer"
+            className="mt-3 inline-block rounded-lg bg-brand px-4 py-2 text-sm text-brand-ink hover:bg-brand-hover focus-ring"
+          >
+            ورود به مرکز انتقال ضمائم
+          </Link>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody>
           <SectionTitle>ماژولهای متصل</SectionTitle>
           <p className="mb-4 text-xs text-ink-subtle">
             برای مشاهده، بارگذاری یا دریافت فایل، روی نام ماژول بروید و رکورد موردنظر را انتخاب کنید.
