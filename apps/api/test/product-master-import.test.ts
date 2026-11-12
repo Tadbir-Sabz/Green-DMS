@@ -216,6 +216,47 @@ describe('M-5 — فیلدهای حساس در import', () => {
       .expect(200);
     expect(res.body.updated_rows).toBe(1);
   });
+
+  it('وضعیت «متوقف» حتی با confirm_sensitive هم در import پذیرفته نمی‌شود (BLOCKED)', async () => {
+    await fx
+      .api()
+      .post('/api/v1/products/import/commit')
+      .send({ csv: csv(['DISC-UP,کالای متوقف‌شدنی,PMCAT,pm_piece']), mode: 'create', idempotency_key: 'k-disc-0' })
+      .expect(200);
+    // پیش‌نمایش بدونِ نوشتن هم همان سیاست را نشان می‌دهد.
+    const preview = await fx
+      .api()
+      .post('/api/v1/products/import/validate')
+      .send({
+        csv: ['code,name,status,category_code,base_uom_code', 'DISC-UP,کالای متوقف‌شدنی,discontinued,PMCAT,pm_piece'].join('\n'),
+      })
+      .expect(200);
+    expect(preview.body.row_errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'lifecycle_transition_blocked' }),
+      ]),
+    );
+
+    const res = await fx
+      .api()
+      .post('/api/v1/products/import/commit')
+      .send({
+        csv: ['code,name,status,category_code,base_uom_code', 'DISC-UP,کالای متوقف‌شدنی,discontinued,PMCAT,pm_piece'].join('\n'),
+        mode: 'update',
+        idempotency_key: 'k-disc-1',
+        confirm_sensitive: true,
+      })
+      .expect(200);
+    expect(res.body.updated_rows).toBe(0);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'lifecycle_transition_blocked' })]),
+    );
+    const row = await fx.pool.query<{ status: string }>(
+      `select status from product where company_id = $1 and code = 'DISC-UP'`,
+      [fx.companyId],
+    );
+    expect(row.rows[0].status).toBe('active');
+  });
 });
 
 describe('Tenant — شرکت از نشست می‌آید، هرگز از CSV', () => {

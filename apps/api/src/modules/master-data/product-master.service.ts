@@ -844,6 +844,16 @@ export class ProductMasterService {
       }
       if (row.status && !['active', 'blocked', 'discontinued'].includes(row.status)) {
         row_errors.push({ row: rowNo, code: 'invalid_enum', message_fa: 'وضعیت باید active/blocked/discontinued باشد.' });
+      } else if (row.status === 'discontinued') {
+        // TASK-PM-02-C5: «متوقف» یک مقدار موجودِ enum است، ولی همهٔ گذارهای به/از آن
+        // تا تصویب مالک BLOCKED / NOT AUTHORIZEDاند. پیش‌نمایش باید همان سیاستِ
+        // نگهبانِ D4 را از قبل و در سطح ردیف نشان دهد، نه اینکه ردیف را سالم اعلام
+        // کند و سپس کل دسته را در commit رد کند.
+        row_errors.push({
+          row: rowNo,
+          code: 'lifecycle_transition_blocked',
+          message_fa: 'گذار به وضعیت «متوقف» تا تصویب مالک BLOCKED / NOT AUTHORIZED است؛ این ردیف پذیرفته نمی‌شود.',
+        });
       }
       if (!row.category_code) {
         row_errors.push({ row: rowNo, code: 'missing_category', message_fa: 'کدِ گروه (category_code) الزامی است.' });

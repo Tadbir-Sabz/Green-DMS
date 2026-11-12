@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { CatalogHistory, DomainIntegrationStatus } from './catalog-evidence';
+import { ProductLifecycleTab } from './product-lifecycle';
 import { ProductMediaTab } from './product-media';
 import { useParams, useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
@@ -52,9 +53,10 @@ import {
  */
 
 type Uom = components['schemas']['Uom'];
-type TabKey = 'identity' | 'media' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle' | 'history' | 'domain';
+type TabKey = 'identity' | 'media' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle' | 'history' | 'domain' | 'lifecycle';
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'lifecycle', label: 'چرخه حیات' },
   { key: 'history', label: 'تاریخچه' },
   { key: 'domain', label: 'عرضه در دامنه' },
   { key: 'identity', label: 'مشخصات' },
@@ -152,6 +154,7 @@ export default function ProductDetailPage(): React.JSX.Element {
         ))}
       </div>
 
+      {tab === 'lifecycle' && <ProductLifecycleTab productId={id} onChanged={loadProduct} />}
       {tab === 'history' && <CatalogHistory productId={id} />}
       {tab === 'domain' && <DomainIntegrationStatus productId={id} />}
       {tab === 'media' && <ProductMediaTab productId={id} canUpload={canUpload} />}
@@ -188,7 +191,6 @@ function IdentityTab({
     category_id: product.category_id,
     base_uom_id: product.base_uom_id,
     brand_id: product.brand_id ?? '',
-    status: product.status,
     distribution_kind: product.distribution_kind,
     min_order_qty: String(product.min_order_qty ?? 1),
     weight_gr: product.weight_gr != null ? String(product.weight_gr) : '',
@@ -216,8 +218,8 @@ function IdentityTab({
   const categoryChanged = form.category_id !== product.category_id;
   const uomChanged = form.base_uom_id !== product.base_uom_id;
   const brandChanged = form.brand_id !== (product.brand_id ?? '');
+  // C5: وضعیت فقط از تب اختصاصی چرخهٔ حیات و مسیر تراکنشی آن تغییر میکند.
   const sensitiveChanged =
-    form.status !== product.status ||
     (form.tax_code_id || null) !== (product.tax_code_id ?? null) ||
     uomChanged;
 
@@ -237,7 +239,6 @@ function IdentityTab({
         ...(categoryChanged ? { category_id: form.category_id } : {}),
         ...(uomChanged ? { base_uom_id: form.base_uom_id } : {}),
         ...(brandChanged ? { brand_id: form.brand_id || null } : {}),
-        status: form.status as 'active' | 'blocked' | 'discontinued',
         distribution_kind: form.distribution_kind as 'cold' | 'warm' | 'both',
         min_order_qty: form.min_order_qty ? Number(form.min_order_qty) : 1,
         weight_gr: form.weight_gr ? Number(form.weight_gr) : null,
@@ -312,14 +313,17 @@ function IdentityTab({
             ))}
           </select>
         </label>
-        <label className="text-sm">
-          وضعیت <span className="text-xs text-warning-ink">(حساس — D4)</span>
-          <select className={`${selectCls} mt-1`} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}>
-            <option value="active">فعال</option>
-            <option value="blocked">مسدود</option>
-            <option value="discontinued">متوقف</option>
-          </select>
-        </label>
+        <div className="rounded-lg border border-line bg-surface-alt p-3 text-sm">
+          <span className="text-ink-muted">وضعیت مرکزی</span>
+          <p className="mt-2 flex flex-wrap items-center gap-2">
+            <span className={statusBadgeCls(product.status)}>{STATUS_LABEL[product.status] ?? product.status}</span>
+            <span className="text-xs text-ink-subtle">حساس — D4</span>
+          </p>
+          <p className="mt-2 text-xs leading-6 text-ink-muted">
+            تغییر وضعیت فقط از تب «چرخه حیات» با تأیید، قفل نسخه و تاریخچه انجام میشود؛
+            گذارهای شامل «متوقف» تا تصویب مالک BLOCKED / NOT AUTHORIZEDاند.
+          </p>
+        </div>
         <label className="text-sm">
           کد مالیاتی (uuid) <span className="text-xs text-warning-ink">(حساس — D4)</span>
           <input className={`${inputCls} mt-1`} dir="ltr" value={form.tax_code_id} onChange={(e) => setForm({ ...form, tax_code_id: e.target.value })} />

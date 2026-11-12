@@ -1,0 +1,204 @@
+{
+  "task": "TASK-PM-02-C5",
+  "title": "Central Product Lifecycle (read model + evidence-backed active<->blocked transition)",
+  "role": "Agent-1 (Arena.ai) — Lead Developer / Architect / Full-Stack Executor",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "branch_base_commit": "6b4429ba7e55f7e02f407e63f2b2b2e197fad1fa",
+  "baseline_commit": "f0d39980fbcd3d1ca4d00cb13b4db24b3f664341",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "base": "main",
+    "head_before_c5": "f0d39980fbcd3d1ca4d00cb13b4db24b3f664341",
+    "body_before_c5": {
+      "characters": 126286,
+      "bytes": 139968,
+      "sha256": "4b4d1a1d2904239130926fd597268d4c56f6dd6ad90c79f9fbd7e930693d4b0b"
+    },
+    "additive_body_update_required": true,
+    "body_preservation_rule": "prefix 4b4d1a1d2904239130926fd597268d4c56f6dd6ad90c79f9fbd7e930693d4b0b must remain byte-for-byte",
+    "merge_approve_release_deploy": "NOT AUTHORIZED / NOT PERFORMED"
+  },
+  "baseline_recovery": {
+    "expected_c4_sha": "f0d39980fbcd3d1ca4d00cb13b4db24b3f664341",
+    "fetch_pull_ff_only": "Already up to date",
+    "six_sha_views_all_agree": true,
+    "working_tree_clean_at_baseline": true,
+    "git_diff_check_at_baseline": 0,
+    "checkpoint_tar": "/home/user/pm02-c5-checkpoint.tar.gz",
+    "checkpoint_sha256": "0c2057d700cfdd0457b2fb6b5cc2176c851c3ce557ce1abd4cb6b3d012843f88",
+    "checkpoint_integrity": "sha256sum -c: OK",
+    "checkpoint_bundle": "/home/user/pm02-c5-checkpoint.bundle",
+    "checkpoint_bundle_bytes": 3148740,
+    "checkpoint_bundle_verify": "complete history",
+    "checkpoint_files_extracted": 2903,
+    "historical_evidence_preserved": true,
+    "destructive_git_operations": "none",
+    "fetch_head_trap_documented": true
+  },
+  "policy": {
+    "source_of_truth": [
+      "migrations/0005_product_catalog.up.sql (product_status_check active/blocked/discontinued, deleted_at, row_version)",
+      "migrations/0020_optimistic_lock_triggers.up.sql (trg_touch)",
+      "migrations/0046_product_master.up.sql (master.product.status permission)",
+      "migrations/0060_product_catalog_history.up.sql (immutable history trigger, RLS/FORCE RLS, actor_user_id)",
+      "apps/api/src/modules/master-data/product-sensitivity.ts (existing D4 control)",
+      "apps/api/src/modules/master-data/product-lifecycle.rules.ts (central matrix, new)",
+      "docs/product-inventory/TASK-PM-01_PRODUCT_MASTER_SPEC.md",
+      "docs/product-inventory/TASK-PM-02_OWNER_DECISION_REGISTER.md"
+    ],
+    "supported_transitions": [
+      ["active", "blocked"],
+      ["blocked", "active"]
+    ],
+    "blocked_transitions": [
+      ["active", "discontinued"],
+      ["blocked", "discontinued"],
+      ["discontinued", "active"],
+      ["discontinued", "blocked"],
+      ["discontinued", "discontinued"]
+    ],
+    "blocked_transition_code": "lifecycle_transition_blocked",
+    "unchanged_transition_code": "lifecycle_transition_unchanged",
+    "soft_deleted_state_code": "product_not_found",
+    "create_status_field": "REJECTED (server/DB default active)",
+    "central_status_equals_domain_availability": false,
+    "new_policies_permissions_roles_grants_rls_migrations_seeds": "none",
+    "downstream_behavior_changed": false,
+    "scope_correction": "The first C5 draft marked six transitions as supported, including four involving discontinued; this contradicted the accepted C5 decision and was corrected in rules, service, the shared D4 guard (also used by PATCH/import), OpenAPI, generated client, UI and tests."
+  },
+  "implementation": {
+    "backend_files": {
+      "new": [
+        "apps/api/src/modules/master-data/product-lifecycle.rules.ts",
+        "apps/api/src/modules/master-data/product-lifecycle.service.ts",
+        "apps/api/src/modules/master-data/product-lifecycle.controller.ts"
+      ],
+      "modified": [
+        "apps/api/src/modules/master-data/product-sensitivity.ts",
+        "apps/api/src/modules/master-data/product.dto.ts",
+        "apps/api/src/modules/master-data/product-master.service.ts",
+        "apps/api/src/modules/master-data/master-data.module.ts"
+      ]
+    },
+    "contract_files": {
+      "modified": ["packages/contracts/openapi.yaml"],
+      "generated": ["packages/api-client/src/schema.ts"],
+      "new_paths": [
+        "GET /api/v1/products/{id}/lifecycle",
+        "POST /api/v1/products/{id}/lifecycle/transitions"
+      ],
+      "new_schemas": 7,
+      "post_transition_http_status": 200
+    },
+    "web_files": {
+      "new": [
+        "apps/web/src/app/products/[id]/product-lifecycle.tsx",
+        "apps/web/src/app/products/[id]/product-lifecycle.test.tsx"
+      ],
+      "modified": ["apps/web/src/app/products/[id]/page.tsx"]
+    },
+    "tests": {
+      "new": [
+        "apps/api/test/product-lifecycle.rules.unit.test.ts (4 DB-free)",
+        "apps/api/test/product-lifecycle.api.test.ts (13 HTTP + PostgreSQL)"
+      ],
+      "modified": ["apps/api/test/product-master-import.test.ts (+1 blocked-discontinued test)"]
+    },
+    "security": {
+      "guards": ["AuthGuard", "PermissionsGuard", "DomainBoundaryGuard"],
+      "permissions": ["master.product.view", "master.product.update", "master.product.status"],
+      "db_revalidated_permissions": true,
+      "session_owned_actor_and_time": true,
+      "optimistic_lock_required": true,
+      "row_lock": "SELECT ... FOR UPDATE",
+      "transaction": "CatalogAccess.write with tenant GUCs and catalog advisory lock",
+      "audit": "recordRequired fail-closed in the same transaction",
+      "immutable_history": "0060 trigger in the same transaction",
+      "forbidden_client_fields": "rejected with 400 forbidden_client_field (no silent stripping)",
+      "unknown_fields": "400 unsupported_request_field",
+      "cross_company": "uniform 404 product_not_found",
+      "domain_context": "400 domain_context_not_supported / domain_property_rejected",
+      "raw_before_after_or_personal_data_exposed": false
+    }
+  },
+  "verification": {
+    "c5_unit_db_free": {"files": 1, "tests": 4, "result": "PASS"},
+    "c5_http_postgres": {"files": 1, "tests": 13, "result": "PASS"},
+    "import_blocked_discontinued": {"result": "PASS"},
+    "web_component_c5": {"files": 1, "tests": 6, "result": "PASS"},
+    "web_full": {"files": 26, "tests": 143, "result": "PASS"},
+    "api_db_free": {"files": 36, "tests": 416, "result": "PASS"},
+    "focused_regression": {"files": 11, "tests": 241, "result": "PASS"},
+    "api_full_db_backed": {
+      "files_passed": 92,
+      "files_total": 97,
+      "tests_passed": 1563,
+      "tests_total": 1582,
+      "failed_files": ["attachments.api.test.ts", "customers.api.test.ts", "geofences.api.test.ts", "postgres-init-role.api.test.ts", "tours.api.test.ts"],
+      "failed_titles": 19,
+      "baseline_log": "/tmp/pm02c4-api-full.log",
+      "baseline_files_passed": 90,
+      "baseline_files_total": 95,
+      "baseline_tests_passed": 1545,
+      "baseline_tests_total": 1564,
+      "identical_failed_files_and_titles": true,
+      "result": "NOT PASS (environmental, no new regression indicated)",
+      "declared_full_db_pass": false
+    },
+    "openapi_check": {"paths": 226, "operations": 320, "schemas": 210, "webhooks": 3, "result": "PASS"},
+    "contract_drift": {"matched": 320, "total": 320, "drift": 0, "result": "PASS"},
+    "test_partition": {"files": 97, "declared_equals_computed": true, "result": "PASS"},
+    "migrations_roundtrip": {"objects": 1033, "identical": true, "new_migration": false, "result": "PASS"},
+    "typecheck_root": "PASS",
+    "build_root": "PASS",
+    "api_dist_runtime": "PASS (node apps/api/dist/main.js, health database=up)",
+    "git_diff_check": 0,
+    "live_evidence": {
+      "path": "docs/product-inventory/evidence/task-pm-02/VERIFICATION-C5-LIVE.txt",
+      "bytes": 9798,
+      "sha256": "4d392651b7b9cc4796c52b29c3bcac2c2d5696b567aeb02fe4f078db03dff417",
+      "result": "PASS",
+      "database": "greendms_c1_preview (PostgreSQL 16.2)",
+      "api": "node apps/api/dist/main.js on :4000 via same-origin Next rewrite",
+      "asserted": [
+        "health database=up",
+        "login c1_admin with master.product.* permissions",
+        "create product -> active / row_version 0 (no status in request)",
+        "read model: 12-row matrix, exactly 2 supported transitions, 5 lifecycle_transition_blocked",
+        "available_actions contains only block; no discontinued action advertised",
+        "9 rejected requests (forged company/actor, domain property, unknown field, limit, cursor, missing confirmation, missing version, unchanged, discontinued on POST and PATCH) with zero row change",
+        "active->blocked row_version 0->1 with product_lifecycle.transition audit and session actor",
+        "0060 immutable history records the transition",
+        "409 version_conflict without SQL leakage",
+        "blocked->active row_version 1->2",
+        "legacy discontinued product is read-only with no available action and no change",
+        "401 anonymous, uniform 404, domain_context_not_supported",
+        "cleanup returns product=4 and audit_log(product)=3"
+      ]
+    }
+  },
+  "verdicts": {
+    "lifecycle_read_model": "PASS",
+    "evidence_backed_active_blocked_transition": "PASS",
+    "transactional_audit_and_history": "PASS",
+    "strict_client_field_rejection": "PASS",
+    "contract_client_build": "PASS",
+    "persian_rtl_ui": "PASS (component tests; manual browser review UNVERIFIED)",
+    "discontinued_transitions": "BLOCKED / NOT AUTHORIZED (implementation, tests and UI aligned)",
+    "discontinued_semantics_reason_irreversibility_archival": "BLOCKED pending owner approval",
+    "deletion_restore_retention": "BLOCKED",
+    "two_person_approval_g03_and_d4_replacement": "BLOCKED",
+    "pm_b1_to_pm_b8_q1_to_q5_g13": "BLOCKED / OPEN / NOT APPROVED",
+    "domain_lifecycle_and_membership": "BLOCKED",
+    "downstream_pricing_waybill_order_stock_invoice_attachment": "UNCHANGED",
+    "manual_browser_rtl_a11y_console": "UNVERIFIED",
+    "production_equivalent_minio_s3": "UNVERIFIED",
+    "full_db_backed_api_suite": "NOT PASS (baseline-identical environmental failures)",
+    "exact_final_sha_ci": "UNVERIFIED until additive PR/chat record",
+    "full_product_master_acceptance": "BLOCKED",
+    "deployment": "NOT AUTHORIZED",
+    "failures_in_delivered_scope": "NONE"
+  }
+}

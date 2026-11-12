@@ -2745,7 +2745,7 @@ export interface paths {
                         /** @enum {string} */
                         mode: "create" | "update" | "upsert";
                         idempotency_key: string;
-                        /** @description M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند) */
+                        /** @description M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند). TASK-PM-02-C5: وضعیت `discontinued` حتی با این تأیید هم BLOCKED است و با `lifecycle_transition_blocked` رد می‌شود. */
                         confirm_sensitive?: boolean;
                     };
                 };
@@ -12118,6 +12118,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{id}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * وضعیت، ماتریس گذار، اختیارات نشست و تاریخچه چرخه حیات مرکزی کالا
+         * @description TASK-PM-02-C5: نمای فقطخواندنی و متمرکز چرخه حیات **مرکزی**. وضعیت فعلی،
+         *     `row_version`، گذارهای موجود تحت D4، دلیل دردسترسنبودن هر عمل، و تاریخچه
+         *     تغییرناپذیر `0060` همراه با کنشگر و زمان بازگردانده میشود. تنها
+         *     `active↔blocked` شاهدپذیر و قابل اجراست؛ همهٔ گذارهای شامل
+         *     `discontinued` با `lifecycle_transition_blocked` عمداً BLOCKED /
+         *     NOT AUTHORIZEDاند و هرگز در `available_actions` قرار نمیگیرند. تاریخچه فقط
+         *     وضعیت قبل/بعد را نشان میدهد و داده خام قبل/بعد، اطلاعات دامنهای یا
+         *     اطلاعات سایر شرکتها را افشا نمیکند. مجوز `master.product.view` هم در
+         *     route و هم از پایگاهداده بازاعتبارسنجی میشود؛ قید صریح company_id و RLS
+         *     برقرارند. هیچ کنترل یا سیاست دامنهای/حذف/بایگانی ساخته نشده است.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    before?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نمای مرکزی چرخه حیات و تاریخچه وضعیت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductLifecycleView"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description خطای عمومی بدون افشای جزئیات پایگاهداده */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/lifecycle/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * اجرای یک گذار وضعیت مرکزی موجود با D4، قفل خوشبینانه و ممیزی تراکنشی
+         * @description فقط گذارهای شاهدپذیر `active→blocked` و `blocked→active` را با همان
+         *     `master.product.status` و `confirm_sensitive` اجرا میکند؛ قاعده تازهای
+         *     اضافه نمیشود. درخواستهای شامل `discontinued`، وضعیت بیتغییر و حذف نرم
+         *     صریحاً رد میشوند. `row_version` در این مسیر الزامی است. فیلدهای مالکیت،
+         *     شرکت/tenant، هویت کنشگر، مجوزها و فراداده ممیزی از کلاینت صریحاً رد
+         *     میشوند. بهروزرسانی محصول، رویداد تغییرناپذیر `0060` و `audit_log` در یک
+         *     تراکنش با `recordRequired` commit یا rollback میشوند. وضعیت مرکزی به
+         *     دسترسپذیری دامنهای تعبیر نمیشود و downstream تغییر نمیکند.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductLifecycleTransitionRequest"];
+                };
+            };
+            responses: {
+                /** @description گذار انجام شد؛ وضعیت، نسخه و نشانگر ممیزی تراکنشی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductLifecycleTransitionResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                /** @description خطای عمومی بدون افشای جزئیات پایگاهداده */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operational-domains": {
         parameters: {
             query?: never;
@@ -13156,7 +13292,10 @@ export interface components {
             min_order_qty?: number;
             weight_gr?: number | null;
             volume_cm3?: number | null;
-            /** @enum {string} */
+            /**
+             * @description TASK-PM-02-C5: فقط active↔blocked قابل اجراست. هر گذارِ به/از discontinued با 400 `lifecycle_transition_blocked` رد می‌شود (BLOCKED تا تصویب مالک)؛ وضعیت بی‌تغییر نادیده گرفته می‌شود.
+             * @enum {string}
+             */
             status?: "active" | "blocked" | "discontinued";
             /** @description قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد */
             row_version?: number;
@@ -15531,6 +15670,133 @@ export interface components {
             /** Format: uri */
             decision_document_url: string;
             owner_decisions: components["schemas"]["DomainOwnerDecision"][];
+        };
+        ProductLifecycleTransitionRequest: {
+            /**
+             * @description فقط active/blocked قابل اجرا هستند؛ مقادیر شامل discontinued با 400 lifecycle_transition_blocked رد میشوند.
+             * @enum {string}
+             */
+            target_status: "active" | "blocked" | "discontinued";
+            /** @description نسخه فعلی قفل خوشبینانه؛ مغایرت 409 */
+            row_version: number;
+            /** @description D4: تأیید صریح؛ بدون true درخواست 400 میگیرد */
+            confirm_sensitive?: boolean;
+        };
+        ProductLifecycleTransitionRule: {
+            /** @enum {string} */
+            source_status: "active" | "blocked" | "discontinued" | "deleted_soft";
+            /** @enum {string} */
+            target_status: "active" | "blocked" | "discontinued";
+            supported: boolean;
+            action_id: string;
+            label_fa: string;
+            reason_fa: string;
+            validation_fa: string;
+            authorization_fa: string;
+            side_effects_fa: string[];
+            dependent_modules_fa: string[];
+            audit_fa: string;
+            evidence: string[];
+            test_coverage_fa: string[];
+            decision_dependency_fa: string | null;
+            rejection_code: string | null;
+        };
+        ProductLifecycleAction: {
+            action_id: string;
+            /**
+             * @description فقط عملیات شاهدپذیر active↔blocked برگردانده میشود؛ هیچ عمل discontinuedای وجود ندارد.
+             * @enum {string}
+             */
+            target_status: "active" | "blocked";
+            label_fa: string;
+            /** @constant */
+            confirmation_required: true;
+            /** @enum {string} */
+            method: "POST";
+            /** @enum {string} */
+            path: "/products/{id}/lifecycle/transitions";
+            /** @constant */
+            requires_row_version: true;
+            decision_dependency_fa: string | null;
+        };
+        ProductLifecycleActor: {
+            can_update: boolean;
+            can_change_status: boolean;
+            can_transition: boolean;
+            unavailable_reason_fa: string | null;
+        };
+        ProductLifecycleHistoryItem: {
+            id: string;
+            /** @enum {string} */
+            action: "INSERT" | "UPDATE" | "DELETE";
+            event_label_fa: string;
+            from_status: string | null;
+            to_status: string | null;
+            /** Format: uuid */
+            actor_user_id: string | null;
+            actor_label_fa: string;
+            /** Format: date-time */
+            at: string;
+        };
+        ProductLifecycleView: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            /** @enum {string} */
+            status: "active" | "blocked" | "discontinued";
+            status_label_fa: string;
+            row_version: number;
+            policy: {
+                /** @enum {string} */
+                source: "existing_d4_contract";
+                permissions_fa: string;
+                confirmation_fa: string;
+                concurrency_fa: string;
+                /** @enum {string} */
+                two_person_approval: "BLOCKED";
+            };
+            actor: components["schemas"]["ProductLifecycleActor"];
+            available_actions: components["schemas"]["ProductLifecycleAction"][];
+            transitions: components["schemas"]["ProductLifecycleTransitionRule"][];
+            downstream_notes_fa: string[];
+            owner_decisions_fa: string[];
+            history: {
+                items: components["schemas"]["ProductLifecycleHistoryItem"][];
+                has_more: boolean;
+                next_cursor: string | null;
+            };
+        };
+        ProductLifecycleTransitionResult: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            /**
+             * @description مبدأ فقط یکی از گذارهای شاهدپذیر است
+             * @enum {string}
+             */
+            from_status: "active" | "blocked";
+            /**
+             * @description مقصد فقط یکی از گذارهای شاهدپذیر است
+             * @enum {string}
+             */
+            status: "active" | "blocked";
+            status_label_fa: string;
+            row_version: number;
+            action_id: string;
+            action_label_fa: string;
+            audit: {
+                /** @constant */
+                committed: true;
+                /** @enum {string} */
+                action: "product_lifecycle.transition";
+                /** @constant */
+                transactional: true;
+                /** @enum {string} */
+                actor_source: "session";
+            };
+            message_fa: string;
         };
         ProductFamily: {
             /** Format: uuid */

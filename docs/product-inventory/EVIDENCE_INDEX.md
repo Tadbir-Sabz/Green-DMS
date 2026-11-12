@@ -529,3 +529,55 @@
   Product Master `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14 `OPEN / DRAFT`؛
   مرورگر دستی RTL/a11y/console و MinIO/S3 production `UNVERIFIED`؛ CI دقیقSHA و
   شش نمای نهایی بهصورت افزودنی در بدنهٔ PR/گزارش چت ثبت میشود، بدون commit پساCI.
+
+## TASK-PM-02-C5 — چرخهٔ حیات مرکزی کالا (شواهد تازه)
+
+- مبنا و بازیابی: `f0d39980fbcd3d1ca4d00cb13b4db24b3f664341` (پایان C4)، شش نمای SHA
+  `ALL_AGREE=True`، `Already up to date`، worktree پاک و diffcheck صفر. چک‌پوینت
+  `/home/user/pm02-c5-checkpoint.tar.gz` (sha256
+  `0c2057d700cfdd0457b2fb6b5cc2176c851c3ce557ce1abd4cb6b3d012843f88`،
+  `sha256sum -c OK`، ۲٬۹۰۳ فایل) و bundle کامل `--all` (۳٬۱۴۸٬۷۴۰ بایت). بدنهٔ PR پیش
+  از C5: ۱۲۶٬۲۸۶ نویسه / ۱۳۹٬۹۶۸ بایت با هش
+  `4b4d1a1d2904239130926fd597268d4c56f6dd6ad90c79f9fbd7e930693d4b0b` حفظ شد.
+- سیاست: `product-lifecycle.rules.ts` تنها مرجع ماتریس ۳×۳ + `deleted_soft` است و در
+  همان نقطهٔ D4 (`assertSensitiveConfirmed`) اعمال می‌شود؛ بنابراین PATCH عمومی، import،
+  بسته‌بندی/واحد و مسیر اختصاصی همگی یک حکم می‌گیرند. تنها `active↔blocked` پشتیبانی
+  می‌شود؛ پنج گذار شامل `discontinued` با `lifecycle_transition_blocked` و گذار
+  بی‌تغییر با `lifecycle_transition_unchanged` رد می‌شوند. **تصحیح دامنه:** پیش‌نویس
+  نخست C5 شش گذار را supported می‌دانست؛ این تضاد با تصمیم مصوب در همین کار اصلاح شد.
+- کد: `product-lifecycle.{rules,service,controller}.ts`، ویرایش `product-sensitivity.ts`،
+  `product.dto.ts`، `product-master.service.ts` (پیش‌نمایش import) و `master-data.module.ts`؛
+  ۲ مسیر OpenAPI + ۷ اسکیمای `ProductLifecycle*` (action/transition فقط
+  `[active, blocked]`)؛ کلاینت تولیدشده (+۲۷۰ خط)؛ `product-lifecycle.tsx` به‌عنوان تب
+  نخست «چرخه حیات» و تبدیل `select` وضعیت تب مشخصات به نشان **فقط‌خواندنی**.
+  **بدون مهاجرت، مجوز، نقش، grant، seed، RLS، شرکت، دامنه یا سیاست نگهداشت تازه.**
+- امنیت: `AuthGuard` + `PermissionsGuard` + `DomainBoundaryGuard`، بازاعتبارسنجی مجوز از
+  DB پیش/داخل `CatalogAccess.write`، GUC شرکت/کاربر، قفل advisory،
+  `SELECT … FOR UPDATE` + `row_version` الزامی و قید نسخه در UPDATE، `recordRequired`
+  fail-closed و تریگر ۰۰۶۰ در همان تراکنش، کنشگر/زمان فقط از نشست، ۴۰۰ صریح برای
+  فیلدهای شرکت/هویت/مجوز/ممیزی/دامنه، ۴۰۴ یکنواخت بین‌شرکتی، ۴۰۹ بدون SQL.
+- قرارداد/ساخت: OpenAPI **۲۲۶ مسیر / ۳۲۰ عملیات / ۲۱۰ اسکیما / ۳ وب‌هوک**؛ drift
+  **۳۲۰/۳۲۰ و انحراف ۰**؛ `build:packages`، `npm run typecheck`، `npm run build` و
+  `node apps/api/dist/main.js` PASS؛ up/down/up **۱٬۰۳۳ شیء یکسان**؛ پارتیشن **۹۷ فایل**
+  `declared == computed`؛ `git diff --check=۰`.
+- تست‌ها: واحد بی‌دادهٔ C5 **۱/۴**، سرتاسری HTTP+PostgreSQL **۱/۱۳**، import BLOCKED
+  برای `discontinued` **PASS**، جزء وب **۱/۶**، وب کامل **۲۶/۱۴۳**، واحد بی‌دادهٔ API
+  **۳۶/۴۱۶**، رگرسیون هدفمند **۱۱ فایل / ۲۴۱ تست**، اجرای کامل DB **۹۲/۹۷ فایل و
+  ۱٬۵۶۳/۱٬۵۸۲ تست** با ۵ فایل/۱۹ عنوان شکست **عیناً یکسان** با
+  `/tmp/pm02c4-api-full.log` (بدون رگرسیون تازه). «Full DB PASS» اعلام نشد.
+- شاهد زندهٔ همان‌مبدأ: `evidence/task-pm-02/VERIFICATION-C5-LIVE.txt` (sha256
+  `4d392651b7b9cc4796c52b29c3bcac2c2d5696b567aeb02fe4f078db03dff417`، ۹٬۷۹۸ بایت).
+  سلامت `database=up`، ورود `c1_admin`، ساخت کالا با `active/row_version=0`، نمای ۱۲ ردیفی
+  با دقیقاً ۲ گذار supported و ۵ BLOCKED، رد ۶ درخواست خواندنی و ۷ درخواست گذارِ ساختگی/ناقض بدون تغییر ردیف،
+  `active→blocked` با `row_version 0→1` و `audit product_lifecycle.transition|blocked|active`،
+  تاریخچهٔ ۰۰۶۰، `409 version_conflict` بدون SQL، `blocked→active` (۱→۲)، کالای قدیمی
+  `discontinued` بدون هیچ عمل/گذار و بدون تغییر، ۴۰۱ بی‌نشست، ۴۰۴ یکنواخت،
+  `domain_context_not_supported`، و بازگشت شمارش‌ها به مبنا (**product=4، audit=3**).
+- **BLOCKED:** همهٔ گذارهای به/از `discontinued` و معنای توقف/برگشت‌ناپذیری/دلیل/بایگانی؛
+  حذف/بازگردانی/نگهداشت؛ G-03 و جایگزینی D4؛ PM-B1..PM-B8 / Q1..Q5 / G-13؛ هر مهاجرت/
+  مجوز/نقش/grant/RLS/شرکت/دامنه/seed تازه؛ تغییر رفتار قیمت/بارنامه/سفارش/موجودی/فاکتور/
+  ضمائم؛ پذیرش کامل Product Master؛ استقرار تولید.
+- اسناد: `TASK-PM-02-C5_IMPLEMENTATION.md`، `VERIFICATION-C5.{txt,json}`، پیوست §۱۰
+  راهنمای اپراتور. PR #14 `OPEN / DRAFT`؛ مرورگر دستی RTL/a11y/console و زیرساخت معادل
+  تولید `UNVERIFIED`؛ CI دقیقSHA و شش نمای نهایی به‌صورت افزودنی در بدنهٔ PR/گزارش چت
+  ثبت می‌شود، **بدون commit پساCI**.

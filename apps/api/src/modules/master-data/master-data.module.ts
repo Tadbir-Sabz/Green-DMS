@@ -5,6 +5,9 @@ import { DomainCatalogGate } from './domain-catalog.contract';
 import { DomainBoundaryGuard } from './domain-boundary.guard';
 import { ProductDomainScopeController } from './product-domain-scope.controller';
 import { ProductDomainScopeService } from './product-domain-scope.service';
+// TASK-PM-02-C5: centralized, read/transition-only central product lifecycle.
+import { ProductLifecycleController } from './product-lifecycle.controller';
+import { ProductLifecycleService } from './product-lifecycle.service';
 import { OrderCreationLock } from '../sales/order-creation-lock';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
@@ -75,6 +78,7 @@ import {
     // مسیرهای literal زیرمجموعهٔ /products (مثل duplicate-check) قبل از ':id' match شوند.
     ProductImportController,
     ProductDomainScopeController,
+    ProductLifecycleController,
     ProductBarcodeController,
     ProductCatalogController,
     ProductExportController,
@@ -97,6 +101,7 @@ import {
     DomainCatalogGate,
     DomainBoundaryGuard,
     ProductDomainScopeService,
+    ProductLifecycleService,
     CatalogFoundationService,
     ProductPackagingService,
     ProductMasterRepository,

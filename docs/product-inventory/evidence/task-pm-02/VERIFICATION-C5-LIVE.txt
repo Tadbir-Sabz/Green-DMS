@@ -1,0 +1,100 @@
+VERIFICATION — TASK-PM-02-C5 (چرخهٔ حیات مرکزی کالا) — شواهد HTTP زندهٔ همین‌مبدأ
+============================================================================================================
+محیط: پشتهٔ پیش‌نمایش محلی · PostgreSQL 16.2 واقعی (127.0.0.1:55432) · API ساخته‌شده روی :4000 ·
+        Next.js dev روی :3000 با rewrite همین‌مبدأ ‎/api/:path*‎ → ‎http://127.0.0.1:4000/api/:path*‎
+این فایل فقط شواهد اجرای زندهٔ C5 است؛ آزمون واحد/HTTP-با-PG و CI جداگانه گزارش می‌شوند.
+محدوده: فقط خواندن وضعیت و گذارهای شاهدپذیر active↔blocked؛ گذارهای شامل discontinued BLOCKED / NOT AUTHORIZED.
+
+GET    /health                                                                        → 200
+  ✓ سلامت API: service=dms-api version=0.1.0 database=up
+POST   /auth/login                                                                    → 200
+  ✓ ورود c1_admin با مجوزهای master.product.* (مجوز از پایگاه‌داده بازاعتبارسنجی می‌شود)
+
+WEB    /products                                                                      → 200  (64567 بایت HTML)
+WEB    /products/7bf39ab6-b1d6-43a6-a758-feaf09b64a5b                                 → 200  (65839 بایت HTML)
+  ✓ پوستهٔ اپ/داشبورد و مسیر جزئیات کالا در همین‌مبدأ 200 می‌دهند
+  · محتوای تب «چرخه حیات» کلاینتی است؛ رندر واقعی در مرورگر UNVERIFIED (بررسی دستی انجام نشد)
+
+مبنا: product=4 · audit_log(product)=3
+POST   /products                                                                      → 201
+  ✓ ساخت کالا با status پیش‌فرض active و row_version=0 (id=3bfaf844-236c-418b-b46f-40fad22f6a3b)
+GET    /products                                                                      → 200
+  ✓ کالا در فهرست شرکتِ نشست دیده می‌شود
+
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 200
+  ✓ نمای مرکزی: وضعیت active، سیاست D4 موجود، تأیید دونفره BLOCKED، ۱۲ ردیف ماتریس
+  ✓ فقط ۲ گذار شاهدپذیر active↔blocked؛ ۵ گذار شامل discontinued با lifecycle_transition_blocked
+  ✓ available_actions فقط «مسدود کردن» است؛ هیچ کنترل/گذار discontinued تبلیغ نمی‌شود
+  ✓ تاریخچهٔ 0060: رویداد INSERT با کنشگرِ نشست و وضعیت مقصد active (بدون before/after خام)
+  ✓ نمای چرخهٔ حیات: بدون before/after خام، کلید استوریج/امضا، داده تماس/هویتی یا زیرساخت
+  ✓ تصمیم‌های باز مالک صریح برگردانده می‌شوند (گذارهای discontinued، G-03، دامنه، حذف، دامنهٔ active↔blocked)
+
+GET    /products/not-a-uuid/lifecycle                                                 → 400
+  ✓ شناسهٔ نامعتبر پیش از دسترسی به پایگاه‌داده رد شد: 'invalid_id'
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 400
+  ✓ کوئری با شرکت/کنشگر ساختگی رد شد: 'forbidden_client_field'
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 400
+  ✓ ویژگی دامنه‌ای در کوئری مرکزی رد شد (نگهبان مرز دامنه): 'domain_property_rejected'
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 400
+  ✓ فیلد ناشناختهٔ کوئری رد شد: 'unsupported_request_field'
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 400
+  ✓ limit خارج از بازه رد شد: 'validation_failed'
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 400
+  ✓ نشانگر تاریخچهٔ نامعتبر رد شد: 'invalid_cursor'
+
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ گذار بدون تأیید صریح D4 رد شد: 'sensitive_change_requires_confirmation'
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ گذار بدون row_version رد شد: 'validation_failed'
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ گذار بی‌تغییر رد شد: 'lifecycle_transition_unchanged'
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ گذار active→discontinued مسدود شد: 'lifecycle_transition_blocked'
+PATCH  /products/3bfaf844-236c-418b-b46f-40fad22f6a3b                                 → 400
+  ✓ همان گذار از قرارداد عمومی PATCH هم مسدود شد: 'lifecycle_transition_blocked'
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ بدنهٔ دارای شرکت/کنشگر ساختگی رد شد: 'forbidden_client_field'
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ فیلد خارج از قرارداد (reason) رد شد: 'unsupported_request_field'
+  ✓ پس از ۷ درخواست گذارِ ردشده (و ۶ درخواست خواندنی ردشده پیش از آن)، ردیف بدون تغییر ماند: active|0
+
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 200
+  ✓ active→blocked: row_version 0→1 با ممیزی تراکنشی و کنشگرِ نشست
+  ✓ audit_log: product_lifecycle.transition|blocked|active|true (کنشگر از نشست، نه از بدنه)
+  ✓ تاریخچهٔ تغییرناپذیر 0060 رویداد گذار را ثبت کرد: 1|blocked
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 200
+  ✓ نمای پس از گذار: وضعیت blocked، عمل مجاز «فعال کردن دوباره» و رویداد گذار در بالای تاریخچه
+
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 409
+  ✓ نسخهٔ کهنه 409 می‌دهد: 'version_conflict'
+  ✓ پیام 409 بدون افشای SQL/جزئیات پایگاه‌داده؛ ردیف تغییر نکرد
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 200
+  ✓ blocked→active با نسخهٔ جاری: row_version 1→2 (رفت‌وبرگشت شاهدپذیر کامل شد)
+
+  · وضعیت discontinued با SQL مستقیم روی همان ردیف آزمون شبیه‌سازی شد (دادهٔ قدیمی، نه گذار API)
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 200
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 400
+  ✓ discontinued→active از مسیر اختصاصی مسدود شد: 'lifecycle_transition_blocked'
+PATCH  /products/3bfaf844-236c-418b-b46f-40fad22f6a3b                                 → 400
+  ✓ discontinued→blocked از PATCH عمومی مسدود شد: 'lifecycle_transition_blocked'
+  ✓ کالای «متوقف» صرف‌نظر از مجوز کامل نشست، هیچ گذار قابل اجرا/نمایش ندارد و بدون تغییر ماند
+
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 401
+POST   /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle/transitions           → 401
+  ✓ خواندن/نوشتن بی‌نشست 401 است
+GET    /products/00000000-0000-4000-8000-000000000000/lifecycle                       → 404
+  ✓ شناسهٔ ناموجود 404 بدون افشای وجود/عدم وجود بین‌شرکتی می‌دهد: 'product_not_found'
+GET    /products/3bfaf844-236c-418b-b46f-40fad22f6a3b/lifecycle                       → 400
+  ✓ زمینهٔ دامنه در این مسیر مرکزی رد می‌شود: 'domain_context_not_supported'
+
+  ✓ قید موجود بارنامه/قیمت‌گذاری (status='active') برای کالای متوقف نادرست می‌شود — همان رفتار قبلی، بدون تغییر کد
+  ✓ سفارش/خرید/موجودی/فاکتور/ضمائم مسدودسازی تازه یا تغییر رفتاری نگرفتند (فقط تست/DB خوانده شد)
+
+  ✓ پاک‌سازی: product=4 · audit_log(product)=3 — برابر مبنا
+
+نتیجه: PASS — خواندن/گذار زندهٔ active↔blocked با D4، قفل نسخه، ممیزی تراکنشی و تاریخچهٔ 0060.
+BLOCKED / NOT AUTHORIZED: همهٔ گذارهای به/از discontinued، معنای توقف، برگشت‌ناپذیری، دلیل، بایگانی، حذف/بازگردانی،
+            تأیید دونفرهٔ G-03، چرخهٔ حیات/عضویت دامنه‌ای PM-B*، و جایگزینی سیاست D4 بدون تصویب مالک.
+مرزها: بدون مهاجرت/مجوز/نقش/grant/RLS/شرکت/دامنهٔ تازه، بدون تغییر رفتار downstream، بدون دادهٔ شخصی یا before/after خام.
+UNVERIFIED: بررسی دستی مرورگر (RTL/a11y/console/تعامل واقعی)، زیرساخت معادل تولید (MinIO/S3 واقعی)،
+            پذیرش کامل Product Master و استقرار/ادغام. هیچ merge/approve/release انجام نشد؛ PR #14 همچنان draft است.

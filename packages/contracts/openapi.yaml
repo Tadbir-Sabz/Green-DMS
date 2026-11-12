@@ -1514,7 +1514,10 @@ paths:
                 idempotency_key: { type: string, maxLength: 128 }
                 confirm_sensitive:
                   type: boolean
-                  description: 'M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند)'
+                  description: >-
+                    M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد
+                    می‌شوند). TASK-PM-02-C5: وضعیت `discontinued` حتی با این تأیید
+                    هم BLOCKED است و با `lifecycle_transition_blocked` رد می‌شود.
       responses:
         '200':
           description: نتیجهٔ import
@@ -6112,6 +6115,83 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/lifecycle:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: وضعیت، ماتریس گذار، اختیارات نشست و تاریخچه چرخه حیات مرکزی کالا
+      description: |
+        TASK-PM-02-C5: نمای فقطخواندنی و متمرکز چرخه حیات **مرکزی**. وضعیت فعلی،
+        `row_version`، گذارهای موجود تحت D4، دلیل دردسترسنبودن هر عمل، و تاریخچه
+        تغییرناپذیر `0060` همراه با کنشگر و زمان بازگردانده میشود. تنها
+        `active↔blocked` شاهدپذیر و قابل اجراست؛ همهٔ گذارهای شامل
+        `discontinued` با `lifecycle_transition_blocked` عمداً BLOCKED /
+        NOT AUTHORIZEDاند و هرگز در `available_actions` قرار نمیگیرند. تاریخچه فقط
+        وضعیت قبل/بعد را نشان میدهد و داده خام قبل/بعد، اطلاعات دامنهای یا
+        اطلاعات سایر شرکتها را افشا نمیکند. مجوز `master.product.view` هم در
+        route و هم از پایگاهداده بازاعتبارسنجی میشود؛ قید صریح company_id و RLS
+        برقرارند. هیچ کنترل یا سیاست دامنهای/حذف/بایگانی ساخته نشده است.
+      parameters:
+        - name: before
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[0-9]{1,20}$' }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        '200':
+          description: نمای مرکزی چرخه حیات و تاریخچه وضعیت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductLifecycleView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500':
+          description: خطای عمومی بدون افشای جزئیات پایگاهداده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /products/{id}/lifecycle/transitions:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [products]
+      summary: اجرای یک گذار وضعیت مرکزی موجود با D4، قفل خوشبینانه و ممیزی تراکنشی
+      description: |
+        فقط گذارهای شاهدپذیر `active→blocked` و `blocked→active` را با همان
+        `master.product.status` و `confirm_sensitive` اجرا میکند؛ قاعده تازهای
+        اضافه نمیشود. درخواستهای شامل `discontinued`، وضعیت بیتغییر و حذف نرم
+        صریحاً رد میشوند. `row_version` در این مسیر الزامی است. فیلدهای مالکیت،
+        شرکت/tenant، هویت کنشگر، مجوزها و فراداده ممیزی از کلاینت صریحاً رد
+        میشوند. بهروزرسانی محصول، رویداد تغییرناپذیر `0060` و `audit_log` در یک
+        تراکنش با `recordRequired` commit یا rollback میشوند. وضعیت مرکزی به
+        دسترسپذیری دامنهای تعبیر نمیشود و downstream تغییر نمیکند.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductLifecycleTransitionRequest' }
+      responses:
+        '200':
+          description: گذار انجام شد؛ وضعیت، نسخه و نشانگر ممیزی تراکنشی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductLifecycleTransitionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500':
+          description: خطای عمومی بدون افشای جزئیات پایگاهداده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
   /operational-domains:
     get:
       tags: [products]
@@ -7060,7 +7140,13 @@ components:
         min_order_qty: { type: number }
         weight_gr: { type: [integer, 'null'] }
         volume_cm3: { type: [integer, 'null'] }
-        status: { type: string, enum: [active, blocked, discontinued] }
+        status:
+          type: string
+          enum: [active, blocked, discontinued]
+          description: >-
+            TASK-PM-02-C5: فقط active↔blocked قابل اجراست. هر گذارِ به/از
+            discontinued با 400 `lifecycle_transition_blocked` رد می‌شود
+            (BLOCKED تا تصویب مالک)؛ وضعیت بی‌تغییر نادیده گرفته می‌شود.
         row_version:
           type: integer
           description: قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد
@@ -9250,6 +9336,155 @@ components:
         owner_decisions:
           type: array
           items: { $ref: '#/components/schemas/DomainOwnerDecision' }
+    ProductLifecycleTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [target_status, row_version]
+      properties:
+        target_status:
+          type: string
+          enum: [active, blocked, discontinued]
+          description: 'فقط active/blocked قابل اجرا هستند؛ مقادیر شامل discontinued با 400 lifecycle_transition_blocked رد میشوند.'
+        row_version: { type: integer, minimum: 0, description: نسخه فعلی قفل خوشبینانه؛ مغایرت 409 }
+        confirm_sensitive: { type: boolean, description: 'D4: تأیید صریح؛ بدون true درخواست 400 میگیرد' }
+    ProductLifecycleTransitionRule:
+      type: object
+      required:
+        - source_status
+        - target_status
+        - supported
+        - action_id
+        - label_fa
+        - reason_fa
+        - validation_fa
+        - authorization_fa
+        - side_effects_fa
+        - dependent_modules_fa
+        - audit_fa
+        - evidence
+        - test_coverage_fa
+        - decision_dependency_fa
+        - rejection_code
+      properties:
+        source_status: { type: string, enum: [active, blocked, discontinued, deleted_soft] }
+        target_status: { type: string, enum: [active, blocked, discontinued] }
+        supported: { type: boolean }
+        action_id: { type: string }
+        label_fa: { type: string }
+        reason_fa: { type: string }
+        validation_fa: { type: string }
+        authorization_fa: { type: string }
+        side_effects_fa: { type: array, items: { type: string } }
+        dependent_modules_fa: { type: array, items: { type: string } }
+        audit_fa: { type: string }
+        evidence: { type: array, items: { type: string } }
+        test_coverage_fa: { type: array, items: { type: string } }
+        decision_dependency_fa: { type: [string, 'null'] }
+        rejection_code: { type: [string, 'null'] }
+    ProductLifecycleAction:
+      type: object
+      required: [action_id, target_status, label_fa, confirmation_required, method, path, requires_row_version, decision_dependency_fa]
+      properties:
+        action_id: { type: string }
+        target_status:
+          type: string
+          enum: [active, blocked]
+          description: 'فقط عملیات شاهدپذیر active↔blocked برگردانده میشود؛ هیچ عمل discontinuedای وجود ندارد.'
+        label_fa: { type: string }
+        confirmation_required: { type: boolean, const: true }
+        method: { type: string, enum: [POST] }
+        path: { type: string, enum: ['/products/{id}/lifecycle/transitions'] }
+        requires_row_version: { type: boolean, const: true }
+        decision_dependency_fa: { type: [string, 'null'] }
+    ProductLifecycleActor:
+      type: object
+      required: [can_update, can_change_status, can_transition, unavailable_reason_fa]
+      properties:
+        can_update: { type: boolean }
+        can_change_status: { type: boolean }
+        can_transition: { type: boolean }
+        unavailable_reason_fa: { type: [string, 'null'] }
+    ProductLifecycleHistoryItem:
+      type: object
+      required: [id, action, event_label_fa, from_status, to_status, actor_user_id, actor_label_fa, at]
+      properties:
+        id: { type: string }
+        action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+        event_label_fa: { type: string }
+        from_status: { type: [string, 'null'] }
+        to_status: { type: [string, 'null'] }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label_fa: { type: string }
+        at: { type: string, format: date-time }
+    ProductLifecycleView:
+      type: object
+      required:
+        - product_id
+        - scope
+        - status
+        - status_label_fa
+        - row_version
+        - policy
+        - actor
+        - available_actions
+        - transitions
+        - downstream_notes_fa
+        - owner_decisions_fa
+        - history
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        status_label_fa: { type: string }
+        row_version: { type: integer }
+        policy:
+          type: object
+          required: [source, permissions_fa, confirmation_fa, concurrency_fa, two_person_approval]
+          properties:
+            source: { type: string, enum: [existing_d4_contract] }
+            permissions_fa: { type: string }
+            confirmation_fa: { type: string }
+            concurrency_fa: { type: string }
+            two_person_approval: { type: string, enum: [BLOCKED] }
+        actor: { $ref: '#/components/schemas/ProductLifecycleActor' }
+        available_actions:
+          type: array
+          items: { $ref: '#/components/schemas/ProductLifecycleAction' }
+        transitions:
+          type: array
+          items: { $ref: '#/components/schemas/ProductLifecycleTransitionRule' }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa: { type: array, items: { type: string } }
+        history:
+          type: object
+          required: [items, has_more, next_cursor]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ProductLifecycleHistoryItem' }
+            has_more: { type: boolean }
+            next_cursor: { type: [string, 'null'] }
+    ProductLifecycleTransitionResult:
+      type: object
+      required: [product_id, scope, from_status, status, status_label_fa, row_version, action_id, action_label_fa, audit, message_fa]
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        from_status: { type: string, enum: [active, blocked], description: مبدأ فقط یکی از گذارهای شاهدپذیر است }
+        status: { type: string, enum: [active, blocked], description: مقصد فقط یکی از گذارهای شاهدپذیر است }
+        status_label_fa: { type: string }
+        row_version: { type: integer }
+        action_id: { type: string }
+        action_label_fa: { type: string }
+        audit:
+          type: object
+          required: [committed, action, transactional, actor_source]
+          properties:
+            committed: { type: boolean, const: true }
+            action: { type: string, enum: ['product_lifecycle.transition'] }
+            transactional: { type: boolean, const: true }
+            actor_source: { type: string, enum: [session] }
+        message_fa: { type: string }
     ProductFamily:
       type: object
       required: [id, code, name]
