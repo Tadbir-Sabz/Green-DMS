@@ -1,0 +1,219 @@
+{
+  "task": "TASK-PM-02-C10",
+  "title": "Real Data Impact Assessment",
+  "role": "Agent-1 — Primary Developer / Executor",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "baseline_commit": "f429bcbeb407411f8f3efc7d173b27148e352acd",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "base": "main",
+    "merged": false
+  },
+  "overall_verdict": "PASS WITH FINDINGS",
+  "checkpoint": {
+    "tar": "/home/user/pm02-c10-checkpoint.tar.gz",
+    "bytes": 3220604,
+    "sha256": "24f0abe7831fb37273820a85fbe1a93bdc7b2f1c777a36143bccaeb2d68aa9f2",
+    "integrity": "sha256sum -c: OK",
+    "entries": 2945,
+    "bundle_verify": "The bundle records a complete history",
+    "reset_rebase_amend_force_push": "NONE"
+  },
+  "data_access_safety_gate": {
+    "verdict": "UNVERIFIED — AUTHORIZED ISOLATED DATA COPY UNAVAILABLE",
+    "database_identity": "PostgreSQL 16.2, /tmp/pm01dm2-pgdata, 127.0.0.1:55432",
+    "isolation_from_production": "proven (ephemeral /tmp test harness)",
+    "copy_provenance_and_authorization": "NOT FOUND — no organizational copy, no authorization document",
+    "read_only_enforcement": "FAIL — connected as postgres (rolsuper=true); no enforced read-only role",
+    "shared_write_paths_to_operational_systems": "none",
+    "required_data_available": false,
+    "production_connection_attempted": false,
+    "backup_restore_clone_export_created": false,
+    "alternative_credentials_tried": false
+  },
+  "dataset_completeness": {
+    "verdict": "FAIL",
+    "company": 1,
+    "product_live": 4,
+    "product_alias": 0,
+    "product_barcode": 0,
+    "product_attribute_def": 0,
+    "product_attribute_value": 0,
+    "product_attribute_enum_value": 0,
+    "product_category": 7,
+    "product_family": 0,
+    "executed_at_utc": "2026-11-13T12:38:14Z"
+  },
+  "d1_alias_integrity": {
+    "categories_executed": 8,
+    "results": {
+      "dup_within_product": 0,
+      "dup_across_products": 0,
+      "dup_across_companies": 0,
+      "alias_equals_other_product_name": 0,
+      "alias_equals_product_code": 0,
+      "alias_equals_barcode": 0,
+      "code_equals_barcode": 0,
+      "alias_kind_code_count": 0
+    },
+    "records_inspected": {
+      "products": 4,
+      "companies": 1,
+      "aliases": 0,
+      "barcodes": 0
+    },
+    "affected_products": 0,
+    "affected_companies": 0,
+    "classification": "NOT FOUND IN INSPECTED DATA",
+    "explicit_warning": "zero conflicts here reflect a zero denominator, NOT data integrity",
+    "confirmed_code_finding": "the add-alias write path enforces company-level uniqueness at runtime (409 alias_collision, product-identity.service.ts:447-452) while the DB constraint is only (product_id, alias_norm)",
+    "ingestion_paths": {
+      "import_csv": "no alias writes",
+      "bulk_maintenance": "no alias writes",
+      "scan": "barcode -> product.code -> alias kind=code, 409 ambiguous_scan on ambiguity"
+    }
+  },
+  "d4_attribute_rules": {
+    "required_defs": 0,
+    "all_defs": 0,
+    "products_missing_required": 0,
+    "products_without_category": 0,
+    "products_with_any_value": 0,
+    "category_attribute_link_table": "ABSENT (CONFIRMED)",
+    "family_attribute_link_table": "ABSENT (CONFIRMED)",
+    "classification": "NOT FOUND IN INSPECTED DATA",
+    "confirmed_lifecycle_finding": "requiredness is enforced only when attribute values are written; product creation, CSV import, bulk maintenance and category reassignment never validate it",
+    "lifecycle_matrix": {
+      "product_create": "not enforced",
+      "attribute_update": "enforced",
+      "csv_import": "not enforced",
+      "bulk_maintenance": "not enforced",
+      "category_delete_or_merge": "not enforced",
+      "export": "read-only"
+    },
+    "option_C_family_scoped": "BLOCKED — the family concept is empty and unrelated to attributes"
+  },
+  "normalization": {
+    "method": "repository-native functions, isolated synthetic fixtures, no DB",
+    "cases_total": 19,
+    "pass": [
+      "N7 persian digits",
+      "N8 arabic digits",
+      "N9 leading/trailing whitespace",
+      "N10 repeated internal whitespace",
+      "N11 tab/NBSP",
+      "N13 NFC/NFD",
+      "N17 case folding",
+      "N18 barcode spaces"
+    ],
+    "fail_high": [
+      "N1 yeh arabic/persian",
+      "N2 kaf arabic/persian",
+      "N3 kaf mid-word",
+      "N4 mixed kaf",
+      "N5 alef madda",
+      "N6 alef hamza",
+      "N12 ZWJ half-space",
+      "N19 asymmetry between normalizeText and normalizeBarcode"
+    ],
+    "fail_low": [
+      "N14 arabic comma",
+      "N15 dash variants",
+      "N16 fullwidth latin"
+    ],
+    "proposed_contract_steps": [
+      "NFC",
+      "fold digits",
+      "unify persian/arabic letters (yeh,kaf,alef)",
+      "strip control chars",
+      "remove ZWJ/ZWNJ and unify unicode spaces",
+      "trim+collapse spaces",
+      "unify punctuation",
+      "lowercase"
+    ],
+    "symmetry_rule": "both sides of any collision comparison must use the same normalizer",
+    "implemented_in_c10": false
+  },
+  "evidence_reconciliation": {
+    "audit_log_total": 112,
+    "history_total": 138,
+    "history_def": 34,
+    "history_value_enum": 58,
+    "history_product_delete": 29,
+    "history_product_delete_c7": 9,
+    "history_product_delete_c5_c6": 20,
+    "audit_def_create": 13,
+    "c8_value_enum_published": 70,
+    "c8_total_published": 126,
+    "corrected_value_enum": 58,
+    "corrected_total": 114,
+    "verification_files_unchanged": "VERIFICATION-C7/C8/C9 and EVIDENCE-C8/C9 unmodified (diff vs f429bcb = 0)",
+    "cleanup_this_task": 0,
+    "c7_superuser_deviation_still_recorded": true,
+    "environment_claimed_clean": false
+  },
+  "classification": {
+    "CONFIRMED": [
+      "attribute requirement is discontinuous across the product lifecycle",
+      "alias write path already enforces company-level uniqueness at runtime",
+      "8 normalization gaps in repository functions",
+      "normalizer asymmetry leaks collision checks",
+      "no category<->attribute or family<->attribute mapping exists"
+    ],
+    "NOT_FOUND_IN_INSPECTED_DATA": [
+      "all 8 D1 collision categories",
+      "required attribute definitions and incomplete products"
+    ],
+    "UNVERIFIED": [
+      "real conflict/incompleteness counts in organizational data",
+      "cross-company boundary (only 1 company)",
+      "role of product family",
+      "provenance and authorization of a real data copy",
+      "browser RTL/a11y"
+    ],
+    "BLOCKED": [
+      "real-data execution (needs authorized isolated copy)",
+      "D4 option C",
+      "any D1/D4 implementation in C10"
+    ],
+    "FAIL": [
+      "read-only enforcement (superuser connection)",
+      "dataset completeness for D1/D4"
+    ]
+  },
+  "acquisition_plan": [
+    "written owner + security authorization for a read-only copy",
+    "prefer an existing replica/backup over querying production",
+    "restore into an isolated network-restricted environment",
+    "create role c10_readonly with SELECT only, rolsuper=false, default_transaction_read_only=on",
+    "run EVIDENCE-C10-REAL-DATA-QUERIES.txt and capture raw output with timestamps",
+    "controlled destruction of the copy afterwards with a deletion record"
+  ],
+  "scope_discipline": {
+    "application_code_changed": 0,
+    "schema_or_migrations_changed": 0,
+    "rls_changed": 0,
+    "product_records_changed": 0,
+    "aliases_barcodes_attributes_changed": 0,
+    "historical_data_cleaned": 0,
+    "production_config_changed": 0,
+    "pr_merged": false,
+    "statements_executed": "SELECT only"
+  },
+  "artifact_hashes": {
+    "assessment_bytes": 26251,
+    "assessment_sha256": "ebda53449fdab1588f1de7cebeea45003bb6890f8b7d8251366eabe5c30073e9",
+    "evidence_bytes": 6481,
+    "evidence_sha256": "ba4cd38f47c4de91a8db51a2bd452561f6fb29cfb0f3f8c4a95cf26907fa395b"
+  },
+  "documents": [
+    "docs/product-inventory/TASK-PM-02-C10_REAL_DATA_IMPACT_ASSESSMENT.md",
+    "docs/product-inventory/VERIFICATION-C10.txt",
+    "docs/product-inventory/VERIFICATION-C10.json",
+    "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C10-REAL-DATA-QUERIES.txt",
+    "docs/product-inventory/EVIDENCE_INDEX.md (append)",
+    "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §15"
+  ]
+}
