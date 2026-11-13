@@ -1,0 +1,338 @@
+{
+  "task": "TASK-PM-02-C13",
+  "baseline_commit": "ca2382315c758e211d463d2b73c3eb51974b487d",
+  "comparison_contract_version": "c13.1",
+  "underlying_normalization_version": "c11.1",
+  "synthetic_only": true,
+  "contains_organizational_data": false,
+  "identity_fields": [
+    "name",
+    "name_latin",
+    "alias",
+    "code",
+    "barcode"
+  ],
+  "comparison_spaces": [
+    "field",
+    "scan",
+    "alnum",
+    "text"
+  ],
+  "decisions": [
+    "HARD_CONFLICT",
+    "SOFT_CONFLICT",
+    "MANUAL_REVIEW",
+    "ALLOWED",
+    "NOT_COMPARABLE"
+  ],
+  "space_semantics": {
+    "field": "میان‌افزاری: پروفایلِ اختصاصیِ هر میدان (C11). تنها فضای وابسته به میدان.",
+    "scan": "آنچه یک بارکدخوان resolve می‌کند: NFKC + ارقام لاتین + کوچک‌سازی + حذفِ همهٔ جداکننده‌ها. صفرِ ابتدایی حفظ می‌شود.",
+    "alnum": "آنچه جست‌وجوی کد resolve می‌کند: فاصلهٔ درونی حفظ، نشانه‌گذاری حذف.",
+    "text": "فضای جست‌وجوی متنی از SearchKey در C11 (اعراب حذف، ي/ك یکسان، آ/أ متمایز)."
+  },
+  "symmetry_guarantee": "scan/alnum/text به میدان وابسته نیستند ⇒ هر دو طرفِ مقایسه یک تبدیل می‌گیرند. field عمداً وابسته است.",
+  "rule_count": 15,
+  "rules": [
+    {
+      "rule_id": "C13-R-alias-same",
+      "kind": "same_field",
+      "fields": [
+        "alias",
+        "alias"
+      ],
+      "space": "field",
+      "decision": "HARD_CONFLICT",
+      "severity": "hard",
+      "confidence": "high",
+      "ambiguity": 0.05,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "یک نامِ جایگزین برای دو کالایِ متفاوت در همین شرکت به کار رفته است؛ جست‌وجوی مشتری دوپهلو می‌شود.",
+      "recommended_resolution_fa": "مالکِ داده باید تعیین کند این نام به کدام کالا تعلق دارد؛ سپس نامِ جایگزینِ اشتباه اصلاح شود. هیچ ادغامِ خودکاری مجاز نیست.",
+      "rationale_fa": "alias در قراردادِ C11 برای یکتایی به کار می‌رود، پس تکرارِ آن در دو کالا نقضِ مستقیمِ هویت است."
+    },
+    {
+      "rule_id": "C13-R-code-same",
+      "kind": "same_field",
+      "fields": [
+        "code",
+        "code"
+      ],
+      "space": "field",
+      "decision": "HARD_CONFLICT",
+      "severity": "hard",
+      "confidence": "high",
+      "ambiguity": 0.05,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "دو کالا در یک شرکت کدِ یکسان دارند (پس از نرمال‌سازیِ قرارداد).",
+      "recommended_resolution_fa": "کدِ تکراری باید توسطِ مالکِ داده اصلاح شود؛ تا آن زمان ورودِ داده برای این شرکت باید هشدار بدهد.",
+      "rationale_fa": "کدِ کالا شناسهٔ اصلیِ عملیاتی است و تکرارش مرجعِ اشتباه می‌سازد."
+    },
+    {
+      "rule_id": "C13-R-barcode-same",
+      "kind": "same_field",
+      "fields": [
+        "barcode",
+        "barcode"
+      ],
+      "space": "field",
+      "decision": "HARD_CONFLICT",
+      "severity": "hard",
+      "confidence": "high",
+      "ambiguity": 0.02,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "دو کالا در یک شرکت بارکدِ یکسان دارند؛ اسکن قطعاً کالای اشتباه را برمی‌دارد.",
+      "recommended_resolution_fa": "بازبینیِ دستی و تفکیکِ دو بارکد؛ مالکِ داده تعیین می‌کند کدام بارکد معتبر است. ادغامِ خودکار ممنوع.",
+      "rationale_fa": "بارکد یک شناسهٔ فیزیکیِ جهانی‌نماست؛ تکرارش خطای عملیاتیِ قطعی و غیرقابلِ چشم‌پوشی است."
+    },
+    {
+      "rule_id": "C13-R-name-same",
+      "kind": "same_field",
+      "fields": [
+        "name",
+        "name"
+      ],
+      "space": "field",
+      "decision": "SOFT_CONFLICT",
+      "severity": "soft",
+      "confidence": "high",
+      "ambiguity": 0.4,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "دو کالا نامِ یکسان دارند. نام شناسهٔ یکتا نیست، ولی شباهتِ کامل معمولاً نشانهٔ رکوردِ تکراری است.",
+      "recommended_resolution_fa": "بازبینیِ دستی برای احتمالِ رکوردِ تکراری؛ اگر دو کالایِ واقعاً متفاوت‌اند، عمداً مجاز بماند.",
+      "rationale_fa": "نامِ یکسان می‌تواند مشروع باشد (دو بسته‌بندیِ متفاوتِ یک محصول)، پس سخت‌کردنش هشدارِ کاذبِ انبوه می‌سازد."
+    },
+    {
+      "rule_id": "C13-R-name_latin-same",
+      "kind": "same_field",
+      "fields": [
+        "name_latin",
+        "name_latin"
+      ],
+      "space": "field",
+      "decision": "SOFT_CONFLICT",
+      "severity": "soft",
+      "confidence": "high",
+      "ambiguity": 0.4,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "دو کالا نامِ لاتینِ یکسان دارند.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ نامِ لاتین اغلب مترادف است و می‌تواند مبنایِ یکتایی نباشد.",
+      "rationale_fa": "همان استدلالِ name؛ نامِ لاتین حتی سست‌تر است."
+    },
+    {
+      "rule_id": "C13-R-alias~barcode",
+      "kind": "cross_field",
+      "fields": [
+        "alias",
+        "barcode"
+      ],
+      "space": "scan",
+      "decision": "HARD_CONFLICT",
+      "severity": "hard",
+      "confidence": "high",
+      "ambiguity": 0.03,
+      "same_entity_exempt": true,
+      "requires_owner_approval": true,
+      "explanation_fa": "نامِ جایگزینِ یک کالا در فضای اسکن با بارکدِ کالایِ دیگر یکی می‌شود. اسکن دو کالایِ متفاوت را برمی‌گرداند — همان ابهامی که امروز دیده نمی‌شود (CF-10).",
+      "recommended_resolution_fa": "بازبینیِ دستی: اگر مقدار واقعاً یک بارکد است، alias باید به میدانِ بارکد منتقل شود؛ اگر یک نامِ انسانی است، باید از فضای اسکن خارج بماند. حلِ خودکار ممنوع.",
+      "rationale_fa": "هر دو میدان در عملیاتِ واقعی اسکن می‌شوند، پس اشتراکِ مقدار ابهامِ قطعیِ عملیاتی است. تصمیمِ نهاییِ «کدام میدان معتبر است» یک تصمیمِ کسب‌وکار است."
+    },
+    {
+      "rule_id": "C13-R-alias~code",
+      "kind": "cross_field",
+      "fields": [
+        "alias",
+        "code"
+      ],
+      "space": "alnum",
+      "decision": "HARD_CONFLICT",
+      "severity": "hard",
+      "confidence": "high",
+      "ambiguity": 0.08,
+      "same_entity_exempt": true,
+      "requires_owner_approval": true,
+      "explanation_fa": "نامِ جایگزینِ یک کالا در فضای کد با کدِ کالایِ دیگر یکی می‌شود؛ جست‌وجو با کد می‌تواند کالایِ اشتباه را برگرداند.",
+      "recommended_resolution_fa": "بازبینیِ دستی و اصلاحِ یکی از دو مقدار؛ تا زمانِ اصلاح، جست‌وجوی کد باید هشدارِ ابهام بدهد.",
+      "rationale_fa": "کدِ کالا یک شناسهٔ مرجعِ عملیاتی است؛ تصاحبِ آن توسطِ یک نامِ جایگزین مرجع را مخدوش می‌کند."
+    },
+    {
+      "rule_id": "C13-R-barcode~code",
+      "kind": "cross_field",
+      "fields": [
+        "barcode",
+        "code"
+      ],
+      "space": "scan",
+      "decision": "HARD_CONFLICT",
+      "severity": "hard",
+      "confidence": "high",
+      "ambiguity": 0.05,
+      "same_entity_exempt": true,
+      "requires_owner_approval": true,
+      "explanation_fa": "کدِ یک کالا با بارکدِ کالایِ دیگر در فضای اسکن یکی می‌شود؛ اسکن و جست‌وجوی کد نتایجِ متفاوت می‌دهند.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اگر کد عمداً همان بارکد است باید به میدانِ بارکد منتقل شود.",
+      "rationale_fa": "هر دو شناسهٔ عملیاتی‌اند و اشتراکشان بین دو کالا ابهامِ قطعی می‌سازد (اشتراک در همان کالا مجاز است)."
+    },
+    {
+      "rule_id": "C13-R-alias~name",
+      "kind": "cross_field",
+      "fields": [
+        "alias",
+        "name"
+      ],
+      "space": "text",
+      "decision": "SOFT_CONFLICT",
+      "severity": "soft",
+      "confidence": "medium",
+      "ambiguity": 0.35,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "نامِ جایگزینِ یک کالا با نامِ کالایِ دیگر یکی می‌شود.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اگر نام کاملاً عمومی است (مثلِ «شیر») این وضعیت طبیعی و مجاز است و نباید اصلاح شود.",
+      "rationale_fa": "نام‌ها عمداً می‌توانند عمومی و مشترک باشند؛ سخت‌کردنِ این جفت باعثِ هزاران هشدارِ کاذب می‌شد."
+    },
+    {
+      "rule_id": "C13-R-alias~name_latin",
+      "kind": "cross_field",
+      "fields": [
+        "alias",
+        "name_latin"
+      ],
+      "space": "text",
+      "decision": "SOFT_CONFLICT",
+      "severity": "soft",
+      "confidence": "medium",
+      "ambiguity": 0.3,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "نامِ جایگزینِ یک کالا با نامِ لاتینِ کالایِ دیگر یکی می‌شود.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ معمولاً نویسه‌گردانیِ ناهمگون است، نه تعارض.",
+      "rationale_fa": "هم‌ریشگیِ لاتین/فارسی رایج است و به‌تنهایی هویت را نقض نمی‌کند."
+    },
+    {
+      "rule_id": "C13-R-name~name_latin",
+      "kind": "cross_field",
+      "fields": [
+        "name",
+        "name_latin"
+      ],
+      "space": "text",
+      "decision": "MANUAL_REVIEW",
+      "severity": "review",
+      "confidence": "low",
+      "ambiguity": 0.75,
+      "same_entity_exempt": true,
+      "requires_owner_approval": true,
+      "explanation_fa": "نامِ فارسیِ یک کالا با نامِ لاتینِ کالایِ دیگر یکی می‌شود. هم‌ارزیِ نویسه‌گردانیِ فارسی↔لاتین قابلِ اثباتِ خودکار نیست.",
+      "recommended_resolution_fa": "بازبینیِ دستی با دانشِ زبانی؛ هیچ تصمیمِ خودکاری مجاز نیست.",
+      "rationale_fa": "نویسه‌گردانی وابسته به سلیقه است («Coca Cola» / «کوکاکولا»)؛ یکسان‌شدنِ رشته‌ها شاهدِ هم‌هویتی نیست."
+    },
+    {
+      "rule_id": "C13-R-code~name",
+      "kind": "cross_field",
+      "fields": [
+        "code",
+        "name"
+      ],
+      "space": "alnum",
+      "decision": "MANUAL_REVIEW",
+      "severity": "review",
+      "confidence": "low",
+      "ambiguity": 0.7,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "نامِ یک کالا با کدِ کالایِ دیگر یکی می‌شود؛ جست‌وجو می‌تواند هر دو را برگرداند.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اغلب کد از نام مشتق شده و این وضعیت بی‌ضرر است، ولی باید تأیید شود.",
+      "rationale_fa": "اشتقاقِ کد از نام رواج دارد، لذا برخوردِ متنی به‌تنهایی دلیلِ تعارض نیست — اما نادیده‌گرفتنش هم درست نیست."
+    },
+    {
+      "rule_id": "C13-R-code~name_latin",
+      "kind": "cross_field",
+      "fields": [
+        "code",
+        "name_latin"
+      ],
+      "space": "alnum",
+      "decision": "MANUAL_REVIEW",
+      "severity": "review",
+      "confidence": "low",
+      "ambiguity": 0.65,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "نامِ لاتینِ یک کالا با کدِ کالایِ دیگر یکی می‌شود.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ احتمالاً کد از نامِ لاتین مشتق شده است.",
+      "rationale_fa": "همان استدلالِ code↔name، با اطمینانِ کمتر."
+    },
+    {
+      "rule_id": "C13-R-barcode~name",
+      "kind": "cross_field",
+      "fields": [
+        "barcode",
+        "name"
+      ],
+      "space": "scan",
+      "decision": "NOT_COMPARABLE",
+      "severity": "none",
+      "confidence": "high",
+      "ambiguity": 0.95,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "نامِ کالا و بارکد دو جهانِ متفاوت‌اند: نام یک برچسبِ انسانی است و بارکد یک شناسهٔ ماشینی. یکسان‌شدنِ تصادفیِ رشته‌ها معنای هویتی ندارد و نباید تعارض شمرده شود.",
+      "recommended_resolution_fa": "اقدامی لازم نیست. این مورد عمداً «قابلِ مقایسه نیست» علامت می‌خورد تا در انبوهِ هشدارهای کاذب گم نشود.",
+      "rationale_fa": "اگر این جفت را قابلِ مقایسه بدانیم، هر کالایی که نامش عددی باشد (مثلِ «۲۰۰») با هر بارکدی برخورد می‌سازد. این همان «هر شباهتِ متنی تعارض است» است که قرارداد آن را رد می‌کند."
+    },
+    {
+      "rule_id": "C13-R-barcode~name_latin",
+      "kind": "cross_field",
+      "fields": [
+        "barcode",
+        "name_latin"
+      ],
+      "space": "scan",
+      "decision": "NOT_COMPARABLE",
+      "severity": "none",
+      "confidence": "high",
+      "ambiguity": 0.95,
+      "same_entity_exempt": true,
+      "requires_owner_approval": false,
+      "explanation_fa": "نامِ لاتین و بارکد قابلِ مقایسه نیستند (همان استدلالِ name↔barcode).",
+      "recommended_resolution_fa": "اقدامی لازم نیست.",
+      "rationale_fa": "متنِ انسانی در برابرِ شناسهٔ ماشینی."
+    }
+  ],
+  "declared_pairs": [
+    "alias~alias",
+    "alias~barcode",
+    "alias~code",
+    "alias~name",
+    "alias~name_latin",
+    "barcode~barcode",
+    "barcode~code",
+    "barcode~name",
+    "barcode~name_latin",
+    "code~code",
+    "code~name",
+    "code~name_latin",
+    "name_latin~name_latin",
+    "name~name",
+    "name~name_latin"
+  ],
+  "cross_field_pairs_covered": [
+    "alias~barcode (CF-10)",
+    "alias~code",
+    "barcode~code",
+    "alias~name",
+    "alias~name_latin",
+    "name~name_latin",
+    "code~name",
+    "code~name_latin",
+    "barcode~name",
+    "barcode~name_latin"
+  ],
+  "not_automatically_hard": "هر جفتِ متنی به‌طور خودکار hard نیست: ۱۰ قاعده soft/review/NOT_COMPARABLE در برابرِ ۴ قاعدهٔ hard درون‌شرکتی."
+}

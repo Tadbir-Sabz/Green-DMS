@@ -377,7 +377,8 @@ describe('C11 / 8 — isolation guard', () => {
       .filter((f) => !f.endsWith('product-identity-normalization.candidate.ts'));
     // مصرف‌کنندهٔ مجاز: فقط ماژول‌های آزمایشیِ C12 و تست‌هایشان (همه زیرِ experimental/ یا test/)
     const forbidden = files.filter(
-      (f) => !/^(src\/modules\/master-data\/experimental\/shadow-identity-(index|migration)\.candidate\.ts|test\/c1[12]-.*\.test\.ts|test\/fixtures\/c12-.*\.ts)$/.test(f),
+      (f) =>
+        !/^(src\/modules\/master-data\/experimental\/(shadow-identity-(index|migration)|cross-field-identity|shadow-assessment)\.candidate\.ts|test\/c1[123]-.*\.test\.ts|test\/fixtures\/c1[23]-.*\.ts)$/.test(f),
     );
     expect(forbidden, `production import of the candidate module: ${forbidden.join(', ')}`).toEqual([]);
   });

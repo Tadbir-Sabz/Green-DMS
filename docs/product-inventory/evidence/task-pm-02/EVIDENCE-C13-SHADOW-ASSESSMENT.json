@@ -1,0 +1,137 @@
+{
+  "task": "TASK-PM-02-C13",
+  "baseline_commit": "ca2382315c758e211d463d2b73c3eb51974b487d",
+  "synthetic_only": true,
+  "contains_organizational_data": false,
+  "gate": {
+    "required_conditions": 6,
+    "synthetic_source_allowed": true,
+    "real_source_requires_all_six": true,
+    "six_conditions_fa": [
+      "مجوزِ کتبیِ مالک با شناسهٔ سند",
+      "منشأِ مستندِ داده",
+      "ایزولاسیونِ اثبات‌شده",
+      "نقشِ فقط-خواندنیِ اجبارشده با شاهدِ اجرایی",
+      "نبودِ مسیرِ نوشتنِ مشترک",
+      "کنترلِ محرمانگی"
+    ],
+    "refusal_demonstrated": {
+      "refused": true,
+      "error_class": "UnauthorizedDatasetError",
+      "verdict": "BLOCKED — REAL DATA IMPACT ASSESSMENT",
+      "failed": [
+        "proven_isolation"
+      ],
+      "message": "C13 shadow assessment refused: BLOCKED — REAL DATA IMPACT ASSESSMENT. Conditions not proven: proven_isolation. No query was executed against this source."
+    }
+  },
+  "real_data_status": {
+    "verdict": "BLOCKED — REAL DATA IMPACT ASSESSMENT",
+    "owner_authorization": false,
+    "documented_provenance": false,
+    "proven_isolation": false,
+    "enforced_read_only_role": false,
+    "enforced_read_only_detail": "dms_readonly: rolsuper=false, rolbypassrls=false, rolconfig=NULL ⇒ default_transaction_read_only تنظیم نشده. یک نام، نه تضمین.",
+    "no_shared_write_path": false,
+    "confidentiality_controls": false,
+    "real_data_queries_run": 0,
+    "superuser_used_as_readonly_evidence": false
+  },
+  "run": {
+    "run_id": "C13-RUN-9cfd2602",
+    "report_version": "c13.1",
+    "contract_version": "c13.1",
+    "dataset": {
+      "kind": "synthetic",
+      "identifier": "c13-synthetic-fixture",
+      "identifier_hash": "65d3237c",
+      "version": "fp-d1c5353fdcc2c517",
+      "synthetic": true
+    },
+    "completeness": {
+      "complete": true,
+      "rows": 32,
+      "companies": 3,
+      "fields_covered": [
+        "alias",
+        "barcode",
+        "code",
+        "name",
+        "name_latin"
+      ],
+      "fields_missing": [],
+      "warnings_fa": [
+        "دادهٔ ساختگی است؛ نتایج به دادهٔ واقعی تعمیم‌پذیر نیست."
+      ]
+    },
+    "content_fingerprint": "d1c5353fdcc2c517",
+    "report_fingerprint": "193128c1",
+    "incremental": {
+      "is_incremental": false,
+      "resumed_from": null,
+      "dataset_version": "fp-d1c5353fdcc2c517"
+    },
+    "summary": {
+      "total": 15,
+      "by_decision": {
+        "HARD_CONFLICT": 5,
+        "SOFT_CONFLICT": 4,
+        "MANUAL_REVIEW": 3,
+        "ALLOWED": 2,
+        "NOT_COMPARABLE": 1
+      },
+      "by_rule": {
+        "C13-R-cross-company": 1,
+        "C13-R-cross-domain": 1,
+        "C13-R-code-same": 1,
+        "C13-R-barcode~name": 1,
+        "C13-R-alias~name": 1,
+        "C13-R-name-same": 2,
+        "C13-R-name~name_latin": 1,
+        "C13-R-code~name": 1,
+        "C13-R-alias~barcode": 1,
+        "C13-R-alias~name_latin": 1,
+        "C13-R-alias~code": 1,
+        "C13-R-barcode-same": 1,
+        "C13-R-redundant-row": 1,
+        "C13-R-barcode~code": 1
+      },
+      "by_field_pair": {
+        "barcode": 2,
+        "code": 2,
+        "barcode~name": 1,
+        "alias~name": 1,
+        "name": 2,
+        "name~name_latin": 1,
+        "code~name": 1,
+        "alias~barcode": 1,
+        "alias~name_latin": 1,
+        "alias~code": 1,
+        "alias": 1,
+        "barcode~code": 1
+      },
+      "by_company": {
+        "*": 1,
+        "company-synth-A": 14
+      },
+      "rows_in": 32,
+      "rows_comparable": 30,
+      "rows_invalid": 2,
+      "rows_invalid_in_comparison_space": 2,
+      "raw_pairs_suppressed": 17
+    }
+  },
+  "capabilities": {
+    "documented_dataset_source": true,
+    "authorization_and_isolation_validated": true,
+    "read_only_validated": true,
+    "shadow_keys_calculated": true,
+    "ledger_generated": true,
+    "aggregate_statistics": true,
+    "original_values_preserved": true,
+    "incremental_reruns": true,
+    "deterministic_evidence": true,
+    "incomplete_dataset_reported": true,
+    "unauthorized_source_refused": true
+  }
+}

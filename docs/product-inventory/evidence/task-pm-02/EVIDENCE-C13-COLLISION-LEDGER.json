@@ -1,0 +1,972 @@
+{
+  "task": "TASK-PM-02-C13",
+  "baseline_commit": "ca2382315c758e211d463d2b73c3eb51974b487d",
+  "comparison_contract_version": "c13.1",
+  "synthetic_only": true,
+  "contains_organizational_data": false,
+  "redaction": {
+    "default_on": true,
+    "this_dump": "PARTIES ARE RAW (redactValues=false) FOR AUDIT ONLY"
+  },
+  "summary": {
+    "total": 15,
+    "by_decision": {
+      "HARD_CONFLICT": 5,
+      "SOFT_CONFLICT": 4,
+      "MANUAL_REVIEW": 3,
+      "ALLOWED": 2,
+      "NOT_COMPARABLE": 1
+    },
+    "by_rule": {
+      "C13-R-cross-company": 1,
+      "C13-R-cross-domain": 1,
+      "C13-R-code-same": 1,
+      "C13-R-barcode~name": 1,
+      "C13-R-alias~name": 1,
+      "C13-R-name-same": 2,
+      "C13-R-name~name_latin": 1,
+      "C13-R-code~name": 1,
+      "C13-R-alias~barcode": 1,
+      "C13-R-alias~name_latin": 1,
+      "C13-R-alias~code": 1,
+      "C13-R-barcode-same": 1,
+      "C13-R-redundant-row": 1,
+      "C13-R-barcode~code": 1
+    },
+    "by_field_pair": {
+      "barcode": 2,
+      "code": 2,
+      "barcode~name": 1,
+      "alias~name": 1,
+      "name": 2,
+      "name~name_latin": 1,
+      "code~name": 1,
+      "alias~barcode": 1,
+      "alias~name_latin": 1,
+      "alias~code": 1,
+      "alias": 1,
+      "barcode~code": 1
+    },
+    "by_company": {
+      "*": 1,
+      "company-synth-A": 14
+    },
+    "rows_in": 32,
+    "rows_comparable": 30,
+    "rows_invalid": 2,
+    "rows_invalid_in_comparison_space": 2,
+    "raw_pairs_suppressed": 17
+  },
+  "newly_exposed": 14,
+  "duplicates_suppressed": 6,
+  "decisions_produced": [
+    "ALLOWED",
+    "HARD_CONFLICT",
+    "MANUAL_REVIEW",
+    "NOT_COMPARABLE",
+    "SOFT_CONFLICT"
+  ],
+  "cf10": {
+    "resolved": true,
+    "collision_id": "C13-a311815e",
+    "rule_id": "C13-R-alias~barcode",
+    "decision": "HARD_CONFLICT",
+    "severity": "hard",
+    "space": "scan",
+    "space_key": "400111",
+    "company_id": "company-synth-A",
+    "parties": [
+      {
+        "entity_id": "A-p01",
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "field": "alias",
+        "display_value": "400 111",
+        "field_key": "400 111",
+        "comparison_key": "400111",
+        "source_ref": "A-p01-alias",
+        "redacted": false,
+        "field_invalid_reason": null
+      },
+      {
+        "entity_id": "A-p02",
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "field": "barcode",
+        "display_value": "400111",
+        "field_key": "400111",
+        "comparison_key": "400111",
+        "source_ref": "A-p02-barcode",
+        "redacted": false,
+        "field_invalid_reason": null
+      }
+    ],
+    "explanation_fa": "نامِ جایگزینِ یک کالا در فضای اسکن با بارکدِ کالایِ دیگر یکی می‌شود. اسکن دو کالایِ متفاوت را برمی‌گرداند — همان ابهامی که امروز دیده نمی‌شود (CF-10).",
+    "recommended_resolution_fa": "بازبینیِ دستی: اگر مقدار واقعاً یک بارکد است، alias باید به میدانِ بارکد منتقل شود؛ اگر یک نامِ انسانی است، باید از فضای اسکن خارج بماند. حلِ خودکار ممنوع.",
+    "visible_under_current_normalization": false,
+    "why_c12_missed_it": "ProductAlias فاصله را حفظ می‌کند و Barcode حذف؛ پس کلیدهای میدانی متفاوت بودند."
+  },
+  "results": [
+    {
+      "collision_id": "C13-12cb5a97",
+      "decision": "ALLOWED",
+      "rule_id": "C13-R-cross-company",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "900333",
+      "fields": [
+        "barcode"
+      ],
+      "scope": {
+        "company_id": "*",
+        "domain_id": "*",
+        "crosses_company": true,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0,
+      "severity": "none",
+      "parties": [
+        {
+          "entity_id": "•••:63cdeff8",
+          "company_id": "company-synth-B",
+          "domain_id": "company-synth-B",
+          "field": "barcode",
+          "display_value": null,
+          "field_key": null,
+          "comparison_key": null,
+          "source_ref": "•••:e6f8bf1a",
+          "redacted": true,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "•••:53d7fa00",
+          "company_id": "company-synth-C",
+          "domain_id": "company-synth-C",
+          "field": "barcode",
+          "display_value": null,
+          "field_key": null,
+          "comparison_key": null,
+          "source_ref": "•••:31e49d19",
+          "redacted": true,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "همین شناسه در شرکتِ دیگری هم وجود دارد. طبقِ مرزِ شرکت این وضعیت مجاز است و هیچ اطلاعاتی از شرکتِ دیگر افشا نمی‌شود.",
+      "recommended_resolution_fa": "اقدامی لازم نیست، مگر آنکه مالک قاعدهٔ سراسریِ مصوبی صادر کند (D-C13-1).",
+      "requires_owner_approval": true,
+      "provenance": [
+        "•••:9cbb2c52#barcode@field",
+        "•••:d7bbbbd9#barcode@field"
+      ],
+      "visible_under_current_normalization": true
+    },
+    {
+      "collision_id": "C13-271729b8",
+      "decision": "MANUAL_REVIEW",
+      "rule_id": "C13-R-cross-domain",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "dom-55",
+      "fields": [
+        "code"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail|domain-A-wholesale",
+        "crosses_company": false,
+        "crosses_domain": true
+      },
+      "confidence": "medium",
+      "ambiguity": 0.5,
+      "severity": "review",
+      "parties": [
+        {
+          "entity_id": "A-p21",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "DOM-55",
+          "field_key": "dom-55",
+          "comparison_key": "dom-55",
+          "source_ref": "A-p21-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p22",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-wholesale",
+          "field": "code",
+          "display_value": "DOM-55",
+          "field_key": "dom-55",
+          "comparison_key": "dom-55",
+          "source_ref": "A-p22-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "همین شناسه در دامنهٔ کسب‌وکارِ دیگری از همین شرکت وجود دارد؛ نیازمندِ بازبینیِ دستی است.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اگر دو دامنه عمداً کالاهای هم‌نام دارند، مجاز اعلام شود.",
+      "requires_owner_approval": true,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p21-code#code@field",
+        "company-synth-A:domain-A-wholesale:A-p22-code#code@field"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-36fbccdc",
+      "decision": "HARD_CONFLICT",
+      "rule_id": "C13-R-code-same",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "k-100",
+      "fields": [
+        "code"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.05,
+      "severity": "hard",
+      "parties": [
+        {
+          "entity_id": "A-p14",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "K-100",
+          "field_key": "k-100",
+          "comparison_key": "k-100",
+          "source_ref": "A-p14-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p15",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "k-100",
+          "field_key": "k-100",
+          "comparison_key": "k-100",
+          "source_ref": "A-p15-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "دو کالا در یک شرکت کدِ یکسان دارند (پس از نرمال‌سازیِ قرارداد).",
+      "recommended_resolution_fa": "کدِ تکراری باید توسطِ مالکِ داده اصلاح شود؛ تا آن زمان ورودِ داده برای این شرکت باید هشدار بدهد.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p14-code#code@field",
+        "company-synth-A:domain-A-retail:A-p15-code#code@field"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-37b4d853",
+      "decision": "NOT_COMPARABLE",
+      "rule_id": "C13-R-barcode~name",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "scan",
+      "space_key": "500222",
+      "fields": [
+        "barcode",
+        "name"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.95,
+      "severity": "none",
+      "parties": [
+        {
+          "entity_id": "A-p10",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "barcode",
+          "display_value": "500222",
+          "field_key": "500222",
+          "comparison_key": "500222",
+          "source_ref": "A-p10-barcode",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p09",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "500222",
+          "field_key": "500222",
+          "comparison_key": "500222",
+          "source_ref": "A-p09-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "نامِ کالا و بارکد دو جهانِ متفاوت‌اند: نام یک برچسبِ انسانی است و بارکد یک شناسهٔ ماشینی. یکسان‌شدنِ تصادفیِ رشته‌ها معنای هویتی ندارد و نباید تعارض شمرده شود.",
+      "recommended_resolution_fa": "اقدامی لازم نیست. این مورد عمداً «قابلِ مقایسه نیست» علامت می‌خورد تا در انبوهِ هشدارهای کاذب گم نشود.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p10-barcode#barcode@scan",
+        "company-synth-A:domain-A-retail:A-p09-name#name@scan"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-3a939b89",
+      "decision": "SOFT_CONFLICT",
+      "rule_id": "C13-R-alias~name",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "text",
+      "space_key": "شیر کم چرب",
+      "fields": [
+        "alias",
+        "name"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "medium",
+      "ambiguity": 0.35,
+      "severity": "soft",
+      "parties": [
+        {
+          "entity_id": "A-p08",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "alias",
+          "display_value": "شیر کم چرب",
+          "field_key": "شیر کم چرب",
+          "comparison_key": "شیر کم چرب",
+          "source_ref": "A-p08-alias",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p07",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "شیر کم‌چرب",
+          "field_key": "شیر کم چرب",
+          "comparison_key": "شیر کم چرب",
+          "source_ref": "A-p07-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "نامِ جایگزینِ یک کالا با نامِ کالایِ دیگر یکی می‌شود.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اگر نام کاملاً عمومی است (مثلِ «شیر») این وضعیت طبیعی و مجاز است و نباید اصلاح شود.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p08-alias#alias@text",
+        "company-synth-A:domain-A-retail:A-p07-name#name@text"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-53dfa392",
+      "decision": "SOFT_CONFLICT",
+      "rule_id": "C13-R-name-same",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "پنیر گouda",
+      "fields": [
+        "name"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.4,
+      "severity": "soft",
+      "parties": [
+        {
+          "entity_id": "A-p26",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "پنير گouda",
+          "field_key": "پنیر گouda",
+          "comparison_key": "پنیر گouda",
+          "source_ref": "A-p26-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p27",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "پنیر گouda",
+          "field_key": "پنیر گouda",
+          "comparison_key": "پنیر گouda",
+          "source_ref": "A-p27-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "دو کالا نامِ یکسان دارند. نام شناسهٔ یکتا نیست، ولی شباهتِ کامل معمولاً نشانهٔ رکوردِ تکراری است.",
+      "recommended_resolution_fa": "بازبینیِ دستی برای احتمالِ رکوردِ تکراری؛ اگر دو کالایِ واقعاً متفاوت‌اند، عمداً مجاز بماند.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p26-name#name@field",
+        "company-synth-A:domain-A-retail:A-p27-name#name@field"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-6792bed6",
+      "decision": "SOFT_CONFLICT",
+      "rule_id": "C13-R-name-same",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "ماست ساده",
+      "fields": [
+        "name"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.4,
+      "severity": "soft",
+      "parties": [
+        {
+          "entity_id": "A-p18",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "ماست ساده",
+          "field_key": "ماست ساده",
+          "comparison_key": "ماست ساده",
+          "source_ref": "A-p18-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p19",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "ماست  ساده",
+          "field_key": "ماست ساده",
+          "comparison_key": "ماست ساده",
+          "source_ref": "A-p19-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "دو کالا نامِ یکسان دارند. نام شناسهٔ یکتا نیست، ولی شباهتِ کامل معمولاً نشانهٔ رکوردِ تکراری است.",
+      "recommended_resolution_fa": "بازبینیِ دستی برای احتمالِ رکوردِ تکراری؛ اگر دو کالایِ واقعاً متفاوت‌اند، عمداً مجاز بماند.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p18-name#name@field",
+        "company-synth-A:domain-A-retail:A-p19-name#name@field"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-694f2d2b",
+      "decision": "MANUAL_REVIEW",
+      "rule_id": "C13-R-name~name_latin",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "text",
+      "space_key": "abc",
+      "fields": [
+        "name",
+        "name_latin"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "low",
+      "ambiguity": 0.75,
+      "severity": "review",
+      "parties": [
+        {
+          "entity_id": "A-p23",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "abc",
+          "field_key": "abc",
+          "comparison_key": "abc",
+          "source_ref": "A-p23-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p24",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name_latin",
+          "display_value": "ABC",
+          "field_key": "abc",
+          "comparison_key": "abc",
+          "source_ref": "A-p24-name_latin",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "نامِ فارسیِ یک کالا با نامِ لاتینِ کالایِ دیگر یکی می‌شود. هم‌ارزیِ نویسه‌گردانیِ فارسی↔لاتین قابلِ اثباتِ خودکار نیست.",
+      "recommended_resolution_fa": "بازبینیِ دستی با دانشِ زبانی؛ هیچ تصمیمِ خودکاری مجاز نیست.",
+      "requires_owner_approval": true,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p23-name#name@text",
+        "company-synth-A:domain-A-retail:A-p24-name_latin#name_latin@text"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-85ef227d",
+      "decision": "MANUAL_REVIEW",
+      "rule_id": "C13-R-code~name",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "alnum",
+      "space_key": "k 100",
+      "fields": [
+        "code",
+        "name"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "low",
+      "ambiguity": 0.7,
+      "severity": "review",
+      "parties": [
+        {
+          "entity_id": "A-p14",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "K-100",
+          "field_key": "k-100",
+          "comparison_key": "k 100",
+          "source_ref": "A-p14-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p15",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "k-100",
+          "field_key": "k-100",
+          "comparison_key": "k 100",
+          "source_ref": "A-p15-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p30",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name",
+          "display_value": "K-100",
+          "field_key": "k-100",
+          "comparison_key": "k 100",
+          "source_ref": "A-p30-name",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 3,
+      "explanation_fa": "نامِ یک کالا با کدِ کالایِ دیگر یکی می‌شود؛ جست‌وجو می‌تواند هر دو را برگرداند.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اغلب کد از نام مشتق شده و این وضعیت بی‌ضرر است، ولی باید تأیید شود.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p14-code#code@alnum",
+        "company-synth-A:domain-A-retail:A-p15-code#code@alnum",
+        "company-synth-A:domain-A-retail:A-p30-name#name@alnum"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-a311815e",
+      "decision": "HARD_CONFLICT",
+      "rule_id": "C13-R-alias~barcode",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "scan",
+      "space_key": "400111",
+      "fields": [
+        "alias",
+        "barcode"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.03,
+      "severity": "hard",
+      "parties": [
+        {
+          "entity_id": "A-p01",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "alias",
+          "display_value": "400 111",
+          "field_key": "400 111",
+          "comparison_key": "400111",
+          "source_ref": "A-p01-alias",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p02",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "barcode",
+          "display_value": "400111",
+          "field_key": "400111",
+          "comparison_key": "400111",
+          "source_ref": "A-p02-barcode",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "نامِ جایگزینِ یک کالا در فضای اسکن با بارکدِ کالایِ دیگر یکی می‌شود. اسکن دو کالایِ متفاوت را برمی‌گرداند — همان ابهامی که امروز دیده نمی‌شود (CF-10).",
+      "recommended_resolution_fa": "بازبینیِ دستی: اگر مقدار واقعاً یک بارکد است، alias باید به میدانِ بارکد منتقل شود؛ اگر یک نامِ انسانی است، باید از فضای اسکن خارج بماند. حلِ خودکار ممنوع.",
+      "requires_owner_approval": true,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p01-alias#alias@scan",
+        "company-synth-A:domain-A-retail:A-p02-barcode#barcode@scan"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-a3cfdfef",
+      "decision": "SOFT_CONFLICT",
+      "rule_id": "C13-R-alias~name_latin",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "text",
+      "space_key": "blue widget",
+      "fields": [
+        "alias",
+        "name_latin"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "medium",
+      "ambiguity": 0.3,
+      "severity": "soft",
+      "parties": [
+        {
+          "entity_id": "A-p13",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "alias",
+          "display_value": "blue  widget",
+          "field_key": "blue widget",
+          "comparison_key": "blue widget",
+          "source_ref": "A-p13-alias",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p12",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "name_latin",
+          "display_value": "Blue Widget",
+          "field_key": "blue widget",
+          "comparison_key": "blue widget",
+          "source_ref": "A-p12-name_latin",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "نامِ جایگزینِ یک کالا با نامِ لاتینِ کالایِ دیگر یکی می‌شود.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ معمولاً نویسه‌گردانیِ ناهمگون است، نه تعارض.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p13-alias#alias@text",
+        "company-synth-A:domain-A-retail:A-p12-name_latin#name_latin@text"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-b363a687",
+      "decision": "HARD_CONFLICT",
+      "rule_id": "C13-R-alias~code",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "alnum",
+      "space_key": "zx 77",
+      "fields": [
+        "alias",
+        "code"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.08,
+      "severity": "hard",
+      "parties": [
+        {
+          "entity_id": "A-p03",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "alias",
+          "display_value": "ZX-77",
+          "field_key": "zx-77",
+          "comparison_key": "zx 77",
+          "source_ref": "A-p03-alias",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p04",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "ZX 77",
+          "field_key": null,
+          "comparison_key": "zx 77",
+          "source_ref": "A-p04-code",
+          "redacted": false,
+          "field_invalid_reason": "invalid_character"
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "نامِ جایگزینِ یک کالا در فضای کد با کدِ کالایِ دیگر یکی می‌شود؛ جست‌وجو با کد می‌تواند کالایِ اشتباه را برگرداند.",
+      "recommended_resolution_fa": "بازبینیِ دستی و اصلاحِ یکی از دو مقدار؛ تا زمانِ اصلاح، جست‌وجوی کد باید هشدارِ ابهام بدهد.",
+      "requires_owner_approval": true,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p03-alias#alias@alnum",
+        "company-synth-A:domain-A-retail:A-p04-code#code@alnum"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-bef0f863",
+      "decision": "HARD_CONFLICT",
+      "rule_id": "C13-R-barcode-same",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "007",
+      "fields": [
+        "barcode"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.02,
+      "severity": "hard",
+      "parties": [
+        {
+          "entity_id": "A-p16",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "barcode",
+          "display_value": "007",
+          "field_key": "007",
+          "comparison_key": "007",
+          "source_ref": "A-p16-barcode",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p17",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "barcode",
+          "display_value": "0-0-7",
+          "field_key": "007",
+          "comparison_key": "007",
+          "source_ref": "A-p17-barcode",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "دو کالا در یک شرکت بارکدِ یکسان دارند؛ اسکن قطعاً کالای اشتباه را برمی‌دارد.",
+      "recommended_resolution_fa": "بازبینیِ دستی و تفکیکِ دو بارکد؛ مالکِ داده تعیین می‌کند کدام بارکد معتبر است. ادغامِ خودکار ممنوع.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p16-barcode#barcode@field",
+        "company-synth-A:domain-A-retail:A-p17-barcode#barcode@field"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-d08ea948",
+      "decision": "ALLOWED",
+      "rule_id": "C13-R-redundant-row",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "field",
+      "space_key": "dupealias",
+      "fields": [
+        "alias"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0,
+      "severity": "none",
+      "parties": [
+        {
+          "entity_id": "A-p20",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "alias",
+          "display_value": "dupealias",
+          "field_key": "dupealias",
+          "comparison_key": "dupealias",
+          "source_ref": "A-p20-alias-1",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p20",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "alias",
+          "display_value": "DUPEALIAS",
+          "field_key": "dupealias",
+          "comparison_key": "dupealias",
+          "source_ref": "A-p20-alias-2",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "همان کالا همین مقدار را بیش از یک‌بار در همین میدان دارد. این افزونگیِ ذخیره‌سازی است، نه ابهامِ هویتی بینِ دو کالا؛ لذا مجاز است.",
+      "recommended_resolution_fa": "پاک‌سازیِ ردیفِ تکراری اختیاری است؛ هیچ اقدامِ خودکاری مجاز نیست.",
+      "requires_owner_approval": false,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p20-alias-1#alias@field",
+        "company-synth-A:domain-A-retail:A-p20-alias-2#alias@field"
+      ],
+      "visible_under_current_normalization": false
+    },
+    {
+      "collision_id": "C13-d5347f41",
+      "decision": "HARD_CONFLICT",
+      "rule_id": "C13-R-barcode~code",
+      "contract_version": "c13.1",
+      "normalization_version": "c11.1",
+      "space": "scan",
+      "space_key": "qr9",
+      "fields": [
+        "barcode",
+        "code"
+      ],
+      "scope": {
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "crosses_company": false,
+        "crosses_domain": false
+      },
+      "confidence": "high",
+      "ambiguity": 0.05,
+      "severity": "hard",
+      "parties": [
+        {
+          "entity_id": "A-p06",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "barcode",
+          "display_value": "qr9",
+          "field_key": "qr9",
+          "comparison_key": "qr9",
+          "source_ref": "A-p06-barcode",
+          "redacted": false,
+          "field_invalid_reason": null
+        },
+        {
+          "entity_id": "A-p05",
+          "company_id": "company-synth-A",
+          "domain_id": "domain-A-retail",
+          "field": "code",
+          "display_value": "QR-9",
+          "field_key": "qr-9",
+          "comparison_key": "qr9",
+          "source_ref": "A-p05-code",
+          "redacted": false,
+          "field_invalid_reason": null
+        }
+      ],
+      "total_parties": 2,
+      "explanation_fa": "کدِ یک کالا با بارکدِ کالایِ دیگر در فضای اسکن یکی می‌شود؛ اسکن و جست‌وجوی کد نتایجِ متفاوت می‌دهند.",
+      "recommended_resolution_fa": "بازبینیِ دستی؛ اگر کد عمداً همان بارکد است باید به میدانِ بارکد منتقل شود.",
+      "requires_owner_approval": true,
+      "provenance": [
+        "company-synth-A:domain-A-retail:A-p06-barcode#barcode@scan",
+        "company-synth-A:domain-A-retail:A-p05-code#code@scan"
+      ],
+      "visible_under_current_normalization": false
+    }
+  ]
+}

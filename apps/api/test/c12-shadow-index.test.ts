@@ -249,25 +249,32 @@ describe('C12 / 11 — isolation guard (experimental code must stay off producti
       .filter(Boolean)
       .filter((f) => !/shadow-identity-(index|migration)\.candidate\.ts$/.test(f));
     // مجاز: تست‌های خودِ C12 و fixture مصنوعی (که فقط برای نوعِ IdentityRecord import می‌کند).
-    const forbidden = files.filter((f) => !/^test\/(c12-.*\.test\.ts|fixtures\/c12-.*\.ts)$/.test(f));
+    const forbidden = files.filter(
+      (f) => !/^test\/(c12-.*\.test\.ts|fixtures\/c12-.*\.ts)$/.test(f),
+    );
     expect(forbidden, `unexpected import of experimental C12 code: ${forbidden.join(', ')}`).toEqual([]);
   });
 
-  it('the C11 candidate normalizer is still imported only by its own test', async () => {
+  it('the C11 candidate normalizer is consumed only by experimental modules and tests', async () => {
     const { execSync } = await import('node:child_process');
+    // همان الگویِ C11: فقط import واقعی شمرده می‌شود، نه هر رخدادِ متنی.
+    const cmd =
+      "grep -rEl \"from '[^']*product-identity-normalization\\.candidate'\" src test --include=*.ts || true";
     let out = '';
     try {
-      out = execSync(
-        "grep -rl 'product-identity-normalization\\.candidate' src test --include=*.ts " +
-          "| grep -v 'product-identity-normalization.candidate.ts' " +
-          "| grep -v 'c11-normalization-contract.test.ts' " +
-          "| grep -v 'shadow-\\(identity-index\\|identity-migration\\)\\.candidate.ts' " +
-          "| grep -v 'c12-shadow-index.test.ts' | grep -v 'c12-migration-simulation.test.ts' || true",
-        { cwd: process.cwd(), encoding: 'utf8' },
-      );
+      out = execSync(cmd, { cwd: process.cwd(), encoding: 'utf8' });
     } catch {
       out = '';
     }
-    expect(out.trim()).toBe('');
+    const files = out
+      .split('\n')
+      .map((f) => f.trim())
+      .filter(Boolean)
+      .filter((f) => !f.endsWith('product-identity-normalization.candidate.ts'));
+    const forbidden = files.filter(
+      (f) =>
+        !/^(src\/modules\/master-data\/experimental\/(shadow-identity-(index|migration)|cross-field-identity|shadow-assessment)\.candidate\.ts|test\/c1[123]-.*\.test\.ts|test\/fixtures\/c1[23]-.*\.ts)$/.test(f),
+    );
+    expect(forbidden, `production import of the C11 candidate: ${forbidden.join(', ')}`).toEqual([]);
   });
 });
