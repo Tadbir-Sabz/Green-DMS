@@ -104,3 +104,11 @@ VERIFICATION-C7-LIVE — شاهد زندهٔ TASK-PM-02-C7 (هویت کالا: a
 
 پاک‌سازی: محصولات C7LIVE-*، تعاریف c7live_*، alias/value/audit/history مربوطه در انتهای همان اجرا حذف شد.
 بازگشت شمارش‌ها به مبنا پس از اجرا: product=4 · product_alias=0 · product_attribute_def=0
+یادداشتِ پس از اجرا (جاروی نهایی، شفاف):
+  اسکریپت در پایان هر اجرا محصولات/تعاریف/مقادیر و ردیف‌های alias را حذف می‌کند، اما
+  ردیف‌های audit_log و product_catalog_history مربوط به aliasهای حذف‌شده را باقی می‌گذاشت.
+  پس از آخرین اجرا یک جاروی صریح انجام شد:
+    delete from product_catalog_history where entity_type='product_alias' and not exists (…)
+    delete from audit_log where entity_type='product_alias' and not exists (…)
+  و وضعیت نهایی تأیید شد: products=4 · product_alias=0 · product_attribute_def=0 ·
+  product_attribute_value=0 · history(product_alias)=0 · audit(product_alias)=0.

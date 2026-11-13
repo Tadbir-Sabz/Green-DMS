@@ -62,8 +62,8 @@ apps/api full (DB)                          → 96/100 files PASS؛ 1615/1632 te
 ۳) شاهد زندهٔ همین‌مبدأ (HTTP روی پشتهٔ محلی، PostgreSQL واقعی)
 --------------------------------------------------------------------------------
 file   : docs/product-inventory/evidence/task-pm-02/VERIFICATION-C7-LIVE.txt
-bytes  : 13346
-sha256 : e3779313c5e67f991cdeca7620764e6d181abd1ba4573574aef9d44d941672bc
+bytes  : 14139
+sha256 : c86d631b4eadf0a5749794865c9ec27ca436a75ad046cb5a77c32def409b6b59
 نتیجه  : 48/48 PASS · 0 FAIL  (/tmp/pm02c7-live.py روی http://127.0.0.1:4000/api/v1)
 پوشش: نمای alias با سه نوع/شمارش/actor → نرمال‌سازی ارقام و فاصله → duplicate_alias 409 →
 alias_collision 409 (کد کالای دیگر، alias کالای دیگر، بارکد) → invalid_alias/validation 400 →
@@ -75,6 +75,7 @@ value_text 200 → null/''/clear → پاک‌شدن ردیف (رفع 500) → k
 امضای ۶۴ نویسه‌ای و duplicate_variant_signature 409 → جست‌وجو/CSV/scan بدون تغییر →
 duplicate_attribute_code / duplicate_enum_value 409 (رفع دو 500) → بازگشت شمارش‌ها به مبنا.
 مبنا/پایان: product=4 · product_alias=0 · product_attribute_def=0 · product_attribute_value=0
+(پس از جاروی نهایی: history(product_alias)=0 · audit(product_alias)=0 — در فایل شاهد توضیح داده شد)
 پوستهٔ وب: GET /products → 200، GET /products/{id} → 200 (HTML، dir="rtl"، lang="fa")
 
 --------------------------------------------------------------------------------

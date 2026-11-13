@@ -174,9 +174,9 @@
       "failed": 0
     },
     "evidence_file": "docs/product-inventory/evidence/task-pm-02/VERIFICATION-C7-LIVE.txt",
-    "evidence_bytes": 13346,
-    "evidence_sha256": "e3779313c5e67f991cdeca7620764e6d181abd1ba4573574aef9d44d941672bc",
-    "cleanup": "C7LIVE-* products, c7live_* defs, alias/value/audit/history rows deleted; counts back to baseline (product=4, alias=0, def=0, value=0)"
+    "evidence_bytes": 14139,
+    "evidence_sha256": "c86d631b4eadf0a5749794865c9ec27ca436a75ad046cb5a77c32def409b6b59",
+    "cleanup": "C7LIVE-* products, c7live_* defs, alias/value rows deleted by the script; a follow-up sweep removed the remaining product_alias audit_log/product_catalog_history rows → final state product=4, alias=0, def=0, value=0, history(product_alias)=0, audit(product_alias)=0"
   },
   "manual_browser": "UNVERIFIED — Playwright present but no browser binary in this environment; SSR shell checked (GET /products 200, GET /products/{id} 200, html lang=fa dir=rtl)",
   "status": {
