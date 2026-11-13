@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://green-dms.local/evidence/c13b-shadow-evidence.schema.json",
+  "title": "C13B Shadow Assessment Evidence (TASK-PM-02-C13B)",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task",
+    "evidence_kind",
+    "data_classification",
+    "synthetic",
+    "contains_organizational_data",
+    "assessment_id",
+    "generated_at_iso",
+    "source",
+    "completeness",
+    "observed",
+    "simulated_policies",
+    "scan_resolution_shadow",
+    "verdict",
+    "execution",
+    "reproducibility"
+  ],
+  "properties": {
+    "schema_version": { "const": "c13b.1" },
+    "task": { "const": "TASK-PM-02-C13B" },
+    "evidence_kind": { "const": "shadow_assessment" },
+    "data_classification": { "enum": ["SYNTHETIC", "REAL_AUTHORIZED_REPLICA"] },
+    "synthetic": { "type": "boolean" },
+    "contains_organizational_data": { "type": "boolean" },
+    "redaction_enforced": { "const": true },
+    "assessment_id": { "type": "string", "pattern": "^C13B-[0-9a-f]{8}$" },
+    "generated_at_iso": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object",
+      "required": ["kind", "identity", "snapshot_ts_iso"],
+      "properties": {
+        "kind": { "enum": ["synthetic", "replica"] },
+        "identity": { "type": "string", "minLength": 1, "description": "Opaque مصوب label; never a connection string or password" },
+        "snapshot_ts_iso": { "type": "string", "format": "date-time" },
+        "engine_version": { "type": ["string", "null"] },
+        "schema_migration": { "type": ["string", "null"] },
+        "migration_source": { "type": ["string", "null"] },
+        "record_counts": { "type": ["object", "null"], "additionalProperties": { "type": "number", "minimum": 0 } },
+        "freshness_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "provenance": { "type": ["string", "null"] },
+        "owner_ref": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "authorization": {
+      "type": ["object", "null"],
+      "required": ["ticketRef", "authorizedBy", "readOnlyAttestation", "isolationAttestation", "noSharedWritePathAttestation", "confidentialityAttestation"],
+      "properties": {
+        "ticketRef": { "type": "string", "minLength": 1 },
+        "authorizedBy": { "type": "string", "minLength": 1 },
+        "readOnlyAttestation": { "type": "string", "minLength": 1 },
+        "isolationAttestation": { "type": "string", "minLength": 1 },
+        "noSharedWritePathAttestation": { "type": "string", "minLength": 1 },
+        "confidentialityAttestation": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false,
+      "description": "Required and non-empty iff data_classification=REAL_AUTHORIZED_REPLICA; must be null for SYNTHETIC"
+    },
+    "completeness": {
+      "type": "object",
+      "required": ["rows_in", "rows_valid", "rows_invalid", "duplicates_suppressed", "by_type", "expected_identity_types", "present_identity_types", "missing_identity_types", "complete", "warnings_fa"],
+      "properties": {
+        "rows_in": { "type": "integer", "minimum": 0 },
+        "rows_valid": { "type": "integer", "minimum": 0 },
+        "rows_invalid": { "type": "integer", "minimum": 0 },
+        "duplicates_suppressed": { "type": "integer", "minimum": 0 },
+        "by_type": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "expected_identity_types": { "type": "array", "items": { "type": "string" }, "minItems": 9, "maxItems": 9 },
+        "present_identity_types": { "type": "array", "items": { "type": "string" } },
+        "missing_identity_types": { "type": "array", "items": { "type": "string" } },
+        "complete": { "type": "boolean" },
+        "warnings_fa": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "observed": {
+      "type": "object",
+      "required": ["contract_version", "findings_total", "by_decision", "by_rule", "by_space", "by_type_pair", "by_company", "cross_company_findings", "data_quality_findings", "content_fingerprint"],
+      "properties": {
+        "contract_version": { "type": "string" },
+        "findings_total": { "type": "integer", "minimum": 0 },
+        "by_decision": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "by_rule": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "by_space": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "by_type_pair": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "by_company": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "cross_company_findings": { "type": "integer", "minimum": 0 },
+        "data_quality_findings": { "type": "integer", "minimum": 0 },
+        "content_fingerprint": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "simulated_policies": {
+      "type": "object",
+      "description": "Hypothetical only — nothing is enforced; every would_violate requires an owner decision (D-C13X-1..3)",
+      "required": ["note_fa", "would_block_on_today_data", "policies", "findings_total", "content_fingerprint"],
+      "properties": {
+        "note_fa": { "type": "string", "minLength": 10 },
+        "would_block_on_today_data": { "type": "boolean" },
+        "policies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["policy_id", "decision_ref", "findings", "would_violate"],
+            "properties": {
+              "policy_id": { "type": "string", "pattern": "^POL-" },
+              "decision_ref": { "type": "string", "minLength": 1 },
+              "findings": { "type": "integer", "minimum": 0 },
+              "would_violate": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "findings_total": { "type": "integer", "minimum": 0 },
+        "content_fingerprint": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scan_resolution_shadow": {
+      "type": "object",
+      "required": ["shadow_findings", "shadowed_parties", "content_fingerprint"],
+      "properties": {
+        "shadow_findings": { "type": "integer", "minimum": 0 },
+        "shadowed_parties": { "type": "integer", "minimum": 0 },
+        "content_fingerprint": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "verdict": {
+      "type": "object",
+      "required": ["outcome", "zero_findings_is_not_proof_of_absence", "real_data_status", "explanation_fa"],
+      "properties": {
+        "outcome": { "enum": ["ZERO_INPUT", "INCOMPLETE_DATA", "ZERO_FINDINGS_COMPLETE", "FINDINGS_PRESENT"] },
+        "zero_findings_is_not_proof_of_absence": { "const": true },
+        "real_data_status": { "enum": ["ASSESSED", "UNVERIFIED — SYNTHETIC ONLY"] },
+        "explanation_fa": { "type": "string", "minLength": 10 }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "required": ["duration_ms", "runtime"],
+      "properties": {
+        "duration_ms": { "type": ["number", "null"], "minimum": 0 },
+        "runtime": {
+          "type": "object",
+          "required": ["node", "platform"],
+          "properties": {
+            "node": { "type": "string" },
+            "platform": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "reproducibility": {
+      "type": "object",
+      "required": ["contract_versions", "input_fingerprint", "evidence_fingerprint"],
+      "properties": {
+        "contract_versions": {
+          "type": "object",
+          "required": ["cross_type", "underlying_comparison", "underlying_normalization"],
+          "properties": {
+            "cross_type": { "const": "c13xt.1" },
+            "underlying_comparison": { "const": "c13.1" },
+            "underlying_normalization": { "const": "c11.1" }
+          },
+          "additionalProperties": false
+        },
+        "input_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "evidence_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

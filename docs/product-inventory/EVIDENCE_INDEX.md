@@ -904,3 +904,22 @@
   ⚠️ اعداد **درون‌حافظه‌ای و مصنوعی**اند، **نه** بنچمارکِ تولید.
 - **UNVERIFIED:** بازبینیِ مستقلِ Agent-2 (در دسترس نیست، **جعل نشد**) · مقیاس‌پذیریِ واقعیِ PostgreSQL.
 - **NOT DONE:** فعال‌سازیِ قید/قرارداد · تغییرِ داده/اسکیما/RLS/مهاجرت/D1/ورودِ داده · merge یا approve PR #14.
+
+## TASK-PM-02-C13-B — آمادگیِ ارزیابیِ سایه روی دادهٔ واقعی (Track B؛ شواهد تازه)
+
+- مبنا `0a06445` (Track A، بدونِ تغییر)؛ شاخه `arena/3fdef0e8-green-dms`؛ **بدونِ DB** (محیطِ sandbox هیچ PostgreSQL/Docker ندارد) — هیچ دادهٔ واقعی خوانده نشد؛ هیچ اتصالِ DB برقرار نشد.
+- **۱۰ آیتمِ صریحِ بلاک‌شده (B-1..B-10)** با مالک و شرطِ رفع (§۸ سندِ Track B)؛ وضعیتِ سه‌حالته:
+  **PASS** (مستندات + اعتبارسنجیِ synthetic) · **BLOCKED** (replicaٔ مجاز) · **UNVERIFIED** (رفتارِ دادهٔ واقعی).
+- **شماتیکِ شواهد `c13b.1`** (`EVIDENCE-C13B-EVIDENCE.schema.json`) + سازنده و اعتبارسنجِ inert
+  (`experimental/shadow-evidence.candidate.ts`) + CLI فایل‌به‌فایل بدونِ اتصالِ DB (`shadow-evidence-cli.candidate.ts`).
+- **قاعدهٔ مرکزی در کد اجرا شد:** صفرِ یافته ≠ دادهٔ سالم — چهار outcome متمایز (`ZERO_INPUT` /
+  `INCOMPLETE_DATA` / `ZERO_FINDINGS_COMPLETE` / `FINDINGS_PRESENT`)؛ validator هر گزارشِ متناقض را رد می‌کند.
+- **دروازهٔ REAL:** طبقه‌بندیِ `REAL_AUTHORIZED_REPLICA` بدونِ شش attestation کامل **گزارش نمی‌سازد**
+  (`ShadowEvidenceAuthorizationError`)؛ پوشانش اجباری؛ مجوزِ synthetic عمداً جا نمی‌شود.
+- **نمونهٔ SYNTHETIC:** `EVIDENCE-C13B-SYNTHETIC-SAMPLE.json` — از fixture مصنوعی؛ `FINDINGS_PRESENT`،
+  115 یافته، اثرِ انگشت `cb72310a1671e0267d87b739914eee8415f0563e636dec894f81240891858509`.
+  اعدادِ آن **به دادهٔ واقعی تعمیم‌پذیر نیستند**.
+- **تست‌ها:** `c13-shadow-evidence.test.ts` **۳۹/۳۹**؛ کلِ پارتیشنِ unit **۷۹۶/۷۹۶** (۴۸ فایل)؛
+  گاردهایِ C11/C12/C13 به‌روز و سبز؛ `partition OK`؛ typecheck **۰ خطا**.
+- **NOT DONE:** هیچ پرس‌وجو/اتصال به هیچ منبعی · هیچ قید/RLS/مهاجرت/داده تغییر نکرد · Track A دست‌نخورده ·
+  merge/approve/PR انجام نشد · Agent-2 جعل نشد · ادعایِ اعتبارسنجیِ Windows یا دادهٔ واقعی نشد.

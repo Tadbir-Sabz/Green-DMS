@@ -1,0 +1,231 @@
+{
+  "schema_version": "c13b.1",
+  "task": "TASK-PM-02-C13B",
+  "evidence_kind": "shadow_assessment",
+  "data_classification": "SYNTHETIC",
+  "synthetic": true,
+  "contains_organizational_data": false,
+  "redaction_enforced": true,
+  "assessment_id": "C13B-b7861c58",
+  "generated_at_iso": "2026-11-13T00:00:00.000Z",
+  "source": {
+    "kind": "synthetic",
+    "identity": "synthetic-fixture:c13-cross-type-identities",
+    "snapshot_ts_iso": "2026-11-13T00:00:00.000Z",
+    "engine_version": null,
+    "schema_migration": null,
+    "migration_source": null,
+    "record_counts": {
+      "synthetic_rows": 78
+    },
+    "freshness_seconds": 0,
+    "provenance": "apps/api/test/fixtures/c13-cross-type-identities.ts — ردیف‌هایِ کاملاً synthetic (هیچ دادهٔ سازمانی ندارد)",
+    "owner_ref": "TASK-PM-02-C13B"
+  },
+  "authorization": null,
+  "completeness": {
+    "rows_in": 78,
+    "rows_valid": 73,
+    "rows_invalid": 5,
+    "duplicates_suppressed": 1,
+    "by_type": {
+      "product_code": 20,
+      "alias": 12,
+      "barcode": 23,
+      "packaging_barcode": 8,
+      "family_code": 5,
+      "category_code": 2,
+      "variant_signature": 4,
+      "product_name_latin": 1,
+      "product_name": 2,
+      "bogus_type": 1
+    },
+    "expected_identity_types": [
+      "product_code",
+      "product_name",
+      "product_name_latin",
+      "family_code",
+      "category_code",
+      "variant_signature",
+      "alias",
+      "barcode",
+      "packaging_barcode"
+    ],
+    "present_identity_types": [
+      "product_code",
+      "product_name",
+      "product_name_latin",
+      "family_code",
+      "category_code",
+      "variant_signature",
+      "alias",
+      "barcode",
+      "packaging_barcode"
+    ],
+    "missing_identity_types": [],
+    "complete": true,
+    "warnings_fa": [
+      "5 ردیف به‌دلیلِ خطای کنترلی/ساختاری کنار گذاشته شد (data_quality).",
+      "1 ردیفِ تکراریِ عیناً یکسان سرکوب شد.",
+      "1 ردیف بدونِ source_ref است؛ ردیابیِ یافته‌ها به منبع ممکن نیست."
+    ]
+  },
+  "observed": {
+    "contract_version": "c13xt.1",
+    "findings_total": 115,
+    "by_decision": {
+      "NOT_COMPARABLE": 29,
+      "MANUAL_REVIEW": 32,
+      "SOFT_CONFLICT": 5,
+      "HARD_CONFLICT": 36,
+      "ALLOWED": 13
+    },
+    "by_rule": {
+      "C13X-R-vs-bc": 4,
+      "C13X-R-cc-pb": 1,
+      "C13X-R-pnl-al": 3,
+      "C13X-R-fc-bc": 4,
+      "C13X-R-pc-pb": 4,
+      "C13X-R-fc-al": 5,
+      "C13X-R-pc-pn": 1,
+      "C13X-R-fc-fc": 1,
+      "C13X-R-pc-bc": 8,
+      "C13X-R-pc-pnl": 2,
+      "C13X-R-bc-bc": 3,
+      "C13X-R-fc-cc": 2,
+      "C13X-R-pn-al": 4,
+      "C13X-R-bc-pb": 7,
+      "C13X-R-al-bc": 8,
+      "C13X-R-pnl-vs": 2,
+      "C13X-R-pnl-bc": 3,
+      "C13X-R-cc-bc": 3,
+      "C13X-R-al-al": 3,
+      "C13X-R-pc-fc": 3,
+      "C13X-R-cc-vs": 2,
+      "C13X-R-pc-vs": 2,
+      "C13X-R-pn-vs": 2,
+      "C13X-R-vs-al": 4,
+      "C13X-R-al-pb": 5,
+      "C13X-R-fc-pb": 2,
+      "C13X-R-pc-al": 5,
+      "C13X-R-pn-bc": 4,
+      "C13X-R-pn-fc": 1,
+      "C13X-R-vs-vs": 2,
+      "C13X-R-fc-vs": 2,
+      "C13X-R-pc-cc": 2,
+      "C13X-R-pc-pc": 1,
+      "C13X-R-vs-pb": 3,
+      "C13X-R-pnl-pb": 1,
+      "C13X-R-pn-pb": 1,
+      "C13X-R-cc-al": 3,
+      "C13X-R-pb-pb": 1,
+      "C13X-R-pnl-fc": 1
+    },
+    "by_space": {
+      "exact": 23,
+      "scan_pad": 55,
+      "text": 7,
+      "alnum": 25,
+      "field": 5
+    },
+    "by_type_pair": {
+      "variant_signature": 18,
+      "packaging_barcode": 9,
+      "alias": 26,
+      "family_code": 8,
+      "packaging_barcode~product_code": 2,
+      "alias~family_code": 1,
+      "product_code": 8,
+      "barcode~product_code": 4,
+      "product_code~product_name_latin": 1,
+      "barcode": 25,
+      "category_code~family_code": 1,
+      "alias~product_name": 1,
+      "barcode~packaging_barcode": 4,
+      "alias~barcode": 2,
+      "alias~product_code": 1,
+      "category_code~product_code": 1,
+      "barcode~product_name": 1,
+      "family_code~product_code": 1,
+      "alias~packaging_barcode": 1
+    },
+    "by_company": {
+      "company-synth-A": 106,
+      "*": 9
+    },
+    "cross_company_findings": 9,
+    "data_quality_findings": 10,
+    "content_fingerprint": "fp-c27169a909aa0dec"
+  },
+  "simulated_policies": {
+    "note_fa": "این بخش **فرضی** است: هیچ قیدی اعمال نمی‌شود و هر «نقض» نیازمندِ تصمیمِ صریحِ مالک (D-C13X-1..3) است. «would_violate» به‌معنایِ خطای سیستم نیست.",
+    "would_block_on_today_data": true,
+    "policies": [
+      {
+        "policy_id": "POL-CODE-CI-01",
+        "decision_ref": "D-C11-3",
+        "findings": 1,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-ALIAS-COMPANY-01",
+        "decision_ref": "D-C12-3",
+        "findings": 2,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-BARCODE-XKIND-01",
+        "decision_ref": "D-C13X-1",
+        "findings": 5,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-UPC-EAN-PAD-01",
+        "decision_ref": "D-C13X-2",
+        "findings": 1,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-GS1-CHECKDIGIT-01",
+        "decision_ref": "D-C11-1",
+        "findings": 2,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-PACKAGING-CANON-01",
+        "decision_ref": "D-C13X-3",
+        "findings": 9,
+        "would_violate": true
+      }
+    ],
+    "findings_total": 20,
+    "content_fingerprint": "fp-907db118"
+  },
+  "scan_resolution_shadow": {
+    "shadow_findings": 19,
+    "shadowed_parties": 25,
+    "content_fingerprint": "92171f9b062bb7b5b7bca6c4d78165d0b62ef951e90609f9a2f99dbbeb354625"
+  },
+  "verdict": {
+    "outcome": "FINDINGS_PRESENT",
+    "zero_findings_is_not_proof_of_absence": true,
+    "real_data_status": "UNVERIFIED — SYNTHETIC ONLY",
+    "explanation_fa": "یافته‌هایی تولید شد؛ هرکدام فقط بر پایهٔ همین snapshot است و هیچ اقدامِ خودکاری روی داده اعمال نمی‌شود."
+  },
+  "execution": {
+    "duration_ms": 25,
+    "runtime": {
+      "node": "v22.22.3",
+      "platform": "linux"
+    }
+  },
+  "reproducibility": {
+    "contract_versions": {
+      "cross_type": "c13xt.1",
+      "underlying_comparison": "c13.1",
+      "underlying_normalization": "c11.1"
+    },
+    "input_fingerprint": "b7861c5836fd003c3ef1a9a833d2db250e73a657be536f4e94f388a27d22f6a6",
+    "evidence_fingerprint": "cb72310a1671e0267d87b739914eee8415f0563e636dec894f81240891858509"
+  }
+}
