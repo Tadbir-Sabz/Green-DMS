@@ -1,0 +1,289 @@
+{
+  "task": "TASK-PM-02-C12",
+  "title": "Shadow Identity Index & Safe Migration Readiness",
+  "baseline_commit": "205e914930f203f620576cfbdd47755559e4849a",
+  "branch": "arena/be5eaff3-green-dms",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN",
+    "draft": true,
+    "merged": false
+  },
+  "environment": {
+    "os": "Linux 6.1.158+ x86_64",
+    "node": "v22.22.3",
+    "git_identity": "Tadbir-Sabz <335086850+Tadbir-Sabz@users.noreply.github.com>",
+    "note": "actual execution environment, NOT Windows despite the task naming a Windows agent"
+  },
+  "data_authorization": {
+    "verdict": "BLOCKED",
+    "label": "BLOCKED — REAL DATA IMPACT ASSESSMENT",
+    "owner_authorization": false,
+    "documented_provenance": false,
+    "proven_isolation": false,
+    "enforced_read_only_role": false,
+    "enforced_read_only_detail": "dms_readonly: rolsuper=false, rolbypassrls=false, rolconfig=NULL => default_transaction_read_only not set",
+    "no_shared_write_path": false,
+    "confidentiality_controls": false,
+    "real_data_queries_run": 0,
+    "superuser_used_as_readonly_evidence": false,
+    "available_dataset": {
+      "name": "greendms_c1_preview",
+      "companies": 1,
+      "products": 4,
+      "aliases": 0,
+      "barcodes": 0,
+      "synthetic": true
+    }
+  },
+  "tests": {
+    "c12_shadow_index": {
+      "file": "apps/api/test/c12-shadow-index.test.ts",
+      "passed": 25,
+      "failed": 0
+    },
+    "c12_migration_simulation": {
+      "file": "apps/api/test/c12-migration-simulation.test.ts",
+      "passed": 23,
+      "failed": 0
+    },
+    "c12_total": 48,
+    "c11_regression": {
+      "passed": 39,
+      "failed": 0
+    },
+    "typecheck": {
+      "errors": 0
+    },
+    "non_db_suites": {
+      "files_passed": 40,
+      "assertion_failures": 0
+    },
+    "db_backed_suites": {
+      "files_not_run": 63,
+      "reason": "DATABASE_URL unset in this sandbox; every file fails at connection setup",
+      "regressions_from_c12": 0
+    }
+  },
+  "shadow_index": {
+    "contract_version": "c11.1",
+    "statistics": {
+      "rows_in": 24,
+      "entries": 24,
+      "invalid": 1,
+      "keys_changed": 9,
+      "by_field": {
+        "name": 5,
+        "alias": 8,
+        "code": 5,
+        "barcode": 4,
+        "name_latin": 2
+      }
+    },
+    "entry_fields": [
+      "entity_id",
+      "company_id",
+      "field",
+      "profile",
+      "profile_version",
+      "display_value",
+      "stored_normalized",
+      "proposed_key",
+      "invalid_reason",
+      "key_differs_from_stored",
+      "source_ref"
+    ],
+    "fields_mapped": {
+      "name": "ProductName",
+      "name_latin": "ProductNameLatin",
+      "alias": "ProductAlias",
+      "code": "ProductCode",
+      "barcode": "Barcode"
+    },
+    "search_only_profile": "SearchKey (never used for uniqueness)",
+    "originals_mutated": false
+  },
+  "collision_engine": {
+    "categories_declared": 12,
+    "categories_observed": 12,
+    "categories_without_evidence": [],
+    "summary": {
+      "total": 23,
+      "hard": 7,
+      "soft": 13,
+      "review": 3,
+      "by_category": {
+        "alias_to_alias": 1,
+        "alias_to_barcode": 1,
+        "alias_to_product_code": 1,
+        "alias_to_product_name": 1,
+        "barcode_collision": 1,
+        "cross_company": 3,
+        "exact_duplicate": 2,
+        "legacy_vs_proposed": 9,
+        "persian_arabic_letters": 1,
+        "product_code_collision": 1,
+        "search_only_equivalence": 1,
+        "unicode_normalization": 1
+      },
+      "by_company": {
+        "company-fixture-A": 19,
+        "*": 3,
+        "company-fixture-B": 1
+      },
+      "rows_considered": 23
+    },
+    "newly_exposed": 21,
+    "tenant_isolation": "no in-company collision mixes two company ids",
+    "cross_company_is_conflict_default": false,
+    "flagship_collision": "COL-alias_to_barcode (missed by today's normalization)"
+  },
+  "migration_simulation": {
+    "phases": [
+      "baseline snapshot / backup",
+      "shadow key calculation",
+      "conflict detection",
+      "conflict classification",
+      "manual resolution (out of scope for C12)",
+      "recalculation",
+      "verification",
+      "controlled activation (NOT performed)",
+      "rollback"
+    ],
+    "full_run": {
+      "batches": 6,
+      "ops": 47,
+      "recalculated": 23,
+      "interrupted": false,
+      "display_values_preserved": 24,
+      "rows": 24
+    },
+    "interruption_and_recovery": {
+      "injected_fail_after_ops": 5,
+      "interrupted": true,
+      "ops_before_stop": 5,
+      "recovered": true,
+      "same_final_state_as_full_run": true
+    },
+    "idempotency": {
+      "rerun_same_result": true,
+      "resume_on_complete_state_ops": 0,
+      "batch_1_equals_batch_16": true
+    },
+    "rollback": {
+      "restored": 24,
+      "unrecovered": [],
+      "returns_to_original": true,
+      "display_untouched": true
+    },
+    "atomicity_risk": {
+      "statement": "Changing stored canonical values without atomically changing the application comparison logic makes scans and uniqueness checks disagree.",
+      "consequence": "barcodes may stop resolving and duplicate aliases may slip through unnoticed",
+      "mitigation": "dual-read first, then recompute and switch comparison logic in the SAME release"
+    }
+  },
+  "performance": {
+    "measurements": [
+      {
+        "rows": 100,
+        "simulate_ms": 2,
+        "detect_ms": 1,
+        "total_ms": 2,
+        "collisions": 41,
+        "hard": 0,
+        "display_preserved": 100,
+        "ms_per_1000_rows": 25
+      },
+      {
+        "rows": 500,
+        "simulate_ms": 6,
+        "detect_ms": 5,
+        "total_ms": 11,
+        "collisions": 205,
+        "hard": 0,
+        "display_preserved": 500,
+        "ms_per_1000_rows": 22
+      },
+      {
+        "rows": 1000,
+        "simulate_ms": 14,
+        "detect_ms": 8,
+        "total_ms": 23,
+        "collisions": 410,
+        "hard": 0,
+        "display_preserved": 1000,
+        "ms_per_1000_rows": 23
+      },
+      {
+        "rows": 2000,
+        "simulate_ms": 22,
+        "detect_ms": 17,
+        "total_ms": 39,
+        "collisions": 820,
+        "hard": 0,
+        "display_preserved": 2000,
+        "ms_per_1000_rows": 19
+      },
+      {
+        "rows": 5000,
+        "simulate_ms": 86,
+        "detect_ms": 54,
+        "total_ms": 140,
+        "collisions": 2050,
+        "hard": 0,
+        "display_preserved": 5000,
+        "ms_per_1000_rows": 28
+      }
+    ],
+    "memory": {
+      "rows": 5000,
+      "heap_growth_mb": 4.1,
+      "recalculated": 5000
+    },
+    "scaling": "approximately linear; 14228 ms -> ~75 ms at 5000 rows after fixing O(n^2)",
+    "caveat": "synthetic in-memory figures; NOT a production benchmark"
+  },
+  "mutations": {
+    "product_records": 0,
+    "alias_norm": 0,
+    "barcodes": 0,
+    "active_normalization_functions": 0,
+    "uniqueness_constraints_created": 0,
+    "rls_changes": 0,
+    "production_migrations": 0,
+    "import_behaviour": 0
+  },
+  "isolation_proof": "C12/11 guard greps for real import statements; production imports would fail CI",
+  "verdicts": {
+    "shadow_index": "PASS",
+    "collision_engine": "PASS WITH FINDINGS",
+    "migration_simulation": "PASS",
+    "rollback": "PASS",
+    "multi_company_isolation": "PASS",
+    "performance": "PASS",
+    "existing_product_regression": "PASS (non-DB suites only)",
+    "real_data_impact": "BLOCKED",
+    "independent_review": "UNVERIFIED",
+    "activation": "NOT PERFORMED"
+  },
+  "overall": "PASS WITH FINDINGS (simulation scope) / BLOCKED (real-data impact)",
+  "open_business_decisions": [
+    "D-C11-1 barcode check digit",
+    "D-C11-2 alef variants",
+    "D-C11-3 product-code case sensitivity",
+    "D-C11-4 barcode hyphen",
+    "D-C11-5 ZWNJ normalization",
+    "D-C11-6 search normalization"
+  ],
+  "deliverable_sha256": {
+    "TASK-PM-02-C12_SHADOW_IDENTITY_MIGRATION.md": "07bc60b9567751bce296a065e856e6b9dc9b3f3c45db6a93b468eb319535ac46",
+    "ADR-C12-SHADOW-INDEX.md": "44538e1751ee9be0483415a1d7a3417c57af2f4aee4acba0fd592dd846430086",
+    "VERIFICATION-C12.txt": "690c433daba701df2336ef3dee3a33c155f69369b5bcaaa6da15e2f5a15ad9df",
+    "EVIDENCE_INDEX.md": "b1faf4201fdb268f70b66dd9e46c642e37d3614c42f693db817cc4914910cd54",
+    "EVIDENCE-C12-SHADOW-INDEX.json": "3798d34e4453c8d43fa09a2c24dd0341839acef69adc0ed2cc60665da2233726",
+    "EVIDENCE-C12-COLLISION-LEDGER.json": "e1e5aadab5dcf3e84b228a0847e83d149b57c885847fa08eec221915885c058e",
+    "EVIDENCE-C12-MIGRATION-SIMULATION.json": "acaac4d73efdc94f2bfa1b2ff846ffb2c04adce719c3279f9aa3d51a494276ee",
+    "EVIDENCE-C12-PERFORMANCE.json": "039c45ceee1a9d7407eeccb35b7323a0631fca4d086c7b13811fcec07dad4e51",
+    "EVIDENCE-C12-ROLLBACK.md": "dcde3747f7ca8988b4562fa57717dad200335d5d7842d0f1081ac7fd6e011f02"
+  }
+}

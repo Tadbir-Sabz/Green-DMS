@@ -360,15 +360,25 @@ describe('C11 / 7 — three divergent normalizers must be reconciled', () => {
 describe('C11 / 8 — isolation guard', () => {
   it('the candidate module must not be imported by production code', async () => {
     const { execSync } = await import('node:child_process');
+    // فقط «import واقعی» شمرده می‌شود، نه هر رخدادِ متنی. وگرنه فهرستِ allowlistِ
+    // خودِ تست‌ها (که نامِ فایل را به‌صورتِ رشته دارد) باعثِ مثبتِ کاذب می‌شود.
+    const cmd =
+      "grep -rEl \"from '[^']*product-identity-normalization\\.candidate'\" src test --include=*.ts || true";
     let out = '';
     try {
-      out = execSync(
-        "grep -rl 'product-identity-normalization.candidate' src test --include=*.ts | grep -v 'product-identity-normalization.candidate.ts' | grep -v 'c11-normalization-contract.test.ts' || true",
-        { cwd: process.cwd(), encoding: 'utf8' },
-      );
+      out = execSync(cmd, { cwd: process.cwd(), encoding: 'utf8' });
     } catch {
       out = '';
     }
-    expect(out.trim()).toBe(''); // هیچ importِ دیگری مجاز نیست
+    const files = out
+      .split('\n')
+      .map((f) => f.trim())
+      .filter(Boolean)
+      .filter((f) => !f.endsWith('product-identity-normalization.candidate.ts'));
+    // مصرف‌کنندهٔ مجاز: فقط ماژول‌های آزمایشیِ C12 و تست‌هایشان (همه زیرِ experimental/ یا test/)
+    const forbidden = files.filter(
+      (f) => !/^(src\/modules\/master-data\/experimental\/shadow-identity-(index|migration)\.candidate\.ts|test\/c1[12]-.*\.test\.ts|test\/fixtures\/c12-.*\.ts)$/.test(f),
+    );
+    expect(forbidden, `production import of the candidate module: ${forbidden.join(', ')}`).toEqual([]);
   });
 });
