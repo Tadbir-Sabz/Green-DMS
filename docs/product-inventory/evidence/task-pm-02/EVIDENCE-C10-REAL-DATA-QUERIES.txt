@@ -140,3 +140,30 @@ product CSV import   : 0 references to product_alias / product_attribute_* (vali
 bulk maintenance     : 0 references to product_alias / product_attribute_* (no identity writes)
 category delete      : reassignCategoryChildren moves products to another category (no attribute re-validation)
 product creation     : insert into product only; no attribute/required validation
+
+## Q6 INDEPENDENT SELF-REVIEW (Agent-1, second pass) — corrections and re-derivations
+reviewed_at_utc=2026-11-13T12:40:10Z
+Finding R1 (query definition error, corrected):
+  The first D1.4 formulation compared alias_norm to lower(product.code) while excluding rows where
+  alias=code, i.e. it duplicated D1.5 and did not test "alias equals another product's NAME".
+  Corrected definition (executed below) compares alias_norm to lower(name) and lower(name_latin).
+  Result: 0. The category label in the report is now "alias = name of another product".
+  Impact on conclusions: none (both formulations return 0 on an empty alias table), but the
+  original query did not measure what its label claimed.
+
+Corrected query (verbatim):
+  with a as (select a.company_id,a.product_id,a.alias_norm from product_alias a
+             join product p on p.id=a.product_id and p.deleted_at is null),
+       live as (select id,company_id,lower(name) name_n, lower(coalesce(name_latin,'')) latin_n
+                from product where deleted_at is null)
+  select count(*) from a join live p on p.company_id=a.company_id and p.id<>a.product_id
+   where a.alias_norm = p.name_n or (p.latin_n<>'' and a.alias_norm = p.latin_n);
+  -- result: 0
+
+Re-derivations (independent of the original formulations):
+  D1.2 company-scope duplicates via self-join (a.product_id < b.product_id): 0
+  D1.5 alias=code via self-join: 0
+  D1.6 alias=barcode via self-join: 0
+  history total by component: 29+4+2+13+13+8+8+8+21+21+2+9 = 138  (matches the table count)
+  value/enum split: enum 8 INSERT + 8 DELETE; value 21 INSERT + 21 DELETE = 58
+  attributed total: 13+34+58+9 = 114  (confirms the corrected C8 figure)

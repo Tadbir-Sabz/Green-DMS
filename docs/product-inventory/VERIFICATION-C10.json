@@ -73,6 +73,9 @@
       "import_csv": "no alias writes",
       "bulk_maintenance": "no alias writes",
       "scan": "barcode -> product.code -> alias kind=code, 409 ambiguous_scan on ambiguity"
+    },
+    "category_labels": {
+      "D1.4": "alias_norm equals another product's lower(name) or lower(name_latin)"
     }
   },
   "d4_attribute_rules": {
@@ -203,10 +206,10 @@
     "statements_executed": "SELECT only"
   },
   "artifact_hashes": {
-    "assessment_bytes": 26251,
-    "assessment_sha256": "ebda53449fdab1588f1de7cebeea45003bb6890f8b7d8251366eabe5c30073e9",
-    "evidence_bytes": 6481,
-    "evidence_sha256": "ba4cd38f47c4de91a8db51a2bd452561f6fb29cfb0f3f8c4a95cf26907fa395b"
+    "assessment_bytes": 26837,
+    "assessment_sha256": "3201f62c9ed39bfe52bc3b3fa981c28ab83fb8c84629c71d6714994e84b07388",
+    "evidence_bytes": 8161,
+    "evidence_sha256": "e1a53ffe99947026a0b5b55a065aafc83a9ea4f93081138ded6e062753dc27fc"
   },
   "documents": [
     "docs/product-inventory/TASK-PM-02-C10_REAL_DATA_IMPACT_ASSESSMENT.md",
@@ -215,5 +218,31 @@
     "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C10-REAL-DATA-QUERIES.txt",
     "docs/product-inventory/EVIDENCE_INDEX.md (append)",
     "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §15"
-  ]
+  ],
+  "self_review": {
+    "performed_by": "Agent-1 (second independent pass)",
+    "agent2_status": "UNAVAILABLE — no Agent-2 connector or second runtime exists in this environment",
+    "findings": [
+      {
+        "id": "R1",
+        "type": "query definition error, corrected",
+        "detail": "the original D1.4 compared alias to product.code (duplicating D1.5) instead of the product name",
+        "corrected_result": 0,
+        "impact_on_conclusions": "none (empty alias table); label and query corrected"
+      },
+      {
+        "id": "R2",
+        "type": "re-derivation",
+        "detail": "company-scope duplicates and alias=code/barcode re-derived via self-join",
+        "result": 0
+      },
+      {
+        "id": "R3",
+        "type": "re-derivation",
+        "detail": "history total re-derived by component sum = 138; value/enum split 58; attributed total 114",
+        "result": "consistent"
+      }
+    ],
+    "unauthorized_modifications_found": 0
+  }
 }
