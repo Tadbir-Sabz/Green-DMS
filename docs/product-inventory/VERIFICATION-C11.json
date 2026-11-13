@@ -1,0 +1,327 @@
+{
+  "task": "TASK-PM-02-C11",
+  "title": "Canonical Product Identity Normalization",
+  "overall_verdict": "PASS WITH FINDINGS",
+  "activation": "NOT ACTIVATED — production behaviour unchanged",
+  "baseline_commit": "96eaf67a2a05dedce432b920ba381927822d50a2",
+  "branch": "arena/be5eaff3-green-dms",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "merged": false
+  },
+  "checkpoint": {
+    "tar": "/home/user/pm02-c11-checkpoint.tar.gz",
+    "bytes": 3241811,
+    "sha256": "f6d48d8218ab3c23c6b77f78fbcb7042348359849712fdbc35b82450ec40cb42",
+    "integrity": "sha256sum -c: OK",
+    "entries": 2949,
+    "bundle_verify": "The bundle records a complete history"
+  },
+  "existing_normalizers": [
+    {
+      "id": "A",
+      "path": "product-normalize.ts:36",
+      "name": "normalizeText",
+      "folds_yeh_kaf": false,
+      "folds_digits": true,
+      "strips_diacritics": false,
+      "zwnj": "preserved",
+      "lowercases": true
+    },
+    {
+      "id": "B",
+      "path": "product-normalize.ts:45",
+      "name": "normalizeBarcode",
+      "folds_yeh_kaf": false,
+      "folds_digits": true,
+      "removes_all_spaces": true,
+      "lowercases": false
+    },
+    {
+      "id": "C",
+      "path": "reference-data.rules.ts:69",
+      "name": "normalizeText",
+      "folds_yeh_kaf": true,
+      "folds_digits": false,
+      "strips_diacritics": false,
+      "zwnj": "preserved",
+      "lowercases": false
+    },
+    {
+      "id": "D",
+      "path": "apps/web/src/lib/text.ts:10",
+      "name": "normalizeFa",
+      "folds_yeh_kaf": true,
+      "folds_digits": true,
+      "strips_diacritics": true,
+      "zwnj": "to space",
+      "lowercases": true
+    },
+    {
+      "id": "E",
+      "path": "product-normalize.ts:21",
+      "name": "foldDigits",
+      "digits_only": true
+    }
+  ],
+  "structural_inconsistencies": [
+    "uq_product_code is case-sensitive on (company_id, code) while every comparison uses lower(code)",
+    "collision check normalizes the input but compares the stored barcode column raw (symmetry leak)",
+    "product list search uses ilike('%q%') with no normalization, while the web client normalizes"
+  ],
+  "profiles": [
+    "ProductName",
+    "ProductNameLatin",
+    "ProductAlias",
+    "ProductCode",
+    "Barcode",
+    "SearchKey"
+  ],
+  "profile_decisions": {
+    "folded_to_one_form": [
+      "ي→ی",
+      "ى→ی",
+      "ك→ک",
+      "ة→ه"
+    ],
+    "deliberately_not_folded": [
+      "آ vs ا",
+      "أ vs ا",
+      "إ vs ا"
+    ],
+    "diacritics_and_tatweel": "removed",
+    "zwnj_zwj_nbsp": "converted to a single space (SearchKey and names) / removed (Barcode)",
+    "leading_zeros": "NEVER removed (hard business safety rule)",
+    "invalid_input": "explicit error, never silent removal",
+    "locale_independence": "toLowerCase, never toLocaleLowerCase"
+  },
+  "test_matrix": {
+    "cases": 28,
+    "profiles": 6,
+    "executable_tests": 39,
+    "all_passing": true,
+    "file": "apps/api/test/c11-normalization-contract.test.ts",
+    "design_bugs_found_and_fixed_by_matrix": [
+      "step ordering: control-char stripping ran before whitespace conversion, deleting tabs/newlines",
+      "SearchKey removed punctuation instead of using it as a word separator"
+    ]
+  },
+  "collision_fixtures": {
+    "count": 16,
+    "file": "evidence/task-pm-02/EVIDENCE-C11-COLLISION-FIXTURES.json",
+    "classification": {
+      "reject": [
+        "CF-01",
+        "CF-02",
+        "CF-05",
+        "CF-07",
+        "CF-09",
+        "CF-10",
+        "CF-11",
+        "CF-12",
+        "CF-14"
+      ],
+      "warning": [
+        "CF-03",
+        "CF-08",
+        "CF-15"
+      ],
+      "manual_review": [
+        "CF-04",
+        "CF-06",
+        "CF-16"
+      ],
+      "allow": [
+        "CF-13"
+      ]
+    },
+    "most_important_finding": "CF-10 (alias vs barcode with spaces) is a collision that is MISSED today because only one side is normalized"
+  },
+  "isolation_guard": {
+    "test": "C11 / 8 — isolation guard",
+    "mechanism": "grep proves the candidate module is imported nowhere else",
+    "production_files_changed": 0
+  },
+  "compatibility": {
+    "alias_norm": "HIGH risk — full recompute + 3 index rebuilds",
+    "product_code": "HIGH risk — case-sensitivity mismatch must be resolved first",
+    "barcode": "MEDIUM risk — hyphen removal; leading zeros preserved",
+    "name_and_name_latin": "LOW risk — comparison key only, display values untouched",
+    "safe_order": [
+      "measure",
+      "approve",
+      "dual-read",
+      "recompute",
+      "resolve conflicts",
+      "constraint",
+      "reindex"
+    ],
+    "rollback": "recompute phase is irreversible without a backup of identity columns",
+    "dual_read_feasible": true,
+    "shadow_index_recommended": true,
+    "atomicity_warning": "normalization and data must change atomically or scanning breaks"
+  },
+  "open_business_decisions": [
+    {
+      "id": "D-C11-1",
+      "topic": "barcode check digit (EAN/UPC)",
+      "approved": false
+    },
+    {
+      "id": "D-C11-2",
+      "topic": "alef madda / hamza folding",
+      "approved": false
+    },
+    {
+      "id": "D-C11-3",
+      "topic": "product code case sensitivity",
+      "approved": false
+    },
+    {
+      "id": "D-C11-4",
+      "topic": "hyphen in barcode",
+      "approved": false
+    },
+    {
+      "id": "D-C11-5",
+      "topic": "ZWNJ equals space",
+      "approved": false
+    },
+    {
+      "id": "D-C11-6",
+      "topic": "API search normalization",
+      "approved": false
+    }
+  ],
+  "scope_discipline": {
+    "production_normalization_changed": false,
+    "product_records_changed": 0,
+    "alias_norm_changed": 0,
+    "barcode_storage_changed": false,
+    "new_uniqueness_constraints": 0,
+    "migrations_changed": 0,
+    "rls_changed": 0,
+    "import_behaviour_changed": false,
+    "d1_or_d4_activated": false
+  },
+  "status": {
+    "PASS": [
+      "39 executable tests",
+      "28-case matrix",
+      "16 collision fixtures",
+      "isolation guard",
+      "dependency map",
+      "contract document",
+      "ADR",
+      "compatibility and rollback analysis"
+    ],
+    "FAIL": [],
+    "BLOCKED": [
+      "production activation of the contract (requires C12 plus owner approval)"
+    ],
+    "UNVERIFIED": [
+      "affected row counts in real data",
+      "newly exposed collisions",
+      "ABC/abc pairs",
+      "hyphenated barcodes",
+      "history volume from recompute",
+      "independent Agent-2 review"
+    ],
+    "NOT_DONE": [
+      "any production code change",
+      "any migration or constraint",
+      "any data change",
+      "merge/approve"
+    ]
+  },
+  "agent2": {
+    "available": false,
+    "note": "no connector or second runtime exists; not fabricated"
+  },
+  "artifact_hashes": {
+    "contract_md": {
+      "bytes": 26839,
+      "sha256": "fc6a987f8505325231e913a4cd7fad098444e5c1e2cb1d55e4a3870877be4aab"
+    },
+    "adr": {
+      "bytes": 6190,
+      "sha256": "460bdd9903e10d59921367b846aad7ff0c7a91a8c621d2747e2bb6a9ebb9f42e"
+    },
+    "matrix": {
+      "bytes": 30130,
+      "sha256": "3a8fd063dc06762db3faeac8796e011cabbeabc562d8e3b990f09f5b65b56df4"
+    },
+    "fixtures": {
+      "bytes": 6250,
+      "sha256": "a338ae41fe72c1b49bb24a7c47b300aafc1ab83703c16d875213ce3da9732bb2"
+    },
+    "compat": {
+      "bytes": 11734,
+      "sha256": "498298b731a658b860c0db4b41ecf1fad69ce66b8ec3d50cee7a72132ed5975d"
+    },
+    "candidate": {
+      "bytes": 20722,
+      "sha256": "586eb5e3a68c4b84709d0347855adf3f5b48649905a71f83a612b1bb832b925c"
+    },
+    "tests": {
+      "bytes": 19252,
+      "sha256": "dfed9fc40b07f0d6e2d9123da6c4640e5ccfba9d90346fb9460ea95471046bb8"
+    }
+  },
+  "documents": [
+    "docs/product-inventory/TASK-PM-02-C11_NORMALIZATION_CONTRACT.md",
+    "docs/product-inventory/ADR-C11-CANONICAL-NORMALIZATION.md",
+    "docs/product-inventory/VERIFICATION-C11.txt",
+    "docs/product-inventory/VERIFICATION-C11.json",
+    "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C11-NORMALIZATION-MATRIX.json",
+    "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C11-COLLISION-FIXTURES.json",
+    "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C11-COMPATIBILITY.md",
+    "apps/api/src/modules/master-data/experimental/product-identity-normalization.candidate.ts",
+    "apps/api/test/c11-normalization-contract.test.ts",
+    "docs/product-inventory/EVIDENCE_INDEX.md (append)",
+    "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §16"
+  ],
+  "regression": {
+    "typecheck": {
+      "status": "PASS",
+      "errors": 0
+    },
+    "test_partition": {
+      "status": "PASS",
+      "files": 101
+    },
+    "openapi_check": {
+      "status": "PASS",
+      "paths": 229,
+      "operations": 324,
+      "schemas": 233,
+      "webhooks": 3
+    },
+    "migrations_changed": 0,
+    "unit_no_db": {
+      "files": 38,
+      "tests": 464,
+      "status": "PASS"
+    },
+    "db_backed_product": {
+      "files": 8,
+      "tests": 117,
+      "status": "PASS",
+      "breakdown": {
+        "product-identity": 27,
+        "other_product_db_tests": 90
+      }
+    },
+    "web": {
+      "files": 29,
+      "tests": 165,
+      "status": "PASS"
+    },
+    "c11_executable_tests": {
+      "tests": 39,
+      "status": "PASS"
+    },
+    "production_files_changed": 0
+  }
+}

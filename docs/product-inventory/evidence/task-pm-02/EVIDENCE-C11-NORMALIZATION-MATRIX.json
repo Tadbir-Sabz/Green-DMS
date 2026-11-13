@@ -1,0 +1,1557 @@
+{
+  "generated_by": "apps/api/test/tmp-c11-emit.test.ts (temporary emitter, removed after run)",
+  "contract": "experimental/product-identity-normalization.candidate.ts",
+  "current_implementations": [
+    {
+      "id": "product-normalize.normalizeText",
+      "unicode": "NFC",
+      "folds_digits": true,
+      "folds_yeh_kaf": false,
+      "strips_diacritics": false,
+      "zwnj": "preserved",
+      "lowercases": true
+    },
+    {
+      "id": "product-normalize.normalizeBarcode",
+      "unicode": "NFC",
+      "folds_digits": true,
+      "removes_all_spaces": true,
+      "lowercases": false
+    },
+    {
+      "id": "reference-data.rules.normalizeText",
+      "unicode": "none",
+      "folds_digits": false,
+      "folds_yeh_kaf": true,
+      "lowercases": false
+    },
+    {
+      "id": "web/lib/text.normalizeFa",
+      "unicode": "none",
+      "folds_digits": true,
+      "folds_yeh_kaf": true,
+      "strips_diacritics": true,
+      "zwnj": "to space",
+      "lowercases": true
+    }
+  ],
+  "cases": [
+    {
+      "case": "yeh_ar_vs_persian",
+      "a": "علي",
+      "b": "علی",
+      "current": {
+        "productNormalizeText": [
+          "علي",
+          "علی",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "علي",
+          "علی",
+          false
+        ],
+        "referenceNormalizeText": [
+          "علی",
+          "علی",
+          true
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "علی",
+          "علی",
+          true
+        ],
+        "ProductNameLatin": [
+          "علي",
+          "علی",
+          false
+        ],
+        "ProductAlias": [
+          "علی",
+          "علی",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "علی",
+          "علی",
+          true
+        ]
+      }
+    },
+    {
+      "case": "kaf_ar_vs_persian",
+      "a": "كوكا",
+      "b": "کوکا",
+      "current": {
+        "productNormalizeText": [
+          "كوكا",
+          "کوکا",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "كوكا",
+          "کوکا",
+          false
+        ],
+        "referenceNormalizeText": [
+          "کوکا",
+          "کوکا",
+          true
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "کوکا",
+          "کوکا",
+          true
+        ],
+        "ProductNameLatin": [
+          "كوكا",
+          "کوکا",
+          false
+        ],
+        "ProductAlias": [
+          "کوکا",
+          "کوکا",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "کوکا",
+          "کوکا",
+          true
+        ]
+      }
+    },
+    {
+      "case": "alef_maksura",
+      "a": "ى",
+      "b": "ی",
+      "current": {
+        "productNormalizeText": [
+          "ى",
+          "ی",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "ى",
+          "ی",
+          false
+        ],
+        "referenceNormalizeText": [
+          "ى",
+          "ی",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "ی",
+          "ی",
+          true
+        ],
+        "ProductNameLatin": [
+          "ى",
+          "ی",
+          false
+        ],
+        "ProductAlias": [
+          "ی",
+          "ی",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "ی",
+          "ی",
+          true
+        ]
+      }
+    },
+    {
+      "case": "alef_madda",
+      "a": "آب",
+      "b": "اب",
+      "current": {
+        "productNormalizeText": [
+          "آب",
+          "اب",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "آب",
+          "اب",
+          false
+        ],
+        "referenceNormalizeText": [
+          "آب",
+          "اب",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "آب",
+          "اب",
+          false
+        ],
+        "ProductNameLatin": [
+          "آب",
+          "اب",
+          false
+        ],
+        "ProductAlias": [
+          "آب",
+          "اب",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "آب",
+          "اب",
+          false
+        ]
+      }
+    },
+    {
+      "case": "alef_hamza",
+      "a": "أحمد",
+      "b": "احمد",
+      "current": {
+        "productNormalizeText": [
+          "أحمد",
+          "احمد",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "أحمد",
+          "احمد",
+          false
+        ],
+        "referenceNormalizeText": [
+          "أحمد",
+          "احمد",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "أحمد",
+          "احمد",
+          false
+        ],
+        "ProductNameLatin": [
+          "أحمد",
+          "احمد",
+          false
+        ],
+        "ProductAlias": [
+          "أحمد",
+          "احمد",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "أحمد",
+          "احمد",
+          false
+        ]
+      }
+    },
+    {
+      "case": "alef_hamza_below",
+      "a": "إسلام",
+      "b": "اسلام",
+      "current": {
+        "productNormalizeText": [
+          "إسلام",
+          "اسلام",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "إسلام",
+          "اسلام",
+          false
+        ],
+        "referenceNormalizeText": [
+          "إسلام",
+          "اسلام",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "إسلام",
+          "اسلام",
+          false
+        ],
+        "ProductNameLatin": [
+          "إسلام",
+          "اسلام",
+          false
+        ],
+        "ProductAlias": [
+          "إسلام",
+          "اسلام",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "إسلام",
+          "اسلام",
+          false
+        ]
+      }
+    },
+    {
+      "case": "taa_marbuta",
+      "a": "مدينه",
+      "b": "مدینه",
+      "current": {
+        "productNormalizeText": [
+          "مدينه",
+          "مدینه",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "مدينه",
+          "مدینه",
+          false
+        ],
+        "referenceNormalizeText": [
+          "مدینه",
+          "مدینه",
+          true
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "مدینه",
+          "مدینه",
+          true
+        ],
+        "ProductNameLatin": [
+          "مدينه",
+          "مدینه",
+          false
+        ],
+        "ProductAlias": [
+          "مدینه",
+          "مدینه",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "مدینه",
+          "مدینه",
+          true
+        ]
+      }
+    },
+    {
+      "case": "diacritics",
+      "a": "كِتَاب",
+      "b": "کتاب",
+      "current": {
+        "productNormalizeText": [
+          "كِتَاب",
+          "کتاب",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "كِتَاب",
+          "کتاب",
+          false
+        ],
+        "referenceNormalizeText": [
+          "کِتَاب",
+          "کتاب",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "کتاب",
+          "کتاب",
+          true
+        ],
+        "ProductNameLatin": [
+          "كِتَاب",
+          "کتاب",
+          false
+        ],
+        "ProductAlias": [
+          "کتاب",
+          "کتاب",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "کتاب",
+          "کتاب",
+          true
+        ]
+      }
+    },
+    {
+      "case": "tatweel",
+      "a": "کتـــاب",
+      "b": "کتاب",
+      "current": {
+        "productNormalizeText": [
+          "کتـــاب",
+          "کتاب",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "کتـــاب",
+          "کتاب",
+          false
+        ],
+        "referenceNormalizeText": [
+          "کتـــاب",
+          "کتاب",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "کتاب",
+          "کتاب",
+          true
+        ],
+        "ProductNameLatin": [
+          "کتـــاب",
+          "کتاب",
+          false
+        ],
+        "ProductAlias": [
+          "کتاب",
+          "کتاب",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "کتاب",
+          "کتاب",
+          true
+        ]
+      }
+    },
+    {
+      "case": "digits_fa",
+      "a": "۱۲۳",
+      "b": "123",
+      "current": {
+        "productNormalizeText": [
+          "123",
+          "123",
+          true
+        ],
+        "productNormalizeBarcode": [
+          "123",
+          "123",
+          true
+        ],
+        "referenceNormalizeText": [
+          "۱۲۳",
+          "123",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "123",
+          "123",
+          true
+        ],
+        "ProductNameLatin": [
+          "123",
+          "123",
+          true
+        ],
+        "ProductAlias": [
+          "123",
+          "123",
+          true
+        ],
+        "ProductCode": [
+          "123",
+          "123",
+          true
+        ],
+        "Barcode": [
+          "123",
+          "123",
+          true
+        ],
+        "SearchKey": [
+          "123",
+          "123",
+          true
+        ]
+      }
+    },
+    {
+      "case": "digits_ar",
+      "a": "١٢٣",
+      "b": "123",
+      "current": {
+        "productNormalizeText": [
+          "123",
+          "123",
+          true
+        ],
+        "productNormalizeBarcode": [
+          "123",
+          "123",
+          true
+        ],
+        "referenceNormalizeText": [
+          "١٢٣",
+          "123",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "123",
+          "123",
+          true
+        ],
+        "ProductNameLatin": [
+          "123",
+          "123",
+          true
+        ],
+        "ProductAlias": [
+          "123",
+          "123",
+          true
+        ],
+        "ProductCode": [
+          "123",
+          "123",
+          true
+        ],
+        "Barcode": [
+          "123",
+          "123",
+          true
+        ],
+        "SearchKey": [
+          "123",
+          "123",
+          true
+        ]
+      }
+    },
+    {
+      "case": "zwnj",
+      "a": "کوکا‌زیرو",
+      "b": "کوکا زیرو",
+      "current": {
+        "productNormalizeText": [
+          "کوکا‌زیرو",
+          "کوکا زیرو",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "کوکا‌زیرو",
+          "کوکازیرو",
+          false
+        ],
+        "referenceNormalizeText": [
+          "کوکا‌زیرو",
+          "کوکا زیرو",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "ProductNameLatin": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "ProductAlias": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ]
+      }
+    },
+    {
+      "case": "zwj",
+      "a": "a‍b",
+      "b": "a b",
+      "current": {
+        "productNormalizeText": [
+          "a‍b",
+          "a b",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "a‍b",
+          "ab",
+          false
+        ],
+        "referenceNormalizeText": [
+          "a‍b",
+          "a b",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductNameLatin": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductAlias": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "SearchKey": [
+          "a b",
+          "a b",
+          true
+        ]
+      }
+    },
+    {
+      "case": "nbsp",
+      "a": "a b",
+      "b": "a b",
+      "current": {
+        "productNormalizeText": [
+          "a b",
+          "a b",
+          true
+        ],
+        "productNormalizeBarcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "referenceNormalizeText": [
+          "a b",
+          "a b",
+          true
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductNameLatin": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductAlias": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "SearchKey": [
+          "a b",
+          "a b",
+          true
+        ]
+      }
+    },
+    {
+      "case": "tabs_newlines",
+      "a": "  a\t\tb\n",
+      "b": "a b",
+      "current": {
+        "productNormalizeText": [
+          "ab",
+          "a b",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "referenceNormalizeText": [
+          "a b",
+          "a b",
+          true
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductNameLatin": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductAlias": [
+          "a b",
+          "a b",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "SearchKey": [
+          "a b",
+          "a b",
+          true
+        ]
+      }
+    },
+    {
+      "case": "repeated_spaces",
+      "a": "کوکا   زیرو",
+      "b": "کوکا زیرو",
+      "current": {
+        "productNormalizeText": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "productNormalizeBarcode": [
+          "کوکازیرو",
+          "کوکازیرو",
+          true
+        ],
+        "referenceNormalizeText": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "ProductNameLatin": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "ProductAlias": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "کوکا زیرو",
+          "کوکا زیرو",
+          true
+        ]
+      }
+    },
+    {
+      "case": "arabic_comma",
+      "a": "a،b",
+      "b": "a,b",
+      "current": {
+        "productNormalizeText": [
+          "a،b",
+          "a,b",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "a،b",
+          "a,b",
+          false
+        ],
+        "referenceNormalizeText": [
+          "a،b",
+          "a,b",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a,b",
+          "a,b",
+          true
+        ],
+        "ProductNameLatin": [
+          "a،b",
+          "a,b",
+          false
+        ],
+        "ProductAlias": [
+          "a,b",
+          "a,b",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "a b",
+          "a b",
+          true
+        ]
+      }
+    },
+    {
+      "case": "dash_en",
+      "a": "a–b",
+      "b": "a-b",
+      "current": {
+        "productNormalizeText": [
+          "a–b",
+          "a-b",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "a–b",
+          "a-b",
+          false
+        ],
+        "referenceNormalizeText": [
+          "a–b",
+          "a-b",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a-b",
+          "a-b",
+          true
+        ],
+        "ProductNameLatin": [
+          "a–b",
+          "a-b",
+          false
+        ],
+        "ProductAlias": [
+          "a-b",
+          "a-b",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "a-b",
+          false
+        ],
+        "Barcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "SearchKey": [
+          "a b",
+          "a b",
+          true
+        ]
+      }
+    },
+    {
+      "case": "dash_em",
+      "a": "a—b",
+      "b": "a-b",
+      "current": {
+        "productNormalizeText": [
+          "a—b",
+          "a-b",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "a—b",
+          "a-b",
+          false
+        ],
+        "referenceNormalizeText": [
+          "a—b",
+          "a-b",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a-b",
+          "a-b",
+          true
+        ],
+        "ProductNameLatin": [
+          "a—b",
+          "a-b",
+          false
+        ],
+        "ProductAlias": [
+          "a-b",
+          "a-b",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "a-b",
+          false
+        ],
+        "Barcode": [
+          "ab",
+          "ab",
+          true
+        ],
+        "SearchKey": [
+          "a b",
+          "a b",
+          true
+        ]
+      }
+    },
+    {
+      "case": "arabic_question",
+      "a": "a؟",
+      "b": "a?",
+      "current": {
+        "productNormalizeText": [
+          "a؟",
+          "a?",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "a؟",
+          "a?",
+          false
+        ],
+        "referenceNormalizeText": [
+          "a؟",
+          "a?",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "a?",
+          "a?",
+          true
+        ],
+        "ProductNameLatin": [
+          "a؟",
+          "a?",
+          false
+        ],
+        "ProductAlias": [
+          "a?",
+          "a?",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "a",
+          "a",
+          true
+        ]
+      }
+    },
+    {
+      "case": "parentheses",
+      "a": "روغن (۵ لیتری)",
+      "b": "روغن ۵ لیتری",
+      "current": {
+        "productNormalizeText": [
+          "روغن (5 لیتری)",
+          "روغن 5 لیتری",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "روغن(5لیتری)",
+          "روغن5لیتری",
+          false
+        ],
+        "referenceNormalizeText": [
+          "روغن (۵ لیتری)",
+          "روغن ۵ لیتری",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "روغن (5 لیتری)",
+          "روغن 5 لیتری",
+          false
+        ],
+        "ProductNameLatin": [
+          "روغن (5 لیتری)",
+          "روغن 5 لیتری",
+          false
+        ],
+        "ProductAlias": [
+          "روغن (5 لیتری)",
+          "روغن 5 لیتری",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "روغن 5 لیتری",
+          "روغن 5 لیتری",
+          true
+        ]
+      }
+    },
+    {
+      "case": "nfc_nfd",
+      "a": "é",
+      "b": "é",
+      "current": {
+        "productNormalizeText": [
+          "é",
+          "é",
+          true
+        ],
+        "productNormalizeBarcode": [
+          "é",
+          "é",
+          true
+        ],
+        "referenceNormalizeText": [
+          "é",
+          "é",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "é",
+          "é",
+          true
+        ],
+        "ProductNameLatin": [
+          "é",
+          "é",
+          true
+        ],
+        "ProductAlias": [
+          "é",
+          "é",
+          true
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "!invalid_character",
+          false
+        ],
+        "SearchKey": [
+          "é",
+          "é",
+          true
+        ]
+      }
+    },
+    {
+      "case": "fullwidth_latin",
+      "a": "ＡＢＣ",
+      "b": "ABC",
+      "current": {
+        "productNormalizeText": [
+          "ａｂｃ",
+          "abc",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "ＡＢＣ",
+          "ABC",
+          false
+        ],
+        "referenceNormalizeText": [
+          "ＡＢＣ",
+          "ABC",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "ａｂｃ",
+          "abc",
+          false
+        ],
+        "ProductNameLatin": [
+          "abc",
+          "abc",
+          true
+        ],
+        "ProductAlias": [
+          "ａｂｃ",
+          "abc",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "abc",
+          false
+        ],
+        "Barcode": [
+          "!invalid_character",
+          "abc",
+          false
+        ],
+        "SearchKey": [
+          "abc",
+          "abc",
+          true
+        ]
+      }
+    },
+    {
+      "case": "case",
+      "a": "ABC",
+      "b": "abc",
+      "current": {
+        "productNormalizeText": [
+          "abc",
+          "abc",
+          true
+        ],
+        "productNormalizeBarcode": [
+          "ABC",
+          "abc",
+          false
+        ],
+        "referenceNormalizeText": [
+          "ABC",
+          "abc",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "abc",
+          "abc",
+          true
+        ],
+        "ProductNameLatin": [
+          "abc",
+          "abc",
+          true
+        ],
+        "ProductAlias": [
+          "abc",
+          "abc",
+          true
+        ],
+        "ProductCode": [
+          "abc",
+          "abc",
+          true
+        ],
+        "Barcode": [
+          "abc",
+          "abc",
+          true
+        ],
+        "SearchKey": [
+          "abc",
+          "abc",
+          true
+        ]
+      }
+    },
+    {
+      "case": "barcode_spaces",
+      "a": "123 456",
+      "b": "123456",
+      "current": {
+        "productNormalizeText": [
+          "123 456",
+          "123456",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "123456",
+          "123456",
+          true
+        ],
+        "referenceNormalizeText": [
+          "123 456",
+          "123456",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "123 456",
+          "123456",
+          false
+        ],
+        "ProductNameLatin": [
+          "123 456",
+          "123456",
+          false
+        ],
+        "ProductAlias": [
+          "123 456",
+          "123456",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "123456",
+          false
+        ],
+        "Barcode": [
+          "123456",
+          "123456",
+          true
+        ],
+        "SearchKey": [
+          "123 456",
+          "123456",
+          false
+        ]
+      }
+    },
+    {
+      "case": "barcode_hyphen",
+      "a": "123-456",
+      "b": "123456",
+      "current": {
+        "productNormalizeText": [
+          "123-456",
+          "123456",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "123-456",
+          "123456",
+          false
+        ],
+        "referenceNormalizeText": [
+          "123-456",
+          "123456",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "123-456",
+          "123456",
+          false
+        ],
+        "ProductNameLatin": [
+          "123-456",
+          "123456",
+          false
+        ],
+        "ProductAlias": [
+          "123-456",
+          "123456",
+          false
+        ],
+        "ProductCode": [
+          "123-456",
+          "123456",
+          false
+        ],
+        "Barcode": [
+          "123456",
+          "123456",
+          true
+        ],
+        "SearchKey": [
+          "123 456",
+          "123456",
+          false
+        ]
+      }
+    },
+    {
+      "case": "leading_zero",
+      "a": "007",
+      "b": "7",
+      "current": {
+        "productNormalizeText": [
+          "007",
+          "7",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "007",
+          "7",
+          false
+        ],
+        "referenceNormalizeText": [
+          "007",
+          "7",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "007",
+          "7",
+          false
+        ],
+        "ProductNameLatin": [
+          "007",
+          "7",
+          false
+        ],
+        "ProductAlias": [
+          "007",
+          "7",
+          false
+        ],
+        "ProductCode": [
+          "007",
+          "7",
+          false
+        ],
+        "Barcode": [
+          "007",
+          "7",
+          false
+        ],
+        "SearchKey": [
+          "007",
+          "7",
+          false
+        ]
+      }
+    },
+    {
+      "case": "code_internal_space",
+      "a": "AB 12",
+      "b": "AB12",
+      "current": {
+        "productNormalizeText": [
+          "ab 12",
+          "ab12",
+          false
+        ],
+        "productNormalizeBarcode": [
+          "AB12",
+          "AB12",
+          true
+        ],
+        "referenceNormalizeText": [
+          "AB 12",
+          "AB12",
+          false
+        ]
+      },
+      "proposed": {
+        "ProductName": [
+          "ab 12",
+          "ab12",
+          false
+        ],
+        "ProductNameLatin": [
+          "ab 12",
+          "ab12",
+          false
+        ],
+        "ProductAlias": [
+          "ab 12",
+          "ab12",
+          false
+        ],
+        "ProductCode": [
+          "!invalid_character",
+          "ab12",
+          false
+        ],
+        "Barcode": [
+          "ab12",
+          "ab12",
+          true
+        ],
+        "SearchKey": [
+          "ab 12",
+          "ab12",
+          false
+        ]
+      }
+    }
+  ],
+  "task": "TASK-PM-02-C11",
+  "baseline_commit": "96eaf67a2a05dedce432b920ba381927822d50a2",
+  "synthetic_only": true,
+  "contains_organizational_data": false,
+  "reproduce_with": "apps/api/test/c11-normalization-contract.test.ts (39 tests) + the emitter described in VERIFICATION-C11.txt"
+}
