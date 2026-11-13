@@ -1590,20 +1590,36 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: فهرست aliasهای کالا
+      summary: نمای نام‌های جایگزین کالا (سه نوعِ مصوب + برخوردهای نرم)
+      description: >-
+        TASK-PM-02-C7 — فقط سه نوعِ موجود در قید `0046`: `brand_slang`، `latin`،
+        `code`. یکتاییِ DB فقط `(product_id, alias_norm)` است؛ برخورد با نام
+        جایگزینِ کالای دیگر در پاسخ به‌صورت **اطلاع‌رسان** (`conflict`) گزارش
+        می‌شود و قاعدهٔ یکتاییِ شرکتی ساخته نمی‌شود (C7-D1).
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [brand_slang, latin, code] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
       responses:
         '200':
-          description: aliasها
+          description: نمای نام‌های جایگزین
           content:
             application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ProductAlias' }
+              schema: { $ref: '#/components/schemas/ProductAliasOverview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [products]
-      summary: ثبت alias (نرمال‌سازی + جلوگیری از برخورد با کد/بارکد — H-1)
+      summary: افزودن نام جایگزین (نرمال‌سازی + جلوگیری از برخورد H-1)
+      description: >-
+        مقدار در سرور نرمال می‌شود (NFC، ارقامِ فارسی/عربی→لاتین، فشردن فاصله،
+        casefold). نام جایگزین هم‌ارز با بارکد یا کد کالا، و نام جایگزینِ کالای
+        دیگر (طبق بررسی موجود) با ۴۰۹ رد می‌شود. کد اصلی کالا هرگز تغییر نمی‌کند.
       requestBody:
         required: true
         content:
@@ -1614,29 +1630,32 @@ paths:
               properties:
                 alias: { type: string, maxLength: 255 }
                 kind: { type: string, enum: [brand_slang, latin, code], default: brand_slang }
+                confirm_add: { type: boolean, description: 'تأیید صریح اپراتور' }
       responses:
         '201':
-          description: alias ثبت شد
+          description: نام جایگزین ثبت شد
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProductAlias' }
+              schema: { $ref: '#/components/schemas/ProductAliasItem' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /product-aliases/{aliasId}:
+  /products/{id}/aliases/{aliasId}:
     parameters:
+      - { $ref: '#/components/parameters/idPath' }
       - { name: aliasId, in: path, required: true, schema: { type: string, format: uuid } }
     delete:
       tags: [products]
-      summary: حذف alias
+      summary: حذف نام جایگزین (فقط ردیف همین کالا و همین شرکت)
       responses:
         '200':
           description: حذف شد
           content:
             application/json:
-              schema: { type: object, properties: { deleted: { type: boolean } } }
+              schema: { $ref: '#/components/schemas/ProductAliasDeleteResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1671,7 +1690,9 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '409':
+          $ref: '#/components/responses/Conflict'
+          description: 'کدِ صفت تکراری در شرکت → duplicate_attribute_code'
   /product-attributes/{defId}/enum-values:
     parameters:
       - { name: defId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1726,24 +1747,32 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: مقادیرِ صفاتِ SKU + امضای فعلیِ variant (نمایش در UI جزئیات)
+      summary: نمای صفات کالا (کاتالوگِ شرکت + مقدار + الزام + محور variant)
+      description: >-
+        TASK-PM-02-C7 — مدل، EAVِ محدودِ موجود در `0046` است: کاتالوگ صفت در سطح
+        شرکت (`product_attribute_def` با `kind ∈ {text, number, enum}` و
+        `is_variant_axis`/`is_required`)، مقادیر در سطح SKU
+        (`product_attribute_value` با قید «دقیقاً یک ستونِ مقدار»). این مسیر فقط
+        همان مدل را می‌خواند و سیاست تازه‌ای نمی‌سازد.
       responses:
         '200':
-          description: مقادیر + امضا
+          description: نمای صفات
           content:
             application/json:
-              schema:
-                type: object
-                required: [values, variant_signature]
-                properties:
-                  values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
-                  variant_signature: { type: [string, 'null'] }
+              schema: { $ref: '#/components/schemas/ProductAttributesOverview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [products]
-      summary: ثبت مقادیرِ صفاتِ SKU + محاسبهٔ امضای variant (M-3؛ تغییرناپذیر پس از ارجاعِ عملیاتی)
+      summary: ثبت/ویرایش/پاک‌کردن مقادیر صفات + امضای variant (M-3)
+      description: >-
+        همان اعتبارسنجی‌های موجود: تطابقِ ستونِ مقدار با `kind`، مقدارِ enum فقط از
+        فهرستِ مجازِ همان صفت، الزامِ `is_required` در سطح شرکت، و تغییرناپذیریِ
+        محورهای variant پس از نخستین ارجاع عملیاتی (`variant_signature_immutable`).
+        `clear: true` یا مقدارِ خالی، ردیفِ مقدار را **حذف** می‌کند (رفتار قبلی
+        برای مقدارِ خالی خطای ۵۰۰ می‌داد).
       requestBody:
         required: true
         content:
@@ -1754,29 +1783,38 @@ paths:
               properties:
                 values:
                   type: array
-                  items:
-                    type: object
-                    required: [def_id]
-                    properties:
-                      def_id: { type: string, format: uuid }
-                      value_text: { type: [string, 'null'] }
-                      value_num: { type: [number, 'null'] }
-                      value_enum: { type: [string, 'null'] }
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/ProductAttributeValueInput' }
       responses:
         '200':
-          description: مقادیر + امضا
+          description: مقادیر ثبت شد
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
-                  variant_signature: { type: [string, 'null'] }
+              schema: { $ref: '#/components/schemas/ProductAttributeValuesResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/identity/history:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: تاریخچهٔ تغییرناپذیر هویت کالا (alias و مقادیر صفات — تریگر ۰۰۶۰)
+      description: >-
+        فقط رویدادهای `product_alias` و `product_attribute_value` همین شرکت که به
+        این کالا مربوط‌اند؛ بدون before/after خام.
+      responses:
+        '200':
+          description: تاریخچه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductIdentityHistory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /products/{id}/relations:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -9601,6 +9639,229 @@ components:
         alias: { type: string }
         alias_norm: { type: string, readOnly: true }
         kind: { type: string, enum: [brand_slang, latin, code] }
+
+    ProductAliasKindSpec:
+      type: object
+      required: [kind, label_fa, meaning_fa, used_in_scan, evidence]
+      properties:
+        kind: { type: string, enum: [brand_slang, latin, code] }
+        label_fa: { type: string }
+        meaning_fa: { type: string }
+        used_in_scan: { type: boolean, description: 'فقط kind=code در resolution اسکن استفاده می‌شود.' }
+        evidence: { type: string }
+
+    ProductAliasItem:
+      type: object
+      required: [id, product_id, alias, alias_norm, kind, kind_label_fa, used_in_scan]
+      properties:
+        id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        alias: { type: string }
+        alias_norm: { type: string }
+        kind: { type: string, enum: [brand_slang, latin, code] }
+        kind_label_fa: { type: string }
+        used_in_scan: { type: boolean }
+        warning_fa: { type: [string, 'null'] }
+        conflict:
+          type: [object, 'null']
+          description: 'برخوردِ نرم با نام جایگزینِ کالای دیگر — اطلاع‌رسان، نه یکتاییِ DB.'
+          properties:
+            product_id: { type: [string, 'null'], format: uuid }
+            code: { type: [string, 'null'] }
+            name: { type: [string, 'null'] }
+        created_at: { type: [string, 'null'] }
+
+    ProductAliasOwnerDecision:
+      type: object
+      required: [id, title_fa, status, detail_fa]
+      properties:
+        id: { type: string }
+        title_fa: { type: string }
+        status: { type: string, enum: [BLOCKED, UNRESOLVED] }
+        detail_fa: { type: string }
+
+    ProductAliasOverview:
+      type: object
+      required: [product, scope, actor, kinds, items, aliases, counts, downstream_notes_fa, owner_decisions_fa]
+      properties:
+        product:
+          type: object
+          required: [id, code, status]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [active, blocked, discontinued] }
+        scope: { type: string, enum: [central] }
+        actor:
+          type: object
+          required: [can_view, can_update]
+          properties:
+            can_view: { type: boolean }
+            can_update: { type: boolean }
+            unavailable_reason_fa: { type: [string, 'null'] }
+        kinds:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasKindSpec' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasItem' }
+        aliases:
+          type: array
+          description: 'سازگاریِ عقب‌رو: آرایهٔ سادهٔ ردیف‌های product_alias.'
+          items: { $ref: '#/components/schemas/ProductAlias' }
+        counts:
+          type: object
+          required: [total, brand_slang, latin, code, truncated]
+          properties:
+            total: { type: integer }
+            brand_slang: { type: integer }
+            latin: { type: integer }
+            code: { type: integer }
+            truncated: { type: boolean }
+        scan_resolution_fa: { type: string }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasOwnerDecision' }
+
+    ProductAliasDeleteResult:
+      type: object
+      required: [deleted, alias_id]
+      properties:
+        deleted: { type: boolean, const: true }
+        alias_id: { type: string, format: uuid }
+
+    ProductAttributeKindSpec:
+      type: object
+      required: [kind, label_fa, meaning_fa, evidence]
+      properties:
+        kind: { type: string, enum: [text, number, enum] }
+        label_fa: { type: string }
+        meaning_fa: { type: string }
+        evidence: { type: string }
+
+    ProductAttributeCatalogEntry:
+      type: object
+      required: [def_id, code, title, kind, kind_label_fa, is_variant_axis, is_required, sort_order, enum_values, value, filled]
+      properties:
+        def_id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [text, number, enum] }
+        kind_label_fa: { type: string }
+        is_variant_axis: { type: boolean }
+        is_required: { type: boolean }
+        sort_order: { type: integer }
+        enum_values:
+          type: array
+          items:
+            type: object
+            required: [id, value]
+            properties:
+              id: { type: string, format: uuid }
+              value: { type: string }
+        value:
+          type: object
+          required: [id, value_text, value_num, value_enum]
+          properties:
+            id: { type: [string, 'null'], format: uuid }
+            value_text: { type: [string, 'null'] }
+            value_num: { type: [string, 'null'] }
+            value_enum: { type: [string, 'null'] }
+        filled: { type: boolean }
+        warning_fa: { type: [string, 'null'] }
+
+    ProductAttributesOverview:
+      type: object
+      required: [product, scope, actor, variant_signature, signature_locked, kinds, attributes, values, counts, downstream_notes_fa, owner_decisions_fa]
+      properties:
+        product:
+          type: object
+          required: [id, code, status]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [active, blocked, discontinued] }
+        scope: { type: string, enum: [central] }
+        actor:
+          type: object
+          required: [can_view, can_update]
+          properties:
+            can_view: { type: boolean }
+            can_update: { type: boolean }
+            unavailable_reason_fa: { type: [string, 'null'] }
+        variant_signature: { type: [string, 'null'] }
+        signature_locked: { type: boolean, description: 'پس از نخستین ارجاع عملیاتی true؛ تغییر محورها ممنوع (M-3).' }
+        signature_rule_fa: { type: string }
+        required_policy_fa: { type: string }
+        kinds:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAttributeKindSpec' }
+        attributes:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAttributeCatalogEntry' }
+        values:
+          type: array
+          description: 'سازگاریِ عقب‌رو: ردیف‌های خامِ product_attribute_value.'
+          items: { $ref: '#/components/schemas/ProductAttributeValue' }
+        counts:
+          type: object
+          required: [total, filled, required, required_missing, variant_axes]
+          properties:
+            total: { type: integer }
+            filled: { type: integer }
+            required: { type: integer }
+            required_missing: { type: integer }
+            variant_axes: { type: integer }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasOwnerDecision' }
+
+    ProductAttributeValueInput:
+      type: object
+      required: [def_id]
+      properties:
+        def_id: { type: string, format: uuid }
+        value_text: { type: [string, 'null'], maxLength: 2000 }
+        value_num: { type: [number, 'null'], description: 'در بازهٔ numeric(19,4)' }
+        value_enum: { type: [string, 'null'] }
+        clear: { type: boolean, description: 'حذف مقدار ثبت‌شده برای این صفت' }
+
+    ProductAttributeValuesResult:
+      type: object
+      required: [values, variant_signature, cleared]
+      properties:
+        values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
+        variant_signature: { type: [string, 'null'] }
+        cleared: { type: array, items: { type: string, format: uuid } }
+
+    ProductIdentityHistoryEvent:
+      type: object
+      required: [id, action, event_label_fa, entity_type, entity_id, actor_label_fa, at]
+      properties:
+        id: { type: string }
+        action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+        event_label_fa: { type: string }
+        entity_type: { type: string, enum: [product_alias, product_attribute_value] }
+        entity_id: { type: string }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label_fa: { type: string }
+        at: { type: string }
+        def_code: { type: [string, 'null'] }
+        def_title: { type: [string, 'null'] }
+
+    ProductIdentityHistory:
+      type: object
+      required: [items, limit, source_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductIdentityHistoryEvent' }
+        limit: { type: integer }
+        source_fa: { type: string }
 
     ProductAttributeDef:
       type: object

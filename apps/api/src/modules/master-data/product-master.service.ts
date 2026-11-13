@@ -189,81 +189,12 @@ export class ProductMasterService {
   // =================================================================
   // alias
   // =================================================================
-  async listAliases(companyId: string, productId: string) {
-    return this.repo.listAliases(companyId, productId);
-  }
-
-  async addAlias(
-    companyId: string,
-    productId: string,
-    alias: string,
-    kind: string,
-    meta: RequestMeta,
-    actorUserId: string,
-  ) {
- return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
-    await this.access.assert(companyId, actorUserId, 'master.product.update');
-
-    await this.assertProduct(companyId, productId);
-    const aliasNorm = normalizeText(alias);
-    if (!aliasNorm) {
-      throw new BadRequestException({ code: 'invalid_alias', message_fa: 'مقدارِ alias خالی است.' });
-    }
-    // alias نباید با کد/بارکدِ موجود برخورد کند (resolution اسکن تک‌معنا بماند — H-1)
-    const collisions = await this.repo.findAliasConflicts(companyId, aliasNorm);
-    for (const c of collisions) {
-      if (c.kind === 'barcode') {
-        throw new ConflictException({
-          code: 'alias_collision',
-          message_fa: 'این alias با بارکدِ ثبت‌شده هم‌ارز است و resolution اسکن را دوپهلو می‌کند.',
-          details: { product_id: c.product_id },
-        });
-      }
-      if (c.product_id !== productId && (kind === 'code' || c.kind === 'product_code')) {
-        throw new ConflictException({
-          code: 'alias_collision',
-          message_fa: 'این alias با کد/alias محصولِ دیگری برخورد دارد.',
-          details: { product_id: c.product_id },
-        });
-      }
-      if (c.product_id !== productId && c.kind === 'alias') {
-        throw new ConflictException({
-          code: 'alias_collision',
-          message_fa: 'این alias برای محصولِ دیگری ثبت شده است.',
-          details: { product_id: c.product_id },
-        });
-      }
-    }
-    try {
-      const row = await this.repo.insertAlias(companyId, productId, alias, aliasNorm, kind);
-      await this.audit.record({
-        companyId, actorUserId, action: 'create', entityType: 'product_alias', entityId: row.id,
-        after: { product_id: productId, alias, kind }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-      });
-      return row;
-    } catch (err) {
-      if ((err as { code?: string }).code === '23505') {
-        throw new ConflictException({ code: 'duplicate_alias', message_fa: 'این alias برای همین کالا قبلاً ثبت شده است.' });
-      }
-      throw err;
-    }
-
- });
- }
-
-  async removeAlias(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
- return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
-    await this.access.assert(companyId, actorUserId, 'master.product.update');
-
-    const ok = await this.repo.deleteAlias(companyId, id);
-    if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'alias یافت نشد.' });
-    await this.audit.record({
-      companyId, actorUserId, action: 'delete', entityType: 'product_alias', entityId: id,
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-
- });
- }
+  // =================================================================
+  // alias (هویتِ کالا)
+  // TASK-PM-02-C7: این سطح به `ProductIdentityService`/`ProductIdentityController`
+  // منتقل شد (نمای کامل با برخوردهای نرم، افزودن/حذف با ممیزیِ fail-closed،
+  // رد صریح فیلدهای کلاینتی و سقفِ فنی). هیچ نسخهٔ تکراری باقی نمانده است.
+  // =================================================================
 
   // =================================================================
   // صفات (B3)
@@ -290,16 +221,39 @@ export class ProductMasterService {
         message_fa: 'برای صفتِ enum باید دست‌کم یک مقدارِ مجاز تعریف شود.',
       });
     }
-    const def = await this.repo.createAttributeDef(companyId, {
-      code: d.code, title: d.title, kind: d.kind,
-      is_variant_axis: d.is_variant_axis ?? false,
-      is_required: d.is_required ?? false,
-      sort_order: d.sort_order ?? 0,
-    });
+    // C7 (اصلاحِ انحرافِ قرارداد): قرارداد برای کدِ تکراری ۴۰۹ اعلام کرده است؛
+    // پیش‌تر نقضِ یکتایی به ۵۰۰ تبدیل می‌شد.
+    let def: AttributeDefRow;
+    try {
+      def = await this.repo.createAttributeDef(companyId, {
+        code: d.code, title: d.title, kind: d.kind,
+        is_variant_axis: d.is_variant_axis ?? false,
+        is_required: d.is_required ?? false,
+        sort_order: d.sort_order ?? 0,
+      });
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_attribute_code',
+          message_fa: 'صفتی با همین کد در کاتالوگ این شرکت وجود دارد.',
+        });
+      }
+      throw err;
+    }
     const enumValues: { id: string; value: string }[] = [];
     if (d.kind === 'enum') {
       for (const v of d.enum_values ?? []) {
-        enumValues.push(await this.repo.addEnumValue(def.id, v, normalizeAttributeValue('enum', v)));
+        try {
+          enumValues.push(await this.repo.addEnumValue(def.id, v, normalizeAttributeValue('enum', v)));
+        } catch (err) {
+          if ((err as { code?: string }).code === '23505') {
+            throw new ConflictException({
+              code: 'duplicate_enum_value',
+              message_fa: `مقدارِ «${v}» در فهرستِ مقادیرِ مجازِ این صفت تکراری است.`,
+            });
+          }
+          throw err;
+        }
       }
     }
     await this.audit.record({
@@ -320,7 +274,18 @@ export class ProductMasterService {
     if (def.kind !== 'enum') {
       throw new BadRequestException({ code: 'not_enum', message_fa: 'فقط صفتِ enum مقدارِ مجاز می‌گیرد.' });
     }
-    const row = await this.repo.addEnumValue(defId, value, normalizeAttributeValue('enum', value));
+    let row: { id: string; value: string };
+    try {
+      row = await this.repo.addEnumValue(defId, value, normalizeAttributeValue('enum', value));
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_enum_value',
+          message_fa: `مقدارِ «${value}» در فهرستِ مقادیرِ مجازِ این صفت تکراری است.`,
+        });
+      }
+      throw err;
+    }
     await this.audit.record({
       companyId, actorUserId, action: 'create', entityType: 'product_attribute_enum_value', entityId: row.id,
       after: { def_id: defId, value }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
@@ -341,135 +306,13 @@ export class ProductMasterService {
    * - اعتبارسنجیِ kind/enum (B3)؛ الزامِ is_required
    * - M-3: امضا قطعی؛ تغییرناپذیری پس از نخستینِ ارجاعِ عملیاتی
    */
-  /**
-   * خواندنِ مقادیرِ صفاتِ SKU + امضای فعلی (برای نمایش در UI جزئیات)
-   */
-  async getProductAttributeValues(
-    companyId: string,
-    productId: string,
-  ): Promise<{ values: AttributeValueRow[]; variant_signature: string | null }> {
-    await this.assertProduct(companyId, productId);
-    const values = await this.repo.listAttributeValues(productId);
-    const info = await this.repo.getProductAxisInfo(productId);
-    return { values, variant_signature: info?.variant_signature ?? null };
-  }
-
-  async setProductAttributeValues(
-    companyId: string,
-    productId: string,
-    values: { def_id: string; value_text?: string | null; value_num?: number | null; value_enum?: string | null }[],
-    meta: RequestMeta,
-    actorUserId: string,
-  ): Promise<{ values: AttributeValueRow[]; variant_signature: string | null }> {
- return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
-    await this.access.assert(companyId, actorUserId, 'master.product.update');
-
-    await this.assertProduct(companyId, productId);
-    const defs = await this.repo.listAttributeDefs(companyId);
-    const defMap = new Map(defs.map((d) => [d.id, d]));
-    const info = await this.repo.getProductAxisInfo(productId);
-    const hadSignature = Boolean(info?.variant_signature);
-    const hasRefs = hadSignature ? await this.repo.productHasOperationalRefs(productId) : false;
-
-    // اعتبارسنجی
-    for (const v of values) {
-      const def = defMap.get(v.def_id);
-      if (!def) {
-        throw new BadRequestException({ code: 'invalid_attribute', message_fa: 'صفتِ انتخاب‌شده معتبر نیست.', details: { def_id: v.def_id } });
-      }
-      const filled = [v.value_text, v.value_num, v.value_enum].filter((x) => x !== null && x !== undefined && x !== '');
-      if (filled.length > 1) {
-        throw new BadRequestException({ code: 'invalid_attribute_value', message_fa: `برای صفتِ «${def.title}» فقط یک مقدار مجاز است.` });
-      }
-      if (def.kind === 'number' && v.value_num === undefined) {
-        throw new BadRequestException({ code: 'invalid_attribute_value', message_fa: `صفتِ «${def.title}» عددی است.` });
-      }
-      if (def.kind === 'enum') {
-        const allowed = await this.repo.listEnumValues(def.id);
-        const norm = normalizeAttributeValue('enum', v.value_enum ?? null);
-        if (!allowed.some((a) => a.value_norm === norm)) {
-          throw new BadRequestException({
-            code: 'invalid_attribute_value',
-            message_fa: `مقدارِ «${v.value_enum}» برای صفتِ «${def.title}» در فهرستِ مقادیرِ مجاز نیست.`,
-          });
-        }
-      }
-    }
-
-    // الزامِ is_required در سطحِ SKU
-    const provided = new Set(values.map((v) => v.def_id));
-    for (const def of defs) {
-      if (def.is_required && !provided.has(def.id)) {
-        const existing = (await this.repo.listAttributeValues(productId)).some((pv) => pv.def_id === def.id);
-        if (!existing) {
-          throw new BadRequestException({
-            code: 'required_attribute_missing',
-            message_fa: `صفتِ «${def.title}» برای این کالا الزامی است.`,
-          });
-        }
-      }
-    }
-
-    // M-3: اگر امضای قبلی هست و SKU به ارجاعِ عملیاتی رسیده، تغییرِ محورها ممنوع
-    const axisIds = new Set(defs.filter((d) => d.is_variant_axis).map((d) => d.id));
-    const changesAxis = values.some((v) => axisIds.has(v.def_id));
-    if (hasRefs && (changesAxis || values.length === 0)) {
-      const changing = values.filter((v) => axisIds.has(v.def_id));
-      if (changing.length > 0 || values.length === 0) {
-        throw new ConflictException({
-          code: 'variant_signature_immutable',
-          message_fa:
-            'پس از نخستین ارجاعِ عملیاتی (سند/موجودی/قیمت)، محورهای variant تغییرناپذیرند؛ SKU جدید بسازید و SKU قبلی را بازنشسته کنید.',
-        });
-      }
-    }
-
-    const saved: AttributeValueRow[] = [];
-    for (const v of values) {
-      saved.push(
-        await this.repo.upsertAttributeValue({
-          productId,
-          defId: v.def_id,
-          valueText: v.value_text ?? null,
-          valueNum: v.value_num != null ? String(v.value_num) : null,
-          valueEnum: v.value_enum ?? null,
-        }),
-      );
-    }
-
-    // محاسبهٔ امضای قطعی از محورهای خانواده
-    const axisEntries: { defId: string; valueNorm: string }[] = [];
-    const allValues = await this.repo.listAttributeValues(productId);
-    for (const av of allValues) {
-      const def = defMap.get(av.def_id);
-      if (!def?.is_variant_axis) continue;
-      const raw = av.value_text ?? av.value_enum ?? av.value_num;
-      axisEntries.push({ defId: av.def_id, valueNorm: normalizeAttributeValue(def.kind as 'text' | 'number' | 'enum', raw) });
-    }
-    const signature = axisEntries.length > 0 ? variantSignature(axisEntries) : null;
-    try {
-      await this.repo.setProductVariantSignature(productId, signature);
-    } catch (err) {
-      // قیدِ uq_product_variant_signature: ترکیبِ تکراریِ variant در یک خانواده
-      if ((err as { code?: string }).code === '23505') {
-        throw new ConflictException({
-          code: 'duplicate_variant_signature',
-          message_fa: 'ترکیبِ این محورهای variant در همین خانواده قبلاً برای SKU دیگری ثبت شده است.',
-        });
-      }
-      throw err;
-    }
-
-    await this.audit.record({
-      companyId, actorUserId, action: 'update', entityType: 'product_attribute_value', entityId: productId,
-      before: { variant_signature: info?.variant_signature ?? null },
-      after: { values: saved, variant_signature: signature },
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-    return { values: saved, variant_signature: signature };
-
- });
- }
+  // =================================================================
+  // مقادیرِ صفاتِ SKU (B3 + M-3)
+  // TASK-PM-02-C7: خواندن/نوشتنِ مقادیر به `ProductIdentityService` منتقل شد
+  // (نمای کامل تعاریف+مقدار+الزام+محور+امضا، پاک‌کردنِ مقدار با `clear`،
+  // اصلاح ۵۰۰ واقعیِ مقدارِ خالی). کاتالوگِ صفات (تعریف/مقدارِ مجاز) همان‌جا در
+  // این سرویس می‌ماند چون منبعِ حقیقتِ کاتالوگ است.
+  // =================================================================
 
   // =================================================================
   // روابط (جایگزین/مکمل)

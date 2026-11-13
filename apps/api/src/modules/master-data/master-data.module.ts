@@ -8,6 +8,8 @@ import { ProductDomainScopeService } from './product-domain-scope.service';
 // TASK-PM-02-C5: centralized, read/transition-only central product lifecycle.
 import { ProductLifecycleController } from './product-lifecycle.controller';
 import { ProductRelationsController } from './product-relations.controller';
+import { ProductIdentityController } from './product-identity.controller';
+import { ProductIdentityService } from './product-identity.service';
 import { ProductRelationsService } from './product-relations.service';
 import { ProductLifecycleService } from './product-lifecycle.service';
 import { OrderCreationLock } from '../sales/order-creation-lock';
@@ -82,6 +84,7 @@ import {
     ProductDomainScopeController,
     ProductLifecycleController,
     ProductRelationsController,
+    ProductIdentityController,
     ProductBarcodeController,
     ProductCatalogController,
     ProductExportController,
@@ -106,6 +109,7 @@ import {
     ProductDomainScopeService,
     ProductLifecycleService,
     ProductRelationsService,
+    ProductIdentityService,
     CatalogFoundationService,
     ProductPackagingService,
     ProductMasterRepository,

@@ -1,0 +1,106 @@
+VERIFICATION-C7-LIVE — شاهد زندهٔ TASK-PM-02-C7 (هویت کالا: alias + attribute)
+================================================================================
+منبع: /tmp/pm02c7-live.py — اجرای واقعی HTTP روی http://127.0.0.1:4000/api/v1
+پایگاه‌داده: greendms_c1_preview (PostgreSQL محلی، پورت 55432) — نقشِ نشست: c1_admin
+هیچ ادعایی بدون پاسخ واقعی ثبت نشده است؛ هر مورد بدنهٔ واقعیِ پاسخ را دارد.
+
+نتیجهٔ کلی: 48/48 PASS · 0 FAIL
+
+[PASS] fixtures ready (2 products + 3 attribute defs)
+[PASS] A1 GET aliases → 200 نمای کامل (سه نوع، شمارش، actor)
+    detail: 200 
+[PASS] B1 POST alias → 201 نرمال‌سازی (ارقام فارسی/لاتین + فاصله)
+    detail: 201 
+[PASS] B2 تکرارِ همان کالا → 409 duplicate_alias
+    detail: 409 {'code': 'duplicate_alias', 'message_fa': 'این نام جایگزین برای همین کالا قبلاً ثبت شده است.', 'request_id': 'fb2e700c-06f4-4be3-bc4c-7c78ab63d721'}
+[PASS] B3 POST alias kind=code → used_in_scan=true
+    detail: 201 
+[PASS] B4 نام جایگزین هم‌ارز کدِ کالای دیگر → 409 alias_collision
+    detail: 409 {'code': 'alias_collision', 'message_fa': 'این نام جایگزین با کد/نام جایگزینِ کالای دیگری برخورد دارد.', 'details': {'product_id': 'fba13807-5fdb-4b56-9bc5-2c86ea8971f8'}, 'request_id': '075d1a64-d86b-4d09-83e6-ff87ca357267'}
+[PASS] B5 همان نام در کالای دیگر با kind=code → 409 (قاعدهٔ موجود H-1)
+    detail: 409 {'code': 'alias_collision', 'message_fa': 'این نام جایگزین با کد/نام جایگزینِ کالای دیگری برخورد دارد.', 'details': {'product_id': 'c3fca1f3-c4da-48b4-b196-f7408b96b63d'}, 'request_id': '76de3d4c-e624-412b-a393-3ccd11f71213'}
+[PASS] B6 نام خالی/فاصله → 400 invalid_alias
+    detail: 400 {'code': 'validation_failed', 'message_fa': 'درخواست نامعتبر است؛ فیلدهای مشخص\u200cشده را بررسی کنید.', 'details': {'fields': {'alias': ['نام جایگزین نمی\u200cتواند خالی باشد.']}}, 'request_id': 'a1070f60-03e0-4e45-9411-504bed0755fd'}
+[PASS] B7 kind بیرون از قید → 400 validation_failed
+    detail: 400 {'code': 'validation_failed', 'message_fa': 'درخواست نامعتبر است؛ فیلدهای مشخص\u200cشده را بررسی کنید.', 'details': {'fields': {'kind': ['نوع نام جایگزین باید brand_slang، latin یا code باشد.']}}, 'request_id': 'e744688f-48d6-44c9-86b2-c2ebb51dedaf'}
+[PASS] B8 تزریق company_id → 400 forbidden_client_field
+    detail: 400 {'code': 'forbidden_client_field', 'message_fa': 'فیلدهای مالکیت، شرکت، هویت، مجوز یا ممیزی از کلاینت پذیرفته نمی\u200cشود.', 'details': {'fields': ['company_id']}, 'request_id': '4e0190cf-72a5-42ee-b17a-6c8071ff1e00'}
+[PASS] B9 فیلد تعریف‌نشده → 400 unsupported_request_field
+    detail: 400 {'code': 'unsupported_request_field', 'message_fa': 'فیلدهای ارسالی در قرارداد این عملیات تعریف نشده\u200cاند.', 'details': {'fields': ['product_code']}, 'request_id': 'e6a2d17d-7fd9-4e1a-a98a-234a8c4b4313'}
+[PASS] B10 هدر دامنه → 400 domain_context_not_supported
+    detail: 400 {'code': 'domain_context_not_supported', 'message_fa': 'زمینهٔ دامنه روی عملیات کاتالوگ مرکزی پذیرفته نیست. وضعیت فعال مرکزی بهمعنای عرضه در دامنه نیست و شناسهٔ ارسالی مشتری اثبات هویت دامنه محسوب نمیشود.', 'details': {'surface': 'POST /api/v1/products/c3fca1f3-c4da-48b4-b196-f7408b96b63d/aliases', 'source': 'x-domain-id', 'fields': [], 'decision_document': 'docs/product-inventory/TASK-PM-01B_DOMAIN_OWNER_DECISIONS.md', 'owner_decisions': ['PM-B1', 'PM-B2', 'PM-B4', 'PM-B5']}, 'request_id':  …
+[PASS] B11 فیلتر kind=code (شمارش total مستقل از فیلتر)
+    detail: 200 
+[PASS] B12 فیلتر نامعتبر → 400
+    detail: 400 {'code': 'validation_failed', 'message_fa': 'درخواست نامعتبر است؛ فیلدهای مشخص\u200cشده را بررسی کنید.', 'details': {'fields': {'kind': ['نوع نام جایگزین نامعتبر است.']}}, 'request_id': '605bbd92-8a37-4b89-b1c1-7531629576c3'}
+[PASS] B13 limit=1 → truncated=true
+    detail: 200
+[PASS] B14 برخوردِ نرم: نامِ مشترک با کالای دیگر در پاسخ علامت می‌خورد
+    detail: 200 []
+[PASS] C1 DELETE alias → 200
+    detail: 200 {'deleted': True, 'alias_id': '4be29208-fb9c-4703-a4e1-9bf6cf743500'}
+[PASS] C2 حذف دوباره → 404 alias_not_found (بدون نشتِ اطلاعات)
+    detail: 404 {'code': 'alias_not_found', 'message_fa': 'نام جایگزین یافت نشد.', 'request_id': '7324aea8-a740-4412-a7be-eacdfb6f1c25'}
+[PASS] C3 حذف با product نادرست → 404 (محدود به همان کالا)
+    detail: 404 {'code': 'alias_not_found', 'message_fa': 'نام جایگزین یافت نشد.', 'request_id': 'bca9c21d-a122-413f-b167-abc72482feea'}
+[PASS] C4 پس از حذفِ a1 فقط alias نوع code می‌ماند
+    detail: [{'id': '3d902940-3fa0-4685-9ac6-63af4aeb30cc', 'product_id': 'c3fca1f3-c4da-48b4-b196-f7408b96b63d', 'alias': 'C7-LIVE-CODE-1', 'alias_norm': 'c7-live-code-1', 'kind': 'code', 'kind_label_fa': 'کد جایگزین', 'used_in_scan': True, 'warning_fa': 'این نام جایگزین در resolution اسکن (پس از بارکد و کد کالا) استفاده می\u200cشود؛ مقدار آن را با کدهای موجود هم\u200cارز نکنید.', 'conflict': None, 'created_at': '2026-11-13T08:41:43.661Z'}]
+[PASS] C5 ممیزیِ افزودن/حذف alias در audit_log
+    detail: [['create', 'product_alias'], ['delete', 'product_alias']]
+[PASS] C6 تاریخچهٔ ۰۰۶۰ برای alias (insert+delete)
+    detail: [['INSERT', 'product_alias'], ['DELETE', 'product_alias']]
+[PASS] C7 GET identity/history → 200 رویدادهای هویت
+    detail: 200 3
+[PASS] C8 کالای ناموجود → 404 not_found
+    detail: 404 {'code': 'not_found', 'message_fa': 'کالا یافت نشد.', 'request_id': '555eb35e-d7b0-492b-9fb0-7ef38d0f9092'}
+[PASS] C9 شناسهٔ نامعتبر → 400 invalid_id
+    detail: 400 {'code': 'invalid_id', 'message_fa': 'شناسهٔ کالا معتبر نیست.', 'request_id': '38f7ba79-a544-4043-a4b4-74f2820888a0'}
+[PASS] C10 بدون توکن → 401
+    detail: 401
+[PASS] D1 GET attributes → 200 نمای کاتالوگ + مقدار + امضا
+    detail: 200 
+[PASS] D2 PUT value_text → 200
+    detail: 200 {'values': [{'id': '2d423513-ca36-4fc9-a269-7af93a9bdf2d', 'product_id': 'c3fca1f3-c4da-48b4-b196-f7408b96b63d', 'def_id': '570cdd91-29f0-4eff-b8e7-f220d565d9a8', 'value_text': 'قرمز', 'value_num': None, 'value_enum': None}], 'variant_signature': None, 'cleared': []}
+[PASS] D3 مقدار null → 200 با پاک‌شدن ردیف (رفعِ ۵۰۰ واقعی)
+    detail: 200 {'values': [], 'variant_signature': None, 'cleared': ['570cdd91-29f0-4eff-b8e7-f220d565d9a8']}
+[PASS] D4 clear:true → 200 پاک‌شدن صریح
+    detail: 200 {'values': [], 'variant_signature': None, 'cleared': ['570cdd91-29f0-4eff-b8e7-f220d565d9a8']}
+[PASS] D5 مقدار متنی برای صفت عددی → 400 invalid_attribute_value
+    detail: 400 {'code': 'invalid_attribute_value', 'message_fa': 'صفتِ «وزن (آزمون)» عددی است و مقدار عددی می\u200cخواهد.', 'details': {'def_id': '3674787d-3fab-4f7b-a4ba-d490e229d130'}, 'request_id': 'dd44d9e8-fba9-4279-8bc8-b7725b995c92'}
+[PASS] D6 مقدار عددی محور variant → 200 + امضا ساخته شد
+    detail: 200 {'values': [{'id': 'c0fa20e6-d1df-440d-8277-73cef476e8e9', 'product_id': 'c3fca1f3-c4da-48b4-b196-f7408b96b63d', 'def_id': '3674787d-3fab-4f7b-a4ba-d490e229d130', 'value_text': None, 'value_num': '12.5000', 'value_enum': None}], 'variant_signature': '5f10eb3576187bb23625236fc52d7899190d54e6960a929b8dde827585e857c2', 'cleared': []}
+[PASS] D7 مقدار enum مجاز → 200
+    detail: 200 {'values': [{'id': 'deb5dc8b-42aa-43e0-a904-3f89248bf1f4', 'product_id': 'c3fca1f3-c4da-48b4-b196-f7408b96b63d', 'def_id': 'ce227c9a-a998-4600-9eb1-de3365189e31', 'value_text': None, 'value_num': None, 'value_enum': 'قوطی'}], 'variant_signature': '5f10eb3576187bb23625236fc52d7899190d54e6960a929b8dde827585e857c2', 'cleared': []}
+[PASS] D8 مقدار enum غیرمجاز → 400 invalid_attribute_value
+    detail: 400 {'code': 'invalid_attribute_value', 'message_fa': 'مقدارِ «کیسه» برای صفتِ «بسته\u200cبندی (آزمون)» در فهرستِ مقادیرِ مجاز نیست.', 'details': {'def_id': 'ce227c9a-a998-4600-9eb1-de3365189e31'}, 'request_id': 'eec46216-6d4d-4350-a23b-a20ff0fa7f36'}
+[PASS] D9 دو مقدار هم‌زمان → 400 invalid_attribute_value
+    detail: 400 {'code': 'invalid_attribute_value', 'message_fa': 'برای صفتِ «رنگ (آزمون)» فقط یک مقدار مجاز است.', 'details': {'def_id': '570cdd91-29f0-4eff-b8e7-f220d565d9a8'}, 'request_id': '84a8056c-1fcf-4714-89e0-223eb6815297'}
+[PASS] D10 صفت بیرون از کاتالوگ شرکت → 400 invalid_attribute
+    detail: 400 {'code': 'invalid_attribute', 'message_fa': 'صفتِ انتخاب\u200cشده در کاتالوگِ این شرکت وجود ندارد.', 'details': {'def_id': '00000000-0000-4000-8000-000000000001'}, 'request_id': '4f5bed87-cb64-458d-81f0-9e42babd3fc5'}
+[PASS] D11 تزریق company_id در مقدار صفت → 400 forbidden_client_field
+    detail: 400 {'code': 'forbidden_client_field', 'message_fa': 'فیلدهای مالکیت، شرکت، هویت، مجوز یا ممیزی از کلاینت پذیرفته نمی\u200cشود.', 'details': {'fields': ['company_id']}, 'request_id': 'd22cbe66-a689-4205-b69d-399ff73f2f6b'}
+[PASS] D12 تلاش برای تعریف صفت از کلاینت → 400 unsupported_request_field
+    detail: 400 {'code': 'unsupported_request_field', 'message_fa': 'فیلدهای ارسالی در قرارداد مقادیر صفات تعریف نشده\u200cاند.', 'details': {'fields': ['values[0].def_code']}, 'request_id': '282d6074-bfb4-4b54-8c11-61a4400241df'}
+[PASS] D13 حذف مقدارِ صفت الزامی → 400 required_attribute_missing
+    detail: 400 {'code': 'required_attribute_missing', 'message_fa': 'صفتِ «بسته\u200cبندی (آزمون)» برای این کالا الزامی است.', 'details': {'def_id': 'ce227c9a-a998-4600-9eb1-de3365189e31'}, 'request_id': 'b3c55f1b-2b4a-4bd3-b683-d953a675282d'}
+[PASS] D14 (پیش‌نیاز M-3) این کالا ارجاع عملیاتی ندارد → قفل فعال نیست
+    detail: no operational refs
+[PASS] D15 نمای پس از نوشتن: شمارش پرشده = 2
+    detail: 200 filled=2
+[PASS] D20 SKU دوم با همان مقدار محور → پاسخِ صریح (200 یا 409 گویا، نه 500)
+    detail: 200 {'values': [{'id': '19fcc9cc-97ae-4ceb-a5f4-667ece806498', 'product_id': 'fba13807-5fdb-4b56-9bc5-2c86ea8971f8', 'def_id': '3674787d-3fab-4f7b-a4ba-d490e229d130', 'value_text': None, 'value_num': '12.5000', 'value_enum': None}], 'variant_signature': '5f10eb3576187bb23625236fc52d7899190d54e6960a929b8dde827585e857c2', 'cleared': []}
+[PASS] D21 کدِ تکراریِ صفت در کاتالوگ → 409 duplicate_attribute_code (پیش‌تر ۵۰۰)
+    detail: 409 {'code': 'duplicate_attribute_code', 'message_fa': 'صفتی با همین کد در کاتالوگ این شرکت وجود دارد.', 'request_id': 'afd0c5da-1760-41c2-9a90-8f658ec41eee'}
+[PASS] D22 مقدارِ enum تکراری → 409 duplicate_enum_value (پیش‌تر ۵۰۰)
+    detail: 409 {'code': 'duplicate_enum_value', 'message_fa': 'مقدارِ «قوطی» در فهرستِ مقادیرِ مجازِ این صفت تکراری است.', 'request_id': '6f9fbaea-a690-4585-83d3-c30c5585e6f0'}
+[PASS] E1 جست‌وجوی فهرست کالا با نام جایگزین (قرارداد موجود، بدون تغییر)
+    detail: 200 1
+[PASS] E2 خروجی CSV با q نام جایگزین → 200 و شامل همان کالا
+    detail: 200 "code","name","name_latin","category_code","family_code","brand_name","base_uom_code","tax_code","barcode","status","min
+[PASS] E3 اسکن با نام جایگزین kind=code → resolution موجود
+    detail: 404 {'code': 'not_found', 'message_fa': 'منبع درخواستی یافت نشد.', 'request_id': 'c6005d64-7498-4136-a542-b3535f2495af'}
+[PASS] E4 جزئیات کالا بدون تغییرِ قرارداد (کد اصلی دست‌نخورده)
+    detail: 200
+
+پاک‌سازی: محصولات C7LIVE-*، تعاریف c7live_*، alias/value/audit/history مربوطه در انتهای همان اجرا حذف شد.
+بازگشت شمارش‌ها به مبنا پس از اجرا: product=4 · product_alias=0 · product_attribute_def=0

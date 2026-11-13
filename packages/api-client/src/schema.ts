@@ -2897,10 +2897,16 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** فهرست aliasهای کالا */
+        /**
+         * نمای نام‌های جایگزین کالا (سه نوعِ مصوب + برخوردهای نرم)
+         * @description TASK-PM-02-C7 — فقط سه نوعِ موجود در قید `0046`: `brand_slang`، `latin`، `code`. یکتاییِ DB فقط `(product_id, alias_norm)` است؛ برخورد با نام جایگزینِ کالای دیگر در پاسخ به‌صورت **اطلاع‌رسان** (`conflict`) گزارش می‌شود و قاعدهٔ یکتاییِ شرکتی ساخته نمی‌شود (C7-D1).
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    kind?: "brand_slang" | "latin" | "code";
+                    limit?: number;
+                };
                 header?: never;
                 path: {
                     id: components["parameters"]["idPath"];
@@ -2909,21 +2915,26 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description aliasها */
+                /** @description نمای نام‌های جایگزین */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductAlias"][];
+                        "application/json": components["schemas"]["ProductAliasOverview"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
-        /** ثبت alias (نرمال‌سازی + جلوگیری از برخورد با کد/بارکد — H-1) */
+        /**
+         * افزودن نام جایگزین (نرمال‌سازی + جلوگیری از برخورد H-1)
+         * @description مقدار در سرور نرمال می‌شود (NFC، ارقامِ فارسی/عربی→لاتین، فشردن فاصله، casefold). نام جایگزین هم‌ارز با بارکد یا کد کالا، و نام جایگزینِ کالای دیگر (طبق بررسی موجود) با ۴۰۹ رد می‌شود. کد اصلی کالا هرگز تغییر نمی‌کند.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -2942,17 +2953,19 @@ export interface paths {
                          * @enum {string}
                          */
                         kind?: "brand_slang" | "latin" | "code";
+                        /** @description تأیید صریح اپراتور */
+                        confirm_add?: boolean;
                     };
                 };
             };
             responses: {
-                /** @description alias ثبت شد */
+                /** @description نام جایگزین ثبت شد */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductAlias"];
+                        "application/json": components["schemas"]["ProductAliasItem"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -2968,11 +2981,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product-aliases/{aliasId}": {
+    "/products/{id}/aliases/{aliasId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                id: components["parameters"]["idPath"];
                 aliasId: string;
             };
             cookie?: never;
@@ -2980,12 +2994,13 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** حذف alias */
+        /** حذف نام جایگزین (فقط ردیف همین کالا و همین شرکت) */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    id: components["parameters"]["idPath"];
                     aliasId: string;
                 };
                 cookie?: never;
@@ -2998,11 +3013,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
+                        "application/json": components["schemas"]["ProductAliasDeleteResult"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -3173,7 +3187,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** مقادیرِ صفاتِ SKU + امضای فعلیِ variant (نمایش در UI جزئیات) */
+        /**
+         * نمای صفات کالا (کاتالوگِ شرکت + مقدار + الزام + محور variant)
+         * @description TASK-PM-02-C7 — مدل، EAVِ محدودِ موجود در `0046` است: کاتالوگ صفت در سطح شرکت (`product_attribute_def` با `kind ∈ {text, number, enum}` و `is_variant_axis`/`is_required`)، مقادیر در سطح SKU (`product_attribute_value` با قید «دقیقاً یک ستونِ مقدار»). این مسیر فقط همان مدل را می‌خواند و سیاست تازه‌ای نمی‌سازد.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -3185,24 +3202,25 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description مقادیر + امضا */
+                /** @description نمای صفات */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            values: components["schemas"]["ProductAttributeValue"][];
-                            variant_signature: string | null;
-                        };
+                        "application/json": components["schemas"]["ProductAttributesOverview"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
-        /** ثبت مقادیرِ صفاتِ SKU + محاسبهٔ امضای variant (M-3؛ تغییرناپذیر پس از ارجاعِ عملیاتی) */
+        /**
+         * ثبت/ویرایش/پاک‌کردن مقادیر صفات + امضای variant (M-3)
+         * @description همان اعتبارسنجی‌های موجود: تطابقِ ستونِ مقدار با `kind`، مقدارِ enum فقط از فهرستِ مجازِ همان صفت، الزامِ `is_required` در سطح شرکت، و تغییرناپذیریِ محورهای variant پس از نخستین ارجاع عملیاتی (`variant_signature_immutable`). `clear: true` یا مقدارِ خالی، ردیفِ مقدار را **حذف** می‌کند (رفتار قبلی برای مقدارِ خالی خطای ۵۰۰ می‌داد).
+         */
         put: {
             parameters: {
                 query?: never;
@@ -3215,27 +3233,18 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        values: {
-                            /** Format: uuid */
-                            def_id: string;
-                            value_text?: string | null;
-                            value_num?: number | null;
-                            value_enum?: string | null;
-                        }[];
+                        values: components["schemas"]["ProductAttributeValueInput"][];
                     };
                 };
             };
             responses: {
-                /** @description مقادیر + امضا */
+                /** @description مقادیر ثبت شد */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            values?: components["schemas"]["ProductAttributeValue"][];
-                            variant_signature?: string | null;
-                        };
+                        "application/json": components["schemas"]["ProductAttributeValuesResult"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -3245,6 +3254,53 @@ export interface paths {
                 409: components["responses"]["Conflict"];
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/identity/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * تاریخچهٔ تغییرناپذیر هویت کالا (alias و مقادیر صفات — تریگر ۰۰۶۰)
+         * @description فقط رویدادهای `product_alias` و `product_attribute_value` همین شرکت که به این کالا مربوط‌اند؛ بدون before/after خام.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تاریخچه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductIdentityHistory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -15963,6 +16019,183 @@ export interface components {
             readonly alias_norm: string;
             /** @enum {string} */
             kind: "brand_slang" | "latin" | "code";
+        };
+        ProductAliasKindSpec: {
+            /** @enum {string} */
+            kind: "brand_slang" | "latin" | "code";
+            label_fa: string;
+            meaning_fa: string;
+            /** @description فقط kind=code در resolution اسکن استفاده می‌شود. */
+            used_in_scan: boolean;
+            evidence: string;
+        };
+        ProductAliasItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            alias: string;
+            alias_norm: string;
+            /** @enum {string} */
+            kind: "brand_slang" | "latin" | "code";
+            kind_label_fa: string;
+            used_in_scan: boolean;
+            warning_fa?: string | null;
+            /** @description برخوردِ نرم با نام جایگزینِ کالای دیگر — اطلاع‌رسان، نه یکتاییِ DB. */
+            conflict?: {
+                /** Format: uuid */
+                product_id?: string | null;
+                code?: string | null;
+                name?: string | null;
+            } | null;
+            created_at?: string | null;
+        };
+        ProductAliasOwnerDecision: {
+            id: string;
+            title_fa: string;
+            /** @enum {string} */
+            status: "BLOCKED" | "UNRESOLVED";
+            detail_fa: string;
+        };
+        ProductAliasOverview: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name?: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "discontinued";
+            };
+            /** @enum {string} */
+            scope: "central";
+            actor: {
+                can_view: boolean;
+                can_update: boolean;
+                unavailable_reason_fa?: string | null;
+            };
+            kinds: components["schemas"]["ProductAliasKindSpec"][];
+            items: components["schemas"]["ProductAliasItem"][];
+            /** @description سازگاریِ عقب‌رو: آرایهٔ سادهٔ ردیف‌های product_alias. */
+            aliases: components["schemas"]["ProductAlias"][];
+            counts: {
+                total: number;
+                brand_slang: number;
+                latin: number;
+                code: number;
+                truncated: boolean;
+            };
+            scan_resolution_fa?: string;
+            downstream_notes_fa: string[];
+            owner_decisions_fa: components["schemas"]["ProductAliasOwnerDecision"][];
+        };
+        ProductAliasDeleteResult: {
+            /** @constant */
+            deleted: true;
+            /** Format: uuid */
+            alias_id: string;
+        };
+        ProductAttributeKindSpec: {
+            /** @enum {string} */
+            kind: "text" | "number" | "enum";
+            label_fa: string;
+            meaning_fa: string;
+            evidence: string;
+        };
+        ProductAttributeCatalogEntry: {
+            /** Format: uuid */
+            def_id: string;
+            code: string;
+            title: string;
+            /** @enum {string} */
+            kind: "text" | "number" | "enum";
+            kind_label_fa: string;
+            is_variant_axis: boolean;
+            is_required: boolean;
+            sort_order: number;
+            enum_values: {
+                /** Format: uuid */
+                id: string;
+                value: string;
+            }[];
+            value: {
+                /** Format: uuid */
+                id: string | null;
+                value_text: string | null;
+                value_num: string | null;
+                value_enum: string | null;
+            };
+            filled: boolean;
+            warning_fa?: string | null;
+        };
+        ProductAttributesOverview: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name?: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "discontinued";
+            };
+            /** @enum {string} */
+            scope: "central";
+            actor: {
+                can_view: boolean;
+                can_update: boolean;
+                unavailable_reason_fa?: string | null;
+            };
+            variant_signature: string | null;
+            /** @description پس از نخستین ارجاع عملیاتی true؛ تغییر محورها ممنوع (M-3). */
+            signature_locked: boolean;
+            signature_rule_fa?: string;
+            required_policy_fa?: string;
+            kinds: components["schemas"]["ProductAttributeKindSpec"][];
+            attributes: components["schemas"]["ProductAttributeCatalogEntry"][];
+            /** @description سازگاریِ عقب‌رو: ردیف‌های خامِ product_attribute_value. */
+            values: components["schemas"]["ProductAttributeValue"][];
+            counts: {
+                total: number;
+                filled: number;
+                required: number;
+                required_missing: number;
+                variant_axes: number;
+            };
+            downstream_notes_fa: string[];
+            owner_decisions_fa: components["schemas"]["ProductAliasOwnerDecision"][];
+        };
+        ProductAttributeValueInput: {
+            /** Format: uuid */
+            def_id: string;
+            value_text?: string | null;
+            /** @description در بازهٔ numeric(19,4) */
+            value_num?: number | null;
+            value_enum?: string | null;
+            /** @description حذف مقدار ثبت‌شده برای این صفت */
+            clear?: boolean;
+        };
+        ProductAttributeValuesResult: {
+            values: components["schemas"]["ProductAttributeValue"][];
+            variant_signature: string | null;
+            cleared: string[];
+        };
+        ProductIdentityHistoryEvent: {
+            id: string;
+            /** @enum {string} */
+            action: "INSERT" | "UPDATE" | "DELETE";
+            event_label_fa: string;
+            /** @enum {string} */
+            entity_type: "product_alias" | "product_attribute_value";
+            entity_id: string;
+            /** Format: uuid */
+            actor_user_id?: string | null;
+            actor_label_fa: string;
+            at: string;
+            def_code?: string | null;
+            def_title?: string | null;
+        };
+        ProductIdentityHistory: {
+            items: components["schemas"]["ProductIdentityHistoryEvent"][];
+            limit: number;
+            source_fa: string;
         };
         ProductAttributeDef: {
             /** Format: uuid */

@@ -20,6 +20,7 @@ product-master-import-reliability.test.ts
 product-master-rls.test.ts
 product-master-security.test.ts
 product-master-snapshots.test.ts
+product-identity.test.ts
 rules-engine-behavior.test.ts
 view-isolation.test.ts
 product-catalog-foundation.test.ts
