@@ -567,7 +567,8 @@ describe('C13 / 22 — گاردِ ایزولاسیون (کدِ آزمایشی ن
       .map((f) => f.trim())
       .filter(Boolean)
       .filter(
-        (f) => !/(cross-field-identity|shadow-assessment|decision-matrix)\.candidate\.ts$/.test(f),
+        (f) =>
+          !/(cross-field-identity|shadow-assessment|decision-matrix|cross-type-collision)\.candidate\.ts$/.test(f),
       );
     const forbidden = files.filter(
       (f) => !/^test\/(c13-.*\.test\.ts|fixtures\/c13-.*\.ts)$/.test(f),

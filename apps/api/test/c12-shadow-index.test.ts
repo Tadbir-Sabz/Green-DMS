@@ -273,7 +273,7 @@ describe('C12 / 11 — isolation guard (experimental code must stay off producti
       .filter((f) => !f.endsWith('product-identity-normalization.candidate.ts'));
     const forbidden = files.filter(
       (f) =>
-        !/^(src\/modules\/master-data\/experimental\/(shadow-identity-(index|migration)|cross-field-identity|shadow-assessment)\.candidate\.ts|test\/c1[123]-.*\.test\.ts|test\/fixtures\/c1[23]-.*\.ts)$/.test(f),
+        !/^(src\/modules\/master-data\/experimental\/(shadow-identity-(index|migration)|cross-field-identity|shadow-assessment|cross-type-collision)\.candidate\.ts|test\/c1[123]-.*\.test\.ts|test\/fixtures\/c1[23]-.*\.ts)$/.test(f),
     );
     expect(forbidden, `production import of the C11 candidate: ${forbidden.join(', ')}`).toEqual([]);
   });
