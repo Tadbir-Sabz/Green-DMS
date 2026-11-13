@@ -1,0 +1,43 @@
+EVIDENCE-C8-PROBE-CLEANUP — وضعیتِ ردیف‌های ممیزی/تاریخچهٔ ناشی از probe زندهٔ C7
+==================================================================================
+منبع: PostgreSQL محلی greendms_c1_preview (پورت 55432) — نقشِ اجرا: postgres (ابرکاربر)
+زمانِ برداشت: 2026-11-13T10:09:49Z  (پیش از هر حذف در C8)
+روشِ انتساب: شناسه‌های پایدار (code/def_id/product code) — نه صرفاً زمان یا شمارش تقریبی.
+
+--- ۱) موجودیِ فعلیِ دو جدولِ شاهد ---
+audit(product_alias)|0
+history(product_alias)|0
+audit(c7 audit residue: def create)|13
+audit(c7 audit residue: value/alias)|0
+audit(total)|112
+history(total)|138
+history(c7 residue: def)|21
+history(c7 residue: product)|0
+
+--- ۲) انتسابِ قطعیِ ردیف‌های تاریخچهٔ صفات (همه متعلق به defهای probeاند) ---
+def-history rows total = 34 ; live product_attribute_def rows = 0  ⇒ هیچ def غیرِprobe‌ای در تاریخچه نیست.
+کدهای مشاهده‌شده: c7_probe_attr (۲ ردیف: INSERT,DELETE) · c7live_text (۸) · c7live_num (۸) · c7live_enum (۱۶)
+
+--- ۳) ردیف‌های مقدار/مقدارِ مجاز (۷۰ ردیف): همه به defهای حذف‌شده اشاره می‌کنند ---
+foreign-key check: هر ۷۰ ردیف → def_id وجود ندارد (def_exists_now=0)
+
+--- ۴) ردیف‌های محصولِ probe (۹ ردیف) ---
+C7-PROBE-1 (۱) · C7LIVE-P1 (۴) · C7LIVE-P2 (۴) — همه action=DELETE
+
+--- ۵) ممیزیِ مربوط به تعاریفِ صفت (۱۳ ردیف create، همه defهای probe) ---
+هیچ ردیفِ audit برای product_alias یا product_attribute_value باقی نمانده است (۰).
+
+--- ۶) مبناهای قابل استناد (پیش از C7) ---
+audit_log(product)=3 (سه کالای C2) — برابرِ مبنای ثبت‌شدهٔ C5 (audit_log(product)=3)
+product_catalog_history(product) INSERT=4 (چهار کالای موجود)
+product_alias: هیچ seed/مهاجرت/اسکریپت C1..C6 آن را در این پایگاه‌داده نمی‌سازد
+  (grep: هیچ insert into product_alias در migrations/ یا scripts؛ /tmp/pm02c6-live.py فاقد alias)
+
+--- ۷) نتیجه‌گیری ---
+ردیف‌های باقی‌مانده از probeها با شناسه اثبات‌پذیرند:
+  13 audit(product_attribute_def) + 34 history(def) + 70 history(value/enum) = 117  → همه از C7
+  9 history(product DELETE) از C7  (C7-PROBE-1 ۱ · C7LIVE-P1 ۴ · C7LIVE-P2 ۴)
+  جمعِ منتسب به C7: 126  (13+34+70+9)
+  20 ردیفِ دیگرِ history(product DELETE) از probeهای C5/C6 است
+  (C5-LIVE-PROBE ۴ · C5-PROBE-1 ۱ · C6-LIVE-A/B/C ۱۵) و در کارنامه‌های همان مراحل ثبت شده‌اند.
+هیچ ردیفِ پیش‌موجود یا غیرِprobe در مجموعهٔ منتسب به C7 نیست.

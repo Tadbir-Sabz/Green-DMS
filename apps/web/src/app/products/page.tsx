@@ -1,13 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, useRef, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
+import {
+  downloadProductExportCsv,
+  productExportFilename,
+  productExportNotice,
+  readProductExportMeta,
+} from './export';
 import { AppLoader } from '@/components/AppShell';
 import {
+  type Brand,
   type Category,
   type Product,
+  type Unit,
   type ScanResult,
   DIST_LABEL,
   STATUS_LABEL,
@@ -36,12 +45,17 @@ import {
 
 export default function ProductsPage(): React.JSX.Element {
   const router = useRouter();
+  const auth = useAuth();
+  const sort = useRef<'code_asc'|'code_desc'>('code_asc');
   const [ready, setReady] = useState(false);
 
   const [items, setItems] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -59,11 +73,28 @@ export default function ProductsPage(): React.JSX.Element {
     [categories],
   );
 
+  const brandName = useCallback(
+    (id: string | null | undefined): string => {
+      if (!id) return '—';
+      return brands.find((b) => b.id === id)?.name ?? '—';
+    },
+    [brands],
+  );
+
+  const unitLabel = useCallback(
+    (id: string | null | undefined): string => {
+      if (!id) return '—';
+      const unit = units.find((u) => u.id === id);
+      return unit ? `${unit.code} — ${unit.title}` : '—';
+    },
+    [units],
+  );
+
   const load = useCallback(async (query: string, st: string, cursor?: string) => {
     setLoading(true);
     setListError(null);
     const { data, error } = await api.GET('/products', {
-      params: { query: { q: query || undefined, status: st || undefined, cursor: cursor ?? undefined, limit: 100 } },
+      params: { query: { sort: sort.current, q: query || undefined, status: st || undefined, cursor: cursor ?? undefined, limit: 100 } },
     });
     setLoading(false);
     if (error) {
@@ -82,8 +113,48 @@ export default function ProductsPage(): React.JSX.Element {
     }
     setReady(true);
     void load('', '');
-    void api.GET('/product-categories').then(({ data }) => setCategories(data?.items ?? []));
+    // همهٔ مراجع (فعال و غیرفعال) برای نمایش درست مقادیر تاریخی کالاها.
+    void Promise.all([
+      api.GET('/reference-data/categories', { params: { query: { limit: 200 } } }),
+      api.GET('/reference-data/brands', { params: { query: { limit: 200 } } }),
+      api.GET('/reference-data/units', { params: { query: { limit: 200 } } }),
+    ]).then(([cats, brds, unts]) => {
+      const failure = cats.error ?? brds.error ?? unts.error;
+      if (failure) {
+        setListError(faError(failure));
+        return;
+      }
+      setCategories(cats.data?.items ?? []);
+      setBrands(brds.data?.items ?? []);
+      setUnits(unts.data?.items ?? []);
+    });
   }, [router, load]);
+
+  /** خروجی CSV از همان فیلترهای جاری فهرست — snapshot فقط-خواندنی سرور */
+  const doExport = async (): Promise<void> => {
+    setExporting(true);
+    setListError(null);
+    setNotice(null);
+    const query: { sort: 'code_asc' | 'code_desc'; q?: string; status?: 'active' | 'blocked' | 'discontinued'; limit: number } = {
+      sort: sort.current,
+      limit: 10000,
+    };
+    if (q.trim()) query.q = q.trim();
+    if (status) query.status = status as 'active' | 'blocked' | 'discontinued';
+    const { data, error, response } = await api.GET('/products/export', {
+      params: { query },
+      parseAs: 'text',
+    });
+    setExporting(false);
+    if (error || typeof data !== 'string') {
+      setListError(faError(error));
+      return;
+    }
+    const filename = productExportFilename(response.headers.get('content-disposition'));
+    downloadProductExportCsv(data, filename);
+    const meta = readProductExportMeta(response);
+    setNotice(`${productExportNotice(meta)} فایل «${filename}» دانلود شد.`);
+  };
 
   /** اسکنِ بارکد/کد — قطعی: یا به صفحهٔ کالا می‌رود یا پیامِ دقیق می‌دهد */
   const doScan = async (e: FormEvent): Promise<void> => {
@@ -145,6 +216,7 @@ export default function ProductsPage(): React.JSX.Element {
             <option value="discontinued">متوقف</option>
           </select>
         </label>
+        <label className="text-sm">ترتیب کد<select className={`${selectCls} mt-1 w-40`} defaultValue="code_asc" onChange={e=>{sort.current=e.target.value as 'code_asc'|'code_desc';void load(q,status);}}><option value="code_asc">صعودی</option><option value="code_desc">نزولی</option></select></label>
         <button type="submit" className={btnGhost}>
           جست‌وجو
         </button>
@@ -169,12 +241,23 @@ export default function ProductsPage(): React.JSX.Element {
       </form>
 
       <div className="mb-4 flex flex-wrap gap-3">
-        <Link href="/products/new" className={btnPrimary}>
+        <Link href="/products/settings" className={btnGhost}>خانواده‌ها و گروه‌ها</Link>
+        {auth.hasPermission('master.product.view') && <Link href="/products/catalog-history" className={btnGhost}>تاریخچه سراسری کاتالوگ</Link>}
+        {auth.hasPermission('master.product.view') && <Link href="/products/domain-integration" className={btnGhost}>وضعیت دامنه‌های عملیاتی</Link>}
+        {auth.hasPermission('master.product.create') && <Link href="/products/new" className={btnPrimary}>
           ＋ کالای جدید
-        </Link>
-        <Link href="/products/import" className={btnGhost}>
+        </Link>}
+        {auth.hasPermission('master.product.import') && <Link href="/products/import" className={btnGhost}>
           ورودِ گروهی (CSV)
-        </Link>
+        </Link>}
+        {auth.hasPermission('master.product.update') && <Link href="/products/bulk-maintenance" className={btnGhost}>
+          نگهداشت گروهی کالا
+        </Link>}
+        {auth.hasPermission('master.product.view') && (
+          <button type="button" onClick={() => void doExport()} disabled={exporting} className={btnGhost}>
+            {exporting ? 'در حال ساخت خروجی…' : 'خروجی CSV'}
+          </button>
+        )}
       </div>
 
       {notice && <p className={`mb-4 ${okCls}`}>{notice}</p>}
@@ -189,6 +272,8 @@ export default function ProductsPage(): React.JSX.Element {
               <th className={thCls}>نام</th>
               <th className={thCls}>نام لاتین</th>
               <th className={thCls}>گروه</th>
+              <th className={thCls}>برند</th>
+              <th className={thCls}>واحد پایه</th>
               <th className={thCls}>وضعیت</th>
               <th className={thCls}>نوع توزیع</th>
               <th className={thCls}>حداقل سفارش</th>
@@ -219,6 +304,8 @@ export default function ProductsPage(): React.JSX.Element {
                     {p.name_latin ?? '—'}
                   </td>
                   <td className={`${tdCls} text-ink-muted`}>{categoryName(p.category_id)}</td>
+                  <td className={`${tdCls} text-ink-muted`}>{brandName(p.brand_id)}</td>
+                  <td className={`${tdCls} text-ink-muted`}>{unitLabel(p.base_uom_id)}</td>
                   <td className={tdCls}>
                     <span className={statusBadgeCls(p.status)}>{STATUS_LABEL[p.status] ?? p.status}</span>
                   </td>

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { components } from "@dms/api-client";
 import { api, errorMessage } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/DataTable";
+import { EntityAttachmentLauncher } from "@/components/EntityAttachments";
 import { WarehouseGuard } from "@/components/auth/guards";
 import { useToast } from "@/components/ui/Toast";
 import { formatNumber } from "@/lib/format";
@@ -106,16 +107,27 @@ function StockCountInner() {
       key: "actions",
       header: "",
       align: "end",
-      render: (s) =>
-        canSubmit(s) ? (
-          <button
-            onClick={() => submit(s)}
-            disabled={submitting === s.id}
-            className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-xs focus-ring"
-          >
-            {submitting === s.id ? "..." : "پایان شمارش"}
-          </button>
-        ) : null,
+      render: (s) => (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* TASK-PM-02-C3: برگههای شمارش و شواهد تصویری همین سند */}
+          {s.id && (
+            <EntityAttachmentLauncher
+              ownerType="stock_count"
+              ownerId={s.id}
+              label={`سند انبارگردانی ${s.id.slice(0, 8)}`}
+            />
+          )}
+          {canSubmit(s) && (
+            <button
+              onClick={() => submit(s)}
+              disabled={submitting === s.id}
+              className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-brand-ink text-xs focus-ring"
+            >
+              {submitting === s.id ? "..." : "پایان شمارش"}
+            </button>
+          )}
+        </div>
+      ),
     },
   ];
 

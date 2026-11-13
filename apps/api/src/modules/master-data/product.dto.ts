@@ -13,9 +13,10 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { PRODUCT_LIFECYCLE_STATUSES } from './product-lifecycle.rules';
 
-/** وضعیت‌های مجاز product (check: product_status_check) */
-export const PRODUCT_STATUSES = ['active', 'blocked', 'discontinued'] as const;
+/** وضعیت‌های مجاز product (check: product_status_check) — مرجع واحد C5 */
+export const PRODUCT_STATUSES = PRODUCT_LIFECYCLE_STATUSES;
 /** نوع توزیع مجاز (check: product_distribution_kind_check) */
 export const DISTRIBUTION_KINDS = ['cold', 'warm', 'both'] as const;
 
@@ -118,6 +119,9 @@ export class UpdateProductDto extends PartialType(CreateProductDto) {
 
 /** GET /api/v1/products — صفحه‌بندی cursor + فیلترها (ضمیمه F) */
 export class ListProductsQueryDto {
+  @IsOptional()
+  @IsIn(['code_asc','code_desc'])
+  sort?: 'code_asc' | 'code_desc';
   @IsOptional()
   @IsString()
   @MaxLength(128)

@@ -1,0 +1,84 @@
+TASK-PM-02-C3 — شاهد زندهٔ همانمبدأ (Same-origin preview → Next rewrite → API)
+زمان اجرا: 2026-11-11T20:39:17Z
+پایه: http://127.0.0.1:3000/api/v1 (مرورگر/سند، بدون localhost مستقیم به API)
+توجه: ردیفهای مالک فقط در DB پیشنمایش ایجاد شدند (شاهد اجرا)، هیچ مهاجرت/seedای به مخزن اضافه نشد.
+توجه: MinIO/S3 تولیدی UNVERIFIED است؛ URLهای امضاشدهٔ 127.0.0.1:9100 از مرورگر کاربر قابل دسترس نیستند.
+
+POST   /auth/login                                                                                          → 200
+  ✓ نشست معتبر و توکن دریافت شد (توکن/URL امضاشده در شاهد ذخیره نشد).
+
+GET    /entity-attachments/sales_order/2fdd41bc-9c27-4ac8-b2fc-059b1905ea13                                 → 200
+  ✓ sales_order: «سفارش فروش» · مسیر /orders · بدون فیلد دامنهای
+GET    /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315                                     → 200
+  ✓ invoice: «فاکتور فروش» · مسیر /invoices · بدون فیلد دامنهای
+GET    /entity-attachments/return_request/e9cb18e4-8a85-41c2-bedc-ffba1c6d161f                              → 200
+  ✓ return_request: «درخواست مرجوعی» · مسیر /returns · بدون فیلد دامنهای
+GET    /entity-attachments/stock_count/c290c772-e873-4b54-aa1e-e8626664a9d7                                 → 200
+  ✓ stock_count: «سند انبارگردانی» · مسیر /stock-count · بدون فیلد دامنهای
+GET    /entity-attachments/journal_entry/56176299-e89b-48bd-b626-6e9e788a4cc3                               → 200
+  ✓ journal_entry: «سند حسابداری» · مسیر /gl · بدون فیلد دامنهای
+
+POST   /entity-attachments/sales_order/2fdd41bc-9c27-4ac8-b2fc-059b1905ea13 [شاهد-sales_order.png]          → 201
+  ✓ sales_order: id=d6a7883d-bfa6-4fa2-99cb-24551e5b180b · kind=تصویر · SHA-256 ثبت شد · URL امضاشده صادر شد
+POST   /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315 [گزارش-مالی.pdf]                    → 201
+  ✓ invoice: id=8a4b2227-1e8f-4b25-bce3-7fde2f901260 · kind=سند · SHA-256 ثبت شد · URL امضاشده صادر شد
+POST   /entity-attachments/return_request/e9cb18e4-8a85-41c2-bedc-ffba1c6d161f [شاهد-return_request.png]    → 201
+  ✓ return_request: id=a579b6c0-bea5-4b7e-83c9-d8809c75f958 · kind=تصویر · SHA-256 ثبت شد · URL امضاشده صادر شد
+POST   /entity-attachments/stock_count/c290c772-e873-4b54-aa1e-e8626664a9d7 [شاهد-stock_count.png]          → 201
+  ✓ stock_count: id=7907e037-7830-4dfe-894b-06802c54d187 · kind=تصویر · SHA-256 ثبت شد · URL امضاشده صادر شد
+POST   /entity-attachments/journal_entry/56176299-e89b-48bd-b626-6e9e788a4cc3 [شاهد-journal_entry.png]      → 201
+  ✓ journal_entry: id=2ac1b438-2ed9-4785-a3fa-2b6365ae9871 · kind=تصویر · SHA-256 ثبت شد · URL امضاشده صادر شد
+
+GET    /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315                                     → 200
+  ✓ فهرست فاکتور: {'images': 0, 'documents': 1, 'total': 1} · برچسب «فاکتور فروش»
+GET    /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315/8a4b2227-1e8f-4b25-bce3-7fde2f901260/url → 200
+  ✓ URL امضاشدهٔ تازه با عمر محدود (300 ثانیه)؛ URL در شاهد ذخیره نشد
+GET    /entity-attachments/sales_order/2fdd41bc-9c27-4ac8-b2fc-059b1905ea13/8a4b2227-1e8f-4b25-bce3-7fde2f901260/url → 404
+  ✓ ضمیمهٔ مالک دیگر ۴۰۴ (نه افشای وجود): 'entity_attachment_not_found'
+
+GET    /entity-attachments/brand/b43e704d-2a4b-4066-b17a-88351cfb0315                                       → 400
+  ✓ نوع مالک اختراعی رد شد: 'unsupported_owner_type'
+GET    /entity-attachments/product/7bf39ab6-b1d6-43a6-a758-feaf09b64a5b                                     → 400
+  ✓ product عمداً در انحصار نمای C1 ماند: 'unsupported_owner_type'
+GET    /entity-attachments/other/b43e704d-2a4b-4066-b17a-88351cfb0315                                       → 400
+  ✓ other راستیآزماییناپذیر رد شد: 'unsupported_owner_type'
+GET    /entity-attachments/invoice/not-a-uuid                                                               → 400
+  ✓ شناسهٔ نامعتبر ۴۰۰: 'invalid_owner_id'
+GET    /entity-attachments/invoice/6e7c5f61-27d7-4676-9de5-26d1e38e4eaa                                     → 404
+  ✓ مالک ناموجود ۴۰۴: 'owner_not_found'
+POST   /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315 [تزریق.png]                         → 400
+  ✓ تزریق مالک/شرکت در بدنه ۴۰۰: 'entity_attachment_owner_scope_rejected'
+POST   /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315 [فیلد.png]                          → 400
+  ✓ فیلد ناشناختهٔ بدنه ۴۰۰: 'unsupported_request_field'
+POST   /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315 [دامنه.png]                         → 400
+  ✓ هدر x-domain-id (همسانی B2) ۴۰۰: 'domain_context_not_supported'
+GET    /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315?available=true                      → 400
+  ✓ ویژگی دامنهای در کوئری ۴۰۰: 'domain_property_rejected'
+GET    /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315?foo=1                               → 400
+  ✓ پارامتر ناشناختهٔ کوئری ۴۰۰: 'unsupported_request_field'
+POST   /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315 [جعلی.png]                          → 415
+  ✓ امضای بایتی جعلی ۴۱۵: 'content_type_mismatch'
+GET    /entity-attachments/invoice/b43e704d-2a4b-4066-b17a-88351cfb0315                                     → 401
+  ✓ درخواست بدون نشست ۴۰۱
+
+GET    /attachments?owner_type=invoice&owner_id=b43e704d-2a4b-4066-b17a-88351cfb0315                        → 200
+  ✓ GET /attachments عمومی بدون تغییر: 1 ضمیمه
+GET    /products/7bf39ab6-b1d6-43a6-a758-feaf09b64a5b/media                                                 → 200
+  ✓ نمای C1 بدون تغییر: {'images': 1, 'documents': 0, 'total': 1} · قاعدهٔ «اصلی (خودکار)» پابرجا
+
+WEB    /attachments-center                                                                                  → 200
+WEB    /orders                                                                                              → 200
+WEB    /invoices                                                                                            → 200
+WEB    /returns                                                                                             → 200
+WEB    /stock-count                                                                                         → 200
+WEB    /gl                                                                                                  → 200
+
+نتیجه: PASS — پنج موجودیت سرتاسری (فهرست/آپلود/URL/ممیزی/مرزها) روی همان لایهٔ مشترک.
+مرزها: بدون مهاجرت، مجوز، نقش، grant، RLS یا نوع مالک تازه؛ PM-B*/Q*/G-03 و deploy همچنان BLOCKED.
+UNVERIFIED: مرورگر دستی RTL/a11y/console و round-trip production MinIO/S3.
+
+راستیآزمایی پایگاهدادهٔ همان پیشنمایش (پس از اجرای بالا):
+  select count(*) from audit_log where entity_type='entity_attachment'  → 5
+  ✓ پنج رویداد create، یکی به ازای هر موجودیت، دقیقاً در همان تراکنش ثبت ردیف ضمیمه.
+  ✓ تعداد ردیفهایی که after_data آنها حاوی URL امضاشده، storage_key یا "url" باشد → 0
+  ✓ attachmentها به ترتیب owner_type: invoice/journal_entry/return_request/sales_order/stock_count و product تاریخی C1.

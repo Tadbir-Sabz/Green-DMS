@@ -23,8 +23,9 @@ export const PG_POOL = 'PG_POOL';
         // docs/db-privilege-architecture.md):
         //   * APP_DATABASE_URL → نقشِ dms_app: غیرِابرکاربر، غیرِBYPASSRLS و مالکِ
         //     هیچ جدولی نیست ⇒ RLS دربارهٔ او واقعاً اعمال می‌شود.
-        //   * DATABASE_URL → نقشِ مدیریتی/مهاجرت (scripts/migrate.mjs فقط از همین
-        //     استفاده می‌کند).
+        //   * DATABASE_URL → هویتِ مالکِ اشیاء (`scripts/migrate.mjs` فقط از همین
+        //     استفاده میکند)؛ در مدل جاری G/H این «نقش مهاجرت» بهمعنای `dms_migrator`
+        //     مستقل ترمیم پارتیشن نیست (`dms_migrator` مالک والدها و دارای EXECUTE تابع نیست).
         // در production بازگشتِ بی‌صدا به DATABASE_URL **ممنوع** است: resolveDatabaseIdentity
         // خطایِ فارسی می‌دهد و برنامه بالا نمی‌آید، چون اتصالِ مدیریتی یعنی RLS بی‌اثر.
         // بیرون از production همان راحتیِ پیشین حفظ می‌شود، ولی با هشدارِ صریح.

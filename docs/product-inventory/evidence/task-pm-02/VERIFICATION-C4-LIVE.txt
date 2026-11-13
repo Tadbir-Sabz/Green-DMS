@@ -1,0 +1,76 @@
+TASK-PM-02-C4 — شاهد زندهٔ همانمبدأ (Same-origin preview → Next rewrite → API :4000)
+زمان اجرا: 2026-11-11T22:54:17Z
+پایه: http://127.0.0.1:3000/api/v1 (بدون تماس مستقیم مرورگر با localhost API)
+دیتابیس: greendms_c1_preview (پیشنمایش محلی) · MinIO شبیهساز 127.0.0.1:9100 · PG16.2 محلی
+هشدار: MinIO/S3 production-equivalent و مرورگر دستی RTL/a11y/console همچنان UNVERIFIED است.
+
+شمارش پیش از اجرا: attachment=6 · audit(attachment_transfer)=7
+
+POST   /auth/login                                                                                  → 200
+  ✓ نشست معتبر؛ توکن/URL امضاشده/کلید استوریج در این شاهد ذخیره نشد.
+GET    /attachment-transfer/owner-types                                                             → 401
+  ✓ درخواست بدون نشست ۴۰۱
+GET    /attachment-transfer/owner-types                                                             → 400
+  ✓ هدر x-domain-id صریحاً رد شد: 'domain_context_not_supported'
+GET    /attachment-transfer/owner-types                                                             → 400
+  ✓ کوئری تعریفنشده بیصدا حذف نشد: 'unsupported_request_field'
+
+GET    /attachment-transfer/owner-types                                                             → 200
+  ✓ فهرست انواع مالک: بدون کلید استوریج/URL امضاشده/توکن/زیرساخت
+  ✓ فقط هشت مالک مصوب C1/C3؛ other/brand/category/warehouse/uom غایباند
+GET    /attachment-transfer/owners                                                                  → 200
+  ✓ کشف رکوردهای مالک: بدون کلید استوریج/URL امضاشده/توکن/زیرساخت
+  ✓ 5 رکورد مالک دارای ضمیمه کشف شد؛ 5 رکورد برای صدور انتخاب شد
+    · invoice: C3-LIVE-INV-1794429488 · ضمائم=1 · مسیر /invoices
+    · sales_order: C3-LIVE-SO-1794429488 · ضمائم=1 · مسیر /orders
+    · return_request: C3-LIVE-RET-1794429488 · ضمائم=1 · مسیر /returns
+    · stock_count: C3-LIVE-SC-1794429488 · ضمائم=1 · مسیر /stock-count
+    · journal_entry: C3-LIVE-JE-1794429488 · ضمائم=1 · مسیر /gl
+
+POST   /attachment-transfer/exports/preview                                                         → 200
+  ✓ پیشنمایش صدور: بدون کلید استوریج/URL امضاشده/توکن/زیرساخت
+  ✓ بسته: 5 فایل · 167 بایت · هش یکپارچگی 6ea98f8b90281a78…
+GET    /attachment-transfer/exports/77585843-398f-47cb-adb8-45f1887f3cf2/package                    → 200
+  ✓ ZIP باینری همانمبدأ: 3515 بایت · SHA-256 فایل=15597f120e5442f5… · سربرگ هش=6ea98f8b90281a78…
+  ✓ هش سربرگ «یکپارچگی manifest+محتوا» است، نه هش خام ZIP؛ هر دو ثبت شدند.
+
+POST   /attachment-transfer/imports/preview                                                         → 200  [attachments.zip]
+  ✓ پیشنمایش ورود: بدون کلید استوریج/URL امضاشده/توکن/زیرساخت
+  ✓ تمام 5 مورد «تکراری» تشخیص داده شد؛ بازنویسی/ایجاد مالک ممنوع
+  ✓ دروازهٔ تأیید: RulesEngineService.submitForApproval → approval_policy → approval_binding → consumeApprovedBinding
+GET    /attachment-transfer/imports/675170e8-009b-49e3-90d9-1642d8c159f5                            → 200
+  ✓ وضعیت پیشنمایش initiator-scoped و بدون امکان اجرا
+
+POST   /attachment-transfer/imports/preview                                                         → 400  [tampered.zip]
+  ✓ تغییر بایت فایل رد شد: crc_mismatch
+POST   /attachment-transfer/imports/preview                                                         → 400  [injected.zip]
+  ✓ تزریق company_id در multipart رد شد: 'forbidden_client_field'
+POST   /attachment-transfer/imports/675170e8-009b-49e3-90d9-1642d8c159f5/mappings                   → 200
+  ✓ نگاشت تازه نسخهٔ 2، بیاعتباری تأیید و هش نگاشت تازه ثبت شد
+POST   /attachment-transfer/imports/675170e8-009b-49e3-90d9-1642d8c159f5/execute                    → 400
+  ✓ تزریق تأییدکننده از کلاینت رد شد: 'forbidden_client_field'
+POST   /attachment-transfer/imports/675170e8-009b-49e3-90d9-1642d8c159f5/execute                    → 409
+  ✓ اجرای ورود fail-closed (بدون تأیید دونفرهٔ مصوب): 'approval_required'
+  ✓ شمارش ضمائم بدون تغییر ماند: 6
+
+GET    /attachment-transfer/operations                                                              → 200
+  ✓ تاریخچه عملیات: بدون کلید استوریج/URL امضاشده/توکن/زیرساخت
+GET    /attachment-transfer/operations/77585843-398f-47cb-adb8-45f1887f3cf2                         → 200
+  ✓ جزئیات عملیات: بدون کلید استوریج/URL امضاشده/توکن/زیرساخت
+POST   /attachment-transfer/operations/675170e8-009b-49e3-90d9-1642d8c159f5/cancel                  → 200
+GET    /attachment-transfer/imports/675170e8-009b-49e3-90d9-1642d8c159f5                            → 404
+  ✓ لغو فقط پیشنمایش حافظه را بیاعتبار کرد: 'preview_expired'
+GET    /attachment-transfer/operations/675170e8-009b-49e3-90d9-1642d8c159f5                         → 200
+  ✓ سابقهٔ ممیزی پس از لغو حفظ شد؛ هیچ حذف/بایگانی فیزیکی انجام نشد
+  ✓ رویدادهای ممیزی تراکنشی: 7 رویداد تازه · انواع: attachment_transfer.approval,attachment_transfer.cancellation,attachment_transfer.download,attachment_transfer.execution,attachment_transfer.export,attachment_transfer.failure,attachment_transfer.preview
+  ✓ ۰ نشت کلید استوریج/URL/زیرساخت در after_data ممیزی
+
+WEB    /attachment-transfer                                                                         → 200  (66710 بایت HTML)
+WEB    /attachments-center                                                                          → 200  (71558 بایت HTML)
+
+شمارش پس از اجرا: attachment=6 · audit(attachment_transfer)=14
+نتیجه: PASS — صدور/دانلود/بازرسی/پیشنمایش/نگاشت/تاریخچه/ممیزی روی HTTP زنده و PG واقعی.
+BLOCKED: اجرای ورود ضمائم؛ سیاست/اثرانگشت دونفرهٔ مصوب برای attachment.import.execute وجود ندارد.
+مرزها: بدون مهاجرت، مجوز، نقش، grant، RLS، مالک/دامنه/شرکت تازه، حذف، بایگانی، جایگزینی یا سیاست نگهداشت.
+UNVERIFIED: مرورگر دستی RTL/a11y/console، round-trip production MinIO/S3، پذیرش کل Product Master و deploy.
+عدم مجوز: استقرار/ادغام/تأیید نهایی انجام نشد؛ PR همچنان draft است.

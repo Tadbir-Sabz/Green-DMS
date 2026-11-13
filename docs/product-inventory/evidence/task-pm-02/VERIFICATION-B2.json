@@ -1,0 +1,289 @@
+{
+  "task": "TASK-PM-02-B2 — Operational Domain Authority, Registry & Membership (Agent-1)",
+  "recorded_at_sandbox_utc": "2026-11-11T08:57:37Z",
+  "branch": "arena/be5eaff3-green-dms",
+  "baseline_and_head_sha": "dad4ce8a41b66fedd06ef66b5bbfa25e4e86d31a",
+  "pr": {
+    "number": 14,
+    "state": "OPEN",
+    "isDraft": true,
+    "baseRefName": "main",
+    "headRefOid": "dad4ce8a41b66fedd06ef66b5bbfa25e4e86d31a",
+    "body_chars": 70492,
+    "body_bytes": 75213,
+    "body_sha256": "1a72773ac23efadad53abc39407d42ce96bb64443e37bb34d5a6b6538e896131"
+  },
+  "backup": {
+    "path": "/home/user/pm02-b2-backup.tar.gz",
+    "sha256": "0ae60fac33f3a6f35e25f35834ba745586af6fa9316577bfdb35a981857540e8",
+    "tracked_files": 2840,
+    "checksum_mismatches": 0,
+    "sidecar_verified": true
+  },
+  "owner_decision_gate": {
+    "verdict": "FAILED_CLOSED",
+    "reviews": 0,
+    "review_comments": 0,
+    "issue_comments": 1,
+    "issue_comment_is_approval": false,
+    "unrelated_issues": [
+      11,
+      12
+    ],
+    "tracked_approval_document": false,
+    "iam_security_signoff": false,
+    "git_log_approval": false,
+    "decisions_open_not_approved": [
+      "PM-B1",
+      "PM-B2",
+      "PM-B3",
+      "PM-B4",
+      "PM-B5",
+      "PM-B6",
+      "PM-B7",
+      "PM-B8",
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4",
+      "Q5",
+      "G-03"
+    ],
+    "blocked": [
+      "registry",
+      "lifecycle",
+      "assignment",
+      "membership",
+      "migrations",
+      "domain_rls",
+      "domain_apis",
+      "ui_activation"
+    ],
+    "note": "TASK-PM-02_IMPLEMENTATION.md §8 is a recommendation, not an approval."
+  },
+  "implemented": {
+    "kind": "fail_closed_read_surface_parity_only",
+    "no_domain_semantics_invented": true,
+    "controllers_guarded": [
+      "GET /products (ProductController.list)",
+      "GET /products/{id} (ProductController.get)",
+      "GET /products/export (ProductExportController.export)",
+      "GET /products/import/report/{id} (ProductImportController.report)"
+    ],
+    "guard_order": [
+      "AuthGuard",
+      "PermissionsGuard",
+      "DomainBoundaryGuard"
+    ],
+    "domain_context_routes_deliberately_unguarded": true,
+    "operational_domain_authority_registered": false,
+    "openapi_400_added_to": "/products/import/report/{id}",
+    "client_regenerated_with": "openapi-typescript 7.13.0",
+    "schema_ts_diff": "12 insertions / 1 deletion",
+    "migration_or_rls_change": false
+  },
+  "gates": [
+    {
+      "command": "node scripts/openapi-check.mjs",
+      "exit": 0,
+      "result": "202 paths / 285 operations / 154 schemas / 3 webhooks"
+    },
+    {
+      "command": "node scripts/contract-drift.mjs",
+      "exit": 0,
+      "result": "285 spec == 285 code; drift 0/0/0/0"
+    },
+    {
+      "command": "node scripts/check-test-partition.mjs",
+      "exit": 0,
+      "result": "86 files; declared == computed; new parity file UNIT"
+    },
+    {
+      "command": "npm run typecheck",
+      "exit": 0
+    },
+    {
+      "command": "npm run build",
+      "exit": 0
+    },
+    {
+      "command": "npm run test -w apps/web",
+      "exit": 0,
+      "result": "18 files / 94 tests"
+    },
+    {
+      "command": "vitest run focused DB-free boundary tests",
+      "exit": 0,
+      "result": "3 files / 25 tests"
+    },
+    {
+      "command": "vitest run --print unit partition",
+      "exit": 0,
+      "result": "30 files / 373 tests"
+    },
+    {
+      "command": "vitest run test/product-domain-boundary.api.test.ts",
+      "exit": 0,
+      "result": "1 file / 19 tests"
+    },
+    {
+      "command": "vitest run 7 targeted DB-backed files",
+      "exit": 0,
+      "result": "7 files / 146 tests"
+    },
+    {
+      "command": "npm run test:migrations",
+      "exit": 0,
+      "result": "up/down/up, 1029 identical objects"
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    }
+  ],
+  "full_db_run": {
+    "files_selected": 55,
+    "files_passed": 51,
+    "files_failed": 4,
+    "tests_total": 1109,
+    "tests_passed": 1092,
+    "tests_failed": 17,
+    "failing_files": [
+      "customers.api.test.ts",
+      "geofences.api.test.ts",
+      "tours.api.test.ts",
+      "postgres-init-role.api.test.ts"
+    ],
+    "baseline_control": {
+      "method": "reversible git stash push -u, run same 4 files on pristine dad4ce8, git stash pop",
+      "baseline_tests_total": 80,
+      "baseline_tests_passed": 63,
+      "baseline_tests_failed": 17,
+      "identical_failure_names": true,
+      "edits_restored_sha256_check": "8/8 OK",
+      "cause": "local environment: PostGIS extension absent in disposable fixture DBs; trust-auth accepts wrong password"
+    },
+    "attributable_to_b2": false
+  },
+  "environment": {
+    "postgres": "PostgreSQL 16.2, 127.0.0.1:55432, trust-auth",
+    "psql_path": "/tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql",
+    "repo_root_dotenv": false,
+    "redis": "ECONNREFUSED 127.0.0.1:6379 (historically expected, nonfatal)"
+  },
+  "verdicts": {
+    "PASS": [
+      "baseline durability",
+      "backup integrity",
+      "gate inspection",
+      "decision package",
+      "read-surface parity",
+      "guard ordering",
+      "no blanket rejection",
+      "contract/client/test consistency",
+      "local static + DB-free + native-PG gates",
+      "baseline control"
+    ],
+    "FAIL": [],
+    "UNVERIFIED": [
+      "production topology / PostGIS+password-auth equivalence",
+      "manual RTL/a11y/console",
+      "independent Agent-2 review",
+      "raw per-test CI job logs",
+      "4 CI checks that never reached a test step (external install-step failure)"
+    ],
+    "BLOCKED": [
+      "PM-B1",
+      "PM-B2",
+      "PM-B4",
+      "PM-B3",
+      "PM-B5",
+      "PM-B6",
+      "PM-B7",
+      "PM-B8",
+      "Q1..Q5",
+      "G-03",
+      "registry",
+      "lifecycle",
+      "assignment",
+      "membership",
+      "migrations",
+      "domain RLS",
+      "domain APIs",
+      "UI activation",
+      "full Product Master acceptance"
+    ],
+    "production_deployment": "NOT AUTHORIZED"
+  },
+  "ci_first_push": {
+    "sha": "42e21a4d29bfd379e3e2781f641b50a1b8d7e462",
+    "gh_pr_checks_exit": 1,
+    "checks_passed": 4,
+    "checks_failed": 4,
+    "green": [
+      "Static checks (typecheck, OpenAPI, contract drift)",
+      "Unit tests (no DB, no MinIO)",
+      "migrations up/down/up workflow",
+      "release-image workflow"
+    ],
+    "failed_jobs": [
+      {
+        "job_id": 130581857658,
+        "name": "Integration (Postgres) — API + tenant isolation",
+        "failed_step": "Install PostgreSQL client (psql for test migrations)",
+        "tests_ran": false
+      },
+      {
+        "job_id": 130581857675,
+        "name": "Integration (MinIO) — attachment round-trip",
+        "failed_step": "Install PostgreSQL client (psql for test migrations)",
+        "tests_ran": false
+      },
+      {
+        "job_id": 130581857070,
+        "name": "Init credential hygiene",
+        "failed_step": "Install PostgreSQL server + client",
+        "tests_ran": false
+      },
+      {
+        "job_id": 130581860470,
+        "name": "Playwright E2E",
+        "failed_step": "install Playwright chromium",
+        "tests_ran": false
+      }
+    ],
+    "root_cause": "external apt mirror / Playwright browser CDN install failure; all test steps skipped",
+    "baseline_control": "same install steps green on dad4ce8 at 2026-11-11T06:09:17Z (runs 42970426618, 42970426694) and c382d6a at 2026-11-10T18:38:00Z",
+    "rerun": "403 Resource not accessible by integration; no workflow_dispatch trigger",
+    "attributable_to_b2": false,
+    "verdict": "FAIL (CI infrastructure) / UNVERIFIED; not a B2 code regression"
+  },
+  "ci_final_sha_recheck_2026_11_11_c1": {
+    "recorded_at_sandbox_utc": "2026-11-11T16:00:00Z",
+    "head_sha": "deefa05b89de62da7a34fb920626a0adca920f57",
+    "runs": {
+      "43040312220": {
+        "name": "CI",
+        "status": "completed",
+        "conclusion": "cancelled"
+      },
+      "43040312421": {
+        "name": "e2e",
+        "status": "completed",
+        "conclusion": "cancelled"
+      },
+      "43040312489": {
+        "name": "release-image",
+        "status": "completed",
+        "conclusion": "cancelled"
+      },
+      "43040312368": {
+        "name": "database migrations",
+        "status": "queued",
+        "conclusion": null
+      }
+    },
+    "verdict": "UNVERIFIED / CANCELLED (3) + QUEUED (1); never PASS",
+    "note": "Additive C1-era recheck; all earlier B2 evidence and verdicts are unchanged."
+  }
+}

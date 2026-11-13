@@ -123,6 +123,9 @@ tags:
   - name: integrations
     description: مؤدیان، پوز، پیامک و درگاه (ضمیمه D)
 
+  - name: attachment-transfer
+    description: صدور، بازرسی و تاریخچهٔ بستهٔ ضمائم چندموجودیتی (C4)
+
 paths:
 
   # ---------------- احراز هویت ----------------
@@ -743,6 +746,7 @@ paths:
       tags: [products]
       summary: فهرست کالاها (جست‌وجوی فازی کد/نام، فیلتر دسته/برند/وضعیت)
       parameters:
+        - { name: sort, in: query, schema: { type: string, enum: [code_asc, code_desc], default: code_asc } }
         - { $ref: '#/components/parameters/cursor' }
         - { $ref: '#/components/parameters/limit' }
         - { name: q, in: query, schema: { type: string } }
@@ -783,6 +787,164 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /products/export:
+    get:
+      tags: [products]
+      summary: خروجی CSV از کالاهای کاتالوگ مرکزی (TASK-PM-01D-M3)
+      description: >-
+        یک snapshot فقط-خواندنی و قطعی از کالاهای حذف‌نشدهٔ همان شرکت، با همان
+        فیلترهای فهرست کالا (بدون صفحه‌بندی cursor). ستون‌های قابلِ استفاده در
+        ورود گروهی محصول حفظ می‌شوند؛ ستون‌های تشخیصی اضافی نادیده گرفته می‌شوند.
+        سقف پیش‌فرض ۱۰٬۰۰۰ ردیف است. در صورت وجود ردیف بیشتر، خروجی بریده شده و
+        سربرگ X-Product-Export-Truncated مقدار true می‌گیرد؛ پاسخ هرگز به‌صورت
+        بی‌صدا ناقص اعلام نمی‌شود. خروجی شامل تاریخچه، صفات، روابط، بسته‌ها،
+        بسته‌بندی و عضویت دامنه نیست. مجوز master.product.view و ممیزی export
+        اعمال می‌شود.
+      parameters:
+        - { name: sort, in: query, schema: { type: string, enum: [code_asc, code_desc], default: code_asc } }
+        - { name: q, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: category_id, in: query, schema: { type: string, format: uuid } }
+        - { name: brand_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [active, blocked, discontinued] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 10000 } }
+      responses:
+        '200':
+          description: فایل CSV با BOM UTF-8 و سربرگ‌های امن در برابر فرمول صفحه گسترده
+          headers:
+            X-Product-Export-Row-Count:
+              description: تعداد ردیف‌های کالای نوشته‌شده در فایل
+              schema: { type: integer, minimum: 0 }
+            X-Product-Export-Truncated:
+              description: true یعنی فیلتر بیش از سقف مجاز نتیجه داشته و فایل کامل نیست
+              schema: { type: boolean }
+            X-Product-Export-Max-Rows:
+              description: سقف اعمال‌شده بر تعداد ردیف‌ها
+              schema: { type: integer, minimum: 1, maximum: 10000 }
+          content:
+            text/csv:
+              schema:
+                type: string
+                description: محتوای CSV؛ با parseAs=text از کلاینت تایپ‌شده خوانده می‌شود
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/bulk-maintenance/fields:
+    get:
+      tags: [products]
+      summary: فهرست فیلدهای مجاز نگهداشت گروهی (TASK-PM-01D-M4)
+      description: >-
+        فهرست سفید و برچسبهای فارسی فیلدها از سرور؛ مرورگر هیچ فیلد محافظتشده،
+        دامنهای، انباری، قیمتی یا وضعیتی را پیشنهاد نمیدهد. این پاسخ فقط ابزار
+        ساخت فرم است و اعمال تغییری نمیکند. مجوز master.product.update لازم است.
+      responses:
+        '200':
+          description: فیلدهای مجاز، نوع مقدار و برچسب فارسی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceFieldsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/bulk-maintenance/preview:
+    post:
+      tags: [products]
+      summary: پیشنمایش محصولی فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
+      description: >-
+        پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر
+        ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف
+        product_catalog_history یا audit_log ساخته نمیشود؛ تنها یک ردیف دفتر
+        عملیات پایدار با نشانهٔ یکبارمصرف درج میشود. بنابراین این مسیر از نظر
+        محصول فقطخواندنی است، نه یک GET بدون اثر جانبی (TASK-PM-01D-M4-F). مجوز
+        master.product.update لازم است؛ master.product.view یا خروجی CSV مجوز
+        نوشتن گروهی نیست.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkMaintenancePreviewRequest' }
+      responses:
+        '200':
+          description: پیشنمایش سروری، تفاوت دقیق هر کالا و شمار واجد/ردشدهها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenancePreviewResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/bulk-maintenance/execute:
+    post:
+      tags: [products]
+      summary: اجرای همهیا هیچ نگهداشت گروهی با هویت بایدار (TASK-PM-01D-M4)
+      description: >-
+        اجرا فقط مقادیر ذخیرهشدهٔ همان پیشنمایش را میپذیرد؛ changes تازهای در
+        این مسیر ارسال نمیشود. تأیید صریح، نشانهٔ پیشنمایش، مجوز نوشتن، بررسی
+        تازگی نسخهها و قفل خوشبینانهٔ واقعی row_version الزامی است. همهٔ
+        بهروزرسانیها، ممیزی همبسته، تاریخچهای 0060 و وضعیت دفتر عملیات در یک
+        تراکنش commit میشوند. پخش مجدد همان شناسه/نشانه دوباره اعمال نمیشود؛
+        نتیجهٔ نامشخص تنها با تطبیق شواهد و بدون اجرای کور مجدد بررسی میشود.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkMaintenanceExecuteRequest' }
+      responses:
+        '200':
+          description: نتیجهٔ نهایی، پخش مجدد بیاثر، رد قطعی یا وضعیت نامشخص failclosed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/bulk-maintenance/operations/{operationId}:
+    get:
+      tags: [products]
+      summary: وضعیت بایدار و واقعاً فقطخواندنی یک عملیات نگهداشت گروهی
+      description: >-
+        وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده،
+        کهنه، منقضی، ثبتشده، ردشده یا نامشخص. این GET هیچ گذار وضعیت یا تطبیق
+        شواهد انجام نمیدهد (TASK-PM-01D-M4-F)؛ تطبیق فقط با اکشن صریح
+        POST /operations/{operationId}/reconcile ممکن است.
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: وضعیت بایدار عملیات و نتیجهٔ تطبیق در صورت نیاز
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/bulk-maintenance/operations/{operationId}/reconcile:
+    post:
+      tags: [products]
+      summary: اکشن صریح تطبیق شواهد operation-bound یک عملیات (TASK-PM-01D-M4-F)
+      description: >-
+        فقط برای وضعیتهای نامشخص/پذیرفتهشده، شواهد سرور-کنترلشدهٔ ۰۰۶۳
+        (ممیزی الزامی، تاریخچهٔ ۰۰۶۰ و جدول شواهد) را بهصورت کامل، سازگار،
+        بدون تکرار و بدون اتصال به عملیات/شرکت/بازیگر دیگر بررسی میکند. ناقص،
+        ناسازگار، تکراری، جداافتاده یا شواهد عملیات دیگر ⇒ fail-closed نامشخص.
+        GET وضعیت هرگز تغییری نمیدهد. مجوز master.product.update لازم است.
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: نتیجهٔ تطبیق قطعی (committed/rolled_back) یا نامشخص failclosed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkMaintenanceOperationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /products/{id}:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
@@ -861,6 +1023,409 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/media:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: فهرست تصاویر و اسناد کالا + تصویرِ اصلی خودکار (§B4 طراحی هدف)
+      description: >-
+        نمای محصولمحورِ ضمیمههای `owner_type='product'` (بازاستفاده از زنجیرهٔ
+        مالکیت راستیآزمایشدهٔ §A). تصویرِ اصلی v1 نخستین «تصویر» بر اساس
+        `created_at` است و در لحظهٔ خواندن محاسبه میشود؛ هیچ ستون `is_primary`
+        یا `sort_order` و هیچ مهاجرت تازهای وجود ندارد. برچسب UI دقیقاً
+        «اصلی (خودکار)» است. اسناد PDF هرگز تصویرِ اصلی نمیشوند. این نما هیچ
+        هویت، عضویت، وضعیت یا دسترسپذیری دامنهای برنمیگرداند؛ کلیدها و هدر
+        `x-domain-id` دامنهای مانند سایر سطوح خواندنی کاتالوگ (B2) با ۴۰۰ رد
+        میشوند. خطاهای ممکن: `invalid_id`، `product_not_found`،
+        `domain_property_rejected`، `domain_context_not_supported`، `forbidden`.
+      responses:
+        '200':
+          description: تصاویر/اسناد کالا همراه URL امضاشدهٔ کوتاهعمر
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductMediaView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (کد storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      tags: [products]
+      summary: بارگذاری تصویر/سند کالا (multipart/form-data — فقط فیلد file)
+      description: >-
+        مالک (`owner_type='product'`, `owner_id={id}`) و شرکت فقط از مسیر و
+        نشست سرور مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`،
+        `uploaded_by` یا `storage_key` در بدنه با ۴۰۰
+        `product_media_owner_scope_rejected` رد میشود، نه اینکه بیصدا حذف شود.
+        مجوزها: `master.product.update` (§F) و `attachment.upload`؛ هر دو دوباره
+        از پایگاهداده بازاعتبارسنجی میشوند. همان خط لولهٔ `POST /attachments`
+        (سقف حجم، allowlist، امضای بایتی، SHA-256، کلید نامفضاشده به شرکت،
+        URL امضاشده) دوباره استفاده میشود، بیآنکه قرارداد آن تغییر کند. آپلود،
+        ثبت metadata و رویداد `audit_log` با `action=create` و
+        `entity_type=product_media` در یک تراکنشاند؛ شکست ممیزی ⇒ rollback و
+        پاکسازی شیء آپلودشده. حذف ضمیمه در v1 وجود ندارد (مسیر حذف مصوبی نیست).
+        خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`،
+        `unverifiable_content_type`، `content_type_mismatch`،
+        `malformed_content`، `product_media_owner_scope_rejected`،
+        `product_not_found`، `forbidden`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: >-
+                    بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp،
+                    application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی
+                    پذیرفته نمیشود.
+      responses:
+        '201':
+          description: فایل ذخیره و metadata + رویداد ممیزی ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductMediaItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413':
+          description: حجم فایل بیش از حد مجاز (file_too_large)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: نوع/امضای محتوای فایل پذیرفته نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /products/{id}/media/{mediaId}/url:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+      - { name: mediaId, in: path, required: true, schema: { type: string, format: uuid }, description: شناسهٔ ضمیمهٔ همین کالا }
+    get:
+      tags: [products]
+      summary: URL امضاشدهٔ تازه برای تصویر/سند دقیقاً همین کالا
+      description: >-
+        علاوه بر زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر صریحاً
+        `owner_id = {id}` و `company_id` نشست را قید میزند؛ ضمیمهٔ کالای دیگر
+        حتی در همان شرکت ۴۰۴ `media_not_found` میگیرد. URL کوتاهعمر است و
+        bucket هرگز عمومی نمیشود. مجوزها: `master.product.view` و
+        `attachment.view`.
+      responses:
+        '200':
+          description: URL امضاشدهٔ دانلود و عمر آن به ثانیه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentUrl' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ─────────────── TASK-PM-02-C2: مدیریت دادههای مرجع ───────────────
+  /reference-data/history:
+    get:
+      tags: [products]
+      summary: تاریخچهٔ ممیزی دادههای مرجع (برند/واحد/دسته)
+      parameters:
+        - { name: entity_type, in: query, required: false, schema: { type: string, enum: [brand, uom, product_category] } }
+        - { name: entity_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: رویدادهای ممیزی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceHistoryList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reference-data/brands:
+    get:
+      tags: [products]
+      summary: فهرست برندهای شرکت با جستوجو، فیلتر وضعیت، شمارش استفاده و صفحهبندی
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: صفحهای از برندها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrandList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ایجاد برند (کد و نام یکتا در هر شرکت)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrandCreate' }
+      responses:
+        '201':
+          description: برند ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Brand' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/brands/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: جزئیات برند + کالاهای متصل
+      responses:
+        '200':
+          description: جزئیات برند
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BrandDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: ویرایش برند (نام/نام لاتین/کد/وضعیت)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrandUpdate' }
+      responses:
+        '200':
+          description: برند بهروزشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Brand' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [products]
+      summary: حذف امن برند (فقط اگر به کالایی متصل نباشد)
+      responses:
+        '200':
+          description: نتیجهٔ حذف
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceMutationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/units:
+    get:
+      tags: [products]
+      summary: فهرست واحدهای اندازهگیری (مرجع سراسری) با جستوجو/فیلتر/شمارش استفاده
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: صفحهای از واحدها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnitList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ایجاد واحد اندازهگیری (کد سراسری یکتا؛ دقت اعشار ۰..۴ طبق D3)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnitCreate' }
+      responses:
+        '201':
+          description: واحد ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Unit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/units/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: جزئیات واحد + کالاهای متصل
+      responses:
+        '200':
+          description: جزئیات واحد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnitDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: ویرایش واحد (کد تغییرناپذیر است)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnitUpdate' }
+      responses:
+        '200':
+          description: واحد بهروزشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Unit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [products]
+      summary: حذف امن واحد (فقط اگر به کالا/بستهبندی متصل نباشد)
+      responses:
+        '200':
+          description: نتیجهٔ حذف
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceMutationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/categories:
+    get:
+      tags: [products]
+      summary: فهرست دستهبندیهای درختی شرکت با جستوجو/فیلتر/شمارش استفاده
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, required: false, schema: { type: boolean } }
+        - { name: parent_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: root, in: query, required: false, schema: { type: boolean } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: صفحهای از دستهبندیها
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [products]
+      summary: ایجاد دستهبندی (کد یکتا؛ والد اختیاری؛ جلوگیری از حلقه)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryCreate' }
+      responses:
+        '201':
+          description: دستهبندی ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCategory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reference-data/categories/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [products]
+      summary: جزئیات دستهبندی + زنجیرهٔ والدها، فرزندان و کالاها
+      responses:
+        '200':
+          description: جزئیات دستهبندی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CategoryDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [products]
+      summary: ویرایش/جابهجایی دستهبندی (حلقه و عمق بررسی میشود)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryUpdate' }
+      responses:
+        '200':
+          description: دستهبندی بهروزشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCategory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [products]
+      summary: حذف امن دستهبندی؛ reassign_to وابستگان را پیش از حذف منتقل میکند
+      parameters:
+        - { name: reassign_to, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: نتیجهٔ حذف/انتساب
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceMutationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /products/barcodes/{barcodeId}:
     parameters:
       - { name: barcodeId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -949,7 +1514,10 @@ paths:
                 idempotency_key: { type: string, maxLength: 128 }
                 confirm_sensitive:
                   type: boolean
-                  description: 'M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند)'
+                  description: >-
+                    M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد
+                    می‌شوند). TASK-PM-02-C5: وضعیت `discontinued` حتی با این تأیید
+                    هم BLOCKED است و با `lifecycle_transition_blocked` رد می‌شود.
       responses:
         '200':
           description: نتیجهٔ import
@@ -966,12 +1534,17 @@ paths:
     get:
       tags: [products]
       summary: گزارشِ import انجام‌شده
+      description: >-
+        گزارشِ مرکزی و شرکتـمحورِ یک دستهٔ import. زمینهٔ دامنه (`x-domain-id`)
+        پذیرفته نیست؛ TASK-PM-02-B2 همان نگهبان مرز مرکزی/دامنهای سطوح نوشتنی را
+        روی این خواندن نیز اعمال میکند (fail-closed، بدون ایجاد هویت یا اختیار دامنه).
       responses:
         '200':
           description: گزارش
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1017,20 +1590,36 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: فهرست aliasهای کالا
+      summary: نمای نام‌های جایگزین کالا (سه نوعِ مصوب + برخوردهای نرم)
+      description: >-
+        TASK-PM-02-C7 — فقط سه نوعِ موجود در قید `0046`: `brand_slang`، `latin`،
+        `code`. یکتاییِ DB فقط `(product_id, alias_norm)` است؛ برخورد با نام
+        جایگزینِ کالای دیگر در پاسخ به‌صورت **اطلاع‌رسان** (`conflict`) گزارش
+        می‌شود و قاعدهٔ یکتاییِ شرکتی ساخته نمی‌شود (C7-D1).
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [brand_slang, latin, code] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
       responses:
         '200':
-          description: aliasها
+          description: نمای نام‌های جایگزین
           content:
             application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ProductAlias' }
+              schema: { $ref: '#/components/schemas/ProductAliasOverview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [products]
-      summary: ثبت alias (نرمال‌سازی + جلوگیری از برخورد با کد/بارکد — H-1)
+      summary: افزودن نام جایگزین (نرمال‌سازی + جلوگیری از برخورد H-1)
+      description: >-
+        مقدار در سرور نرمال می‌شود (NFC، ارقامِ فارسی/عربی→لاتین، فشردن فاصله،
+        casefold). نام جایگزین هم‌ارز با بارکد یا کد کالا، و نام جایگزینِ کالای
+        دیگر (طبق بررسی موجود) با ۴۰۹ رد می‌شود. کد اصلی کالا هرگز تغییر نمی‌کند.
       requestBody:
         required: true
         content:
@@ -1041,29 +1630,32 @@ paths:
               properties:
                 alias: { type: string, maxLength: 255 }
                 kind: { type: string, enum: [brand_slang, latin, code], default: brand_slang }
+                confirm_add: { type: boolean, description: 'تأیید صریح اپراتور' }
       responses:
         '201':
-          description: alias ثبت شد
+          description: نام جایگزین ثبت شد
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProductAlias' }
+              schema: { $ref: '#/components/schemas/ProductAliasItem' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /product-aliases/{aliasId}:
+  /products/{id}/aliases/{aliasId}:
     parameters:
+      - { $ref: '#/components/parameters/idPath' }
       - { name: aliasId, in: path, required: true, schema: { type: string, format: uuid } }
     delete:
       tags: [products]
-      summary: حذف alias
+      summary: حذف نام جایگزین (فقط ردیف همین کالا و همین شرکت)
       responses:
         '200':
           description: حذف شد
           content:
             application/json:
-              schema: { type: object, properties: { deleted: { type: boolean } } }
+              schema: { $ref: '#/components/schemas/ProductAliasDeleteResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1098,7 +1690,9 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '409':
+          $ref: '#/components/responses/Conflict'
+          description: 'کدِ صفت تکراری در شرکت → duplicate_attribute_code'
   /product-attributes/{defId}/enum-values:
     parameters:
       - { name: defId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1153,24 +1747,32 @@ paths:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: مقادیرِ صفاتِ SKU + امضای فعلیِ variant (نمایش در UI جزئیات)
+      summary: نمای صفات کالا (کاتالوگِ شرکت + مقدار + الزام + محور variant)
+      description: >-
+        TASK-PM-02-C7 — مدل، EAVِ محدودِ موجود در `0046` است: کاتالوگ صفت در سطح
+        شرکت (`product_attribute_def` با `kind ∈ {text, number, enum}` و
+        `is_variant_axis`/`is_required`)، مقادیر در سطح SKU
+        (`product_attribute_value` با قید «دقیقاً یک ستونِ مقدار»). این مسیر فقط
+        همان مدل را می‌خواند و سیاست تازه‌ای نمی‌سازد.
       responses:
         '200':
-          description: مقادیر + امضا
+          description: نمای صفات
           content:
             application/json:
-              schema:
-                type: object
-                required: [values, variant_signature]
-                properties:
-                  values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
-                  variant_signature: { type: [string, 'null'] }
+              schema: { $ref: '#/components/schemas/ProductAttributesOverview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [products]
-      summary: ثبت مقادیرِ صفاتِ SKU + محاسبهٔ امضای variant (M-3؛ تغییرناپذیر پس از ارجاعِ عملیاتی)
+      summary: ثبت/ویرایش/پاک‌کردن مقادیر صفات + امضای variant (M-3)
+      description: >-
+        همان اعتبارسنجی‌های موجود: تطابقِ ستونِ مقدار با `kind`، مقدارِ enum فقط از
+        فهرستِ مجازِ همان صفت، الزامِ `is_required` در سطح شرکت، و تغییرناپذیریِ
+        محورهای variant پس از نخستین ارجاع عملیاتی (`variant_signature_immutable`).
+        `clear: true` یا مقدارِ خالی، ردیفِ مقدار را **حذف** می‌کند (رفتار قبلی
+        برای مقدارِ خالی خطای ۵۰۰ می‌داد).
       requestBody:
         required: true
         content:
@@ -1181,48 +1783,79 @@ paths:
               properties:
                 values:
                   type: array
-                  items:
-                    type: object
-                    required: [def_id]
-                    properties:
-                      def_id: { type: string, format: uuid }
-                      value_text: { type: [string, 'null'] }
-                      value_num: { type: [number, 'null'] }
-                      value_enum: { type: [string, 'null'] }
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/ProductAttributeValueInput' }
       responses:
         '200':
-          description: مقادیر + امضا
+          description: مقادیر ثبت شد
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
-                  variant_signature: { type: [string, 'null'] }
+              schema: { $ref: '#/components/schemas/ProductAttributeValuesResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /products/{id}/identity/history:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: تاریخچهٔ تغییرناپذیر هویت کالا (alias و مقادیر صفات — تریگر ۰۰۶۰)
+      description: >-
+        فقط رویدادهای `product_alias` و `product_attribute_value` همین شرکت که به
+        این کالا مربوط‌اند؛ بدون before/after خام.
+      responses:
+        '200':
+          description: تاریخچه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductIdentityHistory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /products/{id}/relations:
     parameters:
       - { $ref: '#/components/parameters/idPath' }
     get:
       tags: [products]
-      summary: فهرست جایگزین/مکمل‌های کالا
+      summary: نمای مرکزی روابط کالا (جایگزین/مکمل) با جهت، وضعیت کالای مرتبط و سیاست‌های باز
+      description: >-
+        TASK-PM-02-C6 — فقط دو نوع مصوب مهاجرت ۰۰۴۶ (`substitute`, `complement`).
+        رابطه جهت‌دار و **فقط اطلاع‌رسان** است: هیچ جایگزینی خودکار، تغییر سند،
+        قیمت، موجودی یا دسترس‌پذیری دامنه‌ای از آن ساخته نمی‌شود. هر آیتم جهت
+        (`outgoing`/`incoming`)، وضعیت کالای مرتبط و هشدار فارسی را برمی‌گرداند.
+        `available_actions`/`editable`/`removable` فقط برای روابط خروجی true است
+        (مدل مصوب فقط رابطه از این کالا را ویرایش/حذف می‌کند).
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [substitute, complement] }
+        - name: direction
+          in: query
+          schema: { type: string, enum: [outgoing, incoming, both], default: both }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
       responses:
         '200':
-          description: روابط
+          description: نمای روابط
           content:
             application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ProductRelation' }
+              schema: { $ref: '#/components/schemas/ProductRelationsOverview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [products]
-      summary: ثبت رابطه (خودارجاع/حلقهٔ substitute ممنوع)
+      summary: افزودن رابطه کالا (خودارجاع/تکرار/حلقهٔ substitute ممنوع)
+      description: >-
+        مجوز `master.product.update`؛ شرکت فقط از نشست. بدنه فقط
+        `related_id`، `kind`، `priority` و `confirm_add` را می‌پذیرد؛ هر فیلد
+        شرکت/هویت/مجوز/ممیزی/دامنه یا فیلد تعریف‌نشده ۴۰۰ صریح می‌گیرد.
+        افزودن و ممیزی و تاریخچهٔ ۰۰۶۰ در یک تراکنش ثبت می‌شوند (fail-closed).
       requestBody:
         required: true
         content:
@@ -1233,30 +1866,106 @@ paths:
               properties:
                 related_id: { type: string, format: uuid }
                 kind: { type: string, enum: [substitute, complement] }
-                priority: { type: integer, minimum: 0, default: 100 }
+                priority: { type: integer, minimum: 0, maximum: 32767, default: 100 }
+                confirm_add: { type: boolean, description: 'تأیید صریح اپراتور برای افزودن رابطه' }
       responses:
         '201':
           description: رابطه ثبت شد
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProductRelation' }
+              schema: { $ref: '#/components/schemas/ProductRelationItem' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-  /product-relations/{relationId}:
+  /products/{id}/relations/history:
     parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: تاریخچهٔ تغییرناپذیر روابط این کالا (تریگر ۰۰۶۰)
+      description: >-
+        فقط رویدادهای `entity_type='product_relation'` همان شرکت که این کالا در
+        مبدأ یا مقصد آن‌ها است؛ خروجی فقط کنشگر، زمان و نوع/اولویت است و
+        before/after خام یا دادهٔ شخصی برنمی‌گرداند.
+      responses:
+        '200':
+          description: تاریخچه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelationHistory' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/relations/graph:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: پیمایش فنی و محدود روابط خروجی (نگهبان فنی، نه قاعده کسب‌وکار)
+      description: >-
+        عمق حداکثر ۳ و حداکثر ۱۰۰ گره؛ فقط روابط خروجی دنبال می‌شوند. این مسیر
+        هیچ حکمی دربارهٔ مجاز بودن حلقه، تقارن یا اثر عملیاتی نمی‌دهد و صرفاً از
+        پردازش/پاسخ بی‌کران جلوگیری می‌کند.
+      parameters:
+        - name: depth
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 3, default: 1 }
+        - name: kind
+          in: query
+          schema: { type: string, enum: [substitute, complement] }
+      responses:
+        '200':
+          description: گراف محدود
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelationGraph' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/relations/{relationId}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
       - { name: relationId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [products]
+      summary: ویرایش اولویت رابطه (تنها فیلد قابل ویرایش در مدل مصوب)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority]
+              properties:
+                priority: { type: integer, minimum: 0, maximum: 32767 }
+      responses:
+        '200':
+          description: اولویت به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductRelationItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [products]
-      summary: حذف رابطه
+      summary: حذف رابطه (سیاست موجود ۰۰۴۶/سرویس)
+      description: >-
+        حذف فقط برای رابطهٔ خروجی همین کالا و با مجوز `master.product.update`؛
+        حذف و ممیزی و تاریخچه در یک تراکنش ثبت می‌شوند. حذف کالا، بایگانی یا
+        سیاست نگهداشت تازه‌ای ایجاد نمی‌کند.
       responses:
         '200':
           description: حذف شد
           content:
             application/json:
-              schema: { type: object, properties: { deleted: { type: boolean } } }
+              schema: { $ref: '#/components/schemas/ProductRelationDeleteResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1327,6 +2036,28 @@ paths:
                     items: { $ref: '#/components/schemas/ProductCategory' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+    post:
+      tags: [products]
+      summary: ایجاد گروه مرکزی کالا
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string, minLength: 1, maxLength: 64 }
+                name: { type: string, minLength: 1, maxLength: 255 }
+      responses:
+        '201':
+          description: گروه ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCategory' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /units:
     get:
@@ -4286,6 +5017,144 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  # ─────────────── TASK-PM-02-C3: ضمائم سازمانی (Enterprise Entity Attachments) ───────────────
+  /entity-attachments/{ownerType}/{ownerId}:
+    parameters:
+      - name: ownerType
+        in: path
+        required: true
+        description: >-
+          نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت
+          راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع
+          تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد
+          میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند.
+        schema: { $ref: '#/components/schemas/EntityAttachmentOwnerType' }
+      - { name: ownerId, in: path, required: true, schema: { type: string, format: uuid }, description: شناسهٔ رکورد مالک در همان شرکت نشست }
+    get:
+      tags: [attachments]
+      summary: فهرست مشترک ضمائم یک موجودیت واجدشرایط + شمارش و برچسب فارسی
+      description: >-
+        همان خط لولهٔ `GET /attachments` (زنجیرهٔ مالکیت `ownerTenantSql`،
+        RLS/FORCE RLS، URL امضاشدهٔ کوتاهعمر) دوباره استفاده میشود، ولی مالک
+        فقط از مسیر و نشست مشتق میگردد. مجوز `attachment.view` در گارد route و
+        دوباره از روی DB بررسی میشود. هیچ فیلد دامنهای، عضویت، وضعیت عرضه،
+        `is_primary` یا `sort_order`ای برگردانده نمیشود؛ هدر `x-domain-id` و
+        کلیدهای دامنهای/مالکیتی در کوئری صریحاً ۴۰۰ میگیرند (همسانی B2).
+        خطاها: `unsupported_owner_type`، `invalid_owner_id`،
+        `owner_not_found`، `owner_scope_denied`،
+        `entity_attachment_owner_scope_rejected`،
+        `unsupported_request_field`، `domain_property_rejected`،
+        `domain_context_not_supported`، `forbidden`.
+      responses:
+        '200':
+          description: نمای یکسان ضمائم موجودیت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntityAttachmentView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      tags: [attachments]
+      summary: بارگذاری امن ضمیمه برای یک موجودیت (multipart — فقط فیلد file)
+      description: >-
+        مالک (`owner_type`, `owner_id`) و `company_id` فقط از مسیر و نشست سرور
+        مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`،
+        `uploaded_by`، `storage_key` یا فیلد دامنهای در بدنه/کوئری با ۴۰۰
+        صریح رد میشود، نه حذف بیصدا. مجوز `attachment.upload` در گارد route و
+        دوباره از DB بررسی میشود؛ RLS/FORCE RLS و زنجیرهٔ مالکیت والد دستنخوردهاند.
+        همان خط لولهٔ `POST /attachments` (سقف حجم، allowlist، امضای بایتی،
+        SHA-256، کلید نامفضاشده به شرکت، URL امضاشده) دوباره استفاده میشود.
+        ثبت ردیف `attachment` و رویداد `audit_log` با `action=create` و
+        `entity_type=entity_attachment` در **یک تراکنش**اند؛ شکست ممیزی،
+        شکست ثبت DB یا شکست صدور URL ⇒ rollback و پاکسازی شیء آپلودشده تا
+        فایل اورفان باقی نماند. URL امضاشده هرگز وارد ممیزی یا لاگ نمیشود.
+        حذف/بایگانی/انتخاب تصویر اصلی/سیاست نگهداشت تعریف نشدهاند.
+        خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`،
+        `unverifiable_content_type`، `content_type_mismatch`،
+        `malformed_content`، `extension_mismatch`،
+        `unsupported_owner_type`، `owner_not_found`، `owner_scope_denied`،
+        `entity_attachment_owner_scope_rejected`، `unsupported_request_field`،
+        `forbidden`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: >-
+                    بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp،
+                    application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی
+                    یا دامنهای پذیرفته نمیشود.
+      responses:
+        '201':
+          description: فایل ذخیره، metadata ثبت و رویداد ممیزی در همان تراکنش نوشته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntityAttachmentItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413':
+          description: حجم فایل بیش از حد مجاز (file_too_large)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: نوع/امضای محتوای فایل پذیرفته نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده یا در دسترس نیست
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /entity-attachments/{ownerType}/{ownerId}/{attachmentId}/url:
+    parameters:
+      - name: ownerType
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/EntityAttachmentOwnerType' }
+      - { name: ownerId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid }, description: شناسهٔ ضمیمهٔ دقیقاً همین رکورد }
+    get:
+      tags: [attachments]
+      summary: URL امضاشدهٔ تازه برای ضمیمهٔ دقیقاً همین موجودیت
+      description: >-
+        علاوه بر راستیآزمایی زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر
+        صریحاً `owner_type` و `owner_id` مسیر و `company_id` نشست را قید میزند؛
+        ضمیمهٔ رکوردی دیگر حتی در همان شرکت ۴۰۴
+        `entity_attachment_not_found` میگیرد. URL کوتاهعمر است و bucket هرگز
+        عمومی نمیشود. مجوز `attachment.view` در دو لایه بررسی میشود.
+      responses:
+        '200':
+          description: URL امضاشدهٔ دانلود و عمر آن به ثانیه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentUrl' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /bi/kpi:
     get:
       tags: [bi]
@@ -5265,6 +6134,558 @@ paths:
 # =====================================================================
 # وب‌هوک‌های بیرونی (OpenAPI 3.1) — امضا با X-Signature و تلاش مجدد
 # =====================================================================
+  /product-families/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    patch:
+      tags: [products]
+      summary: ویرایش نام یا فعال/غیرفعال کردن خانواده با حفظ هویت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 255 }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: خانواده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductFamily' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/history:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: تاریخچه اتمی کاتالوگ کالا
+      parameters:
+        - { name: before, in: query, schema: { type: string, pattern: '^[0-9]{1,20}$' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        '200':
+          description: تاریخچه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCatalogHistoryPage' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /product-catalog/history:
+    get:
+      tags: [products]
+      summary: تاریخچه سراسری و فقط خواندنی کاتالوگ مرکزی
+      description: رویدادهای تغییرناپذیر کاتالوگ مرکزی را در محدوده شرکت نشست و با صفحهبندی keyset نمایش میدهد. فقط انواع موجودیت مهاجرت 0060 مجازاند؛ تاریخچه عضویت دامنه، قیمت و موجودی در این مسیر وجود ندارد.
+      parameters:
+        - name: entity_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [product, product_category, product_family, product_alias, product_attribute_def, product_attribute_enum_value, product_attribute_value, product_relation, product_bundle, product_barcode, product_packaging]
+        - name: product_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - { name: before, in: query, schema: { type: string, pattern: '^[0-9]{1,20}$' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        '200':
+          description: صفحهای از تاریخچه مرکزی شرکت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductCatalogHistoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /product-domain-integration:
+    get:
+      tags: [products]
+      summary: قرارداد اتصال کاتالوگ به دامنه عملیاتی
+      description: وضعیت تصمیمهای مالک و مرز فنی اتصال را برمیگرداند؛ `available` تا تصمیم مالک و پیادهسازی عضویت همواره `false` است.
+      responses:
+        '200':
+          description: قرارداد و فهرست تصمیمهای لازم؛ جریان کاری دامنه غیرفعال است
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DomainCatalogContractStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /products/{id}/domain-catalog:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمیشود
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /products/{id}/domain-scope:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: نمای صریح جدایی هویت مرکزی کالا از عضویت و دسترسپذیری دامنهای
+      description: |
+        TASK-PM-02: پاسخی خواندنی و بیداده در سطح **هویت مرکزی**. چرخهٔ حیات
+        مرکزی کالا نمایش داده میشود، ولی `domain_context`، `domain_membership`
+        و `domain_availability` همیشه `unresolved` و `available` همیشه `false`
+        است. وضعیت `active` مرکزی هرگز به معنی عرضه در دامنه یا فعال بودن در
+        همهٔ دامنهها نیست. هیچ عضویت، فهرست دامنه، تاریخچه یا دادهٔ ساختگی
+        برگردانده نمیشود. ارسال هدر `x-domain-id` یا پارامتر دامنهای با خطای
+        `domain_context_not_supported` / `domain_property_rejected` رد میشود.
+        مجوز `master.product.view`، RLS شرکت و قید صریح `company_id` اعمال
+        میشوند؛ کالای شرکت دیگر ۴۰۴ یکسان میگیرد تا وجودش افشا نشود.
+      responses:
+        '200':
+          description: مرز مرکزی/دامنهای کالا؛ بدون هیچ نتیجهگیری دامنهای
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductDomainScope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /products/{id}/lifecycle:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [products]
+      summary: وضعیت، ماتریس گذار، اختیارات نشست و تاریخچه چرخه حیات مرکزی کالا
+      description: |
+        TASK-PM-02-C5: نمای فقطخواندنی و متمرکز چرخه حیات **مرکزی**. وضعیت فعلی،
+        `row_version`، گذارهای موجود تحت D4، دلیل دردسترسنبودن هر عمل، و تاریخچه
+        تغییرناپذیر `0060` همراه با کنشگر و زمان بازگردانده میشود. تنها
+        `active↔blocked` شاهدپذیر و قابل اجراست؛ همهٔ گذارهای شامل
+        `discontinued` با `lifecycle_transition_blocked` عمداً BLOCKED /
+        NOT AUTHORIZEDاند و هرگز در `available_actions` قرار نمیگیرند. تاریخچه فقط
+        وضعیت قبل/بعد را نشان میدهد و داده خام قبل/بعد، اطلاعات دامنهای یا
+        اطلاعات سایر شرکتها را افشا نمیکند. مجوز `master.product.view` هم در
+        route و هم از پایگاهداده بازاعتبارسنجی میشود؛ قید صریح company_id و RLS
+        برقرارند. هیچ کنترل یا سیاست دامنهای/حذف/بایگانی ساخته نشده است.
+      parameters:
+        - name: before
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[0-9]{1,20}$' }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        '200':
+          description: نمای مرکزی چرخه حیات و تاریخچه وضعیت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductLifecycleView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500':
+          description: خطای عمومی بدون افشای جزئیات پایگاهداده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /products/{id}/lifecycle/transitions:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [products]
+      summary: اجرای یک گذار وضعیت مرکزی موجود با D4، قفل خوشبینانه و ممیزی تراکنشی
+      description: |
+        فقط گذارهای شاهدپذیر `active→blocked` و `blocked→active` را با همان
+        `master.product.status` و `confirm_sensitive` اجرا میکند؛ قاعده تازهای
+        اضافه نمیشود. درخواستهای شامل `discontinued`، وضعیت بیتغییر و حذف نرم
+        صریحاً رد میشوند. `row_version` در این مسیر الزامی است. فیلدهای مالکیت،
+        شرکت/tenant، هویت کنشگر، مجوزها و فراداده ممیزی از کلاینت صریحاً رد
+        میشوند. بهروزرسانی محصول، رویداد تغییرناپذیر `0060` و `audit_log` در یک
+        تراکنش با `recordRequired` commit یا rollback میشوند. وضعیت مرکزی به
+        دسترسپذیری دامنهای تعبیر نمیشود و downstream تغییر نمیکند.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductLifecycleTransitionRequest' }
+      responses:
+        '200':
+          description: گذار انجام شد؛ وضعیت، نسخه و نشانگر ممیزی تراکنشی
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductLifecycleTransitionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500':
+          description: خطای عمومی بدون افشای جزئیات پایگاهداده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /operational-domains:
+    get:
+      tags: [products]
+      summary: مرز بسته فهرست دامنههای مجاز؛ بدون داده ساختگی
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains/current:
+    get:
+      tags: [products]
+      summary: مرز بسته تفکیک دامنه جاری؛ زمینه دامنه اجباری است
+      parameters:
+        - { $ref: '#/components/parameters/xDomainIdHeader' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains/{domainId}/products:
+    parameters:
+      - { $ref: '#/components/parameters/domainIdPath' }
+    get:
+      tags: [products]
+      summary: مرز بسته فهرست کالاهای دامنه؛ بدون عضویت یا وضعیت ساختگی
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [products]
+      summary: مرز بسته افزودن کالای مرکزی به دامنه؛ هیچ نوشتهای انجام نمیشود
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /operational-domains/{domainId}/products/{productId}:
+    parameters:
+      - { $ref: '#/components/parameters/domainIdPath' }
+      - { $ref: '#/components/parameters/productIdPath' }
+    patch:
+      tags: [products]
+      summary: مرز بسته تغییر وضعیت دامنهای؛ هیچ نوشتهای انجام نمیشود
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    delete:
+      tags: [products]
+      summary: مرز بسته حذف/غیرفعالسازی عضویت؛ تاریخچهای ساخته یا پاک نمیشود
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /products/{id}/domain-membership:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+      - { $ref: '#/components/parameters/xDomainIdHeader' }
+    get:
+      tags: [products]
+      summary: مرز بسته عضویت کالا در دامنه؛ بدون نشت اطلاعات بین دامنهای
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /products/{id}/domain-membership/history:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+      - { $ref: '#/components/parameters/xDomainIdHeader' }
+    get:
+      tags: [products]
+      summary: مرز بسته تاریخچه عضویت؛ بدون نشت اطلاعات بین دامنهای
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ---------------- TASK-PM-02-C4 — مرکز انتقال ضمائم ----------------
+  /attachment-transfer/owner-types:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferOwnerTypes
+      summary: انواع مالک مصوب ضمائم برای صدور/ورود بسته
+      responses:
+        '200':
+          description: فهرست هشت نوع مالک دارای زنجیرهٔ راستیآزمایشده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOwnerTypesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attachment-transfer/owners:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferOwners
+      summary: رکوردهای مالک مجاز همان شرکت، با شمارش ضمائم
+      parameters:
+        - name: entity_types
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 8
+            items: { $ref: '#/components/schemas/TransferOwnerType' }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50 } }
+      responses:
+        '200':
+          description: فقط رکوردهای مجاز همان شرکت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOwnersResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attachment-transfer/exports/preview:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferExportPreview
+      summary: پیشنمایش بستهٔ صدور و تولید manifest/جمعکنترلها
+      description: >-
+        هیچ رکورد محصول، دادهٔ مرجع، شرکت یا پیکربندی دامنهای ساخته/تغییر
+        نمیکند. manifest فقط مرجع مالک و فرادادهٔ فایل دارد؛ کلید استوریج،
+        URL امضاشده و اطلاعات زیرساخت هرگز برگردانده نمیشود.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferExportPreviewRequest' }
+      responses:
+        '200':
+          description: پیشنمایش و شناسهٔ عملیات صدور
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferExportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: خواندن ضمیمه از ذخیرهسازی ممکن نشد؛ بستهٔ ناقصی ساخته نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachment-transfer/exports/{operationId}/package:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferExportPackage
+      summary: دانلود امن بستهٔ ZIP صدور با اختیار تازه
+      description: >-
+        بسته از سابقهٔ ممیزی و ضمائم مجاز همان شرکت بازسازی و هش آن دوباره
+        مقایسه میشود. پاسخ باینری همانمبدأ است؛ URL امضاشده یا کلید استوریج
+        در بدنه/سرصفحه/تاریخچه وجود ندارد.
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: بستهٔ ZIP کنترلشده
+          headers:
+            X-Transfer-Package-Sha256:
+              description: هش SHA-256 یکپارچگی بسته
+              schema: { type: string, pattern: '^[a-f0-9]{64}$' }
+            Cache-Control:
+              description: عدم ذخیرهسازی پاسخ
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: بازسازی بسته از ذخیرهسازی ممکن نشد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachment-transfer/imports/preview:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferImportPreview
+      summary: بارگذاری و پیشنمایش امن بستهٔ ضمائم
+      description: >-
+        فقط بستهٔ ضمائم بازرسی میشود: یکپارچگی، مسیرها، MIME، امضای بایتی،
+        مالکیت، تکراریها و نگاشت به رکورد موجود. هیچ اجرای ورود، ساخت مالک،
+        جایگزینی، حذف یا انتساب شرکتی انجام نمیشود.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              additionalProperties: false
+              properties:
+                file: { type: string, format: binary, description: بستهٔ ZIP کنترلشده }
+      responses:
+        '200':
+          description: پیشنمایش کامل پذیرفته/ردشده/تکراری/حلنشده و وضعیت تأیید
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferImportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: حجم بسته بیش از سقف مجاز
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: نوع یا پسوند بسته مجاز نیست
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /attachment-transfer/imports/{operationId}:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferImportStatus
+      summary: بازخوانی پیشنمایش کوتاهعمر ورود
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: پیشنمایش معتبر همان آغازکننده
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferImportPreview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /attachment-transfer/imports/{operationId}/mappings:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferUpdateMappings
+      summary: نگاشت صریح فایلهای حلنشده به رکورد مالک موجود و مجاز
+      description: >-
+        فقط owner_id همان owner_type و همان شرکت تغییر میکند؛ نوع مالک، شرکت،
+        دامنه و محتوای بسته تغییرناپذیر است. هر تغییر نگاشت، هش پیشنمایش را
+        عوض میکند و هر تأیید پیشین را بیاعتبار میسازد.
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferMappingRequest' }
+      responses:
+        '200':
+          description: پیشنمایش تازه با هش نگاشت تازه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferImportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /attachment-transfer/imports/{operationId}/execute:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferExecute
+      summary: دروازهٔ اجرای ورود —fail-closed تا تصمیم مصوب مالک
+      description: >-
+        معماری تأیید دونفرهٔ موجود برای این عملیات بستهای سیاست/اثرانگشت مصوب
+        ندارد؛ بنابراین تلاش اجرا در ممیزی ثبت و با ۴۰۹ رد میشود. هیچ درج،
+        بهروزرسانی، حذف یا جایگزینی ضمیمه انجام نمیشود.
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferEmptyRequest' }
+      responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /attachment-transfer/operations:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferHistory
+      summary: تاریخچهٔ عملیات صدور/ورود و رویدادهای ممیزی
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200 } }
+      responses:
+        '200':
+          description: تاریخچهٔ تراکنشی بدون کلید استوریج/URL/اعتبارنامه
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOperationList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attachment-transfer/operations/{operationId}:
+    get:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferOperationDetail
+      summary: جزئیات یک عملیات و manifest امن آن
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: وضعیت، رویدادها، شمارشها و manifest بدون اطلاعات زیرساخت
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferOperationDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /attachment-transfer/operations/{operationId}/cancel:
+    post:
+      tags: [attachment-transfer]
+      operationId: attachmentTransferCancel
+      summary: لغو پیشنمایش ورود؛ حفظ سابقه و بدون حذف فیزیکی
+      parameters:
+        - { name: operationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransferEmptyRequest' }
+      responses:
+        '200':
+          description: پیشنمایش لغو و رویداد لغو ثبت شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferCancelResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
 webhooks:
   invoicePosted:
     post:
@@ -5339,6 +6760,24 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    domainIdPath:
+      name: domainId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است
+    productIdPath:
+      name: productId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود
+    xDomainIdHeader:
+      name: x-domain-id
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+      description: زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است
 
   responses:
     BadRequest:
@@ -5376,6 +6815,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    ServiceUnavailable:
+      description: اتصال کاتالوگ دامنه تا تصمیم مالک و مرجع معتبر غیرفعال است؛ هیچ داده عضویت ارائه نمیشود
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/DomainCatalogUnavailable' }
     TooManyRequests:
       description: >-
         نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و
@@ -5427,7 +6871,23 @@ components:
             - `approver_not_authorized`: تصمیم‌گیرنده نقش/کارمندِ آن مرحله نیست (`403`).
             - `amount_band_mismatch`: مبلغِ درخواست با باندِ گامِ ورودی نمی‌خواند.
             - `duplicate_decision`: برای این مرحله قبلاً تصمیم ثبت شده است.
-          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required']
+
+            **مرز مرکزی/دامنهای Product Master (TASK-PM-02)** — همگی `400`
+            - `domain_property_rejected`: ویژگی عضویت، دسترسپذیری، فعالسازی یا
+              هویت دامنهای در بدنه، query یا سرستون CSV یک عملیات کاتالوگ مرکزی
+              ارسال شده است؛ هیچ نوشتهای انجام نشد. `details.fields` نام فیلدها
+              و `details.owner_decisions` تصمیمهای باز مالک را میدهد.
+            - `domain_context_not_supported`: هدر `x-domain-id` روی عملیات
+              کاتالوگ مرکزی ارسال شده است. شناسهٔ ارسالی مشتری اثبات هویت دامنه
+              نیست و نمای مرکزی را دامنهای نمیکند.
+
+            **همسانی سطوح خواندنی مرکزی (TASK-PM-02-B2)** — فهرست، جزئیات،
+            خروجی CSV و گزارش import نیز همین مرز را اعمال میکنند: کلید query
+            دامنهای ناشناخته پیش از حذف بیصدای `whitelist` رد میشود، بنابراین
+            درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
+            «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
+            عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
+          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported']
         message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
         details:
           type: object
@@ -5816,7 +7276,13 @@ components:
         min_order_qty: { type: number }
         weight_gr: { type: [integer, 'null'] }
         volume_cm3: { type: [integer, 'null'] }
-        status: { type: string, enum: [active, blocked, discontinued] }
+        status:
+          type: string
+          enum: [active, blocked, discontinued]
+          description: >-
+            TASK-PM-02-C5: فقط active↔blocked قابل اجراست. هر گذارِ به/از
+            discontinued با 400 `lifecycle_transition_blocked` رد می‌شود
+            (BLOCKED تا تصویب مالک)؛ وضعیت بی‌تغییر نادیده گرفته می‌شود.
         row_version:
           type: integer
           description: قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد
@@ -5833,6 +7299,14 @@ components:
         code: { type: string }
         name: { type: string }
         parent_id: { type: [string, 'null'], format: uuid, description: والد در سلسله‌مراتب }
+        name_latin: { type: [string, 'null'] }
+        parent_name: { type: [string, 'null'] }
+        cost_method: { type: string, enum: [moving_avg, fifo, standard] }
+        is_active: { type: boolean }
+        product_count: { type: integer, minimum: 0 }
+        child_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
     Unit:
       type: object
@@ -5843,6 +7317,13 @@ components:
         code: { type: string, examples: ['pcs', 'box', 'carton'] }
         title: { type: string }
         decimal_places: { type: integer, minimum: 0, maximum: 4 }
+        symbol: { type: [string, 'null'], maxLength: 16 }
+        title_latin: { type: [string, 'null'], maxLength: 64 }
+        is_active: { type: boolean }
+        product_count: { type: integer, minimum: 0 }
+        packaging_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
     PriceList:
       type: object
@@ -7445,6 +8926,313 @@ components:
       properties:
         url: { type: string, format: uri, description: URL امضاشدهٔ دانلود }
         expires_in: { type: integer, description: عمرِ URL به ثانیه }
+    EntityAttachmentOwnerType:
+      type: string
+      description: >-
+        انواع مالک مصوب C3 — دقیقاً همان enum تاریخی `Attachment.owner_type`
+        منهای `product` (نمای محصولمحور C1) و `other` (راستیآزماییناپذیر،
+        fail-closed). همگی در `owner-scope.ts` زنجیرهٔ مالکیت اجارهای دارند.
+      enum: [invoice, sales_order, return_request, stock_count, receipt, journal_entry, pod]
+    EntityAttachmentCounts:
+      type: object
+      required: [images, documents, total]
+      properties:
+        images: { type: integer, minimum: 0 }
+        documents: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+    EntityAttachmentItem:
+      type: object
+      description: >-
+        همان `schemas.Attachment` بهعلاوهٔ دستهبندی تصویر/سند که فقط در لحظهٔ
+        خواندن محاسبه میشود. هیچ `is_primary`، `sort_order`، `domain_id` یا
+        وضعیت ذخیرهشدهای وجود ندارد.
+      required:
+        - id
+        - owner_type
+        - owner_id
+        - file_name
+        - content_type
+        - size_bytes
+        - sha256
+        - url
+        - created_at
+        - kind
+        - kind_label_fa
+      properties:
+        id: { type: string, format: uuid }
+        owner_type: { $ref: '#/components/schemas/EntityAttachmentOwnerType' }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
+        sha256: { type: string, description: اثر انگشت SHA-256 محتوای فایل }
+        url: { type: string, format: uri, description: URL امضاشدهٔ کوتاهعمر }
+        created_at: { type: string, format: date-time }
+        kind: { type: string, enum: [image, document] }
+        kind_label_fa: { type: string, description: «تصویر» یا «سند» }
+    EntityAttachmentView:
+      type: object
+      description: >-
+        نمای مشترک ضمائم یک موجودیت واجدشرایط — شکل یکسان برای فاکتور،
+        سفارش، مرجوعی، انبارگردانی، سند حسابداری، رسید پرداخت و POD.
+        صرفاً کاتالوگ مرکزی/عملیاتی؛ هیچ فیلد دامنهای، عضویت یا دسترسپذیری
+        دامنهای ندارد.
+      required:
+        - owner_type
+        - owner_id
+        - owner_label_fa
+        - module_path
+        - items
+        - counts
+        - note_fa
+        - message_fa
+      properties:
+        owner_type: { $ref: '#/components/schemas/EntityAttachmentOwnerType' }
+        owner_id: { type: string, format: uuid }
+        owner_label_fa: { type: string, description: برچسب فارسی مصوب موجودیت }
+        module_path: { type: string, description: نشانی صفحهٔ مدیریت موجودیت برای ناوبری }
+        items:
+          type: array
+          description: جدیدترین ضمیمه اول (ترتیب قطعی created_at سپس id)
+          items: { $ref: '#/components/schemas/EntityAttachmentItem' }
+        counts: { $ref: '#/components/schemas/EntityAttachmentCounts' }
+        note_fa: { type: string, description: محدودیتهای مصوب (بدون حذف/بایگانی/انتخاب اصلی) }
+        message_fa: { type: string, description: یادآوری مرز مرکزی/دامنهای }
+
+    ProductMediaItem:
+      type: object
+      description: >-
+        یک تصویر/سند کالا؛ همان schemas.Attachment بهعلاوهٔ دستهبندی و نشانگر
+        تصویرِ اصلی که فقط در لحظهٔ خواندن محاسبه شده است (§B4 — بدون ستون DB).
+      required:
+        - id
+        - owner_type
+        - owner_id
+        - file_name
+        - content_type
+        - size_bytes
+        - sha256
+        - url
+        - created_at
+        - kind
+        - kind_label_fa
+        - is_primary
+        - primary_label_fa
+      properties:
+        id: { type: string, format: uuid }
+        owner_type: { type: string, enum: [product] }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
+        sha256: { type: string, description: اثرِ انگشت SHA-256 محتوای فایل }
+        url: { type: string, format: uri, description: URL امضاشدهٔ کوتاهعمر }
+        created_at: { type: string, format: date-time }
+        kind: { type: string, enum: [image, document] }
+        kind_label_fa: { type: string, description: «تصویر» یا «سند» }
+        is_primary: { type: boolean, description: فقط نخستین تصویر بر اساس created_at مقدار true دارد }
+        primary_label_fa: { type: [string, 'null'], description: «اصلی (خودکار)» یا null }
+    ProductMediaView:
+      type: object
+      description: >-
+        نمای مرکز تصاویر/اسناد یک کالای مرکزی. صرفاً کاتالوگ مرکزی؛ هیچ فیلد
+        دامنهای، عضویت، وضعیت عرضه یا دسترسپذیری دامنهای ندارد.
+      required:
+        - product_id
+        - product_code
+        - product_name
+        - items
+        - primary_image
+        - counts
+        - primary_image_rule
+        - primary_image_label_fa
+        - primary_image_note_fa
+        - message_fa
+      properties:
+        product_id: { type: string, format: uuid }
+        product_code: { type: string }
+        product_name: { type: string }
+        items:
+          type: array
+          description: قدیمیترین ضمیمه اول (ترتیب قطعی created_at سپس id)
+          items: { $ref: '#/components/schemas/ProductMediaItem' }
+        primary_image:
+          oneOf:
+            - { $ref: '#/components/schemas/ProductMediaItem' }
+            - { type: 'null' }
+        counts:
+          type: object
+          required: [images, documents, total]
+          properties:
+            images: { type: integer, minimum: 0 }
+            documents: { type: integer, minimum: 0 }
+            total: { type: integer, minimum: 0 }
+        primary_image_rule: { type: string, enum: [first_image_by_created_at] }
+        primary_image_label_fa: { type: string, description: برچسب مصوب §B4 }
+        primary_image_note_fa: { type: string, description: محدودیت مستند جابهجایی خودکار تصویرِ اصلی }
+        message_fa: { type: string }
+
+    # ─────────── TASK-PM-02-C2: دادههای مرجع ───────────
+    ReferenceProduct:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string }
+    ReferenceAuditEvent:
+      type: object
+      required: [id, action, entity_type, at]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        entity_type: { type: string, enum: [brand, uom, product_category] }
+        entity_id: { type: [string, 'null'] }
+        actor_user_id: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+        before_data: {}
+        after_data: {}
+    ReferenceHistoryList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ReferenceAuditEvent' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    ReferenceMutationResult:
+      type: object
+      required: [deleted, message_fa]
+      properties:
+        deleted: { type: boolean }
+        message_fa: { type: string }
+        reassigned:
+          type: object
+          properties:
+            children: { type: integer }
+            products: { type: integer }
+    Brand:
+      type: object
+      required: [id, name, is_active, product_count]
+      description: برند شرکتمحور (جدول brand موجود ۰۰۰۵ + ستونهای ۰۰۶۵)
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: [string, 'null'], maxLength: 64, description: ردیفهای قدیمی ممکن است بدون کد باشند }
+        name: { type: string }
+        name_latin: { type: [string, 'null'] }
+        is_active: { type: boolean }
+        product_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    BrandCreate:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        is_active: { type: boolean, default: true }
+    BrandUpdate:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        is_active: { type: boolean }
+    BrandDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Brand' }
+        - type: object
+          required: [usage_count, products]
+          properties:
+            usage_count: { type: integer }
+            products: { type: array, items: { $ref: '#/components/schemas/ReferenceProduct' } }
+    BrandList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Brand' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    UnitList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Unit' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    UnitCreate:
+      type: object
+      required: [code, title]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 16 }
+        title: { type: string, minLength: 1, maxLength: 64 }
+        symbol: { type: [string, 'null'], maxLength: 16 }
+        title_latin: { type: [string, 'null'], maxLength: 64 }
+        decimal_places: { type: integer, minimum: 0, maximum: 4, default: 0 }
+        is_active: { type: boolean, default: true }
+    UnitUpdate:
+      type: object
+      description: کد واحد تغییرناپذیر است؛ ارسال code پاسخ ۴۰۰ صریح میگیرد
+      properties:
+        code: { type: string, maxLength: 16 }
+        title: { type: string, minLength: 1, maxLength: 64 }
+        symbol: { type: [string, 'null'], maxLength: 16 }
+        title_latin: { type: [string, 'null'], maxLength: 64 }
+        decimal_places: { type: integer, minimum: 0, maximum: 4 }
+        is_active: { type: boolean }
+    UnitDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Unit' }
+        - type: object
+          required: [usage_count, products]
+          properties:
+            usage_count: { type: integer }
+            products: { type: array, items: { $ref: '#/components/schemas/ReferenceProduct' } }
+    CategoryList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ProductCategory' } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    CategoryAncestor:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+    CategoryCreate:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        parent_id: { type: [string, 'null'], format: uuid }
+        is_active: { type: boolean, default: true }
+    CategoryUpdate:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_latin: { type: [string, 'null'], maxLength: 255 }
+        parent_id: { type: [string, 'null'], format: uuid, description: null = انتقال به ریشه }
+        is_active: { type: boolean }
+    CategoryDetail:
+      allOf:
+        - { $ref: '#/components/schemas/ProductCategory' }
+        - type: object
+          required: [ancestors, children, products]
+          properties:
+            ancestors: { type: array, items: { $ref: '#/components/schemas/CategoryAncestor' } }
+            children: { type: array, items: { $ref: '#/components/schemas/ProductCategory' } }
+            products: { type: array, items: { $ref: '#/components/schemas/ReferenceProduct' } }
     SettingEntry:
       type: object
       required: [key, value]
@@ -7597,6 +9385,242 @@ components:
               name: { type: string }
               score: { type: number }
 
+    ProductCatalogHistoryPage:
+      type: object
+      required: [items, has_more, next_cursor]
+      properties:
+        has_more: { type: boolean }
+        next_cursor: { type: [string, 'null'] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, entity_type, action, at]
+            properties:
+              id: { type: string }
+              entity_type:
+                type: string
+                enum: [product, product_category, product_family, product_alias, product_attribute_def, product_attribute_enum_value, product_attribute_value, product_relation, product_bundle, product_barcode, product_packaging]
+              product_id: { type: [string, 'null'], format: uuid }
+              entity_id: { type: [string, 'null'], format: uuid }
+              action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+              actor_user_id: { type: [string, 'null'], format: uuid }
+              at: { type: string, format: date-time }
+              before_data: { type: [object, 'null'], additionalProperties: true }
+              after_data: { type: [object, 'null'], additionalProperties: true }
+    DomainOwnerDecision:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, enum: [PM-B1, PM-B2, PM-B3, PM-B4, PM-B5, PM-B6, PM-B7, PM-B8] }
+        title: { type: string }
+    DomainCatalogContractStatus:
+      type: object
+      required: [available, authority_registered, code, message_fa, decision_document, decision_document_url, owner_decisions, technical_contract]
+      properties:
+        available: { type: boolean, const: false }
+        authority_registered: { type: boolean }
+        code: { type: string, enum: [domain_identity_unresolved, domain_catalog_not_implemented] }
+        message_fa: { type: string }
+        decision_document: { type: string }
+        decision_document_url: { type: string, format: uri }
+        owner_decisions:
+          type: array
+          items: { $ref: '#/components/schemas/DomainOwnerDecision' }
+        technical_contract:
+          type: array
+          items: { type: string }
+        source: { type: string }
+    DomainCatalogUnavailable:
+      allOf:
+        - { $ref: '#/components/schemas/DomainCatalogContractStatus' }
+        - type: object
+          required: [operation]
+          properties:
+            operation: { type: string }
+    ProductDomainScope:
+      type: object
+      required:
+        - product_id
+        - scope
+        - central_status
+        - central_status_label_fa
+        - domain_context
+        - domain_membership
+        - domain_availability
+        - available
+        - state
+        - central_status_is_domain_availability
+        - message_fa
+        - decision_document
+        - decision_document_url
+        - owner_decisions
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        central_status: { type: string, enum: [active, blocked, discontinued] }
+        central_status_label_fa: { type: string }
+        domain_context: { type: string, enum: [unresolved] }
+        domain_membership: { type: string, enum: [unresolved] }
+        domain_availability: { type: string, enum: [unresolved] }
+        available: { type: boolean, const: false }
+        state: { type: string, enum: [domain_identity_unresolved] }
+        central_status_is_domain_availability: { type: boolean, const: false }
+        message_fa: { type: string }
+        decision_document: { type: string }
+        decision_document_url: { type: string, format: uri }
+        owner_decisions:
+          type: array
+          items: { $ref: '#/components/schemas/DomainOwnerDecision' }
+    ProductLifecycleTransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [target_status, row_version]
+      properties:
+        target_status:
+          type: string
+          enum: [active, blocked, discontinued]
+          description: 'فقط active/blocked قابل اجرا هستند؛ مقادیر شامل discontinued با 400 lifecycle_transition_blocked رد میشوند.'
+        row_version: { type: integer, minimum: 0, description: نسخه فعلی قفل خوشبینانه؛ مغایرت 409 }
+        confirm_sensitive: { type: boolean, description: 'D4: تأیید صریح؛ بدون true درخواست 400 میگیرد' }
+    ProductLifecycleTransitionRule:
+      type: object
+      required:
+        - source_status
+        - target_status
+        - supported
+        - action_id
+        - label_fa
+        - reason_fa
+        - validation_fa
+        - authorization_fa
+        - side_effects_fa
+        - dependent_modules_fa
+        - audit_fa
+        - evidence
+        - test_coverage_fa
+        - decision_dependency_fa
+        - rejection_code
+      properties:
+        source_status: { type: string, enum: [active, blocked, discontinued, deleted_soft] }
+        target_status: { type: string, enum: [active, blocked, discontinued] }
+        supported: { type: boolean }
+        action_id: { type: string }
+        label_fa: { type: string }
+        reason_fa: { type: string }
+        validation_fa: { type: string }
+        authorization_fa: { type: string }
+        side_effects_fa: { type: array, items: { type: string } }
+        dependent_modules_fa: { type: array, items: { type: string } }
+        audit_fa: { type: string }
+        evidence: { type: array, items: { type: string } }
+        test_coverage_fa: { type: array, items: { type: string } }
+        decision_dependency_fa: { type: [string, 'null'] }
+        rejection_code: { type: [string, 'null'] }
+    ProductLifecycleAction:
+      type: object
+      required: [action_id, target_status, label_fa, confirmation_required, method, path, requires_row_version, decision_dependency_fa]
+      properties:
+        action_id: { type: string }
+        target_status:
+          type: string
+          enum: [active, blocked]
+          description: 'فقط عملیات شاهدپذیر active↔blocked برگردانده میشود؛ هیچ عمل discontinuedای وجود ندارد.'
+        label_fa: { type: string }
+        confirmation_required: { type: boolean, const: true }
+        method: { type: string, enum: [POST] }
+        path: { type: string, enum: ['/products/{id}/lifecycle/transitions'] }
+        requires_row_version: { type: boolean, const: true }
+        decision_dependency_fa: { type: [string, 'null'] }
+    ProductLifecycleActor:
+      type: object
+      required: [can_update, can_change_status, can_transition, unavailable_reason_fa]
+      properties:
+        can_update: { type: boolean }
+        can_change_status: { type: boolean }
+        can_transition: { type: boolean }
+        unavailable_reason_fa: { type: [string, 'null'] }
+    ProductLifecycleHistoryItem:
+      type: object
+      required: [id, action, event_label_fa, from_status, to_status, actor_user_id, actor_label_fa, at]
+      properties:
+        id: { type: string }
+        action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+        event_label_fa: { type: string }
+        from_status: { type: [string, 'null'] }
+        to_status: { type: [string, 'null'] }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label_fa: { type: string }
+        at: { type: string, format: date-time }
+    ProductLifecycleView:
+      type: object
+      required:
+        - product_id
+        - scope
+        - status
+        - status_label_fa
+        - row_version
+        - policy
+        - actor
+        - available_actions
+        - transitions
+        - downstream_notes_fa
+        - owner_decisions_fa
+        - history
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        status_label_fa: { type: string }
+        row_version: { type: integer }
+        policy:
+          type: object
+          required: [source, permissions_fa, confirmation_fa, concurrency_fa, two_person_approval]
+          properties:
+            source: { type: string, enum: [existing_d4_contract] }
+            permissions_fa: { type: string }
+            confirmation_fa: { type: string }
+            concurrency_fa: { type: string }
+            two_person_approval: { type: string, enum: [BLOCKED] }
+        actor: { $ref: '#/components/schemas/ProductLifecycleActor' }
+        available_actions:
+          type: array
+          items: { $ref: '#/components/schemas/ProductLifecycleAction' }
+        transitions:
+          type: array
+          items: { $ref: '#/components/schemas/ProductLifecycleTransitionRule' }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa: { type: array, items: { type: string } }
+        history:
+          type: object
+          required: [items, has_more, next_cursor]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ProductLifecycleHistoryItem' }
+            has_more: { type: boolean }
+            next_cursor: { type: [string, 'null'] }
+    ProductLifecycleTransitionResult:
+      type: object
+      required: [product_id, scope, from_status, status, status_label_fa, row_version, action_id, action_label_fa, audit, message_fa]
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        from_status: { type: string, enum: [active, blocked], description: مبدأ فقط یکی از گذارهای شاهدپذیر است }
+        status: { type: string, enum: [active, blocked], description: مقصد فقط یکی از گذارهای شاهدپذیر است }
+        status_label_fa: { type: string }
+        row_version: { type: integer }
+        action_id: { type: string }
+        action_label_fa: { type: string }
+        audit:
+          type: object
+          required: [committed, action, transactional, actor_source]
+          properties:
+            committed: { type: boolean, const: true }
+            action: { type: string, enum: ['product_lifecycle.transition'] }
+            transactional: { type: boolean, const: true }
+            actor_source: { type: string, enum: [session] }
+        message_fa: { type: string }
     ProductFamily:
       type: object
       required: [id, code, name]
@@ -7604,6 +9628,7 @@ components:
         id: { type: string, format: uuid, readOnly: true }
         code: { type: string }
         name: { type: string }
+        is_active: { type: boolean, default: true }
 
     ProductAlias:
       type: object
@@ -7614,6 +9639,229 @@ components:
         alias: { type: string }
         alias_norm: { type: string, readOnly: true }
         kind: { type: string, enum: [brand_slang, latin, code] }
+
+    ProductAliasKindSpec:
+      type: object
+      required: [kind, label_fa, meaning_fa, used_in_scan, evidence]
+      properties:
+        kind: { type: string, enum: [brand_slang, latin, code] }
+        label_fa: { type: string }
+        meaning_fa: { type: string }
+        used_in_scan: { type: boolean, description: 'فقط kind=code در resolution اسکن استفاده می‌شود.' }
+        evidence: { type: string }
+
+    ProductAliasItem:
+      type: object
+      required: [id, product_id, alias, alias_norm, kind, kind_label_fa, used_in_scan]
+      properties:
+        id: { type: string, format: uuid }
+        product_id: { type: string, format: uuid }
+        alias: { type: string }
+        alias_norm: { type: string }
+        kind: { type: string, enum: [brand_slang, latin, code] }
+        kind_label_fa: { type: string }
+        used_in_scan: { type: boolean }
+        warning_fa: { type: [string, 'null'] }
+        conflict:
+          type: [object, 'null']
+          description: 'برخوردِ نرم با نام جایگزینِ کالای دیگر — اطلاع‌رسان، نه یکتاییِ DB.'
+          properties:
+            product_id: { type: [string, 'null'], format: uuid }
+            code: { type: [string, 'null'] }
+            name: { type: [string, 'null'] }
+        created_at: { type: [string, 'null'] }
+
+    ProductAliasOwnerDecision:
+      type: object
+      required: [id, title_fa, status, detail_fa]
+      properties:
+        id: { type: string }
+        title_fa: { type: string }
+        status: { type: string, enum: [BLOCKED, UNRESOLVED] }
+        detail_fa: { type: string }
+
+    ProductAliasOverview:
+      type: object
+      required: [product, scope, actor, kinds, items, aliases, counts, downstream_notes_fa, owner_decisions_fa]
+      properties:
+        product:
+          type: object
+          required: [id, code, status]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [active, blocked, discontinued] }
+        scope: { type: string, enum: [central] }
+        actor:
+          type: object
+          required: [can_view, can_update]
+          properties:
+            can_view: { type: boolean }
+            can_update: { type: boolean }
+            unavailable_reason_fa: { type: [string, 'null'] }
+        kinds:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasKindSpec' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasItem' }
+        aliases:
+          type: array
+          description: 'سازگاریِ عقب‌رو: آرایهٔ سادهٔ ردیف‌های product_alias.'
+          items: { $ref: '#/components/schemas/ProductAlias' }
+        counts:
+          type: object
+          required: [total, brand_slang, latin, code, truncated]
+          properties:
+            total: { type: integer }
+            brand_slang: { type: integer }
+            latin: { type: integer }
+            code: { type: integer }
+            truncated: { type: boolean }
+        scan_resolution_fa: { type: string }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasOwnerDecision' }
+
+    ProductAliasDeleteResult:
+      type: object
+      required: [deleted, alias_id]
+      properties:
+        deleted: { type: boolean, const: true }
+        alias_id: { type: string, format: uuid }
+
+    ProductAttributeKindSpec:
+      type: object
+      required: [kind, label_fa, meaning_fa, evidence]
+      properties:
+        kind: { type: string, enum: [text, number, enum] }
+        label_fa: { type: string }
+        meaning_fa: { type: string }
+        evidence: { type: string }
+
+    ProductAttributeCatalogEntry:
+      type: object
+      required: [def_id, code, title, kind, kind_label_fa, is_variant_axis, is_required, sort_order, enum_values, value, filled]
+      properties:
+        def_id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [text, number, enum] }
+        kind_label_fa: { type: string }
+        is_variant_axis: { type: boolean }
+        is_required: { type: boolean }
+        sort_order: { type: integer }
+        enum_values:
+          type: array
+          items:
+            type: object
+            required: [id, value]
+            properties:
+              id: { type: string, format: uuid }
+              value: { type: string }
+        value:
+          type: object
+          required: [id, value_text, value_num, value_enum]
+          properties:
+            id: { type: [string, 'null'], format: uuid }
+            value_text: { type: [string, 'null'] }
+            value_num: { type: [string, 'null'] }
+            value_enum: { type: [string, 'null'] }
+        filled: { type: boolean }
+        warning_fa: { type: [string, 'null'] }
+
+    ProductAttributesOverview:
+      type: object
+      required: [product, scope, actor, variant_signature, signature_locked, kinds, attributes, values, counts, downstream_notes_fa, owner_decisions_fa]
+      properties:
+        product:
+          type: object
+          required: [id, code, status]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [active, blocked, discontinued] }
+        scope: { type: string, enum: [central] }
+        actor:
+          type: object
+          required: [can_view, can_update]
+          properties:
+            can_view: { type: boolean }
+            can_update: { type: boolean }
+            unavailable_reason_fa: { type: [string, 'null'] }
+        variant_signature: { type: [string, 'null'] }
+        signature_locked: { type: boolean, description: 'پس از نخستین ارجاع عملیاتی true؛ تغییر محورها ممنوع (M-3).' }
+        signature_rule_fa: { type: string }
+        required_policy_fa: { type: string }
+        kinds:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAttributeKindSpec' }
+        attributes:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAttributeCatalogEntry' }
+        values:
+          type: array
+          description: 'سازگاریِ عقب‌رو: ردیف‌های خامِ product_attribute_value.'
+          items: { $ref: '#/components/schemas/ProductAttributeValue' }
+        counts:
+          type: object
+          required: [total, filled, required, required_missing, variant_axes]
+          properties:
+            total: { type: integer }
+            filled: { type: integer }
+            required: { type: integer }
+            required_missing: { type: integer }
+            variant_axes: { type: integer }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa:
+          type: array
+          items: { $ref: '#/components/schemas/ProductAliasOwnerDecision' }
+
+    ProductAttributeValueInput:
+      type: object
+      required: [def_id]
+      properties:
+        def_id: { type: string, format: uuid }
+        value_text: { type: [string, 'null'], maxLength: 2000 }
+        value_num: { type: [number, 'null'], description: 'در بازهٔ numeric(19,4)' }
+        value_enum: { type: [string, 'null'] }
+        clear: { type: boolean, description: 'حذف مقدار ثبت‌شده برای این صفت' }
+
+    ProductAttributeValuesResult:
+      type: object
+      required: [values, variant_signature, cleared]
+      properties:
+        values: { type: array, items: { $ref: '#/components/schemas/ProductAttributeValue' } }
+        variant_signature: { type: [string, 'null'] }
+        cleared: { type: array, items: { type: string, format: uuid } }
+
+    ProductIdentityHistoryEvent:
+      type: object
+      required: [id, action, event_label_fa, entity_type, entity_id, actor_label_fa, at]
+      properties:
+        id: { type: string }
+        action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+        event_label_fa: { type: string }
+        entity_type: { type: string, enum: [product_alias, product_attribute_value] }
+        entity_id: { type: string }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label_fa: { type: string }
+        at: { type: string }
+        def_code: { type: [string, 'null'] }
+        def_title: { type: [string, 'null'] }
+
+    ProductIdentityHistory:
+      type: object
+      required: [items, limit, source_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductIdentityHistoryEvent' }
+        limit: { type: integer }
+        source_fa: { type: string }
 
     ProductAttributeDef:
       type: object
@@ -7657,17 +9905,180 @@ components:
         value_num: { type: [string, 'null'], description: 'رشتهٔ اعشاری از دیتابیس' }
         value_enum: { type: [string, 'null'] }
 
-    ProductRelation:
+    ProductRelationKind:
+      type: string
+      enum: [substitute, complement]
+      description: 'فقط دو نوع مصوب مهاجرت ۰۰۴۶؛ هیچ نوع تازه‌ای در C6 اضافه نشد.'
+
+    ProductRelationRelatedProduct:
       type: object
-      required: [id, product_id, related_id, kind]
+      required: [id, code, status, status_label_fa]
       properties:
-        id: { type: string, format: uuid, readOnly: true }
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: [string, 'null'] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        status_label_fa: { type: string }
+        warning_fa:
+          type: [string, 'null']
+          description: 'هشدار اطلاع‌رسان برای کالای غیرفعال؛ رابطه را مسدود نمی‌کند (بدون سند مصوب).'
+
+    ProductRelationItem:
+      type: object
+      required: [id, product_id, related_id, kind, kind_label_fa, priority, direction, related, editable, removable]
+      properties:
+        id: { type: string, format: uuid }
         product_id: { type: string, format: uuid }
         related_id: { type: string, format: uuid }
-        kind: { type: string, enum: [substitute, complement] }
+        kind: { $ref: '#/components/schemas/ProductRelationKind' }
+        kind_label_fa: { type: string }
+        priority: { type: integer, minimum: 0, maximum: 32767 }
+        direction: { type: string, enum: [outgoing, incoming], description: 'رابطه جهت‌دار است؛ رابطهٔ متقابل خودکار ساخته نمی‌شود.' }
+        related: { $ref: '#/components/schemas/ProductRelationRelatedProduct' }
+        created_at: { type: string }
+        editable: { type: boolean, description: 'فقط رابطهٔ خروجی قابل ویرایش است.' }
+        removable: { type: boolean, description: 'فقط رابطهٔ خروجی قابل حذف است.' }
+
+    ProductRelationKindSpec:
+      type: object
+      required: [kind, label_fa, meaning_fa, operational_effect_fa, cycle_policy]
+      properties:
+        kind: { $ref: '#/components/schemas/ProductRelationKind' }
+        label_fa: { type: string }
+        meaning_fa: { type: string }
+        operational_effect_fa: { type: string }
+        cycle_policy: { type: string, enum: [rejected_by_existing_rule, no_approved_rule] }
+
+    ProductRelationOwnerDecision:
+      type: object
+      required: [id, title_fa, status, detail_fa]
+      properties:
+        id: { type: string }
+        title_fa: { type: string }
+        status: { type: string, enum: [BLOCKED, UNRESOLVED] }
+        detail_fa: { type: string }
+
+    ProductRelationsOverview:
+      type: object
+      required: [product_id, product, scope, actor, kinds, items, counts, downstream_notes_fa, owner_decisions_fa]
+      properties:
+        product_id: { type: string, format: uuid }
+        product:
+          type: object
+          required: [id, code, status, status_label_fa]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [active, blocked, discontinued] }
+            status_label_fa: { type: string }
+        scope: { type: string, enum: [central] }
+        actor:
+          type: object
+          required: [can_view, can_update]
+          properties:
+            can_view: { type: boolean }
+            can_update: { type: boolean }
+            unavailable_reason_fa: { type: [string, 'null'] }
+        kinds:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationKindSpec' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationItem' }
+        counts:
+          type: object
+          required: [outgoing, incoming, substitute, complement, truncated]
+          properties:
+            outgoing: { type: integer }
+            incoming: { type: integer }
+            substitute: { type: integer }
+            complement: { type: integer }
+            truncated: { type: boolean }
+        downstream_notes_fa: { type: array, items: { type: string } }
+        owner_decisions_fa:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationOwnerDecision' }
+
+    ProductRelationHistoryEvent:
+      type: object
+      required: [id, action, event_label_fa, actor_label_fa, at]
+      properties:
+        id: { type: string }
+        action: { type: string, enum: [INSERT, UPDATE, DELETE] }
+        event_label_fa: { type: string }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label_fa: { type: string }
+        at: { type: string }
+        kind: { type: [string, 'null'] }
+        priority: { type: [integer, 'null'] }
+        before_kind: { type: [string, 'null'] }
+        before_priority: { type: [integer, 'null'] }
+        product_id: { type: [string, 'null'], format: uuid }
+        related_id: { type: [string, 'null'], format: uuid }
+
+    ProductRelationHistory:
+      type: object
+      required: [items, has_more, limit, source_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationHistoryEvent' }
+        has_more: { type: boolean }
+        limit: { type: integer }
+        source_fa: { type: string }
+
+    ProductRelationGraphNode:
+      type: object
+      required: [product_id, code, status, depth]
+      properties:
+        product_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: [string, 'null'] }
+        status: { type: string, enum: [active, blocked, discontinued] }
+        kind: { type: [string, 'null'] }
+        depth: { type: integer, minimum: 0 }
+        via_relation_id: { type: [string, 'null'], format: uuid }
+
+    ProductRelationGraphEdge:
+      type: object
+      required: [relation_id, from, to, kind, priority]
+      properties:
+        relation_id: { type: string, format: uuid }
+        from: { type: string, format: uuid }
+        to: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/ProductRelationKind' }
         priority: { type: integer }
-        related_code: { type: string, readOnly: true }
-        related_name: { type: string, readOnly: true }
+
+    ProductRelationGraph:
+      type: object
+      required: [product_id, scope, depth, nodes, edges, truncated, technical_limits]
+      properties:
+        product_id: { type: string, format: uuid }
+        scope: { type: string, enum: [central] }
+        depth: { type: integer }
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationGraphNode' }
+        edges:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRelationGraphEdge' }
+        truncated: { type: boolean }
+        technical_limits:
+          type: object
+          required: [max_depth, max_nodes, requested_depth]
+          properties:
+            max_depth: { type: integer }
+            max_nodes: { type: integer }
+            requested_depth: { type: integer }
+        semantics_fa: { type: string }
+
+    ProductRelationDeleteResult:
+      type: object
+      required: [deleted, relation_id]
+      properties:
+        deleted: { type: boolean, const: true }
+        relation_id: { type: string, format: uuid }
 
     BundleComponent:
       type: object
@@ -7704,8 +10115,55 @@ components:
               message_fa: { type: string }
         headers: { type: array, items: { type: string } }
 
+    ImportIssue:
+      type: object
+      description: ردیفِ عادی‌شدهٔ گزارشِ import؛ خطاهای خام SQL یا فیلدهای بینشرکتی ندارد.
+      required: [row, code, message_fa, failure_category, retryable, transaction_outcome]
+      properties:
+        row: { type: integer, minimum: 1 }
+        code: { type: string }
+        message_fa: { type: string }
+        batch_no: { type: integer, minimum: 1 }
+        import_id: { type: string, format: uuid }
+        product_code: { type: string }
+        product_id: { type: string, format: uuid }
+        status: { type: string, enum: [created, updated, failed, rejected, rolled_back] }
+        failure_category: { $ref: '#/components/schemas/ImportFailureCategory' }
+        retryable: { type: boolean }
+        transaction_outcome: { $ref: '#/components/schemas/ImportTransactionOutcome' }
+
+    ImportFailureCategory:
+      type: string
+      description: دستهٔ فنی و پایدار خطا؛ قواعد کسب‌وکار D1–D5/M-5 را تغییر نمی‌دهد.
+      enum: [none, validation, business, permission, concurrency, infrastructure]
+
+    ImportTransactionOutcome:
+      type: string
+      description: نتیجهٔ تراکنش یک دسته؛ unknown هرگز موفقیت فرض نمی‌شود.
+      enum: [committed, rolled_back, not_started, unknown]
+
+    ImportBatchOutcome:
+      type: object
+      description: نتیجهٔ یک دستهٔ ۱۰۰ردیفی؛ دسته‌های commit‌شده در همان تراکنش محصول ثبت می‌شوند.
+      required: [batch_no, status, transaction_outcome, failure_category, retryable, total_rows, created_rows, updated_rows, failed_rows, attempts, report]
+      properties:
+        batch_no: { type: integer, minimum: 1 }
+        status: { type: string, enum: [committed, rolled_back, rejected, failed] }
+        transaction_outcome: { $ref: '#/components/schemas/ImportTransactionOutcome' }
+        failure_category: { $ref: '#/components/schemas/ImportFailureCategory' }
+        retryable: { type: boolean }
+        reason_code: { type: string }
+        message_fa: { type: string }
+        total_rows: { type: integer, minimum: 0 }
+        created_rows: { type: integer, minimum: 0 }
+        updated_rows: { type: integer, minimum: 0 }
+        failed_rows: { type: integer, minimum: 0 }
+        attempts: { type: integer, minimum: 1 }
+        report: { type: array, items: { $ref: '#/components/schemas/ImportIssue' } }
+
     ImportResult:
       type: object
+      description: نتیجهٔ اجرا یا پخش مجدد import؛ قرارداد §E (همه‌یا‌هیچ در هر دسته و ادامهٔ دسته‌های بعدی) حفظ می‌شود.
       required: [import_id, total_rows, created_rows, updated_rows, failed_rows, errors]
       properties:
         import_id: { type: string, format: uuid }
@@ -7714,14 +10172,176 @@ components:
         updated_rows: { type: integer }
         failed_rows: { type: integer }
         idempotent_replay: { type: boolean }
+        status: { type: string, enum: [processing, completed, failed] }
+        transaction_outcome:
+          type: string
+          description: نتیجهٔ تجمیعی؛ partial یعنی برخی دسته‌ها commit و برخی قطعاً برگشت خورده‌اند.
+          enum: [committed, partial, rolled_back, not_started, unknown]
+        failure_category: { $ref: '#/components/schemas/ImportFailureCategory' }
+        retryable:
+          type: boolean
+          description: فقط تلاش‌مجدد داخلیِ نتیجهٔ قطعی rolled_back؛ unknown نیاز به بررسی اپراتور دارد.
+        last_batch_no: { type: integer, minimum: 0 }
+        report: { type: array, items: { $ref: '#/components/schemas/ImportIssue' } }
+        batches: { type: array, items: { $ref: '#/components/schemas/ImportBatchOutcome' } }
         errors:
           type: array
-          items:
-            type: object
-            properties:
-              row: { type: integer }
-              code: { type: string }
-              message_fa: { type: string }
+          items: { $ref: '#/components/schemas/ImportIssue' }
+
+    BulkMaintenanceFieldsResponse:
+      type: object
+      required: [supported_fields]
+      properties:
+        supported_fields:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceField' }
+    BulkMaintenanceChangeValue:
+      description: مقدارِ ساده و غیرشیئی یک فیلد مجاز نگهداشت گروهی
+      oneOf:
+        - { type: string }
+        - { type: number }
+        - { type: boolean }
+        - { type: 'null' }
+    BulkMaintenanceChanges:
+      type: object
+      description: فقط کلیدهای فهرست سفید سرور؛ فیلدهای محافظتشده حتی در درخواست دستساز رد میشوند.
+      minProperties: 1
+      maxProperties: 9
+      additionalProperties: { $ref: '#/components/schemas/BulkMaintenanceChangeValue' }
+    BulkMaintenancePreviewRequest:
+      type: object
+      required: [product_ids, changes]
+      properties:
+        product_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        changes: { $ref: '#/components/schemas/BulkMaintenanceChanges' }
+    BulkMaintenanceField:
+      type: object
+      required: [key, label_fa, kind, nullable]
+      properties:
+        key:
+          type: string
+          enum:
+            - name
+            - name_latin
+            - brand_id
+            - min_order_qty
+            - weight_gr
+            - volume_cm3
+            - distribution_kind
+            - is_returnable_container
+            - requires_permit
+        label_fa: { type: string }
+        kind:
+          type: string
+          enum: [text, nullable_text, uuid, number, nullable_integer, enum, boolean]
+        nullable: { type: boolean }
+        max_length: { type: [integer, 'null'] }
+        enum_values:
+          type: [array, 'null']
+          items: { type: string }
+    BulkMaintenanceDiff:
+      type: object
+      required: [field, label_fa, before, after, before_label, after_label, changed]
+      properties:
+        field: { type: string }
+        label_fa: { type: string }
+        before: { $ref: '#/components/schemas/BulkMaintenanceChangeValue' }
+        after: { $ref: '#/components/schemas/BulkMaintenanceChangeValue' }
+        before_label: { type: string }
+        after_label: { type: string }
+        changed: { type: boolean }
+    BulkMaintenancePreviewItem:
+      type: object
+      required: [product_id, code, name, row_version, status, changes]
+      properties:
+        product_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        row_version: { type: integer }
+        status: { type: string, enum: [eligible, rejected] }
+        reason_code: { type: [string, 'null'] }
+        message_fa: { type: [string, 'null'] }
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceDiff' }
+    BulkMaintenancePreviewResponse:
+      type: object
+      required: [operation_id, preview_token, expires_at, status, eligible_count, rejected_count, supported_fields, items]
+      properties:
+        operation_id: { type: string, format: uuid }
+        preview_token: { type: string, minLength: 64, maxLength: 64 }
+        expires_at: { type: string, format: date-time }
+        status: { type: string, enum: [preview_created] }
+        eligible_count: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        supported_fields:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceField' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenancePreviewItem' }
+    BulkMaintenanceExecuteRequest:
+      type: object
+      required: [operation_id, preview_token, confirm]
+      properties:
+        operation_id: { type: string, format: uuid }
+        preview_token: { type: string, minLength: 64, maxLength: 64 }
+        confirm: { type: boolean, enum: [true] }
+    BulkMaintenanceLifecycleEvent:
+      type: object
+      required: [state, at]
+      properties:
+        state:
+          type: string
+          enum: [preview_created, preview_stale, preview_expired, accepted, committed, rejected, unknown]
+        at: { type: string, format: date-time }
+    BulkMaintenanceOperationItem:
+      type: object
+      required: [product_id, code, name, status, product_url]
+      properties:
+        product_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [updated, rejected] }
+        row_version_before: { type: [integer, 'null'] }
+        row_version_after: { type: [integer, 'null'] }
+        message_fa: { type: [string, 'null'] }
+        product_url: { type: string }
+    BulkMaintenanceOperationResult:
+      type: object
+      required: [operation_id, status, outcome, lifecycle, eligible_count, updated_count, rejected_count, failure_category, items]
+      properties:
+        operation_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [preview_created, preview_stale, preview_expired, accepted, committed, rejected, unknown]
+        outcome:
+          type: string
+          enum: [not_started, committed, rolled_back, unknown]
+        lifecycle:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceLifecycleEvent' }
+        eligible_count: { type: integer, minimum: 0 }
+        updated_count: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        failure_category: { type: string }
+        reason_code: { type: [string, 'null'] }
+        message_fa: { type: [string, 'null'] }
+        accepted_at: { type: [string, 'null'], format: date-time }
+        committed_at: { type: [string, 'null'], format: date-time }
+        expires_at: { type: [string, 'null'], format: date-time }
+        idempotent_replay: { type: boolean }
+        reconciled: { type: boolean }
+        retryable: { type: boolean }
+        reconciliation_hint_fa: { type: [string, 'null'] }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BulkMaintenanceOperationItem' }
 
     ApprovalChain:
       type: object
@@ -7818,3 +10438,328 @@ components:
         heading_deg: { type: [number, 'null'] }
         is_mocked: { type: boolean }
         provider: { type: [string, 'null'] }
+    # ---------------- TASK-PM-02-C4 — انتقال ضمائم ----------------
+    TransferOwnerType:
+      type: string
+      description: >-
+        فقط انواع مالک مصوب C1/C3 دارای زنجیرهٔ راستیآزمایشدهٔ مالکیت؛
+        other، brand، product_category، warehouse، uom و انواع تازه ممنوعاند.
+      enum: [product, invoice, sales_order, return_request, stock_count, journal_entry, receipt, pod]
+    TransferEmptyRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+      description: بدنهٔ خالی؛ مالک، شرکت، دامنه، تأییدکننده و توکن پذیرفته نمیشود.
+    TransferSelection:
+      type: object
+      required: [owner_type, owner_id]
+      additionalProperties: false
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+    TransferExportPreviewRequest:
+      type: object
+      required: [selections]
+      additionalProperties: false
+      properties:
+        selections:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/TransferSelection' }
+    TransferOwnerTypeOption:
+      type: object
+      required: [owner_type, label_fa, module_path, backend_supported, ui_module, note_fa]
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        label_fa: { type: string }
+        module_path: { type: string }
+        backend_supported: { type: boolean, enum: [true] }
+        ui_module: { type: string, enum: [product_media, operational_entity, backend_only] }
+        note_fa: { type: string }
+    TransferOwnerTypesResponse:
+      type: object
+      required: [items, note_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerTypeOption' }
+        note_fa: { type: string }
+    TransferOwnerRecord:
+      type: object
+      required: [owner_type, owner_id, reference, title_fa, label_fa, module_path, attachment_count]
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        reference: { type: string }
+        title_fa: { type: string }
+        label_fa: { type: string }
+        module_path: { type: string }
+        attachment_count: { type: integer, minimum: 0 }
+    TransferOwnersResponse:
+      type: object
+      required: [items, note_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerRecord' }
+        note_fa: { type: string }
+    TransferManifestFile:
+      type: object
+      description: فقط مرجع مالکیت و فرادادهٔ فایل؛ بدون storage_key/URL/اعتبارنامه
+      required: [path, attachment_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, crc32, exported_at]
+      properties:
+        path: { type: string, pattern: '^files/[0-9]{4}-[a-f0-9]{12}\.(jpg|jpeg|png|webp|pdf)$' }
+        attachment_id: { type: string, format: uuid }
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string, maxLength: 200 }
+        content_type: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf] }
+        size_bytes: { type: integer, minimum: 1, maximum: 8388608 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        crc32: { type: integer, minimum: 0, maximum: 4294967295 }
+        exported_at: { type: string, format: date-time }
+    TransferChecksums:
+      type: object
+      required: [schema, manifest_sha256, package_sha256, total_bytes, file_count]
+      properties:
+        schema: { type: string, enum: ['green-dms.attachment-transfer/1'] }
+        manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        package_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        total_bytes: { type: integer, minimum: 0 }
+        file_count: { type: integer, minimum: 0 }
+    TransferManifest:
+      type: object
+      required: [schema, operation_id, created_at, entity_types, file_count, total_bytes, files, checksums]
+      properties:
+        schema: { type: string, enum: ['green-dms.attachment-transfer/1'] }
+        operation_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        file_count: { type: integer, minimum: 0 }
+        total_bytes: { type: integer, minimum: 0 }
+        files:
+          type: array
+          items: { $ref: '#/components/schemas/TransferManifestFile' }
+        checksums: { $ref: '#/components/schemas/TransferChecksums' }
+    TransferRejectedFile:
+      type: object
+      required: [owner_type, owner_id, attachment_id, file_name, reason_code, message_fa]
+      properties:
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        attachment_id: { type: string, format: uuid }
+        file_name: { type: string }
+        reason_code: { type: string }
+        message_fa: { type: string }
+    TransferExportPreview:
+      type: object
+      required: [operation_id, operation_type, phase, execution_status, created_at, expires_at, entity_types, selections, file_count, total_bytes, estimated_package_size_bytes, rejected_count, rejected_files, manifest, downloads_available, note_fa]
+      properties:
+        operation_id: { type: string, format: uuid }
+        operation_type: { type: string, enum: [export] }
+        phase: { type: string, enum: [preview] }
+        execution_status: { type: string, enum: [completed] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        selections:
+          type: array
+          items: { $ref: '#/components/schemas/TransferSelection' }
+        file_count: { type: integer, minimum: 0 }
+        total_bytes: { type: integer, minimum: 0 }
+        estimated_package_size_bytes: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        rejected_files:
+          type: array
+          items: { $ref: '#/components/schemas/TransferRejectedFile' }
+        manifest:
+          oneOf:
+            - { $ref: '#/components/schemas/TransferManifest' }
+            - { type: 'null' }
+        downloads_available: { type: boolean }
+        note_fa: { type: string }
+    TransferPreviewItem:
+      type: object
+      required: [path, attachment_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, status, reason_code, message_fa]
+      properties:
+        path: { type: string }
+        attachment_id: { type: string, format: uuid }
+        owner_type: { $ref: '#/components/schemas/TransferOwnerType' }
+        owner_id: { type: string, format: uuid }
+        file_name: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, minimum: 0 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        status: { type: string, enum: [accepted, rejected, duplicate, unresolved] }
+        reason_code: { type: string }
+        message_fa: { type: string }
+    TransferApprovalStatus:
+      type: object
+      description: >-
+        وضعیت دونفرهٔ fail-closed؛ تا زمان تصمیم/امضای مصوب برای سیاست و
+        اثرانگشت بسته، هیچ تأییدکننده یا اجرای معتبری وجود ندارد.
+      required: [status, reason_code, message_fa, operation, mechanism, fingerprint_supported, required_dependency_fa, initiator_user_id, approver_user_id, approved_at, approved_package_sha256, approved_mapping_sha256, approved_preview_sha256, current_package_sha256, current_mapping_sha256, current_preview_sha256, approval_invalidated, self_approval_forbidden]
+      properties:
+        status: { type: string, enum: [blocked] }
+        reason_code: { type: string, enum: [approval_policy_missing] }
+        message_fa: { type: string }
+        operation: { type: string, enum: [attachment.import.execute] }
+        mechanism: { type: string }
+        fingerprint_supported: { type: boolean }
+        required_dependency_fa: { type: string }
+        initiator_user_id: { type: string, format: uuid }
+        approver_user_id: { type: 'null' }
+        approved_at: { type: 'null' }
+        approved_package_sha256: { type: 'null' }
+        approved_mapping_sha256: { type: 'null' }
+        approved_preview_sha256: { type: 'null' }
+        current_package_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        current_mapping_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        current_preview_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        approval_invalidated: { type: boolean }
+        self_approval_forbidden: { type: boolean, enum: [true] }
+    TransferImportCounts:
+      type: object
+      required: [accepted, rejected, duplicate, unresolved]
+      properties:
+        accepted: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        duplicate: { type: integer, minimum: 0 }
+        unresolved: { type: integer, minimum: 0 }
+    TransferImportPreview:
+      type: object
+      required: [operation_id, operation_type, phase, execution_status, status, created_at, expires_at, version, entity_types, file_count, total_bytes, package_sha256, manifest_sha256, mapping_sha256, preview_sha256, items, counts, manifest, approval, execution, note_fa]
+      properties:
+        operation_id: { type: string, format: uuid }
+        operation_type: { type: string, enum: [import] }
+        phase: { type: string, enum: [preview, approval] }
+        execution_status: { type: string, enum: [blocked] }
+        status: { type: string, enum: [approval_blocked] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        file_count: { type: integer, minimum: 1 }
+        total_bytes: { type: integer, minimum: 1 }
+        package_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        mapping_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        preview_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferPreviewItem' }
+        counts: { $ref: '#/components/schemas/TransferImportCounts' }
+        manifest: { $ref: '#/components/schemas/TransferManifest' }
+        approval: { $ref: '#/components/schemas/TransferApprovalStatus' }
+        execution:
+          type: object
+          required: [allowed, reason_code, message_fa]
+          properties:
+            allowed: { type: boolean, enum: [false] }
+            reason_code: { type: string, enum: [approval_policy_missing] }
+            message_fa: { type: string }
+        note_fa: { type: string }
+    TransferMappingOverride:
+      type: object
+      required: [path, owner_id]
+      additionalProperties: false
+      properties:
+        path: { type: string }
+        owner_id: { type: string, format: uuid }
+    TransferMappingRequest:
+      type: object
+      required: [mapping_overrides]
+      additionalProperties: false
+      properties:
+        mapping_overrides:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/TransferMappingOverride' }
+    TransferSafeFailure:
+      type: object
+      required: [code, message_fa]
+      properties:
+        code: { type: string }
+        message_fa: { type: string }
+    TransferAuditEvent:
+      type: object
+      required: [event_id, action, phase, status, at, actor_user_id, actor_label, safe_failure]
+      properties:
+        event_id: { type: string }
+        action: { type: string }
+        phase: { type: string, enum: [preview, approval, execution, download, failure, cancellation] }
+        status: { type: string }
+        at: { type: string, format: date-time }
+        actor_user_id: { type: [string, 'null'], format: uuid }
+        actor_label: { type: [string, 'null'] }
+        safe_failure:
+          oneOf:
+            - { $ref: '#/components/schemas/TransferSafeFailure' }
+            - { type: 'null' }
+    TransferHistoryItem:
+      type: object
+      required: [operation_id, operation_type, phase, execution_status, initiator_user_id, initiator_label, approver_user_id, approver_label, package_schema, package_sha256, manifest_sha256, total_bytes, estimated_package_size_bytes, entity_types, file_count, accepted_count, rejected_count, duplicate_count, unresolved_count, created_at, completed_at, safe_failure, events]
+      properties:
+        operation_id: { type: string, format: uuid }
+        operation_type: { type: string, enum: [export, import] }
+        phase: { type: string }
+        execution_status: { type: string }
+        initiator_user_id: { type: [string, 'null'], format: uuid }
+        initiator_label: { type: string }
+        approver_user_id: { type: 'null' }
+        approver_label: { type: string }
+        package_schema: { type: [string, 'null'] }
+        package_sha256: { type: [string, 'null'] }
+        manifest_sha256: { type: [string, 'null'] }
+        total_bytes: { type: integer, minimum: 0 }
+        estimated_package_size_bytes: { type: integer, minimum: 0 }
+        entity_types:
+          type: array
+          items: { $ref: '#/components/schemas/TransferOwnerType' }
+        file_count: { type: integer, minimum: 0 }
+        accepted_count: { type: integer, minimum: 0 }
+        rejected_count: { type: integer, minimum: 0 }
+        duplicate_count: { type: integer, minimum: 0 }
+        unresolved_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+        safe_failure:
+          oneOf:
+            - { $ref: '#/components/schemas/TransferSafeFailure' }
+            - { type: 'null' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/TransferAuditEvent' }
+    TransferOperationList:
+      type: object
+      required: [items, note_fa]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TransferHistoryItem' }
+        note_fa: { type: string }
+    TransferOperationDetail:
+      allOf:
+        - { $ref: '#/components/schemas/TransferHistoryItem' }
+        - type: object
+          required: [manifest, note_fa]
+          properties:
+            manifest:
+              oneOf:
+                - { $ref: '#/components/schemas/TransferManifest' }
+                - { type: 'null' }
+            note_fa: { type: string }
+    TransferCancelResult:
+      type: object
+      required: [operation_id, status, note_fa]
+      properties:
+        operation_id: { type: string, format: uuid }
+        status: { type: string, enum: [cancelled] }
+        note_fa: { type: string }

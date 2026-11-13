@@ -1,0 +1,103 @@
+VERIFICATION — TASK-PM-02-C6 (روابط کالا‑به‑کالا: جایگزین/مکمل) — شواهد HTTP زندهٔ همین‌مبدأ
+========================================================================================================
+محیط: PostgreSQL 16.2 واقعی (127.0.0.1:55432) · API ساخته‌شده از همین درخت روی :4000 · Next.js روی :3000
+محدوده: فقط دو نوع مصوب مهاجرت ۰۰۴۶ (substitute/complement)، جهت‌دار و فقط کاتالوگی.
+این فایل شاهد اجرای زنده است؛ آزمون واحد/HTTP-با-PG و CI جداگانه گزارش می‌شوند.
+
+GET    /health                                                                    → 200
+  ✓ سلامت API: service=dms-api version=0.1.0 database=up
+POST   /auth/login                                                                → 200
+  ✓ ورود c1_admin؛ مجوز master.product.* از پایگاه‌داده بازاعتبارسنجی می‌شود
+
+  · ممیزی/تاریخچهٔ یتیمِ روابط از اجرای قبلی پاک شد: audit=1 · history=0
+مبنا: product=4 · product_relation=0 · product_bundle=0 · audit_log(product_relation)=0
+POST   /products                                                                  → 201
+POST   /products                                                                  → 201
+POST   /products                                                                  → 201
+  ✓ سه کالای شاهد با status پیش‌فرض active ساخته شد (بدون هیچ فیلد رابطه)؛ audit_log(product)=3 (فقط سه create)
+
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 200
+  ✓ نمای خالی: دو نوع مصوب، سیاست حلقه فقط برای substitute، شش تصمیم باز (۲ BLOCKED / ۴ UNRESOLVED)
+  ✓ مرزهای انتشار: رابطه اطلاعاتی است: انتخابِ کالا در سفارش/فاکتور/بارنامه هرگز به‌طور خودکار عوض نمی‌شود. | قیمت‌گذاری، موجودی، COGS و بسته‌بندی از این جدول خوانده نمی‌شوند؛ هیچ محاسبه‌ای تغییر نمی…
+  ✓ نمای روابط: بدون before/after خام، کلید استوریج/امضا، داده تماس/هویتی یا زیرساخت
+
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 201
+  ✓ رابطهٔ A→B (جایگزین، اولویت ۱۰) ثبت شد؛ هیچ ردیف معکوسی خودکار ساخته نشد (C6-D2 باز)
+  ✓ ممیزی create + تاریخچهٔ ۰۰۶۰ (INSERT) در همان تراکنش ثبت شد
+
+GET    /products/5b1323b2-e6c3-4267-9ea2-a100ac3e8456/relations                   → 200
+  ✓ از سمت B همان رابطه «ورودی» است و قابل ویرایش/حذف نیست (مدل مصوب فقط مبدأ را مدیریت می‌کند)
+
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ خودارجاع رد شد: 'self_relation'
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 409
+  ✓ تکرار همان رابطه رد شد: 'duplicate_relation'
+POST   /products/5b1323b2-e6c3-4267-9ea2-a100ac3e8456/relations                   → 400
+  ✓ حلقهٔ جایگزین B→A رد شد: 'relation_cycle'
+POST   /products/5b1323b2-e6c3-4267-9ea2-a100ac3e8456/relations                   → 201
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 201
+  ✓ حلقهٔ «مکمل» رد نمی‌شود، چون قاعدهٔ مصوبی وجود ندارد (C6-D3 به‌عنوان تصمیم باز حفظ شد)
+
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ فیلد شرکت از کلاینت رد شد: 'forbidden_client_field'
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ درخواست «ساخت معکوس خودکار» رد شد: 'forbidden_client_field'
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ نوع رابطهٔ بیرون از enum رد شد: 'validation_failed'
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ کوئری تعریف‌نشده رد شد: 'unsupported_request_field'
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ هدر دامنه در مسیر مرکزی رد می‌شود: 'domain_context_not_supported'
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ ویژگی دامنه در کوئری رد می‌شود: 'domain_property_rejected'
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 400
+  ✓ ویژگی دامنه در بدنهٔ رابطه رد می‌شود: 'domain_property_rejected'
+
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 401
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 401
+GET    /products/00000000-0000-4000-8000-000000000000/relations                   → 404
+  ✓ کالای ناموجود ۴۰۴ می‌دهد: 'product_not_found'
+GET    /products/not-a-uuid/relations                                             → 400
+  ✓ شناسهٔ نامعتبر ۴۰۰ می‌دهد: 'invalid_id'
+
+PATCH  /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/086efafb-511d-4b77-899f-1363a5a30498 → 200
+PATCH  /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/086efafb-511d-4b77-899f-1363a5a30498 → 400
+  ✓ اولویت تکراری تغییری اعمال نکرد: 'relation_unchanged'
+PATCH  /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/086efafb-511d-4b77-899f-1363a5a30498 → 400
+  ✓ ویرایش نوع رابطه پشتیبانی نمی‌شود (فقط اولویت): 'unsupported_request_field'
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/history           → 200
+  ✓ تاریخچه: آخرین رویداد UPDATE با نوع/اولویت؛ before/after خام برنمی‌گردد
+  ✓ تاریخچهٔ روابط: بدون before/after خام، کلید استوریج/امضا، داده تماس/هویتی یا زیرساخت
+GET    /products/5b1323b2-e6c3-4267-9ea2-a100ac3e8456/relations/graph             → 400
+  ✓ عمق پیمایش بیش از سقف فنی رد شد: 'validation_failed'
+
+GET    /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/graph             → 200
+  ✓ گراف: 4 گره · 3 یال · سقف عمق 3 / گره 100
+  ✓ پیمایش فنی است، نه ادعای تقارن/حلقه/اثر عملیاتی: این پیمایش فنی است: فقط روابط «خروجی» را تا عمقِ محدود دنبال می‌کند و هیچ حکمی دربارهٔ متق…
+
+POST   /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations                   → 201
+  ✓ رابطه با کالای «مسدود» مسدود نشد ولی هشدار فارسی برگرداند: کالای مرتبط در وضعیت «مسدود» است؛ رابطه حفظ می‌شود ولی استفادهٔ عملیاتی مجاز نیست.
+DELETE /products/5b1323b2-e6c3-4267-9ea2-a100ac3e8456/relations/086efafb-511d-4b77-899f-1363a5a30498 → 404
+  ✓ حذف از مسیر کالای دیگر ۴۰۴ است: 'relation_not_found'
+DELETE /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/086efafb-511d-4b77-899f-1363a5a30498 → 200
+  ✓ حذف مجاز (سیاست موجود) + ممیزی delete + تاریخچهٔ INSERT,UPDATE,DELETE
+DELETE /products/cd2cc912-537a-4f03-8750-13cc0255473d/relations/086efafb-511d-4b77-899f-1363a5a30498 → 404
+  ✓ حذف دوباره ۴۰۴ است: 'relation_not_found'
+
+  ✓ وضعیت/row_version کالاها ثابت ماند، هیچ ردیف bundle ساخته نشد و ممیزی «product» بدون تغییر ماند (3)
+  ✓ قیمت/موجودی/سفارش/فاکتور/بارنامه خوانده یا تغییر داده نشد (هیچ کدی در این مسیرها تغییر نکرد)
+
+WEB    /products                                                                  → 200  (64567 بایت HTML)
+WEB    /products/cd2cc912-537a-4f03-8750-13cc0255473d                             → 200  (65839 بایت HTML)
+  ✓ پوستهٔ اپ و مسیر جزئیات کالا ۲۰۰ می‌دهند؛ محتوای تب «روابط» کلاینتی است و آزمون کامپوننتی/کد مرجع است
+  · رندر واقعی RTL در مرورگر UNVERIFIED (بررسی دستی انجام نشد)
+
+  ✓ پاک‌سازی: product=4 · product_relation=0 · product_bundle=0 · audit_log(product_relation)=0 — برابر مبنا
+
+نتیجه: PASS — نمای مرکزی روابط، افزودن/ویرایش اولویت/حذف با ممیزی و تاریخچهٔ ۰۰۶۰، خطاهای مصوب، مرز دامنه و سقف پیمایش.
+BLOCKED / NOT AUTHORIZED: جایگزینی خودکار در سند (C6-D1)، گسترش عملیاتی بسته/PM-P5 (C6-D6)، هر اثر روی قیمت/موجودی/COGS/اسناد.
+UNRESOLVED (تصمیم مالک، پیاده‌سازی نشد): تقارن/رابطهٔ معکوس خودکار (C6-D2)، حلقهٔ مکمل (C6-D3)، کاردینالیتی/الزام حداقل (C6-D4)،
+            مسدودسازی رابطه با کالای غیرفعال (C6-D5).
+مرزها: بدون مهاجرت/grant/نقش/RLS/شرکت تازه، بدون تغییر رفتار downstream، بدون دادهٔ شخصی یا before/after خام.
+UNVERIFIED: بررسی دستی مرورگر (RTL/a11y/console)، زیرساخت معادل تولید، پذیرش نهایی Product Master و استقرار.
+هیچ merge/approve/release انجام نشد؛ PR #14 همچنان draft است.

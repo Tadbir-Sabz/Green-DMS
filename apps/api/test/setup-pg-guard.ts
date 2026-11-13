@@ -20,6 +20,24 @@
 import pg from 'pg';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const RealClient = (pg as any).Client;
+
+// برخی خطاهای 57P01 روی خودِ `Client` (نه Pool) منتشر میشوند، مثلاً هنگامی
+// که pg_terminate_backend اتصالِ در حال آزادسازی را میبندد. همان محافظ بیصدا
+// روی Client هم ثبت میشود تا uncaught exception کاذب، اجرای تستها را نشکند.
+if (typeof RealClient === 'function' && !RealClient.__errorGuarded) {
+  const GuardedClient = class extends (RealClient as { new (...a: unknown[]): pg.Client }) {
+    constructor(...args: unknown[]) {
+      super(...args);
+      this.on('error', () => undefined);
+    }
+  };
+  (GuardedClient as unknown as { __errorGuarded?: boolean }).__errorGuarded = true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (pg as any).Client = GuardedClient;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const RealPool = (pg as any).Pool;
 
 if (typeof RealPool === 'function' && !RealPool.__errorGuarded) {

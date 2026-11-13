@@ -1,0 +1,159 @@
+TASK-PM-02-C5 — چرخهٔ حیات مرکزی کالا (Central Product Lifecycle)
+گزارش راستی‌آزمایی مستقل (Agent-1 / Arena.ai) — بستهٔ DEVELOPMENT، نه ممیزی صرف
+مخزن: Tadbir-Sabz/Green-DMS · شاخه: arena/be5eaff3-green-dms · PR #14: OPEN / DRAFT / base main
+مبنای اعلام‌شده و بازیابی‌شده: f0d39980fbcd3d1ca4d00cb13b4db24b3f664341 (پایان C4)
+
+────────────────────────────────────────────────────────────
+۱) بازیابی، حفظ شواهد و چک‌پوینت
+────────────────────────────────────────────────────────────
+git fetch / git pull --ff-only            : Already up to date
+شش نمای SHA در مبنا                        : ALL_AGREE=True (همگی f0d39980fbcd3d1ca4d00cb13b4db24b3f664341)
+worktree / git diff --check در مبنا        : پاک / ۰
+چک‌پوینت                                    : /home/user/pm02-c5-checkpoint.tar.gz (۲٬۹۰۳ فایل)
+sha256 چک‌پوینت                            : 0c2057d700cfdd0457b2fb6b5cc2176c851c3ce557ce1abd4cb6b3d012843f88
+sha256sum -c                               : OK
+git bundle --all                           : /home/user/pm02-c5-checkpoint.bundle (۳٬۱۴۸٬۷۴۰ بایت، تاریخچهٔ کامل)
+بدنهٔ PR پیش از C5                         : ۱۲۶٬۲۸۶ نویسه / ۱۳۹٬۹۶۸ بایت
+sha256 بدنهٔ PR پیشین                       : 4b4d1a1d2904239130926fd597268d4c56f6dd6ad90c79f9fbd7e930693d4b0b
+اسناد C1/C2/C3/C4/B2/M4/K/J                : بدون ویرایش؛ فقط پیوست‌های افزودنی C5
+amend / force / reset / rebase / merge / approve / release / deploy : هیچ‌کدام انجام نشد
+
+────────────────────────────────────────────────────────────
+۲) دامنهٔ مجاز و تصمیم‌های BLOCKED
+────────────────────────────────────────────────────────────
+منبع حقیقت: قید status در 0005 (active/blocked/discontinued)، کنترل D4 موجود
+(product-sensitivity.ts + master.product.status در 0046)، قفل خوش‌بینانهٔ 0020،
+تاریخچهٔ تغییرناپذیر 0060، TASK-PM-01_PRODUCT_MASTER_SPEC.md و کشف مصوب C5.
+گذارهای پشتیبانی‌شده (۲): active→blocked، blocked→active — همان رفتار شاهدپذیر PATCH
+با row_version + confirm_sensitive + مجوز master.product.status.
+BLOCKED / NOT AUTHORIZED (۵): active→discontinued، blocked→discontinued،
+discontinued→active، discontinued→blocked، discontinued→discontinued — با کد
+400 lifecycle_transition_blocked روی مسیر اختصاصی و PATCH عمومی و import.
+رد صریح: گذار بی‌تغییر → lifecycle_transition_unchanged؛ deleted_soft → product_not_found؛
+هدف ناشناخته → validation_failed.
+کالای قدیمی با status=discontinued: only-read، available_actions=[]، بدون کنترل UI.
+BLOCKED دیگر: معنای توقف/برگشت‌ناپذیری/دلیل/بایگانی، حذف/بازگردانی/نگهداشت،
+تأیید دونفرهٔ G-03 و جایگزینی D4، PM-B1..PM-B8 / Q1..Q5 / G-13، پذیرش کامل، استقرار.
+هیچ سیاست/ماشین حالت/مجوز/نقش/grant/RLS/مهاجرت/جدول/شرکت/دامنه/seed تازه ساخته نشد.
+تصحیح مهم: پیش‌نویس نخست C5 شش گذار (شامل چهار گذار discontinued) را supported
+می‌دانست؛ این تضاد با تصمیم مصوب در همین کار اصلاح شد و اکنون rules، service،
+نگهبان D4 (هم‌مسیر PATCH/import)، OpenAPI، کلاینت تولیدشده، UI و تست‌ها همگی
+فقط active↔blocked را مجاز می‌دانند.
+
+────────────────────────────────────────────────────────────
+۳) معماری و امنیت
+────────────────────────────────────────────────────────────
+مسیرها (۲):
+  GET  /api/v1/products/{id}/lifecycle               master.product.view
+  POST /api/v1/products/{id}/lifecycle/transitions   master.product.update (HTTP 200)
+AuthGuard + PermissionsGuard + DomainBoundaryGuard در سطح کلاس؛ بازاعتبارسنجی مجوز از
+DB پیش و داخل تراکنش؛ GUCهای app.company_id/app.user_id؛ قفل advisory روی
+catalog:${companyId}؛ TenantAwarePool همهٔ کوئری‌ها را به کلاینت همان تراکنش می‌فرستد.
+SELECT … FOR UPDATE + مقایسهٔ row_version قفل‌شده، سپس UPDATE با قید نسخه و
+recordRequired (fail-closed) و تریگر 0060 در همان تراکنش ⇒ گذار، ممیزی و تاریخچه
+همگی commit یا همگی rollback می‌شوند. کنشگر/زمان فقط از نشست/سرور.
+بدنه/کوئری: company_id، tenant_id، actor_user_id، created_by، updated_by، approved_by،
+permissions، role_id، domain_id، domain_status، status (در بدنهٔ گذار)، audit_metadata،
+before_data/after_data، x-domain-id ⇒ 400 forbidden_client_field؛ فیلد ناشناخته ⇒
+400 unsupported_request_field؛ limit غیرمجاز ⇒ validation_failed؛ cursor بد ⇒ invalid_cursor.
+شناسهٔ نامعتبر ⇒ invalid_id پیش از DB؛ کالای غیرهم‌شرکت/ناموجود ⇒ 404 product_not_found
+یکنواخت؛ نسخهٔ کهنه ⇒ 409 version_conflict بدون SQL؛ خطای زیرساخت ⇒
+500 lifecycle_transition_failed بدون جزئیات DB.
+
+────────────────────────────────────────────────────────────
+۴) خواندن و تاریخچه
+────────────────────────────────────────────────────────────
+نمای خواندن: وضعیت، برچسب فارسی، row_version، سیاست D4 (source, permissions, confirmation,
+concurrency, two_person_approval=BLOCKED)، actor (can_update/can_change_status/can_transition
++ علت فارسی)، available_actions (فقط از ماتریس supported)، ماتریس ۱۲ ردیفی
+(۳×۳ + سه ردیف deleted_soft)، یادداشت‌های downstream و تصمیم‌های باز مالک، و تاریخچه.
+تاریخچه: فقط product_catalog_history همان شرکت/کالا با entity_type='product' و
+تغییر وضعیت یا INSERT/DELETE؛ left join روی app_user/person همان شرکت؛ خروجی فقط
+actor_user_id، برچسب کنشگر، نوع رویداد فارسی، from/to status و زمان ISO.
+before_data/after_data خام، دادهٔ تماس/هویتی یا جزئیات زیرساخت برگردانده نمی‌شود.
+صفحه‌بندی before/limit (۱..۱۰۰، پیش‌فرض ۳۰) با next_cursor.
+
+────────────────────────────────────────────────────────────
+۵) قرارداد، کلاینت، پایگاه‌داده و ساخت
+────────────────────────────────────────────────────────────
+OpenAPI                    : PASS — ۲۲۶ مسیر / ۳۲۰ عملیات / ۲۱۰ اسکیما / ۳ وب‌هوک
+contract-drift             : PASS — ۳۲۰/۳۲۰، انحراف operation/enum/required صفر
+کلاینت TypeScript          : packages/api-client/src/schema.ts (+۲۷۰ خط)، build:packages PASS
+اسکیماهای تازه             : ۷ اسکیمای ProductLifecycle*؛ action/transition result
+                             فقط [active, blocked]؛ status/confirm_sensitive با توضیح BLOCKED
+مهاجرت تازه               : هیچ
+up/down/up                 : PASS — DB موقت، ۱٬۰۳۳ شیء یکسان، DB موقت حذف شد
+test-partition             : PASS — ۹۷ فایل، declared == computed
+typecheck                  : PASS — npm run typecheck ریشه (API، وب، packages)
+build                      : PASS — npm run build (API + next build)
+git diff --check           : ۰
+فایل‌های build در Git        : خیر (dist/.next نادیده گرفته شدند)
+
+────────────────────────────────────────────────────────────
+۶) تست‌های خودکار
+────────────────────────────────────────────────────────────
+واحد بی‌دادهٔ C5 (ماتریس/D4)                 : PASS ۱ فایل / ۴ تست
+سرتاسری C5 (HTTP + PostgreSQL موقت)          : PASS ۱ فایل / ۱۳ تست
+import: BLOCKED برای discontinued            : PASS (پیش‌نمایش + commit)
+جزء وب C5                                   : PASS ۱ فایل / ۶ تست
+وب کامل                                     : PASS ۲۶ فایل / ۱۴۳ تست
+واحد بی‌دادهٔ API                             : PASS ۳۶ فایل / ۴۱۶ تست
+رگرسیون هدفمند C1–C5 (۱۱ فایل)              : PASS ۱۱ فایل / ۲۴۱ تست
+اجرای کامل DB-backed API                   : ۹۲/۹۷ فایل، ۱٬۵۶۳/۱٬۵۸۲ تست PASS
+  فایل‌های ناکام: attachments.api، customers.api، geofences.api،
+  postgres-init-role.api، tours.api — ۱۹ عنوان شکست
+  مقایسه با /tmp/pm02c4-api-full.log: هم فایل‌ها و هم ۱۹ عنوان یکسان (no new failure)
+  ⇒ شکست‌های محیطی PostGIS/trust-auth/MinIO، نه رگرسیون C5.
+  «اجرای کامل DB محلی PASS» اعلام نمی‌شود.
+پوشش تست‌های شکست: ۴۰۱، ۴۰۳ (مجوز وضعیت جدا از مجوز ویرایش)، ۴۰۴ بین‌شرکتی،
+x-domain-id، کوئری/بدنهٔ ساختگی، فیلد تعریف‌نشده، row_version غایب/کهنه، گذار بی‌تغییر،
+هدف ناشناخته، گذار discontinued روی POST و PATCH و import، حالت قدیمی discontinued،
+همزمانی دو درخواست با یک نسخه (یک برنده، دیگری 409)، rollback کامل در شکست ممیزی،
+و حفظ رفتار downstream (waybill productsValid و وضعیت محصول).
+
+────────────────────────────────────────────────────────────
+۷) شاهد زندهٔ همان‌مبدأ
+────────────────────────────────────────────────────────────
+فایل: docs/product-inventory/evidence/task-pm-02/VERIFICATION-C5-LIVE.txt
+sha256: 4d392651b7b9cc4796c52b29c3bcac2c2d5696b567aeb02fe4f078db03dff417
+اندازه: ۹٬۷۹۸ بایت
+مسیر: http://127.0.0.1:3000/api/v1 → Next rewrite → API ساخته‌شده
+(node apps/api/dist/main.js, :4000) → greendms_c1_preview (PostgreSQL 16.2 واقعی).
+سلامت database=up؛ ورود c1_admin؛ ساخت کالا با active/row_version=0؛ نمای ۱۲ ردیفی با
+دقیقاً ۲ گذار supported و ۵ BLOCKED؛ رد ۶ درخواست خواندنی و ۷ درخواست گذارِ ساختگی/ناقض؛ active→blocked با
+row_version ۰→۱ و audit product_lifecycle.transition|blocked|active با کنشگر نشست؛
+تاریخچهٔ 0060؛ 409 version_conflict بدون افشای SQL؛ blocked→active (۱→۲)؛ کالای قدیمی
+discontinued بدون هیچ عمل/گذار و بدون تغییر؛ 401 بی‌نشست؛ 404 یکنواخت؛
+domain_context_not_supported برای x-domain-id؛ پاک‌سازی و بازگشت شمارش‌ها به مبنا
+(product=4، audit_log(product)=3).
+نتیجه: PASS. هیچ توکن/URL/اسکرین‌شات یا دادهٔ شخصی در شاهد ذخیره نشد.
+محتوی تب «چرخه حیات» کلاینتی است و در پوستهٔ SSR دیده نمی‌شود ⇒ رندر واقعی مرورگر
+UNVERIFIED (بررسی دستی انجام نشد).
+
+────────────────────────────────────────────────────────────
+۸) Git / CI / PR
+────────────────────────────────────────────────────────────
+کامیت C5 معمولی و push معمولی به origin/arena/be5eaff3-green-dms انجام می‌شود.
+SHA دقیق نهایی، نتیجهٔ CI دقیقSHA (چهار workflow / هشت check)، شش نمای نهایی و
+هش بدنهٔ PR پس از پیوست، به‌صورت **افزودنی در بدنهٔ PR #14 و گزارش پایانی چت** ثبت
+می‌شوند. دلیل عدم درج در فایل مخزن: ویرایش پساCI شاخهٔ تحت آزمون را عوض می‌کند.
+هیچ commit پساCI / trigger مصنوعی / amend / force وجود ندارد.
+پیوست PR با gh api -X PATCH --input انجام می‌شود و پیشوند 4b4d1a1d… بایت‌به‌بایت
+حفظ می‌گردد. queued/in_progress/null/cancelled هرگز PASS اعلام نمی‌شوند.
+PR همچنان OPEN / DRAFT؛ بدون merge/approve/release/deploy.
+
+────────────────────────────────────────────────────────────
+۹) احکام نهایی
+────────────────────────────────────────────────────────────
+PASS          : خواندن وضعیت/نسخه/سیاست/تاریخچه، گذار تراکنشی active↔blocked با D4،
+                ممیزی fail-closed، تاریخچهٔ تغییرناپذیر 0060، رد صریح فیلدهای ساختگی،
+                جداسازی شرکت، قرارداد/کلاینت/تست/UI RTL، شاهد زندهٔ همان‌مبدأ.
+FAIL          : هیچ، در محدودهٔ تحویل‌شده.
+BLOCKED       : همهٔ گذارهای به/از discontinued و معنای توقف/برگشت‌ناپذیری/دلیل/بایگانی؛
+                حذف/بازگردانی/نگهداشت؛ G-03 و جایگزینی سیاست D4؛ PM-B1..PM-B8،
+                Q1..Q5، G-13؛ هر مهاجرت/مجوز/نقش/grant/RLS/شرکت/دامنه/seed تازه؛
+                تغییر رفتار قیمت/بارنامه/سفارش/موجودی/فاکتور/ضمائم؛ پذیرش کامل
+                Product Master؛ استقرار تولید.
+UNVERIFIED    : مرورگر دستی RTL/a11y/console، زیرساخت معادل تولید (MinIO/S3 واقعی)،
+                CI دقیقSHA تا پیش از ثبت افزودنی در PR/چت.
+عدم مجوز      : merge / approve / release / deploy / تغییر production انجام نشد.

@@ -1,0 +1,142 @@
+VERIFICATION — TASK-PM-02-C11 (قراردادِ نرمال‌سازیِ هویت کالا)
+================================================================================
+نوع: طراحی + مشخصه‌یابیِ اجرایی. **هیچ رفتارِ تولیدی فعال نشد.**
+هیچ اسکیما/مهاجرت/RLS/قید/داده‌ای تغییر نکرد؛ D1/D4 فعال نشد؛ PR #14 مرج نشد.
+
+مبنا: 96eaf67a2a05dedce432b920ba381927822d50a2 (C10 final)
+  شش نما: HEAD / branch ref / remote-tracking / FETCH_HEAD (fetch صریح) / ls-remote / PR head
+  → همه 96eaf67… · distinct=1 · worktree پاک
+چک‌پوینت: pm02-c11-checkpoint.tar.gz  bytes=3241811
+  sha256=f6d48d8218ab3c23c6b77f78fbcb7042348359849712fdbc35b82450ec40cb42  sha256sum -c → OK
+  entries=2949 · bundle: "The bundle records a complete history" (HEAD 96eaf67)
+  reset/rebase/amend/force-push: هیچ
+
+--------------------------------------------------------------------------------
+۱) نقشهٔ وابستگی: پنج نرمال‌سازِ موجود
+--------------------------------------------------------------------------------
+  A product-normalize.ts:36  normalizeText      yeh/kaf:NO  digits:YES  diacritics:NO  zwnj:keep  lower:YES
+  B product-normalize.ts:45  normalizeBarcode   yeh/kaf:NO  digits:YES  all-spaces:REMOVED      lower:NO
+  C reference-data.rules:69  normalizeText      yeh/kaf:YES digits:NO   diacritics:NO  zwnj:keep  lower:NO
+  D web/lib/text.ts:10       normalizeFa        yeh/kaf:YES digits:YES  diacritics:YES zwnj:space lower:YES
+  E product-normalize.ts:21  foldDigits         digits only (helper)
+
+  A و C **هم‌نام** و واگرا هستند: normalizeText('كوكا') در A → 'كوكا' ولی در C → 'کوکا'
+  normalizeText('۱۲۳') در A → '123'  ولی در C → '۱۲۳'
+  تعدادِ فراخوانیِ نرمال‌سازها در master-data: ۳۰+ (فهرستِ کامل در سندِ قرارداد §۱-۲)
+
+  سه ناسازگاریِ ساختاری:
+   ۱. uq_product_code روی (company_id, code) case-SENSITIVE است ولی همهٔ مقایسه‌ها lower() می‌کنند
+   ۲. بررسیِ برخورد، ورودی را نرمال و ستونِ barcode را خام مقایسه می‌کند (نشتِ تقارن)
+   ۳. جست‌وجوی ilike('%q%') هیچ نرمال‌سازی‌ای ندارد (وب دارد، API ندارد)
+
+--------------------------------------------------------------------------------
+۲) قراردادِ پیشنهادی: شش پروفایل
+--------------------------------------------------------------------------------
+  ProductName      NFC  digits+letters+diacritics+space+punctuation+lower  empty:NO  uniqueness:NO
+  ProductNameLatin NFKC digits+space+lower (no persian folding)            empty:NO  uniqueness:NO
+  ProductAlias     NFC  like Name (punctuation unified, not removed)       empty:NO  uniqueness:YES
+  ProductCode      NFC  digits+lower, internal space = ERROR               empty:NO  uniqueness:YES
+  Barcode          NFC  digits+all-spaces+hyphens removed, lower           empty:NO  uniqueness:YES
+  SearchKey        NFKC most permissive, punctuation->space, empty allowed  empty:YES uniqueness:NO
+
+  سه‌لایه: display (تغییرناپذیر) ≠ raw (حفظ) ≠ comparison key (مشتق)
+  تصمیم‌های زبانی: ي/ى/ك/ة یکسان می‌شوند؛ آ/أ/إ **یکسان نمی‌شوند** (بازگشت‌ناپذیر + معنادار)
+  قواعدِ ایمنی: صفرِ ابتدایی حفظ · رقمِ بارکد حذف نمی‌شود · ورودیِ نامعتبر = خطا نه حذفِ بی‌صدا ·
+  قطعیت مستقل از locale (toLowerCase نه toLocaleLowerCase)
+
+--------------------------------------------------------------------------------
+۳) ماتریسِ اجرایی: ۲۸ مورد × ۶ پروفایل  (شاهد: EVIDENCE-C11-NORMALIZATION-MATRIX.json)
+--------------------------------------------------------------------------------
+  یافته‌های کلیدیِ ماتریس (رفتارِ فعلی → نامزد):
+   علي/علی        : current product=ne, reference=EQ  → proposed EQ
+   كوكا/کوکا      : current product=ne, reference=EQ  → proposed EQ
+   ى/ی            : current NE, NE                    → proposed EQ
+   مدينه/مدینه    : current NE, EQ                    → proposed EQ
+   آب/اب          : current NE, NE                    → proposed NE (عمدی، D-C11-2)
+   أحمد/احمد      : current NE, NE                    → proposed NE (عمدی، D-C11-2)
+   کِتَاب/کتاب    : current NE, NE                    → proposed EQ
+   کتـــاب/کتاب   : current NE, NE                    → proposed EQ
+   ۱۲۳/123        : current product=EQ, reference=NE  → proposed EQ
+   کوکا‌زیرو/کوکا زیرو: current NE, NE               → proposed EQ (D-C11-5)
+   a\t\tb/a b     : current product=NE, reference=EQ  → proposed EQ
+   a،b/a,b        : current NE, NE                    → proposed EQ
+   a–b/a-b        : current NE, NE                    → proposed EQ
+   123 456/123456 (barcode): current EQ, reference=NE  → proposed EQ
+   123-456/123456 (barcode): current NE, NE           → proposed EQ (D-C11-4)
+   007/7          : current NE, NE                    → proposed NE (قاعدهٔ ایمنی)
+
+--------------------------------------------------------------------------------
+۴) برخوردها: ۱۶ fixture  (شاهد: EVIDENCE-C11-COLLISION-FIXTURES.json)
+--------------------------------------------------------------------------------
+  رد (reject): CF-01 عینی · CF-02 حروف فا/ع · CF-05 فاصله · CF-07 NFC/NFD ·
+               CF-09 alias=code · **CF-10 alias=barcode** · CF-11 قالبِ بارکد · CF-12 (نابرابر) · CF-14 لاتین تمام‌عرض
+  هشدار (warning): CF-03 ی/ي در نام · CF-08 نام vs alias · CF-15 تمام‌عرض در نام فارسی
+  بازبینیِ دستی: CF-04 آ/ا · CF-06 نیم‌فاصله · CF-16 حروف در کد
+  مجاز (allow): CF-13 بین‌شرکتی (مرزِ RLS حفظ می‌شود)
+  ⚠️ CF-10 برخوردی است که **امروز از دست می‌رود** (نشتِ تقارن) — مهم‌ترین یافتهٔ عملی
+
+--------------------------------------------------------------------------------
+۵) تست‌های اجرایی
+--------------------------------------------------------------------------------
+  apps/api/test/c11-normalization-contract.test.ts → **39 تست، 39 PASS**
+  گروه‌ها: ۱ حروف فا/ع (۷) · ۲ فاصله/نشانه (۶) · ۳ یونیکد (۶) · ۴ بارکد/کد (۸) ·
+          ۵ نظمِ پروفایل (۵) · ۶ تصمیم‌های باز (۲) · ۷ واگراییِ سه نرمال‌ساز (۳) · ۸ گاردِ ایزولاسیون (۱)
+  دو باگِ طراحی که خودِ ماتریس پیدا کرد و اصلاح شدند:
+   - ترتیبِ گام‌ها: حذفِ کاراکترِ کنترلی پیش از تبدیلِ فاصله اجرا می‌شد ⇒ «a\t\tb» به «ab» می‌رسید. اصلاح: فاصله اول، حذفِ کنترلی بعد.
+   - SearchKey نشانه‌گذاری را **حذف** می‌کرد ⇒ «ABC-12» به «abc-12» می‌رسید. اصلاح: نشانه‌گذاری → فاصله.
+
+--------------------------------------------------------------------------------
+۶) گاردِ ایزولاسیون (اثباتِ اینکه هیچ رفتارِ تولیدی عوض نشده)
+--------------------------------------------------------------------------------
+  تستِ C11/8 با grep اثبات می‌کند ماژولِ نامزد در هیچ فایلِ دیگری import نشده است.
+  بررسیِ مستقل: grep در apps/ برای مسیرِ ماژول → فقط خودِ ماژول + فایلِ تست.
+  فایل‌های تولیدیِ تغییریافته: **صفر** (apps/api/src جز ماژولِ experimental، بدونِ تغییر)
+
+--------------------------------------------------------------------------------
+۷) سازگاری و مهاجرت (شاهد: EVIDENCE-C11-COMPATIBILITY.md)
+--------------------------------------------------------------------------------
+  alias_norm : ریسکِ بالا  → بازمحاسبهٔ همهٔ ردیف‌ها + بازسازیِ سه ایندکس
+  product.code: ریسکِ بالا → ناسازگاریِ case-sensitive/case-insensitive باید حل شود
+  barcode    : ریسکِ متوسط → حذفِ خطِ تیره؛ صفرِ ابتدایی دست‌نخورده
+  name/latin : ریسکِ پایین → فقط کلیدِ مقایسه، بدونِ تغییرِ دادهٔ نمایشی
+  ترتیبِ امن: اندازه‌گیری → تصویب → dual-read → بازمحاسبه → رفعِ تعارض → قید → بازایندکس
+  rollback: فازِ بازمحاسبه بدونِ backup ستون‌های هویتی **بازگشت‌ناپذیر** است
+  dual-read: ممکن و کم‌ریسک · shadow index: بهترین ابزار برای دیدنِ تعارض قبل از تغییرِ داده
+  ⚠️ ریسکِ عملیاتی: نرمال‌سازی و داده باید **اتمی** با هم تغییر کنند، وگرنه اسکن می‌شکند
+
+--------------------------------------------------------------------------------
+۸) طبقه‌بندی
+--------------------------------------------------------------------------------
+PASS      : ۳۹ تستِ اجرایی · ماتریسِ ۲۸ موردی · ۱۶ fixture · گاردِ ایزولاسیون ·
+            نقشهٔ وابستگی · سندِ قرارداد · ADR · تحلیلِ سازگاری/rollback
+FAIL      : —
+BLOCKED   : فعال‌سازیِ قرارداد در تولید (C11 مجاز نبود؛ نیازمندِ C12 + تصویبِ مالک)
+UNVERIFIED: تعدادِ ردیف‌های متأثر در دادهٔ واقعی · تعدادِ برخوردِ تازه · جفت‌های ABC/abc ·
+            بارکدهای خط‌تیره‌دار · حجمِ تاریخچهٔ تولیدشده (همه نیازمندِ C10 follow-up) ·
+            بازبینیِ مستقلِ Agent-2 (در دسترس نیست)
+NOT DONE  : هیچ تغییرِ کدِ تولیدی · هیچ مهاجرت/قید/RLS · هیچ تغییرِ داده · merge/approve
+
+
+--------------------------------------------------------------------------------
+۱۰) رگرسیون و CI (اجراهای واقعیِ همین نشست)
+--------------------------------------------------------------------------------
+  npm run typecheck                 → PASS (0 خطا، کلِ monorepo)
+  node scripts/check-test-partition → PASS (۱۰۱ فایلِ تست، declared == computed)
+  npm run openapi:check             → PASS (۲۲۹ مسیر / ۳۲۴ عملیات / ۲۳۳ اسکیما / ۳ هاب‌وهوک؛ بدونِ تغییر)
+  migrations                        → ۰ تغییر
+  unit (no-DB، ۳۸ فایل)             → PASS ۴۶۴ تست
+  DB-backed مرتبط با کالا (۸ فایل)  → PASS ۶۸ + ۴۹ = ۱۱۷ تست
+     product-identity (۲۷) · product-master-core · product-master-import ·
+     product-master-barcode · product-master-attributes · import-reliability · bulk-preview-cleanup
+  web (۲۹ فایل)                     → PASS ۱۶۵ تست
+  C11 executable tests              → PASS ۳۹ تست
+  فایل‌های تولیدیِ تغییر‌یافته       → ۰ (تنها مسیرِ تازه: experimental/)
+
+--------------------------------------------------------------------------------
+۱۱) تصمیم‌های بازِ کسب‌وکار (تصویب‌نشده)
+--------------------------------------------------------------------------------
+  D-C11-1 رقمِ کنترلیِ بارکد · D-C11-2 آ/أ · D-C11-3 حساسیتِ حروفِ کد ·
+  D-C11-4 خطِ تیره در بارکد · D-C11-5 نیم‌فاصله · D-C11-6 نرمال‌سازیِ جست‌وجو در API
+  هیچ‌کدام تصویب نشده؛ هیچ نام/امضایی ساخته نشد.
+
+حکمِ کلی: PASS WITH FINDINGS (design + characterization کامل؛ فعال‌سازی عمداً معوق)

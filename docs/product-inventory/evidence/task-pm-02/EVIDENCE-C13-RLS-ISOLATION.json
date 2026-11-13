@@ -1,0 +1,35 @@
+{
+  "task": "TASK-PM-02-C13",
+  "baseline_commit": "ca2382315c758e211d463d2b73c3eb51974b487d",
+  "synthetic_only": true,
+  "db_connection_used": false,
+  "rls_policies_modified": 0,
+  "note": "این آزمون، قراردادِ افشای موتور را می‌سنجد — نه RLS پایگاه‌داده را. RLS لایهٔ اصلی است و دست‌نخورده مانده؛ این لایهٔ دومِ دفاعی است (defense in depth).",
+  "same_company": {
+    "results": 13,
+    "all_single_company": true,
+    "display_values_visible": true
+  },
+  "cross_company": {
+    "results": 1,
+    "default_decision": "ALLOWED",
+    "display_values_visible": false,
+    "entity_ids_hashed": true,
+    "provenance_redacted": true
+  },
+  "cross_domain": {
+    "results": 1,
+    "decision": "MANUAL_REVIEW",
+    "display_values_visible": true,
+    "rationale": "دامنه‌ها مرزِ امنیتی نیستند؛ هر دو طرف متعلق به همان شرکت‌اند."
+  },
+  "adversarial_leak_test": {
+    "companies": 50,
+    "distinct_identifiers": 5,
+    "raw_values_leaked": 0,
+    "leaked_value_names": [],
+    "source_refs_leaked": 0,
+    "conflicts_still_detected": 5
+  },
+  "inaccessible_paths": "هیچ گزینه‌ای برای خاموش‌کردنِ پوشاندنِ بین‌شرکتی وجود ندارد (در سه ترکیبِ options سنجیده شد)."
+}

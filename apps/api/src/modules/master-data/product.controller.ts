@@ -22,6 +22,7 @@ import { CurrentUser, type AuthContext } from '../identity-rbac/auth-context.dec
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
+import { DomainBoundaryGuard } from './domain-boundary.guard';
 
 /**
  * CRUD کالا — GET/POST /products و GET/PATCH/DELETE /products/{id}
@@ -36,8 +37,18 @@ import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 export class ProductController {
   constructor(@Inject(PRODUCT_SERVICE) private readonly service: ProductService) {}
 
+  // TASK-PM-02-B2 — fail-closed parity on central READ surfaces.
+  // `validationPipeOptions` sets `whitelist: true` (not `forbidNonWhitelisted`),
+  // so an unknown query key such as `?available=true` or `?domain_id=…` would
+  // otherwise be *silently stripped*: the client receives an unchanged central
+  // page while believing it asked for domain-scoped data. The guard makes this
+  // an explicit 400 before any pipe/whitelist runs. It grants no domain identity,
+  // membership, availability or authority; domain-context routes (which read
+  // `x-domain-id` and fail closed via DomainCatalogGate) are deliberately NOT
+  // guarded here.
   @Get()
   @RequirePermissions('master.product.view')
+  @UseGuards(DomainBoundaryGuard)
   list(
     @Query() query: ListProductsQueryDto,
     @CurrentUser('companyId') companyId: string,
@@ -47,6 +58,7 @@ export class ProductController {
 
   @Get(':id')
   @RequirePermissions('master.product.view')
+  @UseGuards(DomainBoundaryGuard)
   get(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
@@ -56,6 +68,7 @@ export class ProductController {
 
   @Post()
   @RequirePermissions('master.product.create')
+  @UseGuards(DomainBoundaryGuard)
   create(
     @Body() dto: CreateProductDto,
     @CurrentUser() user: AuthContext,
@@ -66,6 +79,7 @@ export class ProductController {
 
   @Patch(':id')
   @RequirePermissions('master.product.update')
+  @UseGuards(DomainBoundaryGuard)
   update(
     @Param('id') id: string,
     @Body() dto: UpdateProductDto,
@@ -78,6 +92,7 @@ export class ProductController {
   @Delete(':id')
   @RequirePermissions('master.product.update')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(DomainBoundaryGuard)
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: AuthContext,

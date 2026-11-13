@@ -2,26 +2,25 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
+import { CatalogHistory, DomainIntegrationStatus } from './catalog-evidence';
+import { ProductLifecycleTab } from './product-lifecycle';
+import { ProductRelationsTab } from './product-relations';
+import { ProductMediaTab } from './product-media';
+import { ProductAliasesTab } from './product-aliases';
+import { ProductAttributesTab } from './product-attributes';
 import { useParams, useRouter } from 'next/navigation';
 import type { components } from '@dms/api-client';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
+import { ReferenceSelectors, type ReferenceSelection } from '../reference-data/reference-selectors';
 import {
   type BundleComponent,
-  type Category,
   type Product,
-  type ProductAlias,
-  type ProductAttributeDef,
-  type ProductAttributeValue,
   type ProductBarcode,
   type ProductFamily,
   type ProductPackaging,
-  type ProductRelation,
-  type Unit,
-  ALIAS_KIND_LABEL,
-  ATTR_KIND_LABEL,
   BARCODE_KIND_LABEL,
-  RELATION_KIND_LABEL,
   STATUS_LABEL,
   btnDangerSmall,
   btnGhost,
@@ -50,10 +49,14 @@ import {
  */
 
 type Uom = components['schemas']['Uom'];
-type TabKey = 'identity' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle';
+type TabKey = 'identity' | 'media' | 'attributes' | 'aliases' | 'barcodes' | 'packaging' | 'relations' | 'bundle' | 'history' | 'domain' | 'lifecycle';
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'lifecycle', label: 'چرخه حیات' },
+  { key: 'history', label: 'تاریخچه' },
+  { key: 'domain', label: 'عرضه در دامنه' },
   { key: 'identity', label: 'مشخصات' },
+  { key: 'media', label: 'تصاویر و اسناد' },
   { key: 'attributes', label: 'صفات و variant' },
   { key: 'aliases', label: 'نام‌های جایگزین' },
   { key: 'barcodes', label: 'بارکد‌ها' },
@@ -66,6 +69,11 @@ export default function ProductDetailPage(): React.JSX.Element {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
+  const auth = useAuth();
+  const canWrite = auth.hasPermission('master.product.update');
+  // C1: آپلود تصویر/سند علاوه بر مجوز محصول، مجوز ضمیمه را هم میخواهد؛
+  // مشاهده/دانلود برای نشستهای فقطخواندنی همچنان در دسترس میماند.
+  const canUpload = canWrite && auth.hasPermission('attachment.upload');
   const [ready, setReady] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -131,6 +139,7 @@ export default function ProductDetailPage(): React.JSX.Element {
         {TABS.map((t) => (
           <button
             key={t.key}
+            aria-pressed={tab === t.key}
             onClick={() => setTab(t.key)}
             className={`rounded-lg px-4 py-2 text-sm transition-colors focus-ring ${
               tab === t.key ? 'bg-info text-on-info font-medium' : 'text-ink-muted hover:bg-surface-alt'
@@ -141,13 +150,20 @@ export default function ProductDetailPage(): React.JSX.Element {
         ))}
       </div>
 
+      {tab === 'lifecycle' && <ProductLifecycleTab productId={id} onChanged={loadProduct} />}
+      {tab === 'history' && <CatalogHistory productId={id} />}
+      {tab === 'domain' && <DomainIntegrationStatus productId={id} />}
+      {tab === 'media' && <ProductMediaTab productId={id} canUpload={canUpload} />}
+      {!canWrite && <p className='mb-4 text-sm text-ink-muted'>این نشست فقط دسترسی خواندن کاتالوگ دارد.</p>}
+      <fieldset disabled={!canWrite} className='min-w-0'>
       {tab === 'identity' && <IdentityTab product={product} onSaved={loadProduct} onNotice={setNotice} />}
       {tab === 'attributes' && <AttributesTab productId={id} signature={product.variant_signature ?? null} onNotice={setNotice} />}
       {tab === 'aliases' && <AliasesTab productId={id} onNotice={setNotice} />}
       {tab === 'barcodes' && <BarcodesTab productId={id} onNotice={setNotice} />}
       {tab === 'packaging' && <PackagingTab productId={id} onNotice={setNotice} />}
-      {tab === 'relations' && <RelationsTab productId={id} onNotice={setNotice} />}
+      {tab === 'relations' && <ProductRelationsTab productId={id} />}
       {tab === 'bundle' && <BundleTab productId={id} onNotice={setNotice} />}
+      </fieldset>
     </>
   );
 }
@@ -170,7 +186,7 @@ function IdentityTab({
     family_id: product.family_id ?? '',
     category_id: product.category_id,
     base_uom_id: product.base_uom_id,
-    status: product.status,
+    brand_id: product.brand_id ?? '',
     distribution_kind: product.distribution_kind,
     min_order_qty: String(product.min_order_qty ?? 1),
     weight_gr: product.weight_gr != null ? String(product.weight_gr) : '',
@@ -183,25 +199,25 @@ function IdentityTab({
   const [confirmSensitive, setConfirmSensitive] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
   const [families, setFamilies] = useState<ProductFamily[]>([]);
 
+  // برند/واحد/دسته را ReferenceSelectors با قرارداد /reference-data/* میگیرد؛
+  // در حالت ویرایش، مقدار تاریخی غیرفعال هم نمایش داده میشود ولی قابلانتخاب مجدد نیست.
   useEffect(() => {
-    void Promise.all([api.GET('/product-categories'), api.GET('/units'), api.GET('/product-families')]).then(
-      ([cats, unts, fams]) => {
-        setCategories(cats.data?.items ?? []);
-        setUnits(unts.data?.items ?? []);
-        setFamilies(fams.data ?? []);
-      },
-    );
+    void api.GET('/product-families').then(({ data, error }) => {
+      if (error) setErr(faError(error));
+      else setFamilies(data ?? []);
+    });
   }, []);
 
   // D4 — فیلدهای حساس: تغییرِشان نیازمندِ تأییدِ صریح است
+  const categoryChanged = form.category_id !== product.category_id;
+  const uomChanged = form.base_uom_id !== product.base_uom_id;
+  const brandChanged = form.brand_id !== (product.brand_id ?? '');
+  // C5: وضعیت فقط از تب اختصاصی چرخهٔ حیات و مسیر تراکنشی آن تغییر میکند.
   const sensitiveChanged =
-    form.status !== product.status ||
     (form.tax_code_id || null) !== (product.tax_code_id ?? null) ||
-    form.base_uom_id !== product.base_uom_id;
+    uomChanged;
 
   const submit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -214,9 +230,11 @@ function IdentityTab({
         name: form.name.trim(),
         name_latin: form.name_latin.trim() || null,
         family_id: form.family_id || null,
-        category_id: form.category_id,
-        base_uom_id: form.base_uom_id,
-        status: form.status as 'active' | 'blocked' | 'discontinued',
+        // فقط مراجعی که واقعاً تغییر کردهاند ارسال میشوند: ویرایش سایر فیلدهای
+        // یک کالای قدیمی با مرجع غیرفعال، نباید به اجبار ارجاع را عوض کند.
+        ...(categoryChanged ? { category_id: form.category_id } : {}),
+        ...(uomChanged ? { base_uom_id: form.base_uom_id } : {}),
+        ...(brandChanged ? { brand_id: form.brand_id || null } : {}),
         distribution_kind: form.distribution_kind as 'cold' | 'warm' | 'both',
         min_order_qty: form.min_order_qty ? Number(form.min_order_qty) : 1,
         weight_gr: form.weight_gr ? Number(form.weight_gr) : null,
@@ -263,45 +281,45 @@ function IdentityTab({
           کد کالا (SKU)
           <input className={`${inputCls} mt-1 font-mono`} dir="ltr" value={product.code} disabled title="کدِ SKU پس از ثبت تغییرناپذیر است" />
         </label>
-        <label className="text-sm">
-          گروه کالا *
-          <select className={`${selectCls} mt-1`} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} required>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          واحد پایه * <span className="text-xs text-warning-ink">(حساس — D4)</span>
-          <select className={`${selectCls} mt-1`} value={form.base_uom_id} onChange={(e) => setForm({ ...form, base_uom_id: e.target.value })} required>
-            {units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.code} — {u.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ReferenceSelectors
+          mode="edit"
+          disabled={false}
+          value={{
+            category_id: form.category_id,
+            base_uom_id: form.base_uom_id,
+            brand_id: form.brand_id,
+          }}
+          onChange={(next: ReferenceSelection) =>
+            setForm({
+              ...form,
+              category_id: next.category_id,
+              base_uom_id: next.base_uom_id,
+              brand_id: next.brand_id,
+            })
+          }
+        />
         <label className="text-sm">
           خانواده (محورِ variant)
           <select className={`${selectCls} mt-1`} value={form.family_id} onChange={(e) => setForm({ ...form, family_id: e.target.value })}>
             <option value="">— بدون خانواده —</option>
             {families.map((f) => (
-              <option key={f.id} value={f.id}>
+              <option key={f.id} value={f.id} disabled={f.is_active === false}>
                 {f.code} — {f.name}
               </option>
             ))}
           </select>
         </label>
-        <label className="text-sm">
-          وضعیت <span className="text-xs text-warning-ink">(حساس — D4)</span>
-          <select className={`${selectCls} mt-1`} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}>
-            <option value="active">فعال</option>
-            <option value="blocked">مسدود</option>
-            <option value="discontinued">متوقف</option>
-          </select>
-        </label>
+        <div className="rounded-lg border border-line bg-surface-alt p-3 text-sm">
+          <span className="text-ink-muted">وضعیت مرکزی</span>
+          <p className="mt-2 flex flex-wrap items-center gap-2">
+            <span className={statusBadgeCls(product.status)}>{STATUS_LABEL[product.status] ?? product.status}</span>
+            <span className="text-xs text-ink-subtle">حساس — D4</span>
+          </p>
+          <p className="mt-2 text-xs leading-6 text-ink-muted">
+            تغییر وضعیت فقط از تب «چرخه حیات» با تأیید، قفل نسخه و تاریخچه انجام میشود؛
+            گذارهای شامل «متوقف» تا تصویب مالک BLOCKED / NOT AUTHORIZEDاند.
+          </p>
+        </div>
         <label className="text-sm">
           کد مالیاتی (uuid) <span className="text-xs text-warning-ink">(حساس — D4)</span>
           <input className={`${inputCls} mt-1`} dir="ltr" value={form.tax_code_id} onChange={(e) => setForm({ ...form, tax_code_id: e.target.value })} />
@@ -369,361 +387,17 @@ function IdentityTab({
 }
 
 /* ============================================================
- * تب صفات و variant — M-3 (امضای قطعی؛ تغییرناپذیر پس از ارجاع)
+ * تب صفات کالا — B3 + M-3 (TASK-PM-02-C7)
  * ============================================================ */
-function AttributesTab({
-  productId,
-  signature,
-  onNotice,
-}: {
-  productId: string;
-  signature: string | null;
-  onNotice: (msg: string | null) => void;
-}) {
-  const [defs, setDefs] = useState<ProductAttributeDef[]>([]);
-  const [values, setValues] = useState<Record<string, { value_text: string; value_num: string; value_enum: string }>>({});
-  const [sig, setSig] = useState<string | null>(signature);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  // تعریفِ صفتِ جدید (سطحِ شرکت)
-  const [defForm, setDefForm] = useState({ code: '', title: '', kind: 'text', is_variant_axis: false, is_required: false });
-  const [enumDraft, setEnumDraft] = useState<Record<string, string>>({});
-
-  const loadAll = useCallback(async () => {
-    const [defsRes, valsRes] = await Promise.all([
-      api.GET('/product-attributes'),
-      api.GET('/products/{id}/attributes', { params: { path: { id: productId } } }),
-    ]);
-    const defItems = defsRes.data ?? [];
-    setDefs(defItems);
-    const current = new Map((valsRes.data?.values ?? []).map((v: ProductAttributeValue) => [v.def_id, v]));
-    const next: Record<string, { value_text: string; value_num: string; value_enum: string }> = {};
-    for (const d of defItems) {
-      const v = current.get(d.id);
-      next[d.id] = {
-        value_text: v?.value_text ?? '',
-        value_num: v?.value_num != null ? String(v.value_num) : '',
-        value_enum: v?.value_enum ?? '',
-      };
-    }
-    setValues(next);
-    setSig(valsRes.data?.variant_signature ?? null);
-  }, [productId]);
-
-  useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
-
-  const save = async (): Promise<void> => {
-    setBusy(true);
-    setErr(null);
-    onNotice(null);
-    const payload = defs.map((d) => {
-      const v = values[d.id] ?? { value_text: '', value_num: '', value_enum: '' };
-      return {
-        def_id: d.id,
-        value_text: v.value_text !== '' ? v.value_text : null,
-        value_num: d.kind === 'number' && v.value_num !== '' ? Number(v.value_num) : null,
-        value_enum: d.kind === 'enum' && v.value_enum !== '' ? v.value_enum : null,
-      };
-    });
-    const { data, error } = await api.PUT('/products/{id}/attributes', {
-      params: { path: { id: productId } },
-      body: { values: payload },
-    });
-    setBusy(false);
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    setSig(data?.variant_signature ?? null);
-    onNotice('مقادیرِ صفات ثبت شد.');
-    await loadAll();
-  };
-
-  const createDef = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    setErr(null);
-    const { error } = await api.POST('/product-attributes', {
-      body: {
-        code: defForm.code.trim(),
-        title: defForm.title.trim(),
-        kind: defForm.kind as 'text' | 'number' | 'enum',
-        is_variant_axis: defForm.is_variant_axis,
-        is_required: defForm.is_required,
-      },
-    });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    setDefForm({ code: '', title: '', kind: 'text', is_variant_axis: false, is_required: false });
-    await loadAll();
-  };
-
-  const addEnumValue = async (defId: string): Promise<void> => {
-    const value = (enumDraft[defId] ?? '').trim();
-    if (!value) return;
-    const { error } = await api.POST('/product-attributes/{defId}/enum-values', {
-      params: { path: { defId } },
-      body: { value },
-    });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    setEnumDraft({ ...enumDraft, [defId]: '' });
-    await loadAll();
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className={`${panelCls} flex flex-wrap items-center gap-4`}>
-        <div>
-          <p className="text-sm text-ink-muted">امضای فعلیِ variant (M-3)</p>
-          <p className="mt-1 font-mono text-xs" dir="ltr">
-            {sig ? sig.slice(0, 24) + '…' : '— (بدون امضا)'}
-          </p>
-        </div>
-        <p className="max-w-xl text-xs text-ink-muted">
-          امضا از مقادیرِ «محورهای variant» به‌صورت قطعی (مرتب‌سازی بر اساسِ صفت) ساخته می‌شود و در هر خانواده یکتاست.
-          پس از نخستین ارجاعِ عملیاتی (سند/موجودی/قیمت)، تغییرِ محورها ممنوع است.
-        </p>
-      </div>
-
-      {err && <p className={errorCls}>{err}</p>}
-
-      <div className={tableWrapCls}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCls}>صفت</th>
-              <th className={thCls}>نوع</th>
-              <th className={thCls}>مقدار</th>
-              <th className={thCls}>ویژگی‌ها</th>
-            </tr>
-          </thead>
-          <tbody>
-            {defs.length === 0 && (
-              <tr>
-                <td colSpan={4} className={`${tdCls} py-8 text-center text-ink-subtle`}>
-                  صفتی تعریف نشده است — از فرم پایین «تعریفِ صفتِ جدید» اضافه کنید.
-                </td>
-              </tr>
-            )}
-            {defs.map((d) => (
-              <tr key={d.id} className="border-t border-line">
-                <td className={tdCls}>
-                  {d.title} <span className="text-xs text-ink-subtle">({d.code})</span>
-                  {d.is_required && <span className="ms-1 text-xs text-danger-ink">*</span>}
-                </td>
-                <td className={`${tdCls} text-ink-muted`}>{ATTR_KIND_LABEL[d.kind] ?? d.kind}</td>
-                <td className={tdCls}>
-                  {d.kind === 'enum' ? (
-                    <select
-                      className={`${selectCls} h-9`}
-                      value={values[d.id]?.value_enum ?? ''}
-                      onChange={(e) => setValues({ ...values, [d.id]: { value_text: '', value_num: '', value_enum: e.target.value } })}
-                    >
-                      <option value="">— انتخاب —</option>
-                      {(d.enum_values ?? []).map((ev) => (
-                        <option key={ev.id} value={ev.value}>
-                          {ev.value}
-                        </option>
-                      ))}
-                    </select>
-                  ) : d.kind === 'number' ? (
-                    <input
-                      type="number"
-                      step="any"
-                      className={`${inputCls} h-9`}
-                      value={values[d.id]?.value_num ?? ''}
-                      onChange={(e) => setValues({ ...values, [d.id]: { value_text: '', value_num: e.target.value, value_enum: '' } })}
-                    />
-                  ) : (
-                    <input
-                      className={`${inputCls} h-9`}
-                      value={values[d.id]?.value_text ?? ''}
-                      onChange={(e) => setValues({ ...values, [d.id]: { value_text: e.target.value, value_num: '', value_enum: '' } })}
-                    />
-                  )}
-                </td>
-                <td className={`${tdCls} text-xs text-ink-muted`}>
-                  {d.is_variant_axis && <span className="rounded-full bg-info-soft px-2 py-0.5 text-info-ink">محورِ variant</span>}
-                  {d.kind === 'enum' && (
-                    <details className="mt-1">
-                      <summary className="cursor-pointer">مقادیرِ مجاز</summary>
-                      <ul className="mt-1 list-disc pr-4">
-                        {(d.enum_values ?? []).map((ev) => (
-                          <li key={ev.id}>{ev.value}</li>
-                        ))}
-                      </ul>
-                      <div className="mt-1 flex gap-1">
-                        <input
-                          className={`${inputCls} h-8 w-32`}
-                          value={enumDraft[d.id] ?? ''}
-                          onChange={(e) => setEnumDraft({ ...enumDraft, [d.id]: e.target.value })}
-                          placeholder="مقدارِ جدید"
-                        />
-                        <button type="button" className={btnSmall} onClick={() => void addEnumValue(d.id)}>
-                          افزودن
-                        </button>
-                      </div>
-                    </details>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex gap-3">
-        <button onClick={() => void save()} disabled={busy} className={btnPrimary}>
-          {busy ? 'در حال ثبت…' : 'ذخیرهٔ مقادیرِ صفات'}
-        </button>
-      </div>
-
-      {/* تعریفِ صفتِ جدید — سطحِ شرکت */}
-      <form onSubmit={createDef} className={panelCls}>
-        <h3 className="mb-3 font-medium">تعریفِ صفتِ جدید (سطحِ شرکت)</h3>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            کد
-            <input className={`${inputCls} mt-1 w-32`} dir="ltr" value={defForm.code} onChange={(e) => setDefForm({ ...defForm, code: e.target.value })} required />
-          </label>
-          <label className="text-sm">
-            عنوان
-            <input className={`${inputCls} mt-1 w-48`} value={defForm.title} onChange={(e) => setDefForm({ ...defForm, title: e.target.value })} required />
-          </label>
-          <label className="text-sm">
-            نوع
-            <select className={`${selectCls} mt-1 w-32`} value={defForm.kind} onChange={(e) => setDefForm({ ...defForm, kind: e.target.value })}>
-              <option value="text">متنی</option>
-              <option value="number">عددی</option>
-              <option value="enum">انتخابی</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={defForm.is_variant_axis} onChange={(e) => setDefForm({ ...defForm, is_variant_axis: e.target.checked })} />
-            محورِ variant
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={defForm.is_required} onChange={(e) => setDefForm({ ...defForm, is_required: e.target.checked })} />
-            الزامی
-          </label>
-          <button type="submit" className={btnGhost}>
-            تعریف صفت
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+function AttributesTab({ productId }: { productId: string; signature?: string | null; onNotice?: (m: string | null) => void }) {
+  return <ProductAttributesTab productId={productId} />;
 }
 
 /* ============================================================
- * تب نام‌های جایگزین — H-1 (نرمال‌سازی + یکتایی در سرور)
+ * تب نام‌های جایگزین — H-1 (TASK-PM-02-C7)
  * ============================================================ */
-function AliasesTab({ productId, onNotice }: { productId: string; onNotice: (msg: string | null) => void }) {
-  const [items, setItems] = useState<ProductAlias[]>([]);
-  const [alias, setAlias] = useState('');
-  const [kind, setKind] = useState('brand_slang');
-  const [err, setErr] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const { data, error } = await api.GET('/products/{id}/aliases', { params: { path: { id: productId } } });
-    if (!error) setItems((data ?? []) as ProductAlias[]);
-  }, [productId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const add = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    setErr(null);
-    const { error } = await api.POST('/products/{id}/aliases', {
-      params: { path: { id: productId } },
-      body: { alias: alias.trim(), kind: kind as 'brand_slang' | 'latin' | 'code' },
-    });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    setAlias('');
-    onNotice('نامِ جایگزین ثبت شد.');
-    await load();
-  };
-
-  const remove = async (aliasId: string): Promise<void> => {
-    setErr(null);
-    const { error } = await api.DELETE('/product-aliases/{aliasId}', { params: { path: { aliasId } } });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    onNotice('نامِ جایگزین حذف شد.');
-    await load();
-  };
-
-  return (
-    <div className="space-y-4">
-      {err && <p className={errorCls}>{err}</p>}
-      <form onSubmit={add} className={`${panelCls} flex flex-wrap items-end gap-3`}>
-        <label className="text-sm">
-          نامِ جایگزین
-          <input className={`${inputCls} mt-1 w-64`} value={alias} onChange={(e) => setAlias(e.target.value)} required placeholder="نامِ عامیانه، لاتین یا کدِ قدیمی" />
-        </label>
-        <label className="text-sm">
-          نوع
-          <select className={`${selectCls} mt-1 w-44`} value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="brand_slang">نامِ عامیانه/برند</option>
-            <option value="latin">لاتین</option>
-            <option value="code">کدِ جایگزین</option>
-          </select>
-        </label>
-        <button type="submit" className={btnPrimary}>
-          افزودن
-        </button>
-        <p className="w-full text-xs text-ink-muted">
-          نرمال‌سازی (ارقامِ فارسی/عربی، فاصلهٔ نیم‌فاصله) در سرور انجام می‌شود؛ اسکنِ بارکد/کد این نام‌ها را هم resolve می‌کند.
-        </p>
-      </form>
-
-      <div className={tableWrapCls}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCls}>نامِ جایگزین</th>
-              <th className={thCls}>نوع</th>
-              <th className={thCls}>عملیات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={3} className={`${tdCls} py-6 text-center text-ink-subtle`}>
-                  نامِ جایگزینی ثبت نشده است
-                </td>
-              </tr>
-            )}
-            {items.map((a) => (
-              <tr key={a.id} className="border-t border-line">
-                <td className={tdCls}>{a.alias}</td>
-                <td className={`${tdCls} text-ink-muted`}>{ALIAS_KIND_LABEL[a.kind] ?? a.kind}</td>
-                <td className={tdCls}>
-                  <button className={btnDangerSmall} onClick={() => void remove(a.id)}>
-                    حذف
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+function AliasesTab({ productId }: { productId: string; onNotice?: (m: string | null) => void }) {
+  return <ProductAliasesTab productId={productId} />;
 }
 
 /* ============================================================
@@ -1004,139 +678,6 @@ function PackagingTab({ productId, onNotice }: { productId: string; onNotice: (m
 /* ============================================================
  * تب روابط — جایگزین/مکمل (خودارجاع و حلقه ممنوع)
  * ============================================================ */
-function RelationsTab({ productId, onNotice }: { productId: string; onNotice: (msg: string | null) => void }) {
-  const [items, setItems] = useState<ProductRelation[]>([]);
-  const [candidates, setCandidates] = useState<Product[]>([]);
-  const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ related_id: '', kind: 'substitute', priority: '100' });
-  const [err, setErr] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const { data, error } = await api.GET('/products/{id}/relations', { params: { path: { id: productId } } });
-    if (!error) setItems((data ?? []) as ProductRelation[]);
-  }, [productId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const searchProducts = async (): Promise<void> => {
-    const { data, error } = await api.GET('/products', { params: { query: { q: search || undefined, limit: 20 } } });
-    if (!error) setCandidates(data?.items ?? []);
-  };
-
-  const add = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
-    setErr(null);
-    const { error } = await api.POST('/products/{id}/relations', {
-      params: { path: { id: productId } },
-      body: {
-        related_id: form.related_id,
-        kind: form.kind as 'substitute' | 'complement',
-        priority: form.priority ? Number(form.priority) : undefined,
-      },
-    });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    setForm({ related_id: '', kind: 'substitute', priority: '100' });
-    onNotice('رابطه ثبت شد.');
-    await load();
-  };
-
-  const remove = async (relationId: string): Promise<void> => {
-    setErr(null);
-    const { error } = await api.DELETE('/product-relations/{relationId}', { params: { path: { relationId } } });
-    if (error) {
-      setErr(faError(error));
-      return;
-    }
-    onNotice('رابطه حذف شد.');
-    await load();
-  };
-
-  return (
-    <div className="space-y-4">
-      {err && <p className={errorCls}>{err}</p>}
-      <form onSubmit={add} className={`${panelCls} space-y-3`}>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            جست‌وجوی کالا
-            <input className={`${inputCls} mt-1 w-56`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="کد یا نام" />
-          </label>
-          <button type="button" className={btnGhost} onClick={() => void searchProducts()}>
-            جست‌وجو
-          </button>
-          <label className="text-sm">
-            کالای مرتبط
-            <select className={`${selectCls} mt-1 w-64`} value={form.related_id} onChange={(e) => setForm({ ...form, related_id: e.target.value })} required>
-              <option value="">— انتخاب —</option>
-              {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            نوع رابطه
-            <select className={`${selectCls} mt-1 w-36`} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
-              <option value="substitute">جایگزین</option>
-              <option value="complement">مکمل</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            اولویت
-            <input type="number" min={0} className={`${inputCls} mt-1 w-24`} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} />
-          </label>
-          <button type="submit" className={btnPrimary}>
-            ثبت رابطه
-          </button>
-        </div>
-      </form>
-
-      <div className={tableWrapCls}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={thCls}>کد</th>
-              <th className={thCls}>نام</th>
-              <th className={thCls}>نوع رابطه</th>
-              <th className={thCls}>اولویت</th>
-              <th className={thCls}>عملیات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={5} className={`${tdCls} py-6 text-center text-ink-subtle`}>
-                  رابطه‌ای ثبت نشده است
-                </td>
-              </tr>
-            )}
-            {items.map((r) => (
-              <tr key={r.id} className="border-t border-line">
-                <td className={`${tdCls} font-mono text-xs`} dir="ltr">
-                  {r.related_code}
-                </td>
-                <td className={tdCls}>{r.related_name}</td>
-                <td className={`${tdCls} text-ink-muted`}>{RELATION_KIND_LABEL[r.kind] ?? r.kind}</td>
-                <td className={tdCls}>{r.priority}</td>
-                <td className={tdCls}>
-                  <button className={btnDangerSmall} onClick={() => void remove(r.id)}>
-                    حذف
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 /* ============================================================
  * تب ترکیبِ بسته — D5 (فقط تعریفِ کاتالوگی؛ تا P5 غیرقابل سفارش/فروش)
  * ============================================================ */

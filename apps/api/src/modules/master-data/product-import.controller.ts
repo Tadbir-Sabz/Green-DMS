@@ -6,6 +6,7 @@ import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 import { ProductMasterService } from './product-master.service';
+import { DomainBoundaryGuard } from './domain-boundary.guard';
 
 export class ImportValidateDto {
   @IsString()
@@ -45,6 +46,7 @@ export class ProductImportController {
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('master.product.import')
+  @UseGuards(DomainBoundaryGuard)
   validate(@CurrentUser('companyId') companyId: string, @Body() dto: ImportValidateDto) {
     return this.service.validateImport(companyId, dto.csv);
   }
@@ -52,6 +54,7 @@ export class ProductImportController {
   @Post('commit')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions('master.product.import')
+  @UseGuards(DomainBoundaryGuard)
   commit(
     @CurrentUser() user: AuthContext,
     @Body() dto: ImportCommitDto,
@@ -60,8 +63,13 @@ export class ProductImportController {
     return this.service.commitImport(user.companyId, dto, meta, user.userId);
   }
 
+  // TASK-PM-02-B2 — read-surface parity. An import report is a central,
+  // company-scoped read; a client-supplied `x-domain-id` must not be allowed to
+  // imply domain-scoped meaning (it is not proof of domain identity). The guard
+  // rejects it with 400 before the handler runs; it grants no domain authority.
   @Get('report/:id')
   @RequirePermissions('master.product.import')
+  @UseGuards(DomainBoundaryGuard)
   report(@CurrentUser('companyId') companyId: string, @Param('id') id: string) {
     return this.service.getImport(companyId, id);
   }

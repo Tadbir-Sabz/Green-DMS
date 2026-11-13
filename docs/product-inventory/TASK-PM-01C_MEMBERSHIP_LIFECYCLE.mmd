@@ -1,0 +1,32 @@
+stateDiagram-v2
+    [*] --> Absent
+    state "Absent - no membership row" as Absent
+    state "Available - proposed" as Available
+    state "Unavailable - proposed" as Unavailable
+    state "Withdrawn or Suspended - proposed" as Withdrawn
+    state "Retained History - proposed" as History
+    state "Central Blocked - existing central lifecycle" as CentralBlocked
+    state "Domain Retired - proposed" as DomainRetired
+
+    Absent --> Available: PM-B5 approved add
+    Available --> Unavailable: PM-B5 approved local suspend
+    Unavailable --> Available: PM-B5 approved reactivate
+    Available --> Withdrawn: PM-B5 approved withdrawal
+    Unavailable --> Withdrawn: PM-B5 approved withdrawal
+    Withdrawn --> History: PM-B7 immutable snapshot
+    Available --> History: every transition writes event
+    Unavailable --> History: every transition writes event
+
+    CentralBlocked --> History: local state cannot revive central stop
+    DomainRetired --> History: PM-B7 snapshot preserves domain identity
+    Available --> CentralBlocked: central lifecycle dominates
+    Unavailable --> CentralBlocked: central lifecycle dominates
+    Available --> DomainRetired: PM-B2 approved retirement
+    Unavailable --> DomainRetired: PM-B2 approved retirement
+
+    note right of Absent
+      PROPOSED ONLY. All state names and
+      transitions require PM-B2, PM-B4,
+      PM-B5 and PM-B7 owner approval.
+      No membership state is implemented.
+    end note

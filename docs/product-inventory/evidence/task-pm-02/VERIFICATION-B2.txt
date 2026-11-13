@@ -1,0 +1,154 @@
+TASK-PM-02-B2 — LOCAL VERIFICATION LEDGER (Agent-1, read-only gate + bounded parity increment)
+Recorded at sandbox UTC clock 2026-11-11T08:57:37Z. This file records commands and their
+observed results; it is not an approval, a CI attestation, or a production statement.
+
+BASELINE / DURABILITY
+  branch ................ arena/be5eaff3-green-dms (session branch; no other branch touched)
+  baseline/HEAD SHA ..... dad4ce8a41b66fedd06ef66b5bbfa25e4e86d31a
+  PR #14 ................ OPEN / DRAFT, base main, head dad4ce8..., body 70,492 chars / 75,213 bytes,
+                          sha256 1a72773ac23efadad53abc39407d42ce96bb64443e37bb34d5a6b6538e896131
+  worktree at start ..... git status --porcelain = 0 lines; git diff --check EXIT=0
+  B2 backup ............. /home/user/pm02-b2-backup.tar.gz
+                          sha256 0ae60fac33f3a6f35e25f35834ba745586af6fa9316577bfdb35a981857540e8
+                          (2,840 tracked files, SHA256SUMS.txt 0 mismatches, repo.bundle, snapshots)
+                          sidecar /home/user/pm02-b2-backup.tar.gz.sha256 verified identical.
+
+OWNER-DECISION GATE (re-verified against durable GitHub state; FAILED CLOSED)
+  gh api repos/Tadbir-Sabz/Green-DMS/pulls/14/reviews ............ length 0
+  gh api repos/Tadbir-Sabz/Green-DMS/pulls/14/comments ........... length 0
+  gh api repos/Tadbir-Sabz/Green-DMS/issues/14/comments .......... 1 comment: independent read-only
+                          review REQUEST; text explicitly "This request is not an approval."
+  gh api issues?state=all ......... #11, #12 only ([TASK-23R follow-up] F-B1/F-B2 partition issues)
+  tracked docs scan ..... PM-B1..PM-B8, Q1..Q5, G-03 all OPEN / NOT APPROVED; every
+                          تصویب/مصوب/تأیید phrase is a future-hypothetical ("پس از مصوبه")
+  git log --all --grep . no owner decision, approval reference, accountable signatory or IAM/Security sign-off
+  TASK-PM-02_IMPLEMENTATION.md §8 ..... recommendation ("must not begin before explicit approval"), NOT approval
+  => registry, lifecycle, assignment, membership, migrations, domain RLS, domain APIs, UI activation BLOCKED.
+
+SCOPE IMPLEMENTED (independent, non-gated: fail-closed parity on existing central READ routes)
+  apps/api/src/modules/master-data/product.controller.ts ........ @UseGuards(DomainBoundaryGuard) on list/get
+  apps/api/src/modules/master-data/product-export.controller.ts . @UseGuards(DomainBoundaryGuard) on export
+  apps/api/src/modules/master-data/product-import.controller.ts . @UseGuards(DomainBoundaryGuard) on report/:id
+  CatalogFoundationController domain-context routes ............ deliberately NOT guarded (no blanket rejection)
+  OPERATIONAL_DOMAIN_AUTHORITY in master-data.module.ts ......... still NOT registered
+  packages/contracts/openapi.yaml ....... 400 on GET /products/import/report/{id}; B2 note in Error.code
+  packages/api-client/src/schema.ts .... regenerated with openapi-typescript 7.13.0 (12+/1- lines)
+
+  apps/api/test/product-domain-boundary-guard.test.ts .......... +6 DB-free read-surface cases
+  apps/api/test/product-domain-boundary-read-parity.test.ts ..... NEW, 4 DB-free structural cases
+  apps/api/test/product-domain-boundary.api.test.ts ............. +7 real-HTTP/native-PG cases
+  docs/product-inventory/TASK-PM-02-B2_OWNER_DECISION_PACKAGE.md . NEW primary deliverable
+  docs/product-inventory/TASK-PM-02_OWNER_DECISION_REGISTER.md .. §5 appended
+  docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md ......... B2 appendix appended
+  docs/product-inventory/EVIDENCE_INDEX.md ....................... B2 section appended
+  docs/product-inventory/TASK-PM-02_IMPLEMENTATION.md ............ §9 appended
+
+COMMAND / RESULT LEDGER (all EXIT=0 unless noted)
+  node scripts/openapi-check.mjs ................. EXIT=0  202 paths / 285 ops / 154 schemas / 3 webhooks
+  node scripts/contract-drift.mjs ................ EXIT=0  285 spec == 285 code, intersection 285; drift 0/0/0/0
+  node scripts/check-test-partition.mjs .......... EXIT=0  86 test files; declared == computed;
+                                                    new read-parity file classified UNIT
+  npm run typecheck .............................. EXIT=0  (packages/contracts, api-client, api, web)
+  npm run build .................................. EXIT=0  (root build incl. Next.js prerender)
+  npm run test -w apps/web ....................... EXIT=0  18 files / 94 tests
+  vitest run (guard + read-parity + boundary-unit)  EXIT=0  3 files / 25 tests
+  vitest run $(check-test-partition --print unit) . EXIT=0  30 files / 373 tests
+  ./node_modules/.bin/openapi-typescript ... -o /tmp/pm02b2-schema-probe.ts
+                                                    EXIT=0  byte-identical to committed schema.ts before edits
+  DATABASE_URL=... PSQL=... vitest run test/product-domain-boundary.api.test.ts
+                                                    EXIT=0  1 file / 19 tests (12 B1 + 7 B2)
+  DATABASE_URL=... PSQL=... vitest run 7 targeted DB files (contract, product-export, products,
+       product-master-import, product-master-import-reliability, product-bulk-maintenance,
+       catalog-history-explorer) .................. EXIT=0  7 files / 146 tests
+  PSQL=... DATABASE_URL=... npm run test:migrations  EXIT=0  up/down/up, exactly 1029 identical objects
+  git diff --check ............................... EXIT=0
+
+FULL DB-BACKED RUN (CI-equivalent selection, 55 files; local PostgreSQL 16.2, 127.0.0.1:55432)
+  EXIT=1  51 files passed / 4 files failed; 1092 tests passed / 17 failed (1109 total)
+  failing files: customers.api.test.ts (2), geofences.api.test.ts (8), tours.api.test.ts (6),
+                 postgres-init-role.api.test.ts (1)
+  observed errors: PostGIS geometry/schema mismatches, geofence 400/500, `visit_too_far`,
+                 trust-auth accepting a wrong password (no 28P01).
+  BASELINE CONTROL (reversible git stash push -u -> run 4 files on pristine dad4ce8 -> git stash pop):
+    pristine baseline EXIT=1, 17 failed / 63 passed (80) with the EXACT SAME 17 test names.
+    stash pop restored all 8 B2 files; sha256sum -c on all 8 = OK; git stash list contains only
+    the pre-existing historical "TASK-PM-01D-M2 start" snapshot (untouched).
+  => the 17 failures are pre-existing local-environment artefacts (no PostGIS extension in the
+     disposable fixture DBs; trust-auth mode), NOT B2 regressions. No B2 gate FAIL.
+
+CODEGEN / SAFETY
+  openapi.yaml parsed with node `yaml`: 202 paths, report 400 documented.
+  doc scan: all 5 touched docs no-BOM, no trailing whitespace, no CJK characters.
+  Redis ECONNREFUSED 127.0.0.1:6379 observed throughout; historically expected/nonfatal.
+  No repo-root .env; psql only at
+    /tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql
+  No force-push, reset, rebase, amend, overwrite, merge, approve, release or deploy.
+
+VERDICTS
+  PASS ....... baseline durability, backup integrity, gate inspection, decision package, read-surface
+              parity, guard ordering, no blanket rejection, contract/client/test consistency, exact
+              local static/DB-free/native-PG gates, baseline control for environmental failures.
+  FAIL ....... none attributable to B2.
+  UNVERIFIED . production topology / PostGIS+password-auth equivalence, manual RTL/a11y/console,
+              independent Agent-2 review, raw per-test CI job logs (blobs EOF), and the 4 CI
+              checks that never reached a test step (external install-step failure; see below).
+  BLOCKED .... PM-B1/PM-B2/PM-B4 (and B3/B5-B8, Q1-Q5, G-03) owner decisions; registry, lifecycle,
+              assignment, membership, migrations, domain RLS, domain APIs, UI activation;
+              full Product Master acceptance. Production deployment NOT AUTHORIZED.
+
+EXACT-FINAL-SHA CI — first B2 push 42e21a4d29bfd379e3e2781f641b50a1b8d7e462
+  Ordinary fast-forward push dad4ce8..42e21a4; six SHA views agreed. `gh pr checks 14 --watch`
+  EXIT=1 (4 checks pass / 4 fail). All 4 workflow runs created at 2026-11-11T14:23:22Z.
+
+  PASS (4 checks, 2 whole workflows green):
+    Static checks (typecheck, OpenAPI, contract drift) .. run 43037985285 / job 130581857755 (1m17s)
+    Unit tests (no DB, no MinIO) ........................ run 43037985285 / job 130581857493 (54s)
+    up -> down -> up on empty DB ........................ run 43037985303 (workflow success, 1m0s)
+    Release image boot smoke (isolated compose) ......... run 43037985430 (workflow success, 3m59s)
+  => typecheck, OpenAPI check, contract drift, test partition, the DB-free unit suite
+     (including the new B2 parity tests), migration up/down/up and image boot all ran green
+     on the exact pushed SHA.
+
+  FAIL (4 checks) — ALL at EXTERNAL dependency-install steps, BEFORE any test executed:
+    Integration (Postgres) — API + tenant isolation
+      job 130581857658: step 5 "Install PostgreSQL client (psql for test migrations)" FAILURE;
+      steps 6 "Run npm ci", 7 "API integration tests", 8 "failure diagnostic" all SKIPPED.
+    Integration (MinIO) — attachment round-trip
+      job 130581857675: step 5 same apt install FAILURE; steps 6/7/8/10 SKIPPED.
+    Init credential hygiene — disposable PostgreSQL with statement logging
+      job 130581857070: step 3 "Install PostgreSQL server + client" FAILURE; steps 4/5 SKIPPED.
+    Playwright E2E (isolated docker stack)
+      job 130581860470: step 6 "install Playwright chromium"
+      (`npx playwright install --with-deps chromium`) FAILURE; test steps 7..16 SKIPPED.
+  Step definitions: .github/workflows/ci.yml:160-163, :243-246, :475-479;
+                    .github/workflows/e2e.yml:70-71. These are `sudo apt-get update/install`
+                    and a browser-binary download — no repository file is consumed.
+
+  Baseline control: the SAME apt/playwright install steps succeeded on dad4ce8 at
+    2026-11-11T06:09:17Z (CI run 42970426618 success; e2e run 42970426694 success) and on
+    c382d6a at 2026-11-10T18:38:00Z (runs 42877166977 / 42877166761 success). The failure
+    window is therefore external package-mirror/CDN availability, not a B2 code change.
+
+  Rerun attempts (session token cannot rerun jobs):
+    gh run rerun 43037985285 --failed ..... "cannot be rerun; its workflow file may be broken"
+    gh run rerun 43037985790 --failed ..... same
+    gh api -X POST .../actions/runs/{id}/rerun-failed-jobs ... 403 "Resource not accessible by integration"
+    The workflows have no workflow_dispatch trigger (ci.yml/e2e.yml: push main + pull_request main).
+  Raw job-log blobs: `gh run view --job=... --log-failed` -> EOF
+    (results-receiver.actions.githubusercontent.com not reachable from this sandbox).
+
+  CONCLUSION: no B2 test step ran in the 4 failed jobs; no B2 code regression is indicated.
+  The 4 green checks cover every changed source/test/doc path that can be checked without
+  external apt/browser downloads. A follow-up ordinary commit retriggers CI; its outcome is
+  recorded in the PR #14 body. Verdict for the unavailable checks: FAIL (CI infrastructure) /
+  UNVERIFIED, NOT a B2 FAIL.
+
+ADDENDUM (C1-era recheck, 2026-11-11T16:00:00Z; additive, preserves all above):
+  Exact-final-SHA runs for deefa05... were rechecked while C1 was pushed:
+    43040312220 CI             completed / cancelled
+    43040312421 e2e            completed / cancelled
+    43040312489 release-image  completed / cancelled
+    43040312368 migrations     queued / conclusion null
+  Verdict updated from "UNVERIFIED / PENDING" to
+  "UNVERIFIED / CANCELLED (3) + QUEUED (1)" — still never PASS.
+  No workflow, secret, infrastructure setting or historical verdict was rewritten.

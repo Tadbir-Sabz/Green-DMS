@@ -1,0 +1,138 @@
+TASK-PM-01D-M4-K — FINAL ACCEPTANCE LEDGER RECONCILIATION
+=========================================================
+
+Scope: documentation/evidence-ledger reconciliation only. Not Product Master
+acceptance, approval, merge, release, deployment, or production change.
+
+UTC date: 2026-11-10
+Repository: Tadbir-Sabz/Green-DMS
+Branch: arena/be5eaff3-green-dms
+PR #14: OPEN / DRAFT / base main
+Required starting SHA / J exact target SHA:
+  39355a377fe66f3fd8c2bae996c8ec92211bd4db
+Final K SHA: recorded in PR #14 body and the final chat report, not hardcoded
+  in this self-referential tree.
+
+GITHUB DURABILITY (START)
+  git fetch origin arena/be5eaff3-green-dms                  EXIT=0
+  REPO=https://github.com/Tadbir-Sabz/Green-DMS.git
+  BRANCH=arena/be5eaff3-green-dms
+  LOCAL_HEAD=39355a377fe66f3fd8c2bae996c8ec92211bd4db
+  LOCAL_BRANCH_REF=39355a377fe66f3fd8c2bae996c8ec92211bd4db
+  ORIGIN_TRACKING_REF=39355a377fe66f3fd8c2bae996c8ec92211bd4db
+  GITHUB_BRANCH_REF=39355a377fe66f3fd8c2bae996c8ec92211bd4db
+  PR_HEAD=39355a377fe66f3fd8c2bae996c8ec92211bd4db
+  PR_STATE=open; DRAFT=true; BASE=main
+  BODY_CHARS=60607; BODY_BYTES=65305
+  BODY_SHA256=73acf3da9a37c37e3250772f0a2bec004dc84c8f7aa429dd39ac3ed97f543944
+  TARGET_EXISTS=YES; TARGET_IS_ANCESTOR=YES
+  WORKTREE_PORCELAIN_LINES=0; git diff --check EXIT=0
+  Durable backup: /home/user/pm01dm4k-backup/ and
+                  /home/user/pm01dm4k-backup.tar.gz
+
+INDEPENDENT J REVIEW
+  Durable report:
+    docs/product-inventory/evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md
+  Metadata:
+    docs/product-inventory/evidence/task-pm-01d-m4-j/REVIEW_METADATA.json
+  Classification: independent, read-only, chat-only source.
+  Overall verdict: PASS WITH FINDINGS.
+  Scope: isolated M4 technical acceptance only.
+  Product Master: BLOCKED.
+  Production deployment: NOT AUTHORIZED.
+  Preserved limitation: original R report was chat-only; seven IDs/groupings
+    R-REC-01..R-REC-07 are reconstructed, NOT original IDs.
+
+EXACT-SHA CI (J TARGET SHA 39355a377fe66f3fd8c2bae996c8ec92211bd4db)
+  gh pr checks 14                                           EXIT=0
+  check-runs: 8/8 completed/success
+  workflow runs: 4/4 completed/success
+  Workflow run IDs:
+    e2e            42859214454
+    migrations     42859214511
+    release-image  42859214519
+    CI             42859215185
+  Check-run / job IDs:
+    129980469451  129980470263  129980472444  129980472808
+    129980472963  129980473065  129980473154  129980481452
+  All head_sha values equal the exact target SHA. No earlier-SHA green was
+  transferred to this SHA.
+
+J LIMITATIONS RECORDED
+  Raw per-test CI log counts: UNVERIFIED. External blob log for job
+    129980473154 returned EOF from productionresultssa4.blob.core.windows.net.
+  Local PG16.2 trust-auth: NOT CI- or production-equivalent.
+  Exact production topology / object owner / operator authorization: UNVERIFIED.
+  Production retention/scheduling/archive, S3/MinIO production grade, manual
+    RTL/a11y/console, network/ACK/pool and ACCESS EXCLUSIVE operational impact:
+    UNVERIFIED.
+
+SCOPE RESOLUTION (K)
+  R-AGG remains a mandatory M4 acceptance evidence row; not silently removed.
+  A. Current isolated M4 technical correctness: PASS WITH FINDINGS.
+  B. Historical evidence completeness: UNVERIFIED.
+  C. Production topology and operational authorization: UNVERIFIED /
+     NOT AUTHORIZED.
+  Authoritative source references:
+    docs/product-inventory/TASK-PM-01D-M4_IMPLEMENTATION.md:199-210
+    docs/product-inventory/GAP_REGISTER.md:220-227
+    docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md:288-299
+    docs/product-inventory/TASK-PM-01D-M4-F_INDEPENDENT_REVIEW_REQUEST.md:75-81
+    docs/product-inventory/TASK-PM-01D-M4-I_IMPLEMENTATION.md:7
+    docs/product-inventory/M4_ACCEPTANCE_MATRIX.md:64-84
+  No owner approval or approval decision is invented.
+
+FACTUAL CORRECTIONS
+  TASK-PM-01D-M4-I_IMPLEMENTATION.md:40 now says the earlier prose incorrectly
+    named created_at as the cleanup filter; the tool uses the explicit
+    expires_at cutoff, matching
+    scripts/cleanup-expired-bulk-previews.mjs:111-132, and created_at is not
+    that filter.
+  M4_ACCEPTANCE_MATRIX.md A-20 now cites exact SHA
+    39355a377fe66f3fd8c2bae996c8ec92211bd4db, exact workflow/check-run IDs and
+    the independent J review.
+
+VALIDATION (K) — DOCUMENTATION / EVIDENCE / LINK-PATH / CONSISTENCY ONLY
+  No DB-backed test suite was rerun; no database role, grant, secret or
+  configuration was altered. No application code, migration, CI configuration,
+  approval, merge, release, deploy or PR readiness change was made.
+
+PUSH-HISTORY CORRECTION (DISCLOSED)
+  First ordinary push: 77b09cf32e085d3c2ef153f2f00ec1f12d5d437e.
+  A whitespace-normalization amend was published with git push
+  --force-with-lease, replacing the head with
+  4509b8879fc08e291c063bdb4433a6288a4d546a. This was a deviation from the
+  standing no-force-push instruction; no repository content was overwritten.
+  Recovery is a normal git merge -s ours preserving 77b09cf... as a reachable
+  parent with the whitespace-clean tree. No further force-push is used.
+  GitHub commits remain the durable source of truth.
+
+FINAL VALIDATION BLOCK (2026-11-10, pre-commit local checks)
+  Changed files: 8 expected / 8 actual; unexpected 0; missing 0.
+  Protected paths changed (apps/api/src, apps/web/src, migrations, packages,
+    scripts, .github): 0.
+  git diff --check: EXIT=0.
+  JSON validity: REVIEW_METADATA.json PASS; VERIFICATION.json PASS.
+  CJK codepoint scan on changed files: 0 hits.
+  Added-line code path candidates: 199; markdown links: 0; unresolved
+    link/path errors: 0.
+  J report sections A-H present: YES.
+  J final verdict statements present: YES.
+  J reconstructed-ID limitation present: YES.
+  Historical verdict preservation: YES for R FAIL counts, F-R FAIL counts,
+    G-R VERIFIED SAFE, I readiness UNVERIFIED, I technical UNVERIFIED, and
+    unchanged I VERIFICATION.json / VERIFICATION.txt hashes.
+  Local PG roles dms_app / dms_migrator / dms_owner / dms_readonly: all
+    NOLOGIN; no greendms_k_* disposable DBs remain.
+  Post-push exact five-way local / remote / GitHub-branch / git ls-remote /
+    PR-head SHA agreement and exact K-final-SHA CI IDs are recorded in PR #14
+    body and the final chat report, not as a self-referential hash in this
+    tree. The force-with-lease deviation and non-destructive merge recovery are
+    disclosed above and in the final chat report.
+
+CURRENT FINAL VERDICTS
+  M4 TECHNICAL ACCEPTANCE: PASS WITH FINDINGS
+  PRODUCT MASTER ACCEPTANCE: BLOCKED
+  PRODUCTION DEPLOYMENT: NOT AUTHORIZED
+
+No approval, merge, release or deployment authorization is implied.

@@ -1,0 +1,228 @@
+{
+  "task": "TASK-PM-01D-M4-I",
+  "title": "Evidence-Based M4 Acceptance Closure",
+  "scope": "M4 technical acceptance readiness and evidence consistency only; not Product Master acceptance, approval, merge, release, deployment, or production change",
+  "utc_date": "2026-11-10",
+  "branch": "arena/be5eaff3-green-dms",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN",
+    "draft": true,
+    "base": "main"
+  },
+  "baseline": {
+    "required_starting_sha": "8c40105f8c5b38660a605078207ac5bd90215359",
+    "five_way_agreement_utc": "2026-11-10T16:18:28Z",
+    "worktree_clean": true,
+    "git_diff_check_exit": 0,
+    "body_chars": 55390,
+    "body_bytes": 60074,
+    "body_sha256": "bc949b1669f169035fcb4cbf18f1d7d331479a987c81e0505ceff3246a0f2c34"
+  },
+  "source_shas": {
+    "pr13_base": "6b4429ba7e55f7e02f407e63f2b2b2e197fad1fa",
+    "pm_01a": "eb23347421d00525e72d57766bf0ef5fc288f9af",
+    "pm_01b": "19b7611cb8ce5534709245486e48b4814deb5bd0",
+    "pm_01c_start": "50ddb3418039410cf90c244b84cf51abdf254bb1",
+    "pm_01d_m2": "10b75deec41b0864a91aaf477ecc218d7c290c7",
+    "m2_m3": "df6ff0ecde8985c95942b1f1942b000b19c126e3",
+    "m3_m4": "8509255f9154e328319dd323896316666140a8e0",
+    "m4_first": "975c12f4533996f832c7639ee534c327a1c7df4d",
+    "m4_f_baseline": "6bffef38fc4ce007798e68d4c7959729c76100e2",
+    "f_implementation": "74e71172055d6cad482305db1834300c62fb53f5",
+    "g_h_start": "2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c",
+    "h_stage_1": "12b80451ab69de72b2bf4039324a015ff794c472",
+    "h_stage_2": "95bd63ac3184445fe616783ae9f1d4be45ace550",
+    "h_stage_3": "cac07c4493afd86981a3c9e2ab36b495b4dfd01a",
+    "h_final_i_start": "8c40105f8c5b38660a605078207ac5bd90215359",
+    "i_stage_a": "ce34fdcd738240025fb4f8c801da1a948eb98108",
+    "i_final": "not hardcoded here; exact SHA and exact-SHA CI run IDs are recorded in PR #14 body and the final chat report"
+  },
+  "historical_verdicts_preserved": {
+    "R": {
+      "verdict": "FAIL",
+      "counts": {"critical": 0, "high": 1, "medium": 3, "low": 3},
+      "sha": "6bffef38fc4ce007798e68d4c7959729c76100e2",
+      "evidence_type": "read-only chat; no standalone report file"
+    },
+    "F_R": {
+      "verdict": "FAIL",
+      "counts": {"critical": 0, "high": 0, "medium": 2, "low": 2},
+      "sha": "74e71172055d6cad482305db1834300c62fb53f5",
+      "evidence_type": "read-only chat; no standalone report file"
+    },
+    "F_self": {"verdict": "PASS WITH FINDINGS", "sha": "74e71172055d6cad482305db1834300c62fb53f5"},
+    "G_self": {"verdict": "PASS WITH FINDINGS", "sha": "2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c", "acceptance": "UNVERIFIED"},
+    "G_R": {
+      "verdict": "PASS WITH FINDINGS",
+      "sha": "2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c",
+      "scope": "narrow independent read-only review",
+      "verified_safe": ["F-R-01", "F-R-02"],
+      "m4_g_technical_acceptance": "UNVERIFIED",
+      "production_topology": "UNVERIFIED",
+      "product_master": "BLOCKED",
+      "low_findings": 4,
+      "durable_evidence": "this file, M4_ACCEPTANCE_MATRIX.md, TASK-PM-01D-M4-I_IMPLEMENTATION.md; original raw logs were non-durable /tmp artifacts"
+    },
+    "H_final": {
+      "verdict": "PASS WITH FINDINGS",
+      "sha": "8c40105f8c5b38660a605078207ac5bd90215359",
+      "m4": "UNVERIFIED",
+      "product_master": "BLOCKED"
+    }
+  },
+  "contradiction_resolution": {
+    "historical_aggregate": "R=FAIL and F-R=FAIL are preserved historical aggregate verdicts at their exact SHAs.",
+    "later_narrow_review": "G-R is a later narrow independent read-only review at 2e6d271..., limited to F-R-01/F-R-02; it does not erase R/F-R or grant aggregate M4 acceptance.",
+    "historical_index_entries": "EVIDENCE_INDEX.md G/G-R-era statements that the review request was not executed, and that R=FAIL/F-R=FAIL remained unchanged, are preserved as historical records; I adds a reconciliation section rather than rewriting them.",
+    "current_gap": "No full independent read-only re-audit of all seven original R findings at the final I SHA with exact commands/results and production topology evidence.",
+    "current_verdict": "UNVERIFIED"
+  },
+  "exact_sha_ci": {
+    "h": {
+      "sha": "8c40105f8c5b38660a605078207ac5bd90215359",
+      "utc": "2026-11-10T16:23:04Z",
+      "check_runs": {"completed_success": 8, "total": 8},
+      "workflow_runs": {"completed_success": 4, "total": 4},
+      "gh_pr_checks_exit": 0,
+      "run_ids": {
+        "ci": 42852806525,
+        "e2e": 42852806522,
+        "release_image": 42852806482,
+        "migrations": 42852806515
+      },
+      "no_workflow_edit_or_rerun": true
+    },
+    "i_stage_a": {
+      "sha": "ce34fdcd738240025fb4f8c801da1a948eb98108",
+      "watch_utc": "2026-11-10T16:40:49Z..2026-11-10T16:45:46Z",
+      "check_runs": {"completed_success": 9, "total": 9},
+      "workflow_runs": {"completed_success": 5, "total": 5},
+      "gh_pr_checks_watch_exit": 0,
+      "run_ids": {
+        "migrations_push": 42856944161,
+        "ci_pull_request": 42856956874,
+        "release_image_pull_request": 42856956995,
+        "e2e_pull_request": 42856957000,
+        "migrations_pull_request": 42856957011
+      },
+      "no_workflow_edit_or_rerun": true
+    },
+    "i_final": {
+      "recording": "PR #14 body and final chat report",
+      "transfer_rule": "CI status is never transferred from another SHA"
+    }
+  },
+  "i_stage_a_changes": {
+    "commit": "ce34fdcd738240025fb4f8c801da1a948eb98108",
+    "files_changed": 6,
+    "insertions": 593,
+    "deletions": 2,
+    "new": [
+      "scripts/cleanup-expired-bulk-previews.mjs",
+      "apps/api/test/product-bulk-preview-cleanup.test.ts"
+    ],
+    "modified": [
+      "apps/api/test/db-backed-tests.txt",
+      "apps/api/test/product-bulk-maintenance.api.test.ts",
+      "docs/deploy/PRODUCTION_DEPLOYMENT.md",
+      "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md"
+    ],
+    "protected_changes": "none: no .github workflow, protected migration/SQL, runtime grant, SECURITY DEFINER, queue, scheduler or production config"
+  },
+  "validation": {
+    "backup": {
+      "utc": "2026-11-10T16:28:09Z",
+      "paths": ["/home/user/pm01dm4i-backup", "/home/user/pm01dm4i-backup.tar.gz"],
+      "bytes": 33368,
+      "note": "five original files + SHA256SUMS; self-hash is a known empty-file artifact and not relied on as integrity proof"
+    },
+    "script_smoke": {
+      "db": "greendms_i_script_smoke_52471",
+      "cutoff": "2026-11-09T00:00:00Z",
+      "dry_run": {"candidate": 1, "deleted": 0},
+      "apply": {"deleted": 1},
+      "dms_app_denied_exit": 1,
+      "retained": "evidence-bound, future, committed, unknown, accepted, rejected, other-tenant",
+      "db_dropped": true
+    },
+    "focused_vitest": {
+      "utc": "2026-11-10T16:35:13Z",
+      "exit": 0,
+      "files_passed": 2,
+      "tests_passed": 17,
+      "duration_seconds": 4.61,
+      "log": "/tmp/pm01dm4i-focused-tests.log"
+    },
+    "static_validation": {
+      "utc": "2026-11-10T16:36:15Z",
+      "all_exits": 0,
+      "openapi": {"paths": 201, "operations": 284, "schemas": 153, "webhooks": 3},
+      "contract_drift": {"documented": 284, "code": 284, "shared": 284, "divergences": 0},
+      "test_partition": {"files": 81, "manifest_equals_computed": true},
+      "typecheck": "PASS for contracts, api, api-client, web",
+      "git_diff_check_exit": 0
+    },
+    "migration_cycle": {
+      "utc": "2026-11-10T16:36:37Z",
+      "exit": 0,
+      "test_db": "greendms_i_mig_52993_1794328596",
+      "identical_objects": 1029,
+      "temp_db_deleted": true
+    },
+    "m4_regression": {
+      "utc": "2026-11-10T16:36:48Z",
+      "exit": 0,
+      "files_passed": 7,
+      "tests_passed": 117,
+      "files": {
+        "migration-rollback-race.test.ts": 8,
+        "migrations-security.test.ts": 8,
+        "product-bulk-maintenance-security.api.test.ts": 11,
+        "product-master-rls.test.ts": 64,
+        "product-master-security.test.ts": 10,
+        "product-catalog-foundation.test.ts": 9,
+        "audit-partition-recovery.api.test.ts": 7
+      }
+    },
+    "full_local_validation": {
+      "utc": "2026-11-10T16:50:11Z..2026-11-10T16:50:48Z",
+      "api_unit": {"exit": 0, "files_passed": 26, "tests_passed": 339},
+      "web_unit": {"exit": 0, "files_passed": 17, "tests_passed": 88},
+      "root_build": {"exit": 0},
+      "logs": [
+        "/tmp/pm01dm4i-api-unit.log",
+        "/tmp/pm01dm4i-web-unit.log",
+        "/tmp/pm01dm4i-root-build.log"
+      ]
+    },
+    "role_state": {
+      "exact_gr_original_hashes_restored": true,
+      "all_four_equality_checks": "t",
+      "all_dms_roles_nologin": true,
+      "i_cleanup_leftovers": "none",
+      "note": "older greendms_g_race_*/probe/task DBs predate I and remain"
+    },
+    "local_environment_limits": "Local PostgreSQL 16.2 trust-auth at 127.0.0.1:55432 has no real PostGIS/pgcrypto/MinIO/Redis parity; it is not CI- or production-equivalent. CI services use PostGIS 16-3.4, MinIO, Redis 7.4.12 and password auth."
+  },
+  "current_matrix": {
+    "path": "docs/product-inventory/M4_ACCEPTANCE_MATRIX.md",
+    "allowed_current_verdicts": ["PASS", "FAIL", "UNVERIFIED", "NOT APPLICABLE"],
+    "mandatory_m4_rows": "A-01..A-20 and B-01..B-08 PASS",
+    "mandatory_independent_full_reaudit": "R-AGG UNVERIFIED",
+    "product_master": "BLOCKED / NOT APPLICABLE to M4",
+    "g03": "PARTIAL / VERIFIED=NO; outside M4",
+    "pm_b1_pm_b8": "OPEN / NOT APPROVED",
+    "whole_file_atomicity": "OPEN / NOT APPROVED",
+    "aggregate": "UNVERIFIED"
+  },
+  "boundaries": [
+    "PR #14 remains OPEN / DRAFT",
+    "no approval, merge, release, deployment, or production DB/config change",
+    "no CI trigger edit or rerun to manufacture green",
+    "no historical verdict erased or rewritten",
+    "no aggregate PASS while R-AGG is UNVERIFIED"
+  ],
+  "final_readiness": "M4 ACCEPTANCE READINESS: UNVERIFIED",
+  "final_report": "final chat report; ends with the mandated readiness line"
+}

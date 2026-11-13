@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Pool } from 'pg';
+import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../database/database.module';
+import { type Runner, runner } from './transaction';
 
-/** عملیات ممیزی‌شده — هم‌راستا با ستون action در audit_log (مهاجرت 0002) */
+/** عملیات ممیزیشده — هم راستا با ستون action در audit_log (مهاجرت 0002) */
 export type AuditAction =
   | 'create'
   | 'update'
@@ -27,28 +28,68 @@ export interface AuditEntry {
   after?: unknown;
   ip?: string | null;
   userAgent?: string | null;
+  /** صرفاً تشخیصی؛ هرگز مبنای تطبیق/مالکیت عملیات نیست (TASK-PM-01D-M4-F). */
   requestId?: string | null;
+  /**
+   * شناسهٔ عملیات M4 که سرور در همان تراکنش تولید/تأیید کرده است. فقط سرویس M4
+   * آن را ست میکند؛ هیچ payload/هدر کلاینتی نمیتواند آن را بسازد. NULL برای
+   * همهٔ مسیرهای تاریخی باقی میماند.
+   */
+  bulkOperationId?: string | null;
+}
+
+/** شکست عملیاتی پارتیشن ممیزی: تراکنش M4 باید fail-closed برگردد، نه DDL کند. */
+export class AuditPartitionMissingError extends Error {
+  readonly code = 'audit_partition_missing' as const;
+
+  constructor() {
+    super(
+      [
+        'پارتیشن ماهانهٔ audit_log وجود ندارد؛ هیچ تغییری ثبت نشد.',
+        'اقدام اپراتور (فقط خارج از برنامه، با هویت مالک اشیاء):',
+        '  ۱) با همان هویت DATABASE_URL که مهاجرتها را اعمال کرده و مالک',
+        '     public.audit_log است وصل شوید؛ بررسی:',
+        "     select relowner::regrole from pg_class where oid = 'public.audit_log'::regclass;",
+        '     نه dms_app، نه dms_readonly، و نه dms_migrator/dms_owner مگر آنکه',
+        '     مالکیت والدها به آنها منتقل و EXECUTE صریح داده شده باشد.',
+        '  ۲) select fn_ensure_partitions(2);  -- بایدار، قابل تکرار، بدون لمس ردیفهای تاریخی',
+        '  ۳) ساختهشدن پارتیشن، RLS اجباری/سیاست والد و گرانت dms_app را بررسی',
+        '     و اقدام را در لاگ استقرار ثبت کنید؛ سپس عملیات تازهای آغاز کنید.',
+        'برنامه (dms_app) فاقد CREATE/DDL و فاقد EXECUTE روی تابع نگهداشت است و',
+        'هیچ SECURITY DEFINER تازهای برای دور زدن مالکیت اضافه نشده است.',
+      ].join('\n'),
+    );
+    this.name = 'AuditPartitionMissingError';
+  }
 }
 
 /**
- * نوشتن در audit_log (مهاجرت 0002، پارتیشن‌شده بر اساس at).
- * تاکنون هیچ‌جا نوشته نمی‌شد؛ این سرویس نقطهٔ واحد ثبت رویدادهای ممیزی است.
+ * نوشتن در audit_log (مهاجرت 0002، پارتیشنشده بر اساس at).
  *
- * نکات:
- * - پارتیشن‌ها با fn_ensure_partitions ساخته می‌شوند (مهاجرت 0019 در bootstrap
- *   اجرا شده)؛ اگر درج به پارتیشن نبود خورد، یک‌بار ensure را صدا می‌زنیم و
- *   دوباره تلاش می‌کنیم تا ممیزی هرگز جریان کسب‌وکار را نشکند.
- * - خطای ممیزی بلعیده می‌شود (فقط لاگ) — ممیزی نباید عملیات اصلی را rollback کند.
+ * - پارتیشنها فقط توسط مهاجرت 0019/0042/0064 و ترمیم ممتاز
+ *   (fn_ensure_partitions، فقط با هویت مالک اشیاء = DATABASE_URL) ساخته میشوند.
+ *   پیش از F، recordRequired هنگام کمبود پارتیشن همان تابع DDL را زیر dms_app
+ *   صدا میزد؛ چون dms_app فاقد CREATE است، آن تلاش شکست میخورد و خطای مبهمی
+ *   میداد. اکنون خطا صریح، عملیاتی و fail-closed است و تراکنش M4 (محصول +
+ *   ممیزی + دفتر عملیات) کامل rollback میشود. G هویت واقعی ترمیم را تصحیح کرد:
+ *   dms_migrator/dms_owner مالک والدها نیستند و EXECUTE تابع از همهٔ نقشهای
+ *   زمان اجرا/گزارشگیری گرفته شده است.
+ * - `record` خطای ممیزی را بلعیده و فقط لاگ میکند؛ رفتار تاریخی سایر مسیرها حفظ
+ *   شده است.
+ * - `recordRequired` همان SQL را میگیرد ولی خطا را پرتاب میکند. مسیر M4 از این
+ *   نسخه استفاده میکند تا «تغییر محصول بدون ممیزی» هرگز commit نشود.
  */
 @Injectable()
 export class AuditService {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async record(entry: AuditEntry): Promise<void> {
+  /** نسخهٔ سختگیرانه: شکست ممیزی ⇒ شکست تراکنش/framing operation. */
+  async recordRequired(entry: AuditEntry, client?: Runner): Promise<void> {
+    const q = runner(this.pool, client);
     const sql = `insert into audit_log
         (company_id, actor_user_id, action, entity_type, entity_id,
-         before_data, after_data, ip, user_agent, request_id)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
+         before_data, after_data, ip, user_agent, request_id, bulk_operation_id)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
     const params = [
       entry.companyId ?? null,
       entry.actorUserId ?? null,
@@ -60,22 +101,26 @@ export class AuditService {
       entry.ip ?? null,
       entry.userAgent ?? null,
       entry.requestId ?? null,
+      entry.bulkOperationId ?? null,
     ];
     try {
-      await this.pool.query(sql, params);
+      await q.query<QueryResultRow>(sql, params);
     } catch (err) {
-      // 23514 = check_violation؛ نبودِ پارتیشن به‌صورت «no partition of relation ... found»
       const msg = (err as { message?: string })?.message ?? '';
-      if (msg.includes('partition')) {
-        try {
-          await this.pool.query('select fn_ensure_partitions(2)');
-          await this.pool.query(sql, params);
-          return;
-        } catch {
-          /* در ادامه بلعیده می‌شود */
-        }
+      if (msg.includes('no partition of relation')) {
+        throw new AuditPartitionMissingError();
       }
-      // ممیزی هرگز نباید عملیات اصلی را بیندازد
+      throw err;
+    }
+  }
+
+  /** رفتار تاریخی: ممیزی هرگز عملیات اصلی را rollback نمیکند. */
+  async record(entry: AuditEntry): Promise<void> {
+    try {
+      await this.recordRequired(entry);
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? '';
+      // فقط پیام خطا لاگ میشود؛ هرگز محتوای before/after ردیفها چاپ نمیشود.
       console.error('audit_write_failed', msg);
     }
   }

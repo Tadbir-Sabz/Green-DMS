@@ -1,3 +1,5 @@
+import { permissionMatches } from '../identity-rbac/permissions';
+import { CatalogAccess } from './catalog-access.service';
 import {
   BadRequestException,
   ConflictException,
@@ -27,10 +29,60 @@ import type {
   BarcodeRow,
   BundleRow,
   FamilyRow,
-  RelationRow,
 } from './product-master.repository';
 import { ProductMasterRepository } from './product-master.repository';
 import type { RequestMeta } from '../../common/request-meta';
+import { OrderCreationLock } from '../sales/order-creation-lock';
+import {
+  buildImportResult,
+  classifyDomainCode,
+  classifyImportError,
+  importIssue,
+  normalizeBatchOutcome,
+  summarizeImportBatches,
+  type ImportBatchOutcome,
+  type ImportFailure,
+  type ImportIssue,
+  type ImportRecord,
+  type ImportResult,
+} from './product-import-reliability';
+
+const IMPORT_BATCH_SIZE = 100;
+type ImportRowError = { row: number; code: string; message_fa: string };
+type ProductImportLookup = Awaited<ReturnType<ProductMasterRepository['getProductsForImport']>>;
+type ImportCommitRequest = {
+  csv: string;
+  mode: 'create' | 'update' | 'upsert';
+  idempotency_key: string;
+  confirm_sensitive?: boolean;
+};
+type PreparedImportRow = {
+  rowNo: number;
+  row: Record<string, string>;
+  existingId: string | null;
+  categoryId: string;
+  uomId: string;
+  taxId: string | null;
+};
+interface RunImportBatchArgs {
+  companyId: string;
+  importId: string;
+  actorUserId: string;
+  meta: RequestMeta;
+  dto: ImportCommitRequest;
+  batchNo: number;
+  start: number;
+  batch: Record<string, string>[];
+  categories: Map<string, string>;
+  uoms: Map<string, string>;
+  taxes: Map<string, string>;
+  existingByCode: ProductImportLookup;
+  validationErrorsByRow: Map<number, ImportRowError[]>;
+}
+const sortIssues = (a: ImportIssue, b: ImportIssue): number =>
+  a.row - b.row || a.code.localeCompare(b.code);
+const countFailedRows = (issues: ImportIssue[]): number =>
+  new Set(issues.filter((i) => i.status !== 'created' && i.status !== 'updated').map((i) => i.row)).size;
 
 /**
  * سرویسِ Product Master (P1) — قواعدِ کسب‌وکارِ طرحِ هدف و مصوبات D1–D5.
@@ -46,15 +98,17 @@ import type { RequestMeta } from '../../common/request-meta';
 @Injectable()
 export class ProductMasterService {
   constructor(
+    private readonly access: CatalogAccess,
     private readonly repo: ProductMasterRepository,
     @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
+    private readonly creationLock: OrderCreationLock,
   ) {}
 
   // =================================================================
   // D1 — کدِ SKU
   // =================================================================
   /** تولیدِ کدِ خودکارِ یکتا (SKU-000001…) با retry برای برخوردِ احتمالی با کدهای دستی */
-  async generateSkuCode(companyId: string): Promise<string> {
+  private async generateSkuCode(companyId: string): Promise<string> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const seq = await this.repo.nextCodeSeq(companyId);
       const code = `SKU-${String(seq).padStart(6, '0')}`;
@@ -111,82 +165,36 @@ export class ProductMasterService {
   }
 
   async createFamily(companyId: string, code: string, name: string, meta: RequestMeta, actorUserId: string): Promise<FamilyRow> {
-    const row = await this.repo.createFamily(companyId, code, name);
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
+    if (typeof code !== 'string' || typeof name !== 'string' || !code.trim() || !name.trim() || code.length > 64 || name.length > 255) {
+      throw new BadRequestException({ code: 'invalid_family', message_fa: 'کد و نام خانواده معتبر نیست.' });
+    }
+    let row: FamilyRow;
+    try { row = await this.repo.createFamily(companyId, code.trim(), name.trim()); }
+    catch (err) {
+      if ((err as {code?: string}).code === '23505') throw new ConflictException({code:'duplicate_family',message_fa:'کد خانواده قبلاً ثبت شده است.'});
+      throw err;
+    }
     await this.audit.record({
       companyId, actorUserId, action: 'create', entityType: 'product_family', entityId: row.id,
       after: row, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return row;
-  }
+
+ });
+ }
 
   // =================================================================
   // alias
   // =================================================================
-  async listAliases(companyId: string, productId: string) {
-    return this.repo.listAliases(companyId, productId);
-  }
-
-  async addAlias(
-    companyId: string,
-    productId: string,
-    alias: string,
-    kind: string,
-    meta: RequestMeta,
-    actorUserId: string,
-  ) {
-    await this.assertProduct(companyId, productId);
-    const aliasNorm = normalizeText(alias);
-    if (!aliasNorm) {
-      throw new BadRequestException({ code: 'invalid_alias', message_fa: 'مقدارِ alias خالی است.' });
-    }
-    // alias نباید با کد/بارکدِ موجود برخورد کند (resolution اسکن تک‌معنا بماند — H-1)
-    const collisions = await this.repo.findAliasConflicts(companyId, aliasNorm);
-    for (const c of collisions) {
-      if (c.kind === 'barcode') {
-        throw new ConflictException({
-          code: 'alias_collision',
-          message_fa: 'این alias با بارکدِ ثبت‌شده هم‌ارز است و resolution اسکن را دوپهلو می‌کند.',
-          details: { product_id: c.product_id },
-        });
-      }
-      if (c.product_id !== productId && (kind === 'code' || c.kind === 'product_code')) {
-        throw new ConflictException({
-          code: 'alias_collision',
-          message_fa: 'این alias با کد/alias محصولِ دیگری برخورد دارد.',
-          details: { product_id: c.product_id },
-        });
-      }
-      if (c.product_id !== productId && c.kind === 'alias') {
-        throw new ConflictException({
-          code: 'alias_collision',
-          message_fa: 'این alias برای محصولِ دیگری ثبت شده است.',
-          details: { product_id: c.product_id },
-        });
-      }
-    }
-    try {
-      const row = await this.repo.insertAlias(companyId, productId, alias, aliasNorm, kind);
-      await this.audit.record({
-        companyId, actorUserId, action: 'create', entityType: 'product_alias', entityId: row.id,
-        after: { product_id: productId, alias, kind }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-      });
-      return row;
-    } catch (err) {
-      if ((err as { code?: string }).code === '23505') {
-        throw new ConflictException({ code: 'duplicate_alias', message_fa: 'این alias برای همین کالا قبلاً ثبت شده است.' });
-      }
-      throw err;
-    }
-  }
-
-  async removeAlias(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
-    const ok = await this.repo.deleteAlias(companyId, id);
-    if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'alias یافت نشد.' });
-    await this.audit.record({
-      companyId, actorUserId, action: 'delete', entityType: 'product_alias', entityId: id,
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-  }
+  // =================================================================
+  // alias (هویتِ کالا)
+  // TASK-PM-02-C7: این سطح به `ProductIdentityService`/`ProductIdentityController`
+  // منتقل شد (نمای کامل با برخوردهای نرم، افزودن/حذف با ممیزیِ fail-closed،
+  // رد صریح فیلدهای کلاینتی و سقفِ فنی). هیچ نسخهٔ تکراری باقی نمانده است.
+  // =================================================================
 
   // =================================================================
   // صفات (B3)
@@ -201,6 +209,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<AttributeDefRow & { enum_values?: { id: string; value: string }[] }> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     if (!['text', 'number', 'enum'].includes(d.kind)) {
       throw new BadRequestException({ code: 'invalid_kind', message_fa: 'نوعِ صفت باید text یا number یا enum باشد.' });
     }
@@ -210,16 +221,39 @@ export class ProductMasterService {
         message_fa: 'برای صفتِ enum باید دست‌کم یک مقدارِ مجاز تعریف شود.',
       });
     }
-    const def = await this.repo.createAttributeDef(companyId, {
-      code: d.code, title: d.title, kind: d.kind,
-      is_variant_axis: d.is_variant_axis ?? false,
-      is_required: d.is_required ?? false,
-      sort_order: d.sort_order ?? 0,
-    });
+    // C7 (اصلاحِ انحرافِ قرارداد): قرارداد برای کدِ تکراری ۴۰۹ اعلام کرده است؛
+    // پیش‌تر نقضِ یکتایی به ۵۰۰ تبدیل می‌شد.
+    let def: AttributeDefRow;
+    try {
+      def = await this.repo.createAttributeDef(companyId, {
+        code: d.code, title: d.title, kind: d.kind,
+        is_variant_axis: d.is_variant_axis ?? false,
+        is_required: d.is_required ?? false,
+        sort_order: d.sort_order ?? 0,
+      });
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_attribute_code',
+          message_fa: 'صفتی با همین کد در کاتالوگ این شرکت وجود دارد.',
+        });
+      }
+      throw err;
+    }
     const enumValues: { id: string; value: string }[] = [];
     if (d.kind === 'enum') {
       for (const v of d.enum_values ?? []) {
-        enumValues.push(await this.repo.addEnumValue(def.id, v, normalizeAttributeValue('enum', v)));
+        try {
+          enumValues.push(await this.repo.addEnumValue(def.id, v, normalizeAttributeValue('enum', v)));
+        } catch (err) {
+          if ((err as { code?: string }).code === '23505') {
+            throw new ConflictException({
+              code: 'duplicate_enum_value',
+              message_fa: `مقدارِ «${v}» در فهرستِ مقادیرِ مجازِ این صفت تکراری است.`,
+            });
+          }
+          throw err;
+        }
       }
     }
     await this.audit.record({
@@ -227,21 +261,39 @@ export class ProductMasterService {
       after: { ...def, enum_values: enumValues }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return { ...def, enum_values: enumValues };
-  }
+
+ });
+ }
 
   async addAttributeEnumValue(companyId: string, defId: string, value: string, meta: RequestMeta, actorUserId: string) {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const def = await this.repo.getAttributeDef(companyId, defId);
     if (!def) throw new NotFoundException({ code: 'not_found', message_fa: 'صفت یافت نشد.' });
     if (def.kind !== 'enum') {
       throw new BadRequestException({ code: 'not_enum', message_fa: 'فقط صفتِ enum مقدارِ مجاز می‌گیرد.' });
     }
-    const row = await this.repo.addEnumValue(defId, value, normalizeAttributeValue('enum', value));
+    let row: { id: string; value: string };
+    try {
+      row = await this.repo.addEnumValue(defId, value, normalizeAttributeValue('enum', value));
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_enum_value',
+          message_fa: `مقدارِ «${value}» در فهرستِ مقادیرِ مجازِ این صفت تکراری است.`,
+        });
+      }
+      throw err;
+    }
     await this.audit.record({
       companyId, actorUserId, action: 'create', entityType: 'product_attribute_enum_value', entityId: row.id,
       after: { def_id: defId, value }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return row;
-  }
+
+ });
+ }
 
   async listEnumValues(companyId: string, defId: string) {
     const def = await this.repo.getAttributeDef(companyId, defId);
@@ -254,181 +306,21 @@ export class ProductMasterService {
    * - اعتبارسنجیِ kind/enum (B3)؛ الزامِ is_required
    * - M-3: امضا قطعی؛ تغییرناپذیری پس از نخستینِ ارجاعِ عملیاتی
    */
-  /**
-   * خواندنِ مقادیرِ صفاتِ SKU + امضای فعلی (برای نمایش در UI جزئیات)
-   */
-  async getProductAttributeValues(
-    companyId: string,
-    productId: string,
-  ): Promise<{ values: AttributeValueRow[]; variant_signature: string | null }> {
-    await this.assertProduct(companyId, productId);
-    const values = await this.repo.listAttributeValues(productId);
-    const info = await this.repo.getProductAxisInfo(productId);
-    return { values, variant_signature: info?.variant_signature ?? null };
-  }
-
-  async setProductAttributeValues(
-    companyId: string,
-    productId: string,
-    values: { def_id: string; value_text?: string | null; value_num?: number | null; value_enum?: string | null }[],
-    meta: RequestMeta,
-    actorUserId: string,
-  ): Promise<{ values: AttributeValueRow[]; variant_signature: string | null }> {
-    await this.assertProduct(companyId, productId);
-    const defs = await this.repo.listAttributeDefs(companyId);
-    const defMap = new Map(defs.map((d) => [d.id, d]));
-    const info = await this.repo.getProductAxisInfo(productId);
-    const hadSignature = Boolean(info?.variant_signature);
-    const hasRefs = hadSignature ? await this.repo.productHasOperationalRefs(productId) : false;
-
-    // اعتبارسنجی
-    for (const v of values) {
-      const def = defMap.get(v.def_id);
-      if (!def) {
-        throw new BadRequestException({ code: 'invalid_attribute', message_fa: 'صفتِ انتخاب‌شده معتبر نیست.', details: { def_id: v.def_id } });
-      }
-      const filled = [v.value_text, v.value_num, v.value_enum].filter((x) => x !== null && x !== undefined && x !== '');
-      if (filled.length > 1) {
-        throw new BadRequestException({ code: 'invalid_attribute_value', message_fa: `برای صفتِ «${def.title}» فقط یک مقدار مجاز است.` });
-      }
-      if (def.kind === 'number' && v.value_num === undefined) {
-        throw new BadRequestException({ code: 'invalid_attribute_value', message_fa: `صفتِ «${def.title}» عددی است.` });
-      }
-      if (def.kind === 'enum') {
-        const allowed = await this.repo.listEnumValues(def.id);
-        const norm = normalizeAttributeValue('enum', v.value_enum ?? null);
-        if (!allowed.some((a) => a.value_norm === norm)) {
-          throw new BadRequestException({
-            code: 'invalid_attribute_value',
-            message_fa: `مقدارِ «${v.value_enum}» برای صفتِ «${def.title}» در فهرستِ مقادیرِ مجاز نیست.`,
-          });
-        }
-      }
-    }
-
-    // الزامِ is_required در سطحِ SKU
-    const provided = new Set(values.map((v) => v.def_id));
-    for (const def of defs) {
-      if (def.is_required && !provided.has(def.id)) {
-        const existing = (await this.repo.listAttributeValues(productId)).some((pv) => pv.def_id === def.id);
-        if (!existing) {
-          throw new BadRequestException({
-            code: 'required_attribute_missing',
-            message_fa: `صفتِ «${def.title}» برای این کالا الزامی است.`,
-          });
-        }
-      }
-    }
-
-    // M-3: اگر امضای قبلی هست و SKU به ارجاعِ عملیاتی رسیده، تغییرِ محورها ممنوع
-    const axisIds = new Set(defs.filter((d) => d.is_variant_axis).map((d) => d.id));
-    const changesAxis = values.some((v) => axisIds.has(v.def_id));
-    if (hasRefs && (changesAxis || values.length === 0)) {
-      const changing = values.filter((v) => axisIds.has(v.def_id));
-      if (changing.length > 0 || values.length === 0) {
-        throw new ConflictException({
-          code: 'variant_signature_immutable',
-          message_fa:
-            'پس از نخستین ارجاعِ عملیاتی (سند/موجودی/قیمت)، محورهای variant تغییرناپذیرند؛ SKU جدید بسازید و SKU قبلی را بازنشسته کنید.',
-        });
-      }
-    }
-
-    const saved: AttributeValueRow[] = [];
-    for (const v of values) {
-      saved.push(
-        await this.repo.upsertAttributeValue({
-          productId,
-          defId: v.def_id,
-          valueText: v.value_text ?? null,
-          valueNum: v.value_num != null ? String(v.value_num) : null,
-          valueEnum: v.value_enum ?? null,
-        }),
-      );
-    }
-
-    // محاسبهٔ امضای قطعی از محورهای خانواده
-    const axisEntries: { defId: string; valueNorm: string }[] = [];
-    const allValues = await this.repo.listAttributeValues(productId);
-    for (const av of allValues) {
-      const def = defMap.get(av.def_id);
-      if (!def?.is_variant_axis) continue;
-      const raw = av.value_text ?? av.value_enum ?? av.value_num;
-      axisEntries.push({ defId: av.def_id, valueNorm: normalizeAttributeValue(def.kind as 'text' | 'number' | 'enum', raw) });
-    }
-    const signature = axisEntries.length > 0 ? variantSignature(axisEntries) : null;
-    try {
-      await this.repo.setProductVariantSignature(productId, signature);
-    } catch (err) {
-      // قیدِ uq_product_variant_signature: ترکیبِ تکراریِ variant در یک خانواده
-      if ((err as { code?: string }).code === '23505') {
-        throw new ConflictException({
-          code: 'duplicate_variant_signature',
-          message_fa: 'ترکیبِ این محورهای variant در همین خانواده قبلاً برای SKU دیگری ثبت شده است.',
-        });
-      }
-      throw err;
-    }
-
-    await this.audit.record({
-      companyId, actorUserId, action: 'update', entityType: 'product_attribute_value', entityId: productId,
-      before: { variant_signature: info?.variant_signature ?? null },
-      after: { values: saved, variant_signature: signature },
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-    return { values: saved, variant_signature: signature };
-  }
+  // =================================================================
+  // مقادیرِ صفاتِ SKU (B3 + M-3)
+  // TASK-PM-02-C7: خواندن/نوشتنِ مقادیر به `ProductIdentityService` منتقل شد
+  // (نمای کامل تعاریف+مقدار+الزام+محور+امضا، پاک‌کردنِ مقدار با `clear`،
+  // اصلاح ۵۰۰ واقعیِ مقدارِ خالی). کاتالوگِ صفات (تعریف/مقدارِ مجاز) همان‌جا در
+  // این سرویس می‌ماند چون منبعِ حقیقتِ کاتالوگ است.
+  // =================================================================
 
   // =================================================================
   // روابط (جایگزین/مکمل)
+  // TASK-PM-02-C6: این سطح به `ProductRelationsService`/`ProductRelationsController`
+  // منتقل شد (نمای کامل خروجی/ورودی، تاریخچهٔ ۰۰۶۰، پیمایشِ محدود، ویرایشِ
+  // اولویت، افزودن/حذف با ممیزیِ fail-closed، رد صریح فیلدهای کلاینتی).
+  // هیچ نسخهٔ تکراری یا ضعیف‌تر در این سرویس باقی نمانده است.
   // =================================================================
-  async listRelations(companyId: string, productId: string): Promise<RelationRow[]> {
-    return this.repo.listRelations(productId);
-  }
-
-  async addRelation(
-    companyId: string,
-    productId: string,
-    relatedId: string,
-    kind: string,
-    priority: number,
-    meta: RequestMeta,
-    actorUserId: string,
-  ): Promise<RelationRow> {
-    if (!['substitute', 'complement'].includes(kind)) {
-      throw new BadRequestException({ code: 'invalid_kind', message_fa: 'نوعِ رابطه باید substitute یا complement باشد.' });
-    }
-    await this.assertProduct(companyId, productId);
-    await this.assertProduct(companyId, relatedId);
-    if (productId === relatedId) {
-      throw new BadRequestException({ code: 'self_relation', message_fa: 'ارجاعِ خودی در روابط مجاز نیست.' });
-    }
-    if (kind === 'substitute' && (await this.repo.substitutePathExists(productId, relatedId))) {
-      throw new BadRequestException({ code: 'relation_cycle', message_fa: 'این رابطه حلقهٔ جایگزینی ایجاد می‌کند.' });
-    }
-    try {
-      const row = await this.repo.insertRelation(companyId, productId, relatedId, kind, priority);
-      await this.audit.record({
-        companyId, actorUserId, action: 'create', entityType: 'product_relation', entityId: row.id,
-        after: row, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-      });
-      return row;
-    } catch (err) {
-      if ((err as { code?: string }).code === '23505') {
-        throw new ConflictException({ code: 'duplicate_relation', message_fa: 'این رابطه قبلاً ثبت شده است.' });
-      }
-      throw err;
-    }
-  }
-
-  async removeRelation(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
-    const ok = await this.repo.deleteRelation(companyId, id);
-    if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'رابطه یافت نشد.' });
-    await this.audit.record({
-      companyId, actorUserId, action: 'delete', entityType: 'product_relation', entityId: id,
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-  }
 
   // =================================================================
   // bundle — کاتالوگ در P1 (D5)
@@ -446,6 +338,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<BundleRow[]> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     await this.assertProduct(companyId, bundleProductId);
     if (items.length === 0) {
       throw new BadRequestException({ code: 'empty_bundle', message_fa: 'بسته باید دست‌کم یک جزء داشته باشد.' });
@@ -493,7 +388,9 @@ export class ProductMasterService {
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
     return after;
-  }
+
+ });
+ }
 
   /**
    * D5 — ممنوعیتِ صریحِ P1: SKU بسته نباید قابلِ سفارش/فروش باشد یا در حرکتِ موجودی شرکت کند.
@@ -526,6 +423,9 @@ export class ProductMasterService {
     meta: RequestMeta,
     actorUserId: string,
   ): Promise<BarcodeRow> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     await this.assertProduct(companyId, productId);
     const kinds = ['gs1_ean13', 'gs1_ean8', 'gs1_upc', 'gs1_itf14', 'internal', 'other'];
     if (!kinds.includes(dto.kind)) {
@@ -584,16 +484,23 @@ export class ProductMasterService {
     } catch (err) {
       throw this.mapBarcodeDbError(err);
     }
-  }
+
+ });
+ }
 
   async removeBarcode(companyId: string, id: string, meta: RequestMeta, actorUserId: string): Promise<void> {
+ return this.access.write(companyId, actorUserId, 'master.product.update', async () => {
+    await this.access.assert(companyId, actorUserId, 'master.product.update');
+
     const ok = await this.repo.deleteBarcode(companyId, id);
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'بارکد یافت نشد.' });
     await this.audit.record({
       companyId, actorUserId, action: 'delete', entityType: 'product_barcode', entityId: id,
       ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-  }
+
+ });
+ }
 
   /**
    * resolution قطعیِ اسکن (H-1): (۱) product_barcode ← (۲) product.code ← (۳) alias نوعِ code.
@@ -726,6 +633,16 @@ export class ProductMasterService {
       }
       if (row.status && !['active', 'blocked', 'discontinued'].includes(row.status)) {
         row_errors.push({ row: rowNo, code: 'invalid_enum', message_fa: 'وضعیت باید active/blocked/discontinued باشد.' });
+      } else if (row.status === 'discontinued') {
+        // TASK-PM-02-C5: «متوقف» یک مقدار موجودِ enum است، ولی همهٔ گذارهای به/از آن
+        // تا تصویب مالک BLOCKED / NOT AUTHORIZEDاند. پیش‌نمایش باید همان سیاستِ
+        // نگهبانِ D4 را از قبل و در سطح ردیف نشان دهد، نه اینکه ردیف را سالم اعلام
+        // کند و سپس کل دسته را در commit رد کند.
+        row_errors.push({
+          row: rowNo,
+          code: 'lifecycle_transition_blocked',
+          message_fa: 'گذار به وضعیت «متوقف» تا تصویب مالک BLOCKED / NOT AUTHORIZED است؛ این ردیف پذیرفته نمی‌شود.',
+        });
       }
       if (!row.category_code) {
         row_errors.push({ row: rowNo, code: 'missing_category', message_fa: 'کدِ گروه (category_code) الزامی است.' });
@@ -741,213 +658,533 @@ export class ProductMasterService {
    * اجرای import (§E): همه‌یاهیچ در هر دسته؛ idempotency_key؛ audit؛
    * M-5: ردیفِ دارایِ فیلدِ حساس **بدونِ** confirm_sensitive پذیرفته نمی‌شود
    * (هرگز با فقط مجوزِ import از کنترلِ D4 عبور نمی‌کند).
+   *
+   * TASK-PM-01D-M2: قفل advisory فقط روی (شرکت + کلید idempotency) گرفته می‌شود؛
+   * ادعای اتمیک ردیف product_import پیش از هر نوشتن محصول؛ نتیجه هر دسته در همان
+   * تراکنش محصول ثبت می‌شود؛ تکرار همان کلید یا پخش مجدد ناقص، batch های commit‌شده
+   * را دوباره اجرا نمی‌کند. قرارداد §E (ادامه دسته‌های بعدی پس از خطا) حفظ می‌شود.
    */
   async commitImport(
     companyId: string,
-    dto: { csv: string; mode: 'create' | 'update' | 'upsert'; idempotency_key: string; confirm_sensitive?: boolean },
+    dto: ImportCommitRequest,
     meta: RequestMeta,
     actorUserId: string,
-  ): Promise<{
-    import_id: string;
-    total_rows: number;
-    created_rows: number;
-    updated_rows: number;
-    failed_rows: number;
-    errors: { row: number; code: string; message_fa: string }[];
-    idempotent_replay: boolean;
-  }> {
+  ): Promise<ImportResult> {
+    await this.access.assert(companyId, actorUserId, 'master.product.import');
+
     const idemKey = createHash('sha256')
       .update(`${dto.mode}\u0000${dto.idempotency_key}\u0000${dto.csv}`)
       .digest('hex');
 
-    const existing = await this.repo.findImportByIdempotencyKey(companyId, idemKey);
-    if (existing) {
-      return {
-        import_id: existing.id,
-        total_rows: existing.total_rows,
-        created_rows: existing.created_rows,
-        updated_rows: existing.updated_rows,
-        failed_rows: existing.failed_rows,
-        errors: [],
-        idempotent_replay: true,
-      };
-    }
-
-    const validated = this.validateImport(companyId, dto.csv);
-    const errors: { row: number; code: string; message_fa: string }[] = [...validated.row_errors];
-    const report: { row: number; status: string; code: string; message_fa: string; product_code?: string }[] =
-      validated.row_errors.map((e) => ({ row: e.row, status: 'failed', code: e.code, message_fa: e.message_fa }));
-
-    // حلِ FK با code + تشخیصِ تکرارِ بانک (D2)
-    const codes = validated.rows.map((r) => r.code).filter(Boolean);
-    const existingByCode = await this.repo.getProductsForImport(companyId, codes);
-
-    const categoryCodes = [...new Set(validated.rows.map((r) => r.category_code).filter(Boolean))];
-    const uomCodes = [...new Set(validated.rows.map((r) => r.base_uom_code).filter(Boolean))];
-    const taxCodes = [...new Set(validated.rows.map((r) => r.tax_code).filter(Boolean))];
-    const [categories, uoms, taxes] = await Promise.all([
-      this.repo.resolveCategoryCodes(companyId, categoryCodes),
-      this.repo.resolveUomCodes(uomCodes),
-      this.repo.resolveTaxCodes(companyId, taxCodes),
-    ]);
-
-    let created = 0;
-    let updated = 0;
-    const BATCH = 100;
-
-    for (let start = 0; start < validated.rows.length; start += BATCH) {
-      const batch = validated.rows.slice(start, start + BATCH);
-      const batchNo = start / BATCH + 1;
-      // همه‌یاهیچ در هر دسته: اگر هر ردیفِ قابلِ قبولی در دسته شکست خورد، کلِ دسته rollback می‌شود
-      const prepared: {
-        rowNo: number;
-        row: Record<string, string>;
-        existingId: string | null;
-        categoryId: string;
-        uomId: string;
-        taxId: string | null;
-        sensitive: boolean;
-      }[] = [];
-      let batchError: { row: number; code: string; message_fa: string } | null = null;
-
-      for (let i = 0; i < batch.length; i++) {
-        const row = batch[i];
-        const rowNo = start + i + 2;
-        if (errors.some((e) => e.row === rowNo)) continue; // خطای اعتبارسنجیِ اولیه
-
-        const categoryId = categories.get(row.category_code ?? '');
-        if (!categoryId) {
-          batchError = { row: rowNo, code: 'unknown_category', message_fa: `گروهِ «${row.category_code}» یافت نشد.` };
-          break;
-        }
-        const uomId = uoms.get(row.base_uom_code ?? '');
-        if (!uomId) {
-          batchError = { row: rowNo, code: 'unknown_uom', message_fa: `واحدِ «${row.base_uom_code}» یافت نشد.` };
-          break;
-        }
-        const taxId = row.tax_code ? taxes.get(row.tax_code) ?? null : null;
-        if (row.tax_code && !taxId) {
-          batchError = { row: rowNo, code: 'unknown_tax_code', message_fa: `کدِ مالیاتیِ «${row.tax_code}» یافت نشد.` };
-          break;
-        }
-
-        const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
-        if (dto.mode === 'create' && existingId) {
-          batchError = { row: rowNo, code: 'duplicate_code', message_fa: `کدِ «${row.code}» قبلاً ثبت شده است (mode=create).` };
-          break;
-        }
-        if (dto.mode === 'update' && !existingId) {
-          batchError = { row: rowNo, code: 'not_found', message_fa: `کدِ «${row.code}» برای بروزرسانی یافت نشد (mode=update).` };
-          break;
-        }
-
-        // M-5: فیلدِ حساس در ردیفِ import
-        const sensitive =
-          Boolean(row.tax_code) || Boolean(row.status) || Boolean(row.base_uom_code);
-        // base_uom برای create جزئی از تعریف است؛ حساسیت برای «تغییر» است (D4)
-        const sensitiveOnUpdate = existingId && (Boolean(row.tax_code) || Boolean(row.status));
-        if (sensitiveOnUpdate && !dto.confirm_sensitive) {
-          batchError = {
-            row: rowNo,
-            code: 'sensitive_change_requires_confirmation',
-            message_fa:
-              'این ردیف فیلدِ حساس (مالیات/وضعیت) را تغییر می‌دهد؛ برای پذیرش باید confirm_sensitive ارسال شود یا ردیف حذف شود.',
-          };
-          break;
-        }
-
-        prepared.push({ rowNo, row, existingId, categoryId, uomId, taxId, sensitive });
+    // همان درخواستِ همزمان پشت این قفل منتظر میماند و سپس همان گزارش را پخش
+    // میکند. import های با کلید متفاوت روی این قفل مسدود نمیشوند.
+    return this.creationLock.withKey(`product-import:${companyId}:${idemKey}`, async () => {
+      const existing = await this.repo.findImportByIdempotencyKey(companyId, idemKey);
+      // A terminal record is always replayed verbatim. Automatic same-key replay of
+      // a failed import is never allowed; only an interrupted `processing` record
+      // can resume, and only batches with a definitive rolled-back outcome.
+      if (existing?.status === 'completed' || existing?.status === 'failed') {
+        return this.replayImport(companyId, existing, true);
       }
 
-      if (batchError) {
-        // خرابیِ جزئی ⇒ گزارشِ خطا برای همهٔ ردیف‌های دسته + ادامهٔ دسته‌های بعدی (§E-4)
-        const failedRowNos = new Set<number>([batchError.row]);
-        for (let i = 0; i < batch.length; i++) {
-          const rowNo = start + i + 2;
-          if (errors.some((e) => e.row === rowNo)) continue;
-          failedRowNos.add(rowNo);
-        }
-        for (const rowNo of failedRowNos) {
-          const e = { row: rowNo, code: batchError.code, message_fa: batchError.message_fa };
-          errors.push(e);
-          report.push({ row: rowNo, status: 'failed', code: e.code, message_fa: e.message_fa });
-        }
-        continue;
+      const validated = this.validateImport(companyId, dto.csv);
+      const totalRows = validated.rows.length;
+      const totalBatches = Math.ceil(totalRows / IMPORT_BATCH_SIZE);
+      const validationErrorsByRow = new Map<number, ImportRowError[]>();
+      for (const error of validated.row_errors) {
+        const list = validationErrorsByRow.get(error.row) ?? [];
+        list.push(error);
+        validationErrorsByRow.set(error.row, list);
       }
 
-      // اجرای دسته — همه‌یاهیچ
-      try {
-        for (const p of prepared) {
-          const saved = await this.upsertImportRow(companyId, p, actorUserId, meta);
-          if (saved === 'created') created++;
-          else updated++;
-          report.push({
-            row: p.rowNo,
-            status: saved,
-            code: saved,
-            message_fa: saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.',
-            product_code: p.row.code || undefined,
+      let importId = '';
+      if (!existing) {
+        const claimed = await this.repo.claimImport({
+          companyId,
+          idempotencyKey: idemKey,
+          mode: dto.mode,
+          totalRows,
+          createdBy: actorUserId,
+        });
+        if (!claimed) {
+          const raced = await this.repo.findImportByIdempotencyKey(companyId, idemKey);
+          if (raced?.status === 'completed' || raced?.status === 'failed') {
+            return this.replayImport(companyId, raced, true);
+          }
+          throw new ConflictException({
+            code: 'import_in_progress',
+            message_fa: 'اجرای دیگری با همین کلید idempotency در حال پردازش است؛ بعداً تلاش کنید.',
+            retryable: true,
+            transaction_outcome: 'not_started',
+            import_id: raced?.id,
+            status: 'processing',
           });
         }
-      } catch (err) {
-        const message = (err as Error).message ?? 'خطای ناشناخته';
-        for (const p of prepared) {
-          errors.push({ row: p.rowNo, code: 'batch_failed', message_fa: `دستهٔ ${batchNo} ناموفق بود: ${message}` });
-          report.push({ row: p.rowNo, status: 'failed', code: 'batch_failed', message_fa: `دستهٔ ${batchNo} ناموفق بود.` });
+        importId = claimed.id;
+      } else {
+        importId = existing.id;
+        await this.repo.resumeImport(companyId, importId);
+      }
+
+      try {
+        const codes = validated.rows.map((r) => r.code).filter(Boolean);
+        const categoryCodes = [...new Set(validated.rows.map((r) => r.category_code).filter(Boolean))];
+        const uomCodes = [...new Set(validated.rows.map((r) => r.base_uom_code).filter(Boolean))];
+        const taxCodes = [...new Set(validated.rows.map((r) => r.tax_code).filter(Boolean))];
+        const [categories, uoms, taxes, existingByCode, storedBatchesRaw] = await Promise.all([
+          this.repo.resolveCategoryCodes(companyId, categoryCodes),
+          this.repo.resolveUomCodes(uomCodes),
+          this.repo.resolveTaxCodes(companyId, taxCodes),
+          this.repo.getProductsForImport(companyId, codes),
+          this.repo.listImportBatches(companyId, importId),
+        ]);
+        const storedBatches = Array.isArray(storedBatchesRaw)
+          ? storedBatchesRaw
+            .map((raw) => normalizeBatchOutcome(raw, importId))
+            .filter((batch): batch is ImportBatchOutcome => batch !== null)
+            .sort((a, b) => a.batch_no - b.batch_no)
+          : [];
+        const byBatchNo = new Map(storedBatches.map((batch) => [batch.batch_no, batch]));
+        const outcomes: ImportBatchOutcome[] = [];
+
+        // An unknown transaction outcome is a terminal, operator-review state.
+        // Replaying it could duplicate product/history effects if COMMIT had
+        // succeeded but its acknowledgement was lost.
+        if (storedBatches.some((batch) => batch.transaction_outcome === 'unknown')) {
+          await this.repo.markImportFailed({
+            companyId,
+            importId,
+            failureCategory: 'infrastructure',
+            retryable: false,
+            transactionOutcome: 'unknown',
+          }).catch(() => undefined);
+          const terminal = await this.repo.getImport(companyId, importId);
+          if (!terminal) throw new Error('import_terminal_read_failed');
+          return this.replayImport(companyId, terminal, false);
         }
+
+        for (let batchNo = 1; batchNo <= totalBatches; batchNo += 1) {
+          const persisted = byBatchNo.get(batchNo);
+          const safeToRetry = persisted?.status === 'rolled_back'
+            && persisted.transaction_outcome === 'rolled_back'
+            && persisted.retryable;
+          if (persisted && !safeToRetry) {
+            outcomes.push(persisted);
+            continue;
+          }
+          const start = (batchNo - 1) * IMPORT_BATCH_SIZE;
+          const outcome = await this.runImportBatch({
+            companyId,
+            importId,
+            actorUserId,
+            meta,
+            dto,
+            batchNo,
+            start,
+            batch: validated.rows.slice(start, start + IMPORT_BATCH_SIZE),
+            categories,
+            uoms,
+            taxes,
+            existingByCode,
+            validationErrorsByRow,
+          });
+          outcomes.push(outcome);
+          if (outcome.transaction_outcome === 'unknown') {
+            throw new ConflictException({
+              code: 'infrastructure_error',
+              message_fa: 'نتیجهٔ تراکنش نامشخص است؛ پخش خودکار متوقف شد و نیاز به بررسی اپراتور دارد.',
+              retryable: false,
+              transaction_outcome: 'unknown',
+              import_id: importId,
+              status: 'failed',
+            });
+          }
+        }
+
+        outcomes.sort((a, b) => a.batch_no - b.batch_no);
+        return await this.finalizeImportRecord({
+          companyId,
+          importId,
+          actorUserId,
+          meta,
+          totalRows,
+          outcomes,
+        });
+      } catch (err) {
+        const failure = classifyImportError(err);
+        const current = await this.repo.getImport(companyId, importId).catch(() => null);
+        if (current && current.status !== 'completed') {
+          await this.repo.markImportFailed({
+            companyId,
+            importId,
+            failureCategory: failure.failure_category,
+            retryable: false,
+            transactionOutcome: failure.transaction_outcome === 'unknown' ? 'unknown' : 'rolled_back',
+          }).catch(() => undefined);
+        }
+        throw new ConflictException({
+          code: failure.code,
+          message_fa: failure.message_fa,
+          retryable: false,
+          transaction_outcome: failure.transaction_outcome,
+          import_id: importId,
+          status: 'failed',
+        });
+      }
+    });
+  }
+
+  private async replayImport(
+    companyId: string,
+    record: ImportRecord,
+    idempotentReplay: boolean,
+  ): Promise<ImportResult> {
+    const batches = await this.repo.listImportBatches(companyId, record.id);
+    return buildImportResult(record, batches, idempotentReplay);
+  }
+
+  private async persistBatchOutcome(
+    companyId: string,
+    actorUserId: string,
+    importId: string,
+    batch: ImportBatchOutcome,
+  ): Promise<ImportBatchOutcome> {
+    const persisted = await this.access.write(
+      companyId,
+      actorUserId,
+      'master.product.import',
+      async () => this.repo.recordImportBatch({ companyId, importId, batch }),
+    );
+    // If COMMIT had succeeded but its acknowledgement was lost, the committed
+    // marker wins over this ambiguous failure report.
+    return normalizeBatchOutcome(persisted, importId) ?? batch;
+  }
+
+  private async runImportBatch(args: RunImportBatchArgs): Promise<ImportBatchOutcome> {
+    const {
+      companyId, importId, actorUserId, meta, dto, batchNo, start, batch,
+      categories, uoms, taxes, existingByCode, validationErrorsByRow,
+    } = args;
+    const batchRows = new Map<number, Record<string, string>>();
+    for (let i = 0; i < batch.length; i += 1) batchRows.set(start + i + 2, batch[i]);
+    const productContext = (row: Record<string, string>): { product_code?: string; product_id?: string } => ({
+      ...(row.code ? { product_code: row.code } : {}),
+      ...(existingByCode.get(row.code ?? '')?.id
+        ? { product_id: existingByCode.get(row.code ?? '')!.id } : {}),
+    });
+
+    const validationIssues: ImportIssue[] = [];
+    const validationFailedRows = new Set<number>();
+    for (const [rowNo, row] of batchRows) {
+      for (const error of validationErrorsByRow.get(rowNo) ?? []) {
+        validationIssues.push(importIssue(rowNo, error.code, error.message_fa, {
+          batch_no: batchNo,
+          import_id: importId,
+          status: 'rejected',
+          failure_category: 'validation',
+          retryable: false,
+          transaction_outcome: 'not_started',
+          ...productContext(row),
+        }));
+        validationFailedRows.add(rowNo);
+      }
+    }
+    validationIssues.sort(sortIssues);
+
+    const prepared: PreparedImportRow[] = [];
+    let batchError: ImportRowError | null = null;
+    for (let i = 0; i < batch.length; i += 1) {
+      const row = batch[i];
+      const rowNo = start + i + 2;
+      if (validationErrorsByRow.has(rowNo)) continue;
+
+      const categoryId = categories.get(row.category_code ?? '');
+      if (!categoryId) {
+        batchError = { row: rowNo, code: 'unknown_category', message_fa: `گروهِ «${row.category_code}» یافت نشد.` };
+        break;
+      }
+      const uomId = uoms.get(row.base_uom_code ?? '');
+      if (!uomId) {
+        batchError = { row: rowNo, code: 'unknown_uom', message_fa: `واحدِ «${row.base_uom_code}» یافت نشد.` };
+        break;
+      }
+      const taxId = row.tax_code ? taxes.get(row.tax_code) ?? null : null;
+      if (row.tax_code && !taxId) {
+        batchError = { row: rowNo, code: 'unknown_tax_code', message_fa: `کدِ مالیاتیِ «${row.tax_code}» یافت نشد.` };
+        break;
+      }
+      const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
+      if (dto.mode === 'create' && existingId) {
+        batchError = { row: rowNo, code: 'duplicate_code', message_fa: `کدِ «${row.code}» قبلاً ثبت شده است (mode=create).` };
+        break;
+      }
+      if (dto.mode === 'update' && !existingId) {
+        batchError = { row: rowNo, code: 'not_found', message_fa: `کدِ «${row.code}» برای بروزرسانی یافت نشد (mode=update).` };
+        break;
+      }
+      const sensitiveOnUpdate = existingId && (Boolean(row.tax_code) || Boolean(row.status));
+      if (sensitiveOnUpdate && !dto.confirm_sensitive) {
+        batchError = {
+          row: rowNo,
+          code: 'sensitive_change_requires_confirmation',
+          message_fa: 'این ردیف فیلدِ حساس (مالیات/وضعیت) را تغییر می‌دهد؛ برای پذیرش باید confirm_sensitive ارسال شود یا ردیف حذف شود.',
+        };
+        break;
+      }
+      prepared.push({ rowNo, row, existingId, categoryId, uomId, taxId });
+    }
+
+    if (batchError) {
+      const classified = classifyDomainCode(batchError.code);
+      const rejectedIssues: ImportIssue[] = [];
+      for (const [rowNo, row] of batchRows) {
+        if (validationFailedRows.has(rowNo)) continue;
+        rejectedIssues.push(importIssue(rowNo, batchError.code, `دستهٔ ${batchNo} رد شد: ${batchError.message_fa}`, {
+          batch_no: batchNo,
+          import_id: importId,
+          status: 'rejected',
+          failure_category: classified.failure_category,
+          retryable: false,
+          transaction_outcome: 'not_started',
+          ...productContext(row),
+        }));
+      }
+      const report = [...validationIssues, ...rejectedIssues].sort(sortIssues);
+      const outcome: ImportBatchOutcome = {
+        batch_no: batchNo,
+        status: 'rejected',
+        transaction_outcome: 'not_started',
+        failure_category: classified.failure_category,
+        retryable: false,
+        reason_code: batchError.code,
+        message_fa: `دستهٔ ${batchNo} پیش از تراکنش رد شد: ${batchError.message_fa}`,
+        total_rows: batch.length,
+        created_rows: 0,
+        updated_rows: 0,
+        failed_rows: countFailedRows(report),
+        attempts: 1,
+        report,
+      };
+      return this.persistBatchOutcome(companyId, actorUserId, importId, outcome);
+    }
+
+    if (prepared.length === 0) {
+      const reason = validationIssues[0]?.code ?? 'empty_batch';
+      const outcome: ImportBatchOutcome = {
+        batch_no: batchNo,
+        status: 'rejected',
+        transaction_outcome: 'not_started',
+        failure_category: validationIssues.length > 0 ? 'validation' : 'business',
+        retryable: false,
+        reason_code: reason,
+        message_fa: validationIssues.length > 0
+          ? `دستهٔ ${batchNo} به دلیل خطاهای اعتبارسنجی رد شد.`
+          : `دستهٔ ${batchNo} ردیف قابل اجرا نداشت.`,
+        total_rows: batch.length,
+        created_rows: 0,
+        updated_rows: 0,
+        failed_rows: countFailedRows(validationIssues),
+        attempts: 1,
+        report: validationIssues,
+      };
+      return this.persistBatchOutcome(companyId, actorUserId, importId, outcome);
+    }
+
+    let attempt = 0;
+    let lastFailure: ImportFailure | null = null;
+    while (attempt < 3) {
+      attempt += 1;
+      try {
+        const outcome = await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
+          const permissions = await this.access.assert(companyId, actorUserId, 'master.product.import');
+          const current = await this.repo.getProductsForImportTx(
+            companyId,
+            prepared.map((p) => p.row.code).filter(Boolean),
+          );
+          const savedRows: {
+            p: PreparedImportRow;
+            saved: 'created' | 'updated';
+            productId: string;
+            productCode: string;
+          }[] = [];
+          for (const p of prepared) {
+            const before = current.get(p.row.code);
+            if (dto.mode === 'create' && before) {
+              throw new ConflictException({
+                code: 'duplicate_code',
+                message_fa: `کدِ «${p.row.code}» قبلاً ثبت شده است (mode=create).`,
+              });
+            }
+            if (dto.mode === 'update' && !before) {
+              throw new NotFoundException({
+                code: 'not_found',
+                message_fa: `کدِ «${p.row.code}» برای بروزرسانی یافت نشد (mode=update).`,
+              });
+            }
+            this.guardSensitive(
+              before ?? { status: 'active' },
+              {
+                ...(p.row.status ? { status: p.row.status } : {}),
+                ...(before && p.row.base_uom_code ? { base_uom_id: p.uomId } : {}),
+                ...(before && p.row.tax_code ? { tax_code_id: p.taxId } : {}),
+              },
+              dto.confirm_sensitive ?? false,
+              permissions.some((code) => permissionMatches(code, 'master.product.status')),
+              'ورود گروهی کالا',
+            );
+            const saved = await this.upsertImportRow(
+              companyId,
+              { ...p, existingId: before?.id ?? null },
+              actorUserId,
+              meta,
+            );
+            savedRows.push({ p, saved: saved.saved, productId: saved.productId, productCode: saved.productCode });
+          }
+
+          const successIssues = savedRows.map(({ p, saved, productId, productCode }) =>
+            importIssue(p.rowNo, saved, saved === 'created' ? 'کالا ایجاد شد.' : 'کالا بروزرسانی شد.', {
+              batch_no: batchNo,
+              import_id: importId,
+              product_code: productCode || undefined,
+              product_id: productId,
+              status: saved,
+              failure_category: 'none',
+              retryable: false,
+              transaction_outcome: 'committed',
+            }));
+          const report = [...validationIssues, ...successIssues].sort(sortIssues);
+          const failedRows = countFailedRows(report);
+          const batchOutcome: ImportBatchOutcome = {
+            batch_no: batchNo,
+            status: failedRows > 0 ? 'failed' : 'committed',
+            transaction_outcome: 'committed',
+            failure_category: failedRows > 0 ? 'validation' : 'none',
+            retryable: false,
+            ...(failedRows > 0
+              ? { reason_code: validationIssues[0]?.code ?? 'partial_batch', message_fa: `دستهٔ ${batchNo}: برخی ردیف‌ها پیش از تراکنش رد شدند؛ سایر ردیف‌ها ثبت شدند.` }
+              : {}),
+            total_rows: batch.length,
+            created_rows: savedRows.filter((r) => r.saved === 'created').length,
+            updated_rows: savedRows.filter((r) => r.saved === 'updated').length,
+            failed_rows: failedRows,
+            attempts: attempt,
+            report,
+          };
+          // همان تراکنش محصول/تاریخچه: بدون این ردیف، commit محصول انجام نمی‌شود.
+          await this.repo.recordImportBatch({ companyId, importId, batch: batchOutcome });
+          return batchOutcome;
+        });
+        return outcome;
+      } catch (err) {
+        lastFailure = classifyImportError(err);
+        if (lastFailure.auto_retry && attempt < 3) continue;
+        break;
       }
     }
 
-    const failed = new Set(errors.map((e) => e.row)).size;
-    const saved = await this.repo.insertImport({
-      companyId,
-      idempotencyKey: idemKey,
-      mode: dto.mode,
-      totalRows: validated.rows.length,
-      createdRows: created,
-      updatedRows: updated,
-      failedRows: failed,
+    const failure = lastFailure ?? classifyImportError(new Error('batch_failed'));
+    const failureIssues = prepared.map((p) =>
+      importIssue(p.rowNo, failure.code, `دستهٔ ${batchNo} ناموفق بود: ${failure.message_fa}`, {
+        batch_no: batchNo,
+        import_id: importId,
+        product_code: p.row.code || undefined,
+        product_id: p.existingId ?? undefined,
+        status: failure.transaction_outcome === 'unknown' ? 'failed' : 'rolled_back',
+        failure_category: failure.failure_category,
+        retryable: failure.retryable,
+        transaction_outcome: failure.transaction_outcome,
+      }));
+    const report = [...validationIssues, ...failureIssues].sort(sortIssues);
+    const outcome: ImportBatchOutcome = {
+      batch_no: batchNo,
+      status: failure.transaction_outcome === 'unknown' ? 'failed' : 'rolled_back',
+      transaction_outcome: failure.transaction_outcome,
+      failure_category: failure.failure_category,
+      retryable: failure.retryable,
+      reason_code: failure.code,
+      message_fa: `دستهٔ ${batchNo} ناموفق بود: ${failure.message_fa}`,
+      total_rows: batch.length,
+      created_rows: 0,
+      updated_rows: 0,
+      failed_rows: countFailedRows(report),
+      attempts: attempt,
       report,
-      createdBy: actorUserId,
-    });
-
-    await this.audit.record({
-      companyId,
-      actorUserId,
-      action: 'create',
-      entityType: 'product_import',
-      entityId: saved.id,
-      after: { mode: dto.mode, total: validated.rows.length, created, updated, failed },
-      ip: meta.ip,
-      userAgent: meta.userAgent,
-      requestId: meta.requestId,
-    });
-
-    return {
-      import_id: saved.id,
-      total_rows: validated.rows.length,
-      created_rows: created,
-      updated_rows: updated,
-      failed_rows: failed,
-      errors,
-      idempotent_replay: false,
     };
+    // تراکنش شکست‌خورده rollback شده است؛ وضعیت دسته در تراکنش جداگانه‌ای ثبت می‌شود.
+    return this.persistBatchOutcome(companyId, actorUserId, importId, outcome);
   }
 
-  async getImport(companyId: string, id: string) {
+  private async finalizeImportRecord(args: {
+    companyId: string;
+    importId: string;
+    actorUserId: string;
+    meta: RequestMeta;
+    totalRows: number;
+    outcomes: ImportBatchOutcome[];
+  }): Promise<ImportResult> {
+    const { companyId, importId, actorUserId, meta, totalRows, outcomes } = args;
+    const report = outcomes.flatMap((batch) => batch.report);
+    const errors = report.filter((issue) => issue.status !== 'created' && issue.status !== 'updated');
+    const failedRows = countFailedRows(report);
+    const summary = summarizeImportBatches(outcomes);
+
+    await this.access.write(companyId, actorUserId, 'master.product.import', async () => {
+      await this.repo.finalizeImport({
+        companyId,
+        importId,
+        totalRows,
+        createdRows: summary.created_rows,
+        updatedRows: summary.updated_rows,
+        failedRows,
+        report,
+        failureCategory: summary.failure_category,
+        retryable: summary.retryable,
+        transactionOutcome: summary.transaction_outcome,
+        lastBatchNo: summary.last_batch_no,
+      });
+      await this.audit.record({
+        companyId,
+        actorUserId,
+        action: 'create',
+        entityType: 'product_import',
+        entityId: importId,
+        after: {
+          mode: 'import',
+          total: totalRows,
+          created: summary.created_rows,
+          updated: summary.updated_rows,
+          failed: failedRows,
+          status: 'completed',
+          transaction_outcome: summary.transaction_outcome,
+          failure_category: summary.failure_category,
+          retryable: summary.retryable,
+        },
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      });
+    });
+
+    const record = await this.repo.getImport(companyId, importId);
+    if (!record) throw new Error('import_finalize_read_failed');
+    const batches = await this.repo.listImportBatches(companyId, importId);
+    return buildImportResult(record, batches, false);
+  }
+
+  async getImport(companyId: string, id: string): Promise<ImportResult> {
     const row = await this.repo.getImport(companyId, id);
     if (!row) throw new NotFoundException({ code: 'not_found', message_fa: 'گزارشِ import یافت نشد.' });
-    return row;
+    const batches = await this.repo.listImportBatches(companyId, id);
+    return buildImportResult(row, batches, false);
   }
 
   private async upsertImportRow(
     companyId: string,
-    p: { rowNo: number; row: Record<string, string>; existingId: string | null; categoryId: string; uomId: string; taxId: string | null },
+    p: PreparedImportRow,
     actorUserId: string,
     meta: RequestMeta,
-  ): Promise<'created' | 'updated'> {
+  ): Promise<{ saved: 'created' | 'updated'; productId: string; productCode: string }> {
     const r = p.row;
-    // آپلودِ ردیف: create/update صریح روی (company_id, code) — بدونِ upsertِ خاموش
     if (!p.existingId) {
       const code = r.code || (await this.generateSkuCode(companyId));
       const created = await this.repo.insertProductRow({
@@ -971,7 +1208,7 @@ export class ProductMasterService {
         companyId, actorUserId, action: 'create', entityType: 'product', entityId: created.id,
         after: { code, name: r.name, source: 'import' }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
       });
-      return 'created';
+      return { saved: 'created', productId: created.id, productCode: code };
     }
 
     const sets: { col: string; value: unknown }[] = [];
@@ -985,15 +1222,18 @@ export class ProductMasterService {
     if (r.weight_gr) sets.push({ col: 'weight_gr', value: Number(foldDigits(r.weight_gr)) });
     if (r.volume_cm3) sets.push({ col: 'volume_cm3', value: Number(foldDigits(r.volume_cm3)) });
     if (r.distribution_kind) sets.push({ col: 'distribution_kind', value: r.distribution_kind });
-    await this.repo.updateProductRow(p.existingId, companyId, sets);
+    const ok = await this.repo.updateProductRow(p.existingId, companyId, sets);
+    if (!ok) {
+      throw new NotFoundException({ code: 'not_found', message_fa: 'کالا برای بروزرسانی یافت نشد.' });
+    }
     if (r.barcode) {
-      await this.addBarcode(companyId, p.existingId, { barcode: r.barcode, kind: 'other' }, meta, actorUserId).catch(() => undefined);
+      await this.addBarcode(companyId, p.existingId, { barcode: r.barcode, kind: 'other' }, meta, actorUserId);
     }
     await this.audit.record({
       companyId, actorUserId, action: 'update', entityType: 'product', entityId: p.existingId,
       after: { source: 'import', fields: Object.keys(r) }, ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
     });
-    return 'updated';
+    return { saved: 'updated', productId: p.existingId, productCode: r.code || '' };
   }
 
   // =================================================================

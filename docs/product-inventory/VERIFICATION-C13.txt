@@ -1,0 +1,241 @@
+TASK-PM-02-C13 — CROSS-FIELD IDENTITY RESOLUTION & SHADOW ASSESSMENT
+====================================================================
+
+1. EXECUTION ENVIRONMENT (measured, not assumed)
+--------------------------------------------------------------------
+  uname -a ............ Linux e2b.local 6.1.158+ #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux
+  OS .................. Debian GNU/Linux 12 (bookworm)
+  arch ................ x86_64
+  Node / npm .......... v22.22.3 / 10.9.8
+  Git identity ........ Tadbir-Sabz <335086850+Tadbir-Sabz@users.noreply.github.com>
+  /c/Windows .......... absent
+  cmd.exe/powershell/pwsh ... none on PATH
+  WSL ................. no (bare Linux kernel, no "microsoft" in /proc/version)
+  OS / WINDIR env ..... unset
+
+  ==> WINDOWS GATE: BLOCKED — REQUIRED WINDOWS EXECUTION ENVIRONMENT UNAVAILABLE
+  No Windows validation is claimed anywhere in this report. The technical work was
+  carried out on Linux; all tests are OS-independent TypeScript/Node. If Windows
+  validation is a hard requirement, C13 is NOT accepted on that dimension.
+
+2. BASELINE AND CHECKPOINT
+--------------------------------------------------------------------
+  baseline ............ ca2382315c758e211d463d2b73c3eb51974b487d
+  six SHA views ....... HEAD / branch ref / remote-tracking / FETCH_HEAD / ls-remote / PR head
+                        all equal at start; worktree clean
+  checkpoint .......... pm02-c13-checkpoint.tar.gz
+                        3,323,045 bytes, sha256 57fbd118cc6ef1e33b82205e..., 2,972 entries, tar -c OK
+  bundle .............. pm02-c13-checkpoint.bundle, complete history, HEAD ca23823
+  branch .............. arena/be5eaff3-green-dms
+  PR #14 .............. OPEN / DRAFT, not merged, body append-only
+
+3. TESTS
+--------------------------------------------------------------------
+  c13-cross-field.test.ts ............ 60 PASS
+  c13-shadow-assessment.test.ts ...... 26 PASS
+  c13-rls-isolation.test.ts .......... 19 PASS
+  c13-decisions.test.ts .............. 24 PASS
+  c13-performance.test.ts ............  6 PASS
+                                       ---------
+                                       135 PASS / 135
+
+  C11 regression ..................... 39 PASS
+  C12 regression ..................... 49 PASS  (25 + 24 after guard extension)
+  typecheck (api) .................... 0 errors
+  non-DB suites ...................... see full regression section
+  isolation guards ................... C13/22 x2, C11/8, C12/11 — all PASS
+
+4. SHARED COMPARISON ARCHITECTURE
+--------------------------------------------------------------------
+  contract version ................... c13.1
+  underlying normalization ........... c11.1
+  spaces ............................. field, scan, alnum, text
+  field-dependent spaces ............. field ONLY (deliberate: preserves field meaning)
+  field-independent spaces ........... scan, alnum, text  (symmetry guarantee)
+  declarative rules .................. 15 pairs (15 possible field pairs, all covered)
+  hard rules ......................... 3 cross-field + 3 same-field = 6 (plus cross-company only on approval)
+  non-hard rules ..................... 10 soft/review/NOT_COMPARABLE
+  unknown pair ....................... throws, never silently ignored
+
+  Key insight: field profiles are untouched (C11 is locked). A shared comparison space is
+  layered ABOVE them, so both sides of a comparison receive the SAME transform. That
+  symmetry is what makes cross-field collision detection correct.
+
+5. CF-10 RESOLUTION
+--------------------------------------------------------------------
+  resolved ........................... True
+  collision_id ....................... C13-a311815e
+  rule_id ............................ C13-R-alias~barcode
+  decision / severity ................ HARD_CONFLICT / hard
+  space / key ........................ scan / 400111
+  company ............................ company-synth-A
+  visible under current normalization  false
+  why C12 missed it .................. alias profile keeps spaces, barcode profile strips them
+
+  alias '400 111' -> field key '400 111' (ProductAlias)
+  barcode '400111' -> field key '400111'  (Barcode)          => different keys, no group
+  both -> scan space key '400111'                             => HARD_CONFLICT found
+
+6. COLLISION CLASSIFICATION STATISTICS (small synthetic fixture)
+--------------------------------------------------------------------
+  total results ...................... 15
+  by decision ........................ {"HARD_CONFLICT": 5, "SOFT_CONFLICT": 4, "MANUAL_REVIEW": 3, "ALLOWED": 2, "NOT_COMPARABLE": 1}
+  newly exposed ...................... 14
+  duplicate semantic results removed . 6
+  raw row-pairs suppressed by grouping 17
+  all five decisions produced ........ True
+
+7. RLS ISOLATION RESULTS
+--------------------------------------------------------------------
+  db connection used ................. false
+  RLS policies modified .............. 0
+  same-company results ............... 13  (values visible: true)
+  cross-company results .............. 1  (values visible: false)
+  cross-domain results ............... 1  (values visible: true)
+  adversarial leak test .............. 50 companies,
+                                       0 raw values leaked,
+                                       0 source refs leaked,
+                                       5 conflicts detected
+  redaction cannot be disabled ....... verified across 3 option combinations
+
+  Note: these assert the ENGINE'S DISCLOSURE CONTRACT, not database RLS. Database RLS is the
+  primary layer and is UNCHANGED. This is defense in depth.
+
+8. SYNTHETIC TEST RESULTS
+--------------------------------------------------------------------
+  all five decisions exercised ........ yes
+  all 10 cross-field pairs exercised .. yes
+  CF-10 (alias<barcode) ............... yes
+  alias<code, barcode<code ............ yes
+  alias<name, alias<name_latin ........ yes
+  name<name_latin, code<name, code<name_latin yes
+  barcode<name, barcode<name_latin .... yes (NOT_COMPARABLE)
+  cross-company ....................... yes (ALLOWED by default, values always null)
+  cross-domain ........................ yes (MANUAL_REVIEW)
+  same-entity exempt .................. yes (code=barcode of the same product -> no conflict)
+  redundant same-product alias ........ yes (ALLOWED — C12 correction)
+  invalid input ....................... yes (recorded with reason, never silently stripped)
+  empty / single fixtures ............. yes
+  order independence .................. yes
+  determinism ......................... yes (byte-identical repeat runs)
+
+9. PERFORMANCE
+--------------------------------------------------------------------
+      100 identities |     320 rows |     9 ms |  28.24 ms/1k |    3.6 MB |     310 results
+     1000 identities |    3200 rows |   109 ms |  34.06 ms/1k |   13.8 MB |    3100 results
+     5000 identities |   16000 rows |   465 ms |  29.04 ms/1k |   33.8 MB |   15500 results
+    25000 identities |   80000 rows |  2083 ms |  26.04 ms/1k |  168.3 MB |   77500 results
+   100000 identities |  320000 rows |  9191 ms |  28.72 ms/1k |  568.2 MB |  309985 results
+
+  scaling ............................ نزدیک به خطی — هزینهٔ هر ۱۰۰۰ ردیف در بازهٔ ۲۴–۵۰ ms می‌ماند
+  target met ......................... true
+  algorithm .......................... hash-grouping in a single pass; output bounded by the number
+                                       of distinct field pairs per group, NOT O(n^2) row pairs
+  caveat ............................. اعداد درون‌حافظه‌ای و مصنوعی‌اند؛ بنچمارکِ تولید نیستند
+
+10. REAL-DATA AUTHORIZATION STATUS
+--------------------------------------------------------------------
+  verdict ............................ BLOCKED — REAL DATA IMPACT ASSESSMENT
+  owner authorization ................ not found
+  documented provenance .............. none
+  proven isolation ................... none
+  enforced read-only role ............ none
+    detail: dms_readonly has rolsuper=false, rolbypassrls=false, rolconfig=NULL
+            => default_transaction_read_only is NOT set. A name, not a guarantee.
+  no shared write path ............... not proven
+  confidentiality controls ........... none
+  real-data queries executed ......... 0
+  superuser used as read-only evidence ... NO (explicitly forbidden)
+
+  The runner REFUSES an unauthorized source with UnauthorizedDatasetError before any
+  computation. This refusal is demonstrated in EVIDENCE-C13-SHADOW-ASSESSMENT.json.
+
+11. C11/C12 COMPATIBILITY DECISIONS
+--------------------------------------------------------------------
+  10 open decisions, 0 approved. isApproved() deliberately always returns false.
+    D-C11-1 barcode check digit ....... recommend B (GS1 only)     risk medium
+    D-C11-2 alef variants ............. recommend A (keep distinct) risk low
+    D-C11-3 product-code case ......... recommend A (insensitive)   risk medium
+    D-C11-4 barcode hyphen ............ recommend A (display sep.)  risk low
+    D-C11-5 ZWNJ ...................... recommend A (text space)    risk medium
+    D-C11-6 search normalization ...... recommend A (align web/API) risk medium
+    D-C12-1 cross-company conflict .... recommend A (allowed)       risk low
+    D-C12-2 comparison space in C11 ... recommend A (formalize)     risk low
+    D-C12-3 shadow unique index ....... recommend A (CONCURRENTLY)  risk medium
+    D-C13-1 comparability threshold ... recommend A (explicit table) risk low
+
+  FINDING: D-C11-3 is a LIVE inconsistency today — the DB constraint is case-sensitive while
+  collision checks use lower(). C13's engine reports SKU-9 / sku-9 as HARD_CONFLICT while the
+  current constraint permits both to exist. This pre-existed C13.
+
+  NEW C13 technical decision (flagged for review): in scan space, ZWNJ is explicitly REJECTED
+  (invalid_character) rather than silently stripped, because D-C11-5 is unapproved.
+
+12. WHAT DID NOT CHANGE
+--------------------------------------------------------------------
+  production product records ......... 0
+  alias_norm rewrites ................ 0
+  barcode value rewrites ............. 0
+  canonical normalization activated .. NO
+  new production uniqueness constraints 0
+  RLS policy changes ................. 0
+  production migration changes ....... 0
+  D1 activated ....................... NO
+  import behaviour changes ........... 0
+  PR #14 ............................. OPEN / DRAFT, NOT MERGED
+
+  Isolation is proven by executable grep guards on REAL import statements:
+    C13/22  experimental C13 modules imported only by experimental modules and tests
+    C13/22  NO production file imports anything from experimental/
+    C11/8   C11 candidate isolated (allowlist extended for C13)
+    C12/11  C12 candidates isolated (allowlist extended for C13)
+
+13. VERDICTS (restricted vocabulary)
+--------------------------------------------------------------------
+  shared comparison space ........... PASS
+  cross-field collision coverage .... PASS
+  CF-10 resolution .................. PASS
+  collision decision engine ......... PASS
+  RLS / domain isolation ............ PASS   (engine disclosure contract; DB RLS untouched)
+  shadow assessment runner .......... PASS
+  decision & compatibility matrix ... PASS WITH FINDINGS  (10 open, 0 approved)
+  performance ....................... PASS   (synthetic, in-memory)
+  existing product regression ....... PASS for non-DB suites / UNVERIFIED for DB suites
+  WINDOWS EXECUTION ENVIRONMENT ..... BLOCKED
+  real-data impact assessment ....... BLOCKED
+  independent review (Agent-2) ...... UNVERIFIED  (agent-2 connector unavailable; not fabricated)
+  activation ........................ NOT PERFORMED (separate owner approval gate)
+
+  OVERALL: PASS WITH FINDINGS (technical scope) / BLOCKED (Windows environment, real data)
+
+14. FILES
+--------------------------------------------------------------------
+NEW — experimental (inert)
+  apps/api/src/modules/master-data/experimental/cross-field-identity.candidate.ts
+  apps/api/src/modules/master-data/experimental/shadow-assessment.candidate.ts
+  apps/api/src/modules/master-data/experimental/decision-matrix.candidate.ts
+NEW — tests & fixtures (synthetic only)
+  apps/api/test/fixtures/c13-cross-field-identities.ts
+  apps/api/test/c13-cross-field.test.ts
+  apps/api/test/c13-shadow-assessment.test.ts
+  apps/api/test/c13-rls-isolation.test.ts
+  apps/api/test/c13-decisions.test.ts
+  apps/api/test/c13-performance.test.ts
+NEW — documents & evidence
+  docs/product-inventory/TASK-PM-02-C13_CROSS_FIELD_IDENTITY_RESOLUTION.md
+  docs/product-inventory/ADR-C13-CROSS-FIELD-COMPARISON.md
+  docs/product-inventory/VERIFICATION-C13.txt
+  docs/product-inventory/VERIFICATION-C13.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C13-CROSS-FIELD-MATRIX.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C13-COLLISION-LEDGER.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C13-RLS-ISOLATION.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C13-SHADOW-ASSESSMENT.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C13-PERFORMANCE.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C13-DECISIONS.md
+MODIFIED
+  docs/product-inventory/EVIDENCE_INDEX.md
+  docs/product-inventory/ADR-C12-SHADOW-INDEX.md         (cross-reference to C13)
+  apps/api/test/c11-normalization-contract.test.ts       (isolation guard allowlist)
+  apps/api/test/c12-shadow-index.test.ts                 (isolation guard allowlist)
+
+  NO production file was modified.

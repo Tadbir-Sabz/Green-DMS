@@ -1,0 +1,169 @@
+C10 DATA ACCESS SAFETY GATE — executed probes (all read-only)
+executed_at_utc=2026-11-13T12:37:45Z
+operator=Agent-1
+
+## G1 reachable PostgreSQL clusters
+ps: /tmp/pm01dm2-venv/.../postgres -D /tmp/pm01dm2-pgdata -c listen_addresses=127.0.0.1 -c port=55432
+listener: 127.0.0.1:55432 only (plus 169.254.0.21:55432 local interface); no other PG listener
+
+## G2 databases present (sizes)
+             datname              |  size   
+----------------------------------+---------
+ greendms_c1_preview              | 20 MB
+ greendms_g_race_a_50816_2c0050   | 7324 kB
+ greendms_g_race_b_50816_0b4f6c   | 7324 kB
+ greendms_g_race_c62_50816_013d16 | 7324 kB
+ greendms_g_race_c63_50816_e01d83 | 7324 kB
+ greendms_g_race_d62_50816_51ff42 | 7324 kB
+ greendms_g_race_d63_50816_98ec5b | 7324 kB
+ greendms_g_race_f_50816_7a605b   | 7324 kB
+ greendms_g_race_g_50816_cec4ed   | 7324 kB
+ greendms_pm_probe_geo            | 7836 kB
+ greendms_pm_probe_utf8           | 7708 kB
+ greendms_task24x_test            | 20 MB
+ greendms_task24y_approval_test   | 20 MB
+ postgres                         | 7372 kB
+ template0                        | 7105 kB
+ template1                        | 7324 kB
+(16 rows)
+
+## G3 product-master content of every candidate database
+-- greendms_c1_preview
+ companies | products | aliases | barcodes | defs | values 
+-----------+----------+---------+----------+------+--------
+         1 |        4 |       0 |        0 |    0 |      0
+(1 row)
+
+-- greendms_task24x_test
+ companies | products | aliases | barcodes | defs | values 
+-----------+----------+---------+----------+------+--------
+         2 |        2 |       0 |        0 |    0 |      0
+(1 row)
+
+-- greendms_task24y_approval_test
+ companies | products | aliases | barcodes | defs | values 
+-----------+----------+---------+----------+------+--------
+         2 |        1 |       0 |        0 |    0 |      0
+(1 row)
+
+## G4 write-path / authorization findings
+- current_user=postgres is superuser: TRUE (no enforced read-only role; restraint is voluntary)
+- env DATABASE_URL/PGHOST overrides pointing off-loopback: NONE
+- repo .env files: .env.example, .env.production.example only (no live credentials)
+- backup/dump/restore artifacts of organizational DB in workspace: NONE
+- any documented owner authorization for a real-data copy: NOT FOUND
+
+## G5 VERDICT
+UNVERIFIED — AUTHORIZED ISOLATED DATA COPY UNAVAILABLE
+The only reachable cluster is an ephemeral /tmp test harness containing synthetic fixtures.
+(preview: 1 company / 4 products / 0 aliases / 0 barcodes / 0 attribute defs).
+No production connection attempted; no backup/restore/clone/export created.
+
+## Q1 dataset completeness (inspected universe)
+executed_at_utc=2026-11-13T12:38:14Z
+              t               | n 
+------------------------------+---
+ company                      | 1
+ product_live                 | 4
+ product_all                  | 4
+ product_alias                | 0
+ product_barcode              | 0
+ product_attribute_def        | 0
+ product_attribute_value      | 0
+ product_attribute_enum_value | 0
+ product_category             | 7
+ product_family               | 0
+(10 rows)
+
+## Q2 D1 — all eight collision categories
+                k                | n 
+---------------------------------+---
+ D1.1 dup alias within product   | 0
+ D1.2 dup alias across products  | 0
+ D1.3 dup alias across companies | 0
+ D1.4 alias=other product name   | 0
+ D1.5 alias=product code         | 0
+ D1.6 alias=barcode              | 0
+ D1.7 code=barcode               | 0
+ D1.8 alias kind=code count      | 0
+(8 rows)
+
+## Q3 D4 — required attributes and incompleteness
+                    k                    | n 
+-----------------------------------------+---
+ D4.1 required defs                      | 0
+ D4.2 all defs                           | 0
+ D4.3 products with >=1 missing required | 0
+ D4.4 products without category          | 0
+ D4.5 category-attribute link table      | 0
+ D4.6 family-attribute link table        | 0
+ D4.7 products with any attribute value  | 0
+(7 rows)
+
+## Q4 C7/C8/C9 evidence reconciliation (must be unchanged)
+           k            |  n  
+------------------------+-----
+ audit_log total        | 112
+ history total          | 138
+ history def            |  34
+ history value+enum     |  58
+ history product DELETE |  29
+ audit def create       |  13
+(6 rows)
+
+C10T|case|inputA|inputB|normA|normB|collides
+C10T|yeh_ar_vs_persian|"علي"|"علی"|"علي"|"علی"|false
+C10T|kaf_ar_vs_persian|"كوكا"|"کوکا"|"كوكا"|"کوکا"|false
+C10T|yeh_in_word_end|"كتابي"|"کتابی"|"كتابي"|"کتابی"|false
+C10T|kaf_mixed|"كيك"|"کیک"|"كيك"|"کیک"|false
+C10T|alef_madda|"آب"|"اب"|"آب"|"اب"|false
+C10T|alef_hamza|"أحمد"|"احمد"|"أحمد"|"احمد"|false
+C10T|digits_persian_vs_latin|"۱۲۳۴۵"|"12345"|"12345"|"12345"|true
+C10T|digits_arabic_vs_latin|"١٢٣٤٥"|"12345"|"12345"|"12345"|true
+C10T|leading_trailing_ws|"  کوکا  "|"کوکا"|"کوکا"|"کوکا"|true
+C10T|repeated_internal_ws|"کوکا   زیرو"|"کوکا زیرو"|"کوکا زیرو"|"کوکا زیرو"|true
+C10T|tab_and_nbsp|"کوکا زیرو"|"کوکا زیرو"|"کوکا زیرو"|"کوکا زیرو"|true
+C10T|zwj_zero_width|"کوکا‌زیرو"|"کوکازیرو"|"کوکا‌زیرو"|"کوکازیرو"|false
+C10T|nfc_vs_nfd|"é"|"é"|"é"|"é"|true
+C10T|arabic_comma_vs_latin|"a،b"|"a,b"|"a،b"|"a,b"|false
+C10T|hyphen_variants|"AB-12"|"AB–12"|"ab-12"|"ab–12"|false
+C10T|fullwidth_latin|"ＡＢＣ"|"ABC"|"ａｂｃ"|"abc"|false
+C10T|case_fold|"AbC-12"|"abc-12"|"abc-12"|"abc-12"|true
+C10T|barcode_spaces|"123 456"|"123456"|"123456"|"123456"|true
+C10T|cross_function_same_input|"123 456"|"123 456"|"123 456"|"123456"|false
+C10T|aliasnorm_vs_stored_barcode|"123 456"|"123456"|"123 456"|"123456"|false
+
+## Q5 code-path inventory for ingestion paths (repository-level, no DB)
+product_alias writes : addAlias (service) / deleteAlias only -> identity service validates collisions
+product_attribute_value writes: updateProductAttributes only -> enforces is_required on final state
+product CSV import   : 0 references to product_alias / product_attribute_* (validated in C9)
+bulk maintenance     : 0 references to product_alias / product_attribute_* (no identity writes)
+category delete      : reassignCategoryChildren moves products to another category (no attribute re-validation)
+product creation     : insert into product only; no attribute/required validation
+
+## Q6 INDEPENDENT SELF-REVIEW (Agent-1, second pass) — corrections and re-derivations
+reviewed_at_utc=2026-11-13T12:40:10Z
+Finding R1 (query definition error, corrected):
+  The first D1.4 formulation compared alias_norm to lower(product.code) while excluding rows where
+  alias=code, i.e. it duplicated D1.5 and did not test "alias equals another product's NAME".
+  Corrected definition (executed below) compares alias_norm to lower(name) and lower(name_latin).
+  Result: 0. The category label in the report is now "alias = name of another product".
+  Impact on conclusions: none (both formulations return 0 on an empty alias table), but the
+  original query did not measure what its label claimed.
+
+Corrected query (verbatim):
+  with a as (select a.company_id,a.product_id,a.alias_norm from product_alias a
+             join product p on p.id=a.product_id and p.deleted_at is null),
+       live as (select id,company_id,lower(name) name_n, lower(coalesce(name_latin,'')) latin_n
+                from product where deleted_at is null)
+  select count(*) from a join live p on p.company_id=a.company_id and p.id<>a.product_id
+   where a.alias_norm = p.name_n or (p.latin_n<>'' and a.alias_norm = p.latin_n);
+  -- result: 0
+
+Re-derivations (independent of the original formulations):
+  D1.2 company-scope duplicates via self-join (a.product_id < b.product_id): 0
+  D1.5 alias=code via self-join: 0
+  D1.6 alias=barcode via self-join: 0
+  history total by component: 29+4+2+13+13+8+8+8+21+21+2+9 = 138  (matches the table count)
+  value/enum split: enum 8 INSERT + 8 DELETE; value 21 INSERT + 21 DELETE = 58
+  attributed total: 13+34+58+9 = 114  (confirms the corrected C8 figure)

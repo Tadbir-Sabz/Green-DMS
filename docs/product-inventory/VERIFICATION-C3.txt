@@ -1,0 +1,156 @@
+TASK-PM-02-C3 — Enterprise-Wide Entity Attachments
+گزارش راستیآزمایی (Agent-1 / Arena.ai) — بستهٔ DEVELOPMENT، نه ممیزی صرف
+مخزن: Tadbir-Sabz/Green-DMS · شاخه: arena/be5eaff3-green-dms · PR #14: OPEN / DRAFT / base main
+مبنای اعلامشده و بازیابیشده: 19d412a966bd612694a08b58e133f71d9c6ba3fa (پایان C2)
+
+────────────────────────────────────────────────────────────
+۱) بازیابی، حفظ شواهد و چکپوینت
+────────────────────────────────────────────────────────────
+git fetch / git pull --ff-only            : Already up to date
+شش نمای SHA در مبنا                        : ALL_AGREE=True (HEAD / origin / ls-remote / PR head / شاخه / مبنای اعلامشده)
+worktree / git diff --check                 : پاک / ۰
+چکپوینت                                    : /home/user/pm02-c3-checkpoint.tar.gz (۲٬۸۷۳ فایل)
+sha256 چکپوینت                            : 75d2cf6fed6d0ebfbb6b6dbd00272e97a08bc9b22b988329b2c935918eb2dd5e
+sha256sum -c                               : OK
+git bundle --all                           : /home/user/pm02-c3-checkpoint.bundle
+بدنهٔ PR پیش از C3                         : ۹۹٬۳۷۲ نویسه / ۱۰۴٬۳۸۴ بایت
+sha256 بدنهٔ PR پیشین                     : 934870e313bd76357d2a5a241454364762b37de2c320c91c44467db952a4052d
+همهٔ شواهد C1/C2/B1/B2/M4/K/J             : حفظ شدند؛ فقط پیوستهای افزودنی C3 اضافه شد
+amend / force / reset / rebase / merge / approve / release / deploy : هیچکدام انجام نشد
+
+────────────────────────────────────────────────────────────
+۲) واجدشرایطبودن — فقط انواع مصوب موجود
+────────────────────────────────────────────────────────────
+منبع حقیقت: ATTACHMENT_OWNER_TYPES (۹ نوع)، ownerTenantSql (۸ زنجیرهٔ
+راستیآزمایشده + other fail-closed)، OpenAPI enum، مهاجرتهای ۰۰۰۲/۰۰۳۵/۰۰۳۶/۰۰۴۱.
+پشتیبانی لایهٔ مشترک: invoice, sales_order, return_request, stock_count,
+receipt, journal_entry, pod. پنج تای نخست UI واقعی دارند؛ receipt/pod فقط
+backend-readyاند (صفحهٔ مدیریت اختصاصیای در این نسخه ندارند). product در
+انحصار نمای C1 ماند. other و brand/category/warehouse/uom/هر نوع اختراعی
+صریحاً ۴۰۰ میگیرند. ماتریس ۵ ستونه در
+TASK-PM-02-C3_IMPLEMENTATION.md §۲ ثبت شده است.
+هیچ owner_type، مهاجرت، جدول، مجوز، نقش، grant، seed، RLS یا معنای دامنهای
+تازهای ساخته نشد.
+
+────────────────────────────────────────────────────────────
+۳) معماری و امنیت
+────────────────────────────────────────────────────────────
+مسیرها:
+  GET  /entity-attachments/{ownerType}/{ownerId}
+  POST /entity-attachments/{ownerType}/{ownerId}        (multipart: فقط file)
+  GET  /entity-attachments/{ownerType}/{ownerId}/{attachmentId}/url
+مالک/شرکت فقط از مسیر + نشست؛ بدنه/کوئری/هدر مالکیتی یا دامنها و فیلدهای
+ناشناخته ۴۰۰ صریح (نه حذف بیصدای whitelist). DomainBoundaryGuard روی هر
+سه مسیر (همسانی B2)، AuthGuard + PermissionsGuard(attachment.view|upload)
++ بازاعتبارسنجی مجوز از DB + RLS/FORCE RLS + ownerTenantSql = چهار لایه.
+همان AttachmentsService/Repository/StorageService/امضای بایتی/SHA-256/
+URL کوتاهعمر reuse شد؛ فقط قلاب اختیاری onObjectStored به upload افزوده شد.
+ثبت attachment و audit_log(create/entity_type=entity_attachment) در یک
+withTransaction؛ شکست ممیزی/URL/DB ⇒ rollback + حذف شیء اورفان. شکست
+استوریج ۵۰۳ ساختاریافته، بدون ردیف DB. URL امضاشده و storage_key هرگز در
+ممیزی/لاگ/شاهد ذخیره نشدند. TTL پیشفرض ۳۰۰ ثانیه.
+بدون حذف/بایگانی/انتخاب تصویر اصلی/سیاست نگهداشت. سازگاری POST/GET
+/attachments و /products/{id}/media و Attachments.tsx قدیمی حفظ شد.
+
+────────────────────────────────────────────────────────────
+۴) قرارداد و پایگاهداده
+────────────────────────────────────────────────────────────
+OpenAPI                    : PASS — ۲۱۳ مسیر / ۳۰۷ عملیات / ۱۷۸ اسکیما / ۳ وبحوک
+contract-drift             : PASS — ۳۰۷/۳۰۷، انحراف ۰
+کلاینت TypeScript          : packages/api-client/src/schema.ts (+۲۴۴ خط)، packages rebuilt
+اسکیماهای تازه             : EntityAttachmentOwnerType / Counts / Item / View
+مهاجرت تازه               : هیچ
+up/down/up                 : PASS — DB موقت، ۱٬۰۳۳ شیء یکسان، DB موقت حذف شد
+test-partition             : PASS — ۹۲ فایل، declared == computed
+git diff --check           : ۰
+
+────────────────────────────────────────────────────────────
+۵) تستهای خودکار
+────────────────────────────────────────────────────────────
+متمرکز C3 API (قواعد خالص + HTTP/PostgreSQL) : PASS ۲ فایل / ۱۶
+متمرکز وب (شامل تست فقطخواندنی نگهدارنده)       : PASS ۲ فایل / ۱۴
+وب کامل                                        : PASS ۲۴ فایل / ۱۳۲
+واحد بیدادهٔ API                               : PASS ۳۳ فایل / ۳۹۵
+قرارداد اجراشده / امنیت مهاجرتها               : PASS ۸۰/۸۰ و ۸/۸
+رگرسیون C1 / C2 / زنجیرهٔ مالکیت               : PASS ۸/۸، ۹/۹، ۱۹/۱۹
+typecheck / build ریشه                         : PASS (شامل /attachments-center)
+اجرای کامل DB-backed API                      : ۸۷/۹۲ فایل، ۱٬۵۲۱/۱٬۵۴۰ تست PASS
+  فایلهای ناکام: attachments.api، customers.api، geofences.api،
+  postgres-init-role.api، tours.api — ۱۹ عنوان شکست
+  کنترل مبنای پاک C2: identical=True (هم فایلها و هم ۱۹ عنوان عیناً همان
+  /tmp/pm02c2-baseline-tests.log) ⇒ شکستهای محیطی PostGIS/trust-auth/MinIO،
+  نه رگرسیون C3. «اجرای کامل DB محلی PASS» اعلام نمیشود.
+تستهای شکست: تزریق مالک/شرکت، فیلد/کوئری ناشناخته، x-domain-id،
+?available=true، نوع مالک اختراعی، مالک بیناجارهای، ۴۰۱، ۴۰۳، ۴۱۵،
+شکست ممیزی (rollback + پاکسازی اورفان)، شکست استوریج (۵۰۳)، ۴۰۴ ضمیمهٔ
+مالک دیگر، URL تازه، شمارشها، رگرسیون Product Media.
+
+────────────────────────────────────────────────────────────
+۶) شاهد زندهٔ همانمبدأ
+────────────────────────────────────────────────────────────
+فایل: docs/product-inventory/evidence/task-pm-02/VERIFICATION-C3-LIVE.txt
+sha256: 2ba5538759473479167d268551dbfceaa70fafe7a39f6a68bd9f88895f0a1fdc
+مسیر: مرورگر/سند → http://127.0.0.1:3000/api/v1 → Next rewrite → API ساختهشده
+فرایند: api-server-6ef2e929 · ورود c1_admin/Demo!pass123 · DB پیشنمایش
+(ردیفهای fixture فقط در DB، هیچ seed/migrationای به مخزن اضافه نشد).
+
+پنج نمای خالی ۲۰۰؛ پنج آپلود واقعی ۲۰۱ (۴ PNG + ۱ PDF) با SHA-256؛
+فهرست فاکتور {'images':0,'documents':1,'total':1}؛ URL تازه ۲۰۰/۳۰۰s؛
+ضمیمهٔ مالک دیگر ۴۰۴؛ رد brand/product/other، UUID نامعتبر، مالک ناموجود،
+تزریق owner_id/company_id، فیلد ناشناخته، x-domain-id، ?available=true،
+?foo=1، امضای بایتی جعلی ۴۱۵؛ ۴۰۱؛ GET /attachments قدیمی ۲۰۰؛
+نمای C1 /products/{id}/media ۲۰۰ با first_image_by_created_at؛ شش صفحهٔ وب
+(/attachments-center، /orders، /invoices، /returns، /stock-count، /gl) همگی ۲۰۰.
+پایگاهدادهٔ همان پیشنمایش: ۵ رویداد entity_attachment، صفر نشت URL/
+storage_key/"url" در after_data. نتیجه: PASS. هیچ URL/توکنی در شاهد ذخیره
+نشد؛ هیچ اسکرینشات ساختگی ثبت نشد. URLهای 127.0.0.1:9100 برای مرورگر کاربر
+قابلدسترس نیستند و MinIO/S3 production جداگانه UNVERIFIED است.
+
+────────────────────────────────────────────────────────────
+۷) Git / CI / PR
+────────────────────────────────────────────────────────────
+کامیت ۱ (پیادهسازی + شواهد نخستین):
+  8b538da734b8d2c9797ef90a21584891c95e57cc — ۲۸ فایل / ۳٬۳۵۵+ / ۱۸۰−
+  push معمولی: 19d412a..8b538da  →  origin/arena/be5eaff3-green-dms
+کامیت ۲ (تکمیل شواهد Git و سیاست ثبت نتیجهٔ CI): همان HEAD نهایی. SHA دقیق،
+  نتیجهٔ CI دقیقSHA و شش نمای نهایی بهصورت **افزودنی در بدنهٔ PR #14 و
+  گزارش نهایی چت** ثبت میشوند؛ دلیل اینکه داخل این فایل نوشته نشدند: اگر پس
+  از اجرای CI، نتیجه را در فایل مخزن مینوشتیم، همان ویرایش SHA تازهای
+  میساخت و CI دیگر متعلق به SHA نهایی نبود. بنابراین هیچ commit پساCI و
+  هیچ commit مصنوعی trigger وجود ندارد.
+اجراهای کامیت ۱ در صف GitHub Actions بهصورت queued ماندند و **PASS اعلام
+  نمیشوند**؛ مبنای قضاوت فقط CI دقیقSHAی HEAD نهایی (کامیت ۲) است.
+CI تاریخی جداگانه: C2 روی 19d412a… = PASS (۴/۴ workflow، ۸/۸ check)؛
+C1 روی aa0028a… = NOT PASS (۱/۸ شکست زیرساختی psql install).
+queued/in_progress/null/cancelled هرگز PASS اعلام نمیشوند.
+بدنهٔ PR #14 بهصورت افزودنی و با حفظ بایتبهبایت شواهد پیشین بهروز میشود؛
+PR همچنان OPEN / DRAFT، بدون merge/approve/release/deploy.
+
+────────────────────────────────────────────────────────────
+۸) فرانتاند و اسناد اپراتور
+────────────────────────────────────────────────────────────
+یک جزء مشترک EntityAttachments.tsx + نگهدارندهٔ سازگاری + XHR progress؛
+پنج اتصال واقعی: orders/[id]، invoices، returns، stock-count، gl؛ مرکز
+/attachments-center. فهرست/شمارش/پیشرفت/خطا/تلاش مجدد/پیشنمایش امن/
+پیام فارسی/RTL/responsive/aria — بدون کنترل تزئینی.
+اسناد: TASK-PM-02-C3_IMPLEMENTATION.md، همین فایل، VERIFICATION-C3.json،
+VERIFICATION-C3-LIVE.txt، EVIDENCE_INDEX.md پیوست C3،
+PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §۸.
+
+────────────────────────────────────────────────────────────
+۹) مرزها و احکام جداگانه
+────────────────────────────────────────────────────────────
+PASS (پیادهسازی + تست خودکار + پیشنمایش زنده):
+  sales_order | invoice | return_request | stock_count | journal_entry
+PASS backend / UI DEFERRED: receipt | pod
+PRESERVED: product (C1) · BLOCKED: brand/category/warehouse/uom،
+  PM-B1..PM-B8، Q1..Q5، G-03، registry/چرخهٔ حیات/عضویت/انتساب/RLS
+  دامنهای، backfill/cutover، whole-file import، پذیرش کامل Product Master
+UNVERIFIED: مرورگر دستی RTL/a11y/console، Playwright (browser unavailable)،
+  round-trip production MinIO/S3، معادل توپولوژی CI/تولید برای PG محلی
+NOT AUTHORIZED: merge، approve، release، deploy، تغییر زیرساخت تولید
+FAIL: هیچ
+گام پیشنهادی بعدی: TASK-PM-02-C4 «مرکز خواندنی import/export ضمائم با
+الگوی پیشنمایش/تأیید/تاریخچهٔ M4» — صرفاً توصیه، نه تصویب. گام مسدود
+پسازآن همچنان منوط به بستهٔ امضاشدهٔ مالک (جدول ۷ ستونی، مرجع تصویب،
+امضای IAM/Security، سیاست cutover/backfill و تستهای پذیرش) است.

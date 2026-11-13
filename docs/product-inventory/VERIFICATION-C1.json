@@ -1,0 +1,200 @@
+{
+  "task": "TASK-PM-02-C1",
+  "title": "مرکز تصاویر و اسناد کالا (Product Media)",
+  "baseline_sha": "deefa05b89de62da7a34fb920626a0adca920f57",
+  "branch": "arena/be5eaff3-green-dms",
+  "pr": 14,
+  "gates": [
+    {
+      "id": "G01",
+      "name": "git fetch + git pull --ff-only",
+      "result": "PASS",
+      "evidence": "Already up to date; PULL_EXIT=0; HEAD=deefa05..."
+    },
+    {
+      "id": "G02",
+      "name": "exact repo/branch/PR/remote SHA + expected SHA agreement",
+      "result": "PASS",
+      "evidence": "origin=https://github.com/Tadbir-Sabz/Green-DMS.git; PR #14 head=deefa05...; ls-remote identical"
+    },
+    {
+      "id": "G03",
+      "name": "recoverable checkpoint / preservation",
+      "result": "PASS",
+      "evidence": "/home/user/pm02-c1-checkpoint.tar.gz sha256=fe76589e... 2844 files sha256sum -c exit 0"
+    },
+    {
+      "id": "G04",
+      "name": "worktree + diffcheck cleanliness at baseline",
+      "result": "PASS",
+      "evidence": "porcelain=0, git diff --check=0"
+    },
+    {
+      "id": "G05",
+      "name": "module eligibility (approved design, no owner decision)",
+      "result": "PASS",
+      "evidence": "target design §0 L24, §A L38, §B4 L130, §F L199; GAP_REGISTER G-06/M4 note"
+    },
+    {
+      "id": "G06",
+      "name": "backend end-to-end functionality",
+      "result": "PASS",
+      "evidence": "ProductMediaService/Controller: 3 routes, §B4 primary rule, path-derived owner, transactional audit"
+    },
+    {
+      "id": "G07",
+      "name": "frontend RTL integration",
+      "result": "PASS",
+      "evidence": "ProductMediaTab 10th tab, upload/list/download/refresh, read-only view; outside disabled fieldset"
+    },
+    {
+      "id": "G08",
+      "name": "OpenAPI validity + contract/code drift + generated client",
+      "result": "PASS",
+      "evidence": "204 paths/288 ops/156 schemas/3 webhooks; drift 0 (288==288); schema.ts +233/-0"
+    },
+    {
+      "id": "G09",
+      "name": "focused unit + HTTP integration tests",
+      "result": "PASS",
+      "evidence": "product-media-rules 9/9; product-media.api 8/8; combined 2 files/17 tests; real AppModule+native PG"
+    },
+    {
+      "id": "G10",
+      "name": "full DB-free API unit suite",
+      "result": "PASS",
+      "evidence": "31 files / 382 tests (B2 baseline 30 / 373)"
+    },
+    {
+      "id": "G11",
+      "name": "full web suite",
+      "result": "PASS",
+      "evidence": "19 files / 101 tests (B2 baseline 18 / 94)"
+    },
+    {
+      "id": "G12",
+      "name": "root typecheck + Next production build",
+      "result": "PASS",
+      "evidence": "npm run typecheck exit 0; npm run build -w apps/web exit 0"
+    },
+    {
+      "id": "G13",
+      "name": "test partition + diffcheck",
+      "result": "PASS",
+      "evidence": "88 files declared==computed; git diff --check exit 0"
+    },
+    {
+      "id": "G14",
+      "name": "migrations / database schema changes",
+      "result": "PASS",
+      "evidence": "zero new migrations; no table/column/RLS/grant/enum/seed change (§A requires none)"
+    },
+    {
+      "id": "G15",
+      "name": "B1 boundary + B2 fail-closed parity + D4/import isolation",
+      "result": "PASS",
+      "evidence": "DomainBoundaryGuard on all 3 new routes; 400 domain_property_rejected / domain_context_not_supported in HTTP tests"
+    },
+    {
+      "id": "G16",
+      "name": "B2 final-SHA CI",
+      "result": "UNVERIFIED / CANCELLED (3) + QUEUED (1)",
+      "evidence": "rechecked 2026-11-11T16:00Z: 43040312220 CI cancelled, 43040312421 e2e cancelled, 43040312489 release-image cancelled, 43040312368 migrations still queued; never PASS"
+    },
+    {
+      "id": "G17",
+      "name": "C1 final-SHA CI",
+      "result": "UNVERIFIED / PENDING",
+      "evidence": "implementation commit aa2fba23d4688b5b741235e5a55ed71492f9d483: 4 runs 43053200836/43053200543/43053201194/43053200591 and 8 check-runs queued, conclusion null after 180s bounded watch (EXIT=124); final evidence commit recorded in PR #14 body"
+    },
+    {
+      "id": "G18",
+      "name": "manual browser RTL/a11y/console + production MinIO round-trip",
+      "result": "UNVERIFIED",
+      "evidence": "no Playwright browser binary available in sandbox; 7 jsdom component tests + curl-verified same-origin live preview instead; thumbnail needs browser-reachable MinIO/S3"
+    },
+    {
+      "id": "G19",
+      "name": "PM-B1..PM-B8 / Q1..Q5 / G-03 / domain registry+RLS+assignment",
+      "result": "BLOCKED",
+      "evidence": "no signed owner decision, IAM/Security sign-off, approved examples or cutover policy"
+    },
+    {
+      "id": "G20",
+      "name": "full Product Master acceptance / production deployment",
+      "result": "BLOCKED / NOT AUTHORIZED",
+      "evidence": "PR #14 remains OPEN/DRAFT; no merge/approve/release/deploy"
+    },
+    {
+      "id": "G21",
+      "name": "live preview end-to-end through same-origin web proxy",
+      "result": "PASS",
+      "evidence": "Next dev:3000 + API:4000 + native PG + local S3:9100; login 200, empty media 200, Persian-filename upload 201 (is_primary), list 200, fresh URL 200 (ttl 300), ?available=true 400, page 200; preview https://3000-i2hc8membf15gd6pw6m1m.e2b.app"
+    },
+    {
+      "id": "G22",
+      "name": "root build (packages + API + Next)",
+      "result": "PASS",
+      "evidence": "npm run build EXIT=0; /tmp/pm02c1-root-build.log"
+    },
+    {
+      "id": "G23",
+      "name": "migrations up -> down -> up on empty local PostgreSQL",
+      "result": "PASS",
+      "evidence": "npm run test:migrations EXIT=0; 1029 identical objects on both up passes; TEST_DB=greendms_ci_c1; /tmp/pm02c1-migrations.log"
+    },
+    {
+      "id": "G24",
+      "name": "full DB-backed API suite + pristine-baseline regression control",
+      "result": "PASS (no C1 regression) / FAIL (local environment)",
+      "evidence": "88 files / 1508 tests -> 83 files / 1489 tests PASS, 5 files / 19 tests FAIL (EXIT=1); detached worktree at deefa05 reproduced exactly the same 5 files and the same 19 test titles (identical=True); failures are PostGIS, local trust auth, Tour contract and missing real MinIO; both new C1 test files PASS 8/8 and 9/9"
+    },
+    {
+      "id": "G25",
+      "name": "six SHA views + PR state after ordinary push",
+      "result": "PASS",
+      "evidence": "all six views aa2fba23d4688b5b741235e5a55ed71492f9d483; PR #14 OPEN / DRAFT, base main; 0 reviews, 0 review comments, 1 non-approval issue comment"
+    },
+    {
+      "id": "G26",
+      "name": "git diff --check after final evidence edits",
+      "result": "PASS",
+      "evidence": "git diff --check EXIT=0; CJK/BOM/trailing-whitespace scan ISSUES 0"
+    }
+  ],
+  "verdicts": {
+    "development": "PASS",
+    "security": "PASS",
+    "ci_exact_final_sha": "UNVERIFIED / PENDING",
+    "owner_gated_scope": "BLOCKED",
+    "independent_agent2_review": "NOT REQUIRED (ordinary non-boundary development; no contradictory evidence)"
+  },
+  "implementation_commit": "aa2fba23d4688b5b741235e5a55ed71492f9d483",
+  "ci_implementation_sha": {
+    "runs": [
+      "43053200836",
+      "43053200543",
+      "43053201194",
+      "43053200591"
+    ],
+    "check_runs": 8,
+    "status": "queued",
+    "conclusion": null,
+    "verdict": "UNVERIFIED / PENDING"
+  },
+  "full_db_run": {
+    "files": 88,
+    "tests": 1508,
+    "files_passed": 83,
+    "tests_passed": 1489,
+    "files_failed": 5,
+    "tests_failed": 19,
+    "exit": 1,
+    "baseline_sha": "deefa05b89de62da7a34fb920626a0adca920f57",
+    "baseline_identical_failures": true,
+    "c1_test_files": {
+      "product-media.api.test.ts": "8/8 PASS",
+      "product-media-rules.test.ts": "9/9 PASS"
+    }
+  }
+}

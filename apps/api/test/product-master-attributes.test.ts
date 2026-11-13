@@ -149,10 +149,14 @@ describe('M-3 — امضای قطعیِ variant', () => {
       .expect(200);
 
     const res = await fx.api().get(`/api/v1/products/${p.id}/attributes`).expect(200);
+    // C7: نمای کاملِ کاتالوگ (attributes) + شکلِ سازگارِ عقب‌رو (values)
     expect(res.body.values).toHaveLength(1);
     expect(res.body.values[0].def_id).toBe(d1);
     expect(res.body.values[0].value_text).toBe('مقدار ثبت‌شده');
     expect(res.body.variant_signature).toBe(wr.body.variant_signature);
+    const entry = res.body.attributes.find((a: { def_id: string }) => a.def_id === d1);
+    expect(entry.filled).toBe(true);
+    expect(entry.value.value_text).toBe('مقدار ثبت‌شده');
   });
 
   it('M-3: تغییرِ محورِ variant پس از ارجاعِ عملیاتی ممنوع', async () => {

@@ -1,0 +1,142 @@
+TASK-PM-01D-M4-I — VERIFICATION LEDGER
+=====================================
+
+Scope: evidence-based M4 acceptance closure only. This is not Product Master acceptance,
+approval, merge, release, deployment, or production DB/config modification.
+
+All timestamps are UTC. "PASS" below records the local command exit/completion only;
+it is not an aggregate M4 acceptance verdict.
+
+BASELINE (2026-11-10T16:18:28Z)
+  Required starting SHA: 8c40105f8c5b38660a605078207ac5bd90215359
+  Five-way HEAD / local branch / origin branch / branch-ref / PR #14 head: EXACT MATCH
+  PR #14: OPEN / DRAFT / base main; body 55,390 chars / 60,074 bytes
+  PR body sha256: bc949b1669f169035fcb4cbf18f1d7d331479a987c81e0505ceff3246a0f2c34
+  Worktree: CLEAN; git diff --check: EXIT=0
+
+H EXACT-SHA CI (2026-11-10T16:23:04Z)
+  SHA 8c40105f8c5b38660a605078207ac5bd90215359
+  check-runs: 8/8 completed/success; workflow runs: 4/4 completed/success
+  gh pr checks 14: EXIT=0
+  Runs: CI 42852806525, e2e 42852806522, release-image 42852806482, migrations 42852806515
+  No CI workflow file was edited or rerun to manufacture this status.
+
+DURABLE BACKUP (2026-11-10T16:28:09Z)
+  /home/user/pm01dm4i-backup/ and /home/user/pm01dm4i-backup.tar.gz (33,368 bytes)
+  Contains five original files + SHA256SUMS.txt. The self-hash in SHA256SUMS.txt is
+  the known empty-file artifact and is not relied on as integrity proof.
+  Originals are also available in GitHub commit 8c40105....
+
+I IMPLEMENTATION STAGE A
+  Commit: ce34fdcd738240025fb4f8c801da1a948eb98108
+  Pushed: 8c40105..ce34fdc arena/be5eaff3-green-dms
+  6 files changed, 593 insertions, 2 deletions
+  Files:
+    scripts/cleanup-expired-bulk-previews.mjs (new; F-R-03)
+    apps/api/test/product-bulk-preview-cleanup.test.ts (new; 5 disposable-PG tests)
+    apps/api/test/product-bulk-maintenance.api.test.ts (F-R-04 direct viewer POST reconcile)
+    apps/api/test/db-backed-tests.txt (declares new non-api DB test)
+    docs/deploy/PRODUCTION_DEPLOYMENT.md (H spelling fixes: یکیبودن → یکی بودن,
+      جاینگهدار → جای\u200cنگه\u200cدار, میکند → می\u200cکند)
+    docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md (§۴-ب cleanup policy)
+  No .github workflow, protected migration, protected SQL, runtime grant, queue,
+  scheduler, SECURITY DEFINER, or production config was changed.
+
+F-R-03 OPERATOR SCRIPT SMOKE (local PG16.2, disposable DB)
+  DB greendms_i_script_smoke_52471; cutoff 2026-11-09T00:00:00Z
+  Tenants C1 11111111-1111-4111-8111-111111111111,
+          C2 22222222-2222-4222-8222-222222222222
+  Eligible row aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1
+  Dry-run: candidate=1, deleted=0; --apply: deleted=1
+  Retained: evidence-bound, future, committed, unknown, accepted, rejected, other-tenant
+  C1 BEFORE committed=1/preview_created=3/unknown=1
+  C1 AFTER  committed=1/preview_created=2/unknown=1; C2 unchanged
+  dms_app DELETE=f; real dms_app --apply: DENIED_EXIT=1 with owner-identity error
+  Disposable DB dropped. dms_app login state restored.
+
+F-R-04 DIRECT TEST
+  Viewer POST /product-bulk/reconcile → 403; unauthenticated → 401
+  Ledger remains preview_created; zero evidence/audit rows; product versions unchanged;
+  reconciled=false. Included in product-bulk-maintenance.api.test.ts (12/12).
+
+FOCUSED VITEST (2026-11-10T16:35:13Z)
+  Command: vitest run test/product-bulk-preview-cleanup.test.ts
+                     test/product-bulk-maintenance.api.test.ts
+  FOCUSED_EXIT=0; 2 files / 17 tests PASS; duration 4.61s
+  Log: /tmp/pm01dm4i-focused-tests.log
+  Non-fatal notices: local Redis 6379 ECONNREFUSED; PG pool termination during teardown.
+
+STATIC VALIDATION (2026-11-10T16:36:15Z)
+  /tmp/pm01dm4i-static-summary.txt — all five EXIT=0
+  git diff --check: PASS
+  npm run openapi:check: PASS — 201 paths / 284 operations / 153 schemas / 3 webhooks
+  node scripts/contract-drift.mjs: PASS — 284 doc / 284 code / 284 shared; 0 divergences
+  node scripts/check-test-partition.mjs: PASS — 81 files; declared == computed partition
+  npm run typecheck: PASS — contracts / api / api-client / web all 0
+  Logs: /tmp/pm01dm4i-{diffcheck,openapi,drift,partition,typecheck}.log
+
+MIGRATION CYCLE (2026-11-10T16:36:37Z)
+  TEST_DB=greendms_i_mig_52993_1794328596
+  node scripts/test-migrations.mjs: EXIT=0
+  Down to 0001 complete; second up 0.5s; 1029 identical objects; temp DB deleted
+  Log: /tmp/pm01dm4i-migrations.log
+
+M4 REGRESSION (2026-11-10T16:36:48Z)
+  7 files / 117 tests PASS; REGRESSION_EXIT=0
+  migration-rollback-race 8; migrations-security 8;
+  product-bulk-maintenance-security.api 11; product-master-rls 64;
+  product-master-security 10; product-catalog-foundation 9;
+  audit-partition-recovery.api 7
+  Log: /tmp/pm01dm4i-m4-regression.log
+
+FULL LOCAL VALIDATION (2026-11-10T16:50:11Z → 16:50:48Z)
+  API unit (CI partition, DB-free): EXIT=0; 26 files / 339 tests PASS
+    Log: /tmp/pm01dm4i-api-unit.log
+  Web unit: EXIT=0; 17 files / 88 tests PASS
+    Log: /tmp/pm01dm4i-web-unit.log
+  Root build (packages + API + Next web): EXIT=0
+    Log: /tmp/pm01dm4i-root-build.log
+
+ROLE RESTORE
+  Regression/security suites modify cluster role passwords; teardown does not restore them.
+  /tmp/pm01dm4i-role-restore2.sql contains the four exact G-R original SCRAM hashes.
+  After application: all four exact-match checks = t; all dms_* roles NOLOGIN.
+  State: /tmp/pm01dm4i-role-final.txt. No greendms_i_* / greendms_i_cleanup_denied_* role
+  or DB leftovers remain. Older greendms_g_race_* / probe / task DBs predate I and remain.
+
+STAGE A EXACT-SHA CI (2026-11-10T16:40:49Z → 16:45:46Z)
+  SHA ce34fdcd738240025fb4f8c801da1a948eb98108
+  gh pr checks 14 --watch -i 15: EXIT=0
+  check-runs: 9/9 completed/success (one push-event + eight pull_request-event checks)
+  workflow runs: 5/5 completed/success
+  Runs: migrations push 42856944161; CI pull_request 42856956874;
+        release-image pull_request 42856956995; e2e pull_request 42856957000;
+        migrations pull_request 42856957011
+  Artifacts: /tmp/pm01dm4i-stage-a-checks-watch.log,
+             /tmp/pm01dm4i-stage-a-checkruns.json,
+             /tmp/pm01dm4i-stage-a-runs.json
+
+LOCAL ENVIRONMENT LIMITS
+  Local PostgreSQL 16.2 at 127.0.0.1:55432 uses trust auth and does not provide real
+  PostGIS/pgcrypto/MinIO/Redis parity. It is NOT CI-equivalent or production-equivalent.
+  CI exact-SHA services use PostGIS 16-3.4, MinIO, Redis 7.4.12 and password auth.
+  No production topology or owner authorization was verified.
+
+FINAL I SHA / FINAL CI
+  Recorded in PR #14 body and the final chat report. A final-SHA CI result is never
+  transferred to a different SHA. This ledger intentionally does not hardcode its own
+  final tree SHA.
+
+AUTHORITATIVE MATRIX / DURABLE LEDGERS
+  docs/product-inventory/M4_ACCEPTANCE_MATRIX.md
+  docs/product-inventory/evidence/task-pm-01d-m4-i/VERIFICATION.json
+  docs/product-inventory/evidence/task-pm-01d-m4-i/VERIFICATION.txt
+  docs/product-inventory/TASK-PM-01D-M4-I_IMPLEMENTATION.md
+  Current mandatory M4 rows A/B: PASS. R-AGG independent full re-audit: UNVERIFIED.
+  Historical R FAIL, F-R FAIL, G-R narrow VERIFIED SAFE, Product Master BLOCKED,
+  G-03 PARTIAL, PM-B1..PM-B8 OPEN / NOT APPROVED and whole-file atomicity
+  OPEN / NOT APPROVED are preserved without contradiction.
+
+M4 ACCEPTANCE READINESS: UNVERIFIED
+This readiness label is evidence assessment only; it is not permission to approve,
+merge, release, deploy, or modify production.

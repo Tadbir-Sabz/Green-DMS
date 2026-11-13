@@ -1,0 +1,89 @@
+{
+  "task": "TASK-PM-02-C12",
+  "baseline_commit": "205e914930f203f620576cfbdd47755559e4849a",
+  "synthetic_only": true,
+  "phases": [
+    "baseline snapshot / backup",
+    "shadow key calculation",
+    "conflict detection",
+    "conflict classification",
+    "manual resolution (out of scope for C12)",
+    "recalculation",
+    "verification",
+    "controlled activation (NOT performed)",
+    "rollback"
+  ],
+  "full_run": {
+    "batches": 6,
+    "ops": 47,
+    "recalculated": 23,
+    "interrupted": false,
+    "display_values_preserved": 24,
+    "rows": 24
+  },
+  "interruption_and_recovery": {
+    "injected_fail_after_ops": 5,
+    "interrupted": true,
+    "ops_before_stop": 5,
+    "recovered": true,
+    "same_final_state_as_full_run": true
+  },
+  "idempotency": {
+    "rerun_same_result": true,
+    "resume_on_complete_state_ops": 0,
+    "batch_1_equals_batch_16": true
+  },
+  "rollback": {
+    "restored": 24,
+    "unrecovered": [],
+    "returns_to_original": true,
+    "display_untouched": true
+  },
+  "strategies_evaluated": {
+    "dual_read": {
+      "feasible": true,
+      "risk": "low",
+      "note": "compute both keys, decide on the legacy one"
+    },
+    "dual_write": {
+      "feasible": true,
+      "risk": "medium",
+      "note": "needs a new column; divergence risk if a writer is missed"
+    },
+    "shadow_index": {
+      "feasible": true,
+      "risk": "low",
+      "recommended": true,
+      "note": "parallel unique index on the proposed key surfaces conflicts before any row changes"
+    },
+    "versioned_normalization": {
+      "feasible": true,
+      "note": "profile_version stored per entry"
+    },
+    "backfill_batching": {
+      "supported": true,
+      "batch_size_configurable": true
+    },
+    "transaction_boundaries": {
+      "note": "one batch per transaction; index build must be CONCURRENTLY, outside the transaction"
+    },
+    "locking_availability": {
+      "note": "CONCURRENTLY avoids long locks; chunked batch updates"
+    },
+    "idempotency": {
+      "proven": true
+    },
+    "interrupted_recovery": {
+      "proven": true
+    },
+    "rollback_after_partial": {
+      "proven": true,
+      "requires_backup": true
+    }
+  },
+  "atomicity_risk": {
+    "statement": "Changing stored canonical values without atomically changing the application comparison logic makes scans and uniqueness checks disagree.",
+    "consequence": "barcodes may stop resolving and duplicate aliases may slip through unnoticed",
+    "mitigation": "dual-read first, then recompute and switch comparison logic in the SAME release"
+  }
+}

@@ -11,7 +11,7 @@ import pg from 'pg';
 /**
  * آزمون‌های مهاجرتِ امنیتی — TASK-23 (مجموعهٔ E).
  *
- * پوشش: نصبِ تازه (fresh) با همهٔ ۴۹ مهاجرت؛ چرخهٔ up/down/up فقطِ 0048 با
+ * پوشش: نصبِ تازه (fresh) با همهٔ مهاجرت‌های زنجیره؛ چرخهٔ up/down/up فقطِ 0048 با
  * راستی‌آزماییِ «داده» (ردیف‌های واقعیِ device/geofence و منبعِ matview)، نه
  * «برابریِ شمارِ اشیاء»؛ بازگردانیِ سیاست‌ها (p_device_tenant/p_geofence_tenant،
  * enabled+forced) و گرانت‌ها (matview src بدونِ گرانتِ برنامه، نمایِ سایه با SELECT).
@@ -46,6 +46,30 @@ function runSqlFile(file: string): void {
     env: psqlEnv,
     stdio: 'pipe',
   });
+}
+
+// همان اجرا، ولی روی DB یکبارمصرف جداگانه؛ برای مقایسهٔ کاتالوگِ دقیق ۰۰۶۴
+// down با وضعیت پس از ۰۰۴۲، بدون بههمزدن DB مشترکِ بقیهٔ آزمونها.
+function runSqlFileOn(database: string, file: string): void {
+  execFileSync(PSQL, [...psqlBase, '-d', database, '-1', '-q', '-f', file], {
+    env: psqlEnv,
+    stdio: 'pipe',
+  });
+}
+
+async function maintenanceFunctionState(q: pg.Pool): Promise<Record<string, unknown>> {
+  const { rows } = await q.query(`
+    select p.prosecdef as secdef,
+           p.proconfig::text as config,
+           p.proacl::text as acl,
+           obj_description(p.oid, 'pg_proc') as fn_comment,
+           obj_description(n.oid, 'pg_namespace') as schema_comment,
+           pg_get_functiondef(p.oid) as def,
+           p.proowner::regrole::text as owner
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where p.oid = 'public.fn_ensure_partitions(integer)'::regprocedure`);
+  return rows[0] as Record<string, unknown>;
 }
 
 const uid = () => crypto.randomBytes(6).toString('hex');
@@ -169,9 +193,10 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-24Y: 0053 (معماریِ تأیید) آخرین مهاجرت است. با افزودنِ مهاجرتِ تازه
-    // این خط عمداً باید به‌روزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0059_approval_provenance.up.sql');
+    // TASK-PM-02-C2: 0065 (مدیریت دادههای مرجع کالا) آخرین مهاجرت است؛
+    // ۰۰۶۴ پیشتر آخرین بود. با افزودنِ مهاجرتِ تازه این خط عمداً باید
+    // بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
+    expect(files[files.length - 1]).toBe('0065_reference_data_admin.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -184,6 +209,22 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
 
     for (const f of files) runSqlFile(path.join(ROOT, 'migrations', f));
     await assert0048EndState(db);
+
+    // 0062: ledger is tenant-RLS protected and the runtime role cannot DELETE.
+    const { rows: ledger } = await db.query(`
+      select
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_operation') as rls_forced,
+        (select count(*)::int from pg_policy where polname='p_product_bulk_operation_tenant') as policies,
+        (select has_table_privilege('dms_app','product_bulk_operation','SELECT')) as app_select,
+        (select has_table_privilege('dms_app','product_bulk_operation','INSERT')) as app_insert,
+        (select has_table_privilege('dms_app','product_bulk_operation','UPDATE')) as app_update,
+        (select has_table_privilege('dms_app','product_bulk_operation','DELETE')) as app_delete`);
+    expect(ledger[0].rls_forced).toBe(true);
+    expect(ledger[0].policies).toBe(1);
+    expect(ledger[0].app_select).toBe(true);
+    expect(ledger[0].app_insert).toBe(true);
+    expect(ledger[0].app_update).toBe(true);
+    expect(ledger[0].app_delete).toBe(false);
   }, 300_000);
 
   it('down/up: داده می‌ماند، سیاست‌ها و گرانت‌ها بازگردانده می‌شوند', async () => {
@@ -216,4 +257,184 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     expect(rows[0].shadow).toBe(true);
     expect(rows[0].src_ro).toBe(false);
   });
+
+  it('0063: operation-bound evidence schema, forced RLS and least privilege', async () => {
+    const { rows } = await db.query(`
+      select
+        (select count(*)::int from pg_attribute
+          where attrelid='public.audit_log'::regclass and attname='bulk_operation_id' and not attisdropped) as audit_col,
+        (select count(*)::int from pg_attribute
+          where attrelid='public.product_catalog_history'::regclass and attname='bulk_operation_id' and not attisdropped) as history_col,
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_history_event') as evidence_rls,
+        (select count(*)::int from pg_policy where polname like 'product_bulk_history_event_%') as evidence_pols,
+        (select has_table_privilege('dms_app','product_bulk_history_event','SELECT')) as app_select,
+        (select has_table_privilege('dms_app','product_bulk_history_event','INSERT')) as app_insert,
+        (select has_table_privilege('dms_app','product_bulk_history_event','UPDATE')) as app_update,
+        (select has_table_privilege('dms_app','product_bulk_history_event','DELETE')) as app_delete,
+        (select has_table_privilege('dms_readonly','product_bulk_operation','SELECT')) as ro_ledger,
+        (select has_table_privilege('dms_readonly','product_bulk_history_event','SELECT')) as ro_evidence,
+        (select count(*)::int from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+          where n.nspname='public' and p.proname in ('fn_product_catalog_history_bind_bulk','fn_product_bulk_history_evidence')
+            and has_function_privilege('dms_app', p.oid, 'EXECUTE')) as app_exec,
+        (select count(*)::int from pg_class where relname='ix_product_bulk_operation_expires') as expiry_idx`);
+    expect(rows[0].audit_col).toBe(1);
+    expect(rows[0].history_col).toBe(1);
+    expect(rows[0].evidence_rls).toBe(true);
+    expect(rows[0].evidence_pols).toBe(2);
+    expect(rows[0].app_select).toBe(true);
+    expect(rows[0].app_insert).toBe(false);
+    expect(rows[0].app_update).toBe(false);
+    expect(rows[0].app_delete).toBe(false);
+    expect(rows[0].ro_ledger).toBe(false);
+    expect(rows[0].ro_evidence).toBe(false);
+    expect(rows[0].app_exec).toBe(0);
+    expect(rows[0].expiry_idx).toBe(1);
+  });
+
+  it('0064: maintenance function is invoker, search_path pinned and EXECUTE denied to runtime roles', async () => {
+    const { rows } = await db.query(`
+      select
+        (select prosecdef from pg_proc where oid='public.fn_ensure_partitions(integer)'::regprocedure) as secdef,
+        (select proconfig::text from pg_proc where oid='public.fn_ensure_partitions(integer)'::regprocedure) as config,
+        (select has_function_privilege('dms_app','public.fn_ensure_partitions(integer)','EXECUTE')) as app_exec,
+        (select has_function_privilege('dms_readonly','public.fn_ensure_partitions(integer)','EXECUTE')) as ro_exec,
+        (select has_function_privilege('dms_migrator','public.fn_ensure_partitions(integer)','EXECUTE')) as migrator_exec,
+        (select has_function_privilege('dms_owner','public.fn_ensure_partitions(integer)','EXECUTE')) as owner_exec,
+        (select count(*)::int from pg_class where relname in ('audit_log','location_sample','inventory_txn') and relkind='p') as parents`);
+    expect(rows[0].secdef).toBe(false);
+    expect(rows[0].config).toContain('search_path=public, pg_catalog, pg_temp');
+    expect(rows[0].app_exec).toBe(false);
+    expect(rows[0].ro_exec).toBe(false);
+    expect(rows[0].migrator_exec).toBe(false);
+    expect(rows[0].owner_exec).toBe(false);
+    expect(rows[0].parents).toBe(3);
+  });
+
+  it('0064 down: exact pre-0064 catalog state (including 0065) is restored on an isolated DB', async () => {
+    const dbName = `greendms_g_down_${uid()}`;
+    const isolatedUrl = new URL(adminUrl);
+    isolatedUrl.pathname = `/${dbName}`;
+    let isolated: pg.Pool | undefined;
+    await adminPool.query(`create database "${dbName}"`);
+    try {
+      // مبنای «پیش از ۰۰۶۴» شامل همهٔ مهاجرتهای دیگر — از جمله ۰۰۶۵ — است؛
+      // ۰۰۶۴ فقط وضعیت تابع نگهداشت پارتیشن/کامنت طرحواره را تغییر میدهد.
+      const files = readdirSync(path.join(ROOT, 'migrations'))
+        .filter((f) => f.endsWith('.up.sql') && !f.startsWith('0064_'))
+        .sort();
+      for (const f of files) runSqlFileOn(dbName, path.join(ROOT, 'migrations', f));
+      isolated = new pg.Pool({ connectionString: isolatedUrl.toString(), max: 1 });
+      const baseline = await maintenanceFunctionState(isolated);
+      expect(baseline.secdef).toBe(false);
+      expect(baseline.config).toBeNull();
+
+      const up64 = path.join(ROOT, 'migrations', '0064_audit_partition_recovery.up.sql');
+      const down64 = path.join(ROOT, 'migrations', '0064_audit_partition_recovery.down.sql');
+      runSqlFileOn(dbName, up64);
+      const hardened = await maintenanceFunctionState(isolated);
+      expect(hardened.secdef).toBe(false);
+      expect(hardened.config).toContain('search_path=public, pg_catalog, pg_temp');
+      expect(hardened.schema_comment).toContain('TASK-PM-01D-M4-G');
+
+      // بدنه، prosecdef/proconfig، ترتیبِ دقیقِ proacl، comment تابع و comment
+      // طرحوارهٔ public باید بایتبهبایت با وضعیت مبنای پیش از ۰۰۶۴ یکی باشند.
+      runSqlFileOn(dbName, down64);
+      const restored = await maintenanceFunctionState(isolated);
+      expect(restored).toEqual(baseline);
+
+      // اعمال دوبارهٔ ۰۰۶۴ باید همان سختسازی را برگرداند (up/down/up).
+      runSqlFileOn(dbName, up64);
+      const reapplied = await maintenanceFunctionState(isolated);
+      expect(reapplied.secdef).toBe(false);
+      expect(reapplied.config).toContain('search_path=public, pg_catalog, pg_temp');
+      expect(reapplied.schema_comment).toContain('TASK-PM-01D-M4-G');
+    } finally {
+      await isolated?.end();
+      await adminPool
+        .query('select pg_terminate_backend(pid) from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()', [dbName])
+        .catch(() => undefined);
+      await adminPool.query(`drop database if exists "${dbName}"`).catch(() => undefined);
+    }
+  }, 300_000);
+
+  it('0063/0062 down: populated ledger, history and evidence refuse rollback', async () => {
+    const company = (await db.query(`select id from company limit 1`)).rows[0].id as string;
+    const insertOp = (status: string, outcome: string, category: string, rh: string) =>
+      db.query(
+        `insert into product_bulk_operation
+          (id, company_id, status, outcome, failure_category, request_hash, preview_token_hash,
+           preview_hash, product_ids, changes, expected_versions, preview, expires_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,
+                 array['00000000-0000-4000-8000-000000000001']::uuid[],
+                 '{"name":"x"}'::jsonb,'{}'::jsonb,'{"items":[]}'::jsonb, now()+interval '1 day')
+         returning id`,
+        [crypto.randomUUID(), company, status, outcome, category, rh, rh, rh],
+      );
+    const opA = (await insertOp('committed', 'committed', 'none', 'rh1')).rows[0].id as string;
+    const opB = (await insertOp('unknown', 'unknown', 'unknown', 'rh2')).rows[0].id as string;
+    const opC = (await insertOp('rejected', 'rolled_back', 'infrastructure', 'rh3')).rows[0].id as string;
+
+    const hist = (await db.query(
+      `insert into product_catalog_history
+        (company_id, product_id, entity_type, entity_id, action, actor_user_id, bulk_operation_id)
+       values ($1,'00000000-0000-4000-8000-000000000001','product',
+               '00000000-0000-4000-8000-000000000001','UPDATE',null,$2)
+       returning id`,
+      [company, opA],
+    )).rows[0].id as string;
+    await db.query(
+      `insert into product_bulk_history_event
+        (bulk_operation_id, product_id, company_id, actor_user_id, history_id)
+       values ($1,'00000000-0000-4000-8000-000000000001',$2,
+               '00000000-0000-4000-8000-000000000099',$3)`,
+      [opA, company, hist],
+    );
+    await db.query(
+      `insert into audit_log (company_id, action, entity_type, bulk_operation_id)
+       values ($1,'update','product',$2)`,
+      [company, opA],
+    );
+
+    const down0063 = path.join(ROOT, 'migrations', '0063_product_bulk_evidence.down.sql');
+    const down0062 = path.join(ROOT, 'migrations', '0062_product_bulk_maintenance.down.sql');
+    expect(() => runSqlFile(down0063)).toThrow();
+    expect(() => runSqlFile(down0062)).toThrow();
+    const still = await db.query(`select to_regclass('public.product_bulk_history_event') is not null as evidence,
+                                          to_regclass('public.product_bulk_operation') is not null as ledger`);
+    expect(still.rows[0].evidence).toBe(true);
+    expect(still.rows[0].ledger).toBe(true);
+
+    // فقط دادهٔ ساختگی همین تست پاک میشود؛ هیچ شاهد تاریخی پروژه حذف نمیشود.
+    await db.query(`delete from audit_log where bulk_operation_id = $1`, [opA]);
+    await db.query(`delete from product_bulk_history_event where bulk_operation_id = $1`, [opA]);
+    await db.query(`delete from product_catalog_history where bulk_operation_id = $1`, [opA]);
+    await db.query(`delete from product_bulk_operation where id = any($1::uuid[])`, [[opA, opB, opC]]);
+  });
+
+  it('0063/0062 down/up: empty cycle is reversible and restores the same end state', async () => {
+    await db.query(`delete from audit_log where bulk_operation_id is not null`);
+    await db.query(`delete from product_bulk_history_event`);
+    await db.query(`delete from product_catalog_history where bulk_operation_id is not null`);
+    await db.query(`delete from product_bulk_operation`);
+
+    runSqlFile(path.join(ROOT, 'migrations', '0063_product_bulk_evidence.down.sql'));
+    runSqlFile(path.join(ROOT, 'migrations', '0062_product_bulk_maintenance.down.sql'));
+    expect((await db.query(`select to_regclass('public.product_bulk_operation') is null as gone`)).rows[0].gone).toBe(true);
+    runSqlFile(path.join(ROOT, 'migrations', '0062_product_bulk_maintenance.up.sql'));
+    runSqlFile(path.join(ROOT, 'migrations', '0063_product_bulk_evidence.up.sql'));
+
+    const { rows } = await db.query(`
+      select
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_operation') as ledger_rls,
+        (select has_table_privilege('dms_app','product_bulk_operation','SELECT')) as app_select,
+        (select has_table_privilege('dms_app','product_bulk_operation','DELETE')) as app_delete,
+        (select has_table_privilege('dms_readonly','product_bulk_operation','SELECT')) as ro_ledger,
+        (select relrowsecurity and relforcerowsecurity from pg_class where relname='product_bulk_history_event') as evidence_rls`);
+    expect(rows[0].ledger_rls).toBe(true);
+    expect(rows[0].app_select).toBe(true);
+    expect(rows[0].app_delete).toBe(false);
+    expect(rows[0].ro_ledger).toBe(false);
+    expect(rows[0].evidence_rls).toBe(true);
+  });
+
 });

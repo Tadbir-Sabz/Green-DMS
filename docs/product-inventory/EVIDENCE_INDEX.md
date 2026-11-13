@@ -241,3 +241,666 @@
  download again fails signedblob EOF; manual visual review UNVERIFIED.
 - Existing target design has a continuity appendix clarifying per-domain
  availability without changing approved D1–D5 or asserting phase reorder approval.
+
+## TASK-PM-01D-M2 — import reliability, concurrency and atomicity
+
+- `TASK-PM-01D-M2_IMPLEMENTATION.md`: source‌truth for the additive `0061` migration, atomic idempotency claim, per‌key advisory lock, transaction‌local batch outcome, deterministic retry boundary, safe replay of unknown outcomes, contract/client/UI changes and the 13‌item acceptance matrix.
+- Native disposable PostgreSQL: strict 61‌migration up/down/up cycle, fresh `dms_app` grant probe, 2 focused import files / 22 tests, 10 Product Master DB‌backed files / 151 tests and 44 selected DB‌backed files / 957 tests PASS. Four spatial/password‌auth files were excluded locally because the sandbox uses a non‌spatial PostGIS replacement and trust auth; exact‌final‌SHA CI uses real `postgis/postgis:16-3.4`.
+- DB‌free API unit 24 files / 332 tests; web 14 files / 79 tests; partition 73 files; OpenAPI 195 paths / 278 operations / 141 schemas / 3 webhooks; contract drift zero; root typecheck/build (55 pages) and `git diff --check` PASS.
+- §E per‌batch all‌or‌nothing plus continuation is preserved. Whole‌file rollback remains an isolated owner decision. PM‌B1..PM‌B8 remain OPEN / NOT APPROVED; no domain membership, RBAC vocabulary, protected branch, deployment or merge action was added.
+
+## TASK-PM-01D-M3 — Product CSV portability, capability assessment and owner boundary
+
+- `TASK-PM-01D-M3_IMPLEMENTATION.md`: Persian-first implementation report with fresh baseline preservation, nine-capability evidence matrix, actual delivered workflow, whole-file decision status, import-reliability architecture findings, exact verification commands, security findings, completion estimate and recommended next module.
+- `TASK-PM-01D-M3_WHOLE_FILE_ATOMICITY_OWNER_DECISION.md`: explicit OPEN / NOT APPROVED request distinguishing per-batch atomicity, whole-file atomicity, partial success and retry/recovery, with Q1–Q5 and the evidence required before any approval.
+- `PRODUCT_MASTER_OPERATOR_GUIDE_FA.md`: Persian RTL operator guide for list/scan, CSV export, import, history, settings, lifecycle and failure handling.
+- Code: `GET /api/v1/products/export`, repeatable-read read-only transaction, service-level `master.product.view` authorization, tenant RLS, resolved reference codes, primary barcode, spreadsheet-formula mitigation, bounded 10,000-row snapshot with explicit truncation headers, `audit_log` export event, generated TypeScript client and Persian RTL download button.
+- Contracts: `npm run openapi:check` 196 paths / 279 operations / 141 schemas / 3 webhooks; `node scripts/contract-drift.mjs` zero; `node scripts/check-test-partition.mjs` 75 files.
+- Focused tests (native disposable PostgreSQL, no shared/production DB): export unit + export DB + M2 import regressions 4 files / 30 tests PASS; selected Product Master/contract/RLS/history regressions 10 files / 230 tests PASS; DB-free API unit 25 files / 335 tests PASS; web 15 files / 82 tests PASS; root typecheck and build (55 pages) PASS; `git diff --check` PASS.
+- Boundaries preserved: no behavior change to §E per-batch all-or-nothing plus continuation, no migration/BullMQ/queue/domain registry/RBAC vocabulary/production DB/merge/deploy. PM-B1..PM-B8 and whole-file atomicity remain OPEN / NOT APPROVED. Exact-final-SHA CI is recorded in PR #14 and the final report after push.
+
+
+## TASK-PM-01D-M4 — controlled bulk Product Master maintenance
+
+- `TASK-PM-01D-M4_IMPLEMENTATION.md`: Persian-first source-of-truth report with baseline preservation, exact server-owned field whitelist, `0062` durable ledger, synchronous all-or-nothing transaction, strict preview/confirm/execute, replay/unknown reconciliation, 14-item acceptance matrix, security boundaries and precise verdicts.
+- `PRODUCT_MASTER_OPERATOR_GUIDE_FA.md`: Persian RTL operator workflow for `/products/bulk-maintenance`, including permission gate, preview expiry, ineligible-selection warning, explicit confirmation, stable operation status and unknown-outcome handling.
+- `evidence/task-pm-01d-m4/VERIFICATION.txt`: command/result ledger for local validation. Logs remain in `/tmp` and are not committed as generated artifacts.
+- Code: four new `/products/bulk-maintenance` endpoints, `product_bulk_operation` ledger with forced tenant RLS and SELECT/INSERT/UPDATE-only runtime grants, strict `AuditService.recordRequired` for M4 only, `CatalogAccess.write` isolation/timeout options, `ProductRepository.update(..., client?)`, generated typed client and Persian RTL page/nav.
+- Contracts: `npm run openapi:check` 200 paths / 283 operations / 153 schemas / 3 webhooks; `node scripts/contract-drift.mjs` 283/283/283 diff 0; `node scripts/check-test-partition.mjs` 77 files.
+- Local tests (native disposable PostgreSQL, no shared/production DB): 26 DB-free API files / 338 tests; M4 unit 3/3; M4 DB API 11/11; selected Product Master/contract/RLS/history 12 files / 244 tests; broad local selection 44 files / 925 tests; web 17 files / 88 tests; migrations-security 3/3; strict 62-migration up/down/up with 1013 identical objects in both up passes; root typecheck and build (56 pages) PASS.
+- A broader 47-file local DB run had 44 passed files / 970 passed tests and 12 failures: 10 in `task24w`/`task24y` and 2 in `attachments.api`. The same 10 `task24w`/`task24y` failures were reproduced in an isolated worktree at exact baseline `8509255`; their root cause is the pre-existing UTC-vs-business-date window described below, not an M4 regression. The 2 `attachments` failures are the missing MinIO service locally; attachments passed in exact CI. Four real-PostGIS/password-auth files were excluded locally; exact-final-SHA CI uses real services.
+- CI at the first M4 push SHA `975c12f` (run `42709786143`, job `129475954785`) was red only in those two legacy files: 2 failed / 48 passed files and 10 failed / 1043 passed tests. Root cause: they computed `TODAY` / `order_date` with UTC `new Date().toISOString().slice(0,10)` while the server uses `businessToday()` (Asia/Tehran); between 20:30–24:00 UTC documents were treated as backdated. The run started 22:12 UTC. M3 baseline CI at `8509255` was green earlier (19:45 UTC) and could not be rerun. Follow-up fix changed only those two test files to use `businessToday` / `shiftBusinessDate`; no production source, migration, workflow or `.github` change. Local re-run inside the same window: targeted 2 files / 48 tests PASS and CI-equivalent 46 DB-backed files / 973 tests PASS; the full 50-file local run had 17 failures confined to four real-PostGIS/password-auth files that passed in exact CI at `975c12f`.
+- Boundaries preserved: §E per-batch import all-or-nothing plus continuation, whole-file owner decision, PM-B1..PM-B8, `0060` immutable history, `0061` import reliability, no new RBAC/domain vocabulary, no BullMQ/queue/worker, no merge/deploy and no production/shared DB change. Independent milestone **PASS WITH FINDINGS**; full Product Master/domain acceptance **BLOCKED**. Exact-final-SHA CI outcome (including the follow-up test-fix SHA) is recorded in PR #14 body and the final report; local evidence alone is not a CI-equivalence claim.
+
+
+## TASK-PM-01D-M4-F — remediation of bulk reconciliation, runtime audit partitioning and production-role security
+
+- `TASK-PM-01D-M4-F_IMPLEMENTATION.md`: Persian source-of-truth report for the F remediation of the read-only `M4-R` `FAIL` verdict. It separates code inspection, static checks, real disposable-DB execution and real least-privilege `dms_app` connection evidence; keeps `BLOCKED`/`UNVERIFIED` boundaries explicit; and does not claim independent review.
+- `TASK-PM-01D-M4-F_INDEPENDENT_REVIEW_REQUEST.md`: prepared, **not executed**, focused independent read-only review request. R's `FAIL` verdict remains until that independent review is completed.
+- `evidence/task-pm-01d-m4-f/VERIFICATION.txt`: exact local command/result ledger and `/tmp` log paths; exact-final-SHA CI is recorded in PR #14 body, not as a self-referential hash inside the repository.
+- Code: additive `0063_product_bulk_evidence` columns/table/triggers/RLS/grants, guarded `0062`/`0063` down migrations, operation-bound reconciliation, `AuditPartitionMissingError` with no runtime DDL, read-only `GET /operations/{id}`, explicit `POST /operations/{id}/reconcile`, constant-time token comparison, company+operation advisory lock and transaction-local `app.bulk_operation_id`.
+- Contracts: `npm run openapi:check` 201 paths / 284 operations / 153 schemas / 3 webhooks; `node scripts/contract-drift.mjs` 284/284/284 diff 0; `node scripts/check-test-partition.mjs` 78 files; generated client `schema.ts` +49/−4.
+- Local validation: 63-migration up/down/up with exactly 1029 identical objects; focused 4 files / 32 tests PASS; migrations-security 6/6; selected DB-backed 47 files / 987 tests PASS; DB-free API unit 26 files / 339 tests PASS; web 17 files / 88 tests PASS; root typecheck/build/OpenAPI/drift/partition/diffcheck PASS.
+- Production-role suite: 11/11 PASS on an isolated disposable DB with a real `dms_app` TCP runtime (`APP_DATABASE_URL`), not superuser and not `SET ROLE` only. Verified no CREATE/DDL, no evidence INSERT/DELETE, forced RLS, fail-closed tenant GUCs, non-forgeable operation-bound evidence, explicit reconciliation, accepted-ledger durability and missing-partition atomic rollback. Local trust auth is disclosed; CI uses real PostGIS/password services.
+- Boundaries preserved: PR #14 remains OPEN / DRAFT; no merge/approve/release/deploy, production/shared DB change, owner decision, domain registry, RBAC vocabulary, queue/worker, import semantics change, `0060`/`0061` rewrite, broad grant, external archive or new `SECURITY DEFINER` function. PM-B1..PM-B8 and whole-file atomicity remain OPEN / NOT APPROVED; overall Product Master acceptance remains BLOCKED; independent focused F review remains UNVERIFIED.
+
+## TASK-PM-01D-M4-G — migration race elimination and audit partition recovery
+
+- `TASK-PM-01D-M4-G_IMPLEMENTATION.md`: Persian source-of-truth for the G implementation + self-assessment. Documents exact baseline `74e71172055d6cad482305db1834300c62fb53f5`, recoverable `/tmp/pm01dm4g-backup*` preservation, F-R-01 root cause (guard-before-lock TOCTOU), lock-first/fail-closed `0062`/`0063` down migrations, F-R-02 measured PostgreSQL ownership model, `0064` invoker/pinned-search_path/least-privilege recovery, M2/M3/M4 regression evidence and `UNVERIFIED` boundaries. Exact final SHA and CI IDs are recorded in PR #14 body, not as a self-referential hash inside the repo.
+- `TASK-PM-01D-M4-G_INDEPENDENT_REVIEW_REQUEST.md`: prepared, **not executed**, read-only independent review request. It specifically requires retrying the original F-R-01 widened-window exploit against the final SQL and verifying F-R-02 with real TCP PG connection identities (no `SET ROLE`, no superuser substitute). It must not modify the repo, approve/merge/deploy, change infrastructure, or block unrelated development. `R = FAIL` and `F-R = FAIL` remain unchanged until that review resolves both findings.
+- `evidence/task-pm-01d-m4-g/VERIFICATION.txt`: exact local command/result ledger, `/tmp/pm01dm4g-*.log` paths, disposable-DB isolation proof, failed-run triage, exact `0064.down` catalog mismatch/fix and final executed counts. Logs are not committed as generated artifacts.
+- Code: rewritten `migrations/0062_product_bulk_maintenance.down.sql` and `migrations/0063_product_bulk_evidence.down.sql` acquire `ACCESS EXCLUSIVE` locks in the fixed order `product_bulk_operation → product_catalog_history → product_bulk_history_event → audit_log` before fail-closed guards; new `migrations/0064_audit_partition_recovery.{up,down}.sql` hardens `fn_ensure_partitions` (SECURITY INVOKER, pinned `search_path`, owner/CREATE precondition, EXECUTE revoked from PUBLIC/`dms_app`/`dms_readonly`/`dms_migrator`/`dms_owner`, explicit per-partition RLS/policies/grants) and restores the exact post-`0042` catalog state on down; updated operator error text and privilege/deploy docs.
+- Mandatory deterministic suites: `apps/api/test/migration-rollback-race.test.ts` (8/8, independent connections, explicit witness ordering, A–G) and `apps/api/test/audit-partition-recovery.api.test.ts` (7/7, real TCP role identities, owner recovery, 3 historical audit rows preserved, idempotent retry). `apps/api/test/migrations-security.test.ts` gained an isolated-DB exact-catalog test for `0064.down`/reapply (8/8 total). `apps/api/test/db-backed-tests.txt` and CI comments were updated for the new non-api DB suite.
+- Final local validation: 64-migration up/down/up with exactly 1029 identical objects; focused 6 files / 49 tests; DB-free API unit 26 files / 339 tests; web 17 files / 88 tests; selected DB-backed 49 files / 1004 tests; OpenAPI 201/284/153/3, contract drift zero, partition 80 files, root typecheck/build and `git diff --check` PASS. Local PG16.2 trust auth and missing real PostGIS/Redis are disclosed; four real-PostGIS/password-auth files were excluded locally and covered by exact-final-SHA CI.
+- Boundaries preserved: PR #14 OPEN / DRAFT; no approve/merge/release/deploy, production/shared DB change, production role/secret change, owner decision, PM-B1..PM-B8 change, whole-file atomicity, domain registry, queue/worker, external archive, broad grant, new `SECURITY DEFINER` to bypass ownership, `pg_sleep`/test hook in real migration SQL, or change to `0060`/`0061`/`0041`/`0019`/`0042`. Overall Product Master/domain acceptance remains BLOCKED; both F-R-01 and F-R-02 are technically `PASS WITH FINDINGS` in self-assessment but `UNVERIFIED` for final acceptance until independent review.
+
+
+## TASK-PM-01D-M4-H — operational documentation reconciliation and M4 acceptance readiness
+
+- `TASK-PM-01D-M4-H_IMPLEMENTATION.md`: Persian source-of-truth for the four Agent-2 G-R LOW findings (H-01..H-04). It records the exact baseline `2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c`, the recoverable exact-SHA backup, the preserved historical records, the explicit `dms_owner`/`dms_migrator`/`DATABASE_URL` catalogue model, the supported `fn_ensure_partitions(2)` owner runbook, the reverse-dependency rollback order and the deliberately untouched protected migration files. Exact final SHA is recorded in PR #14 head and the final chat report, not as a self-referential hash inside the repository.
+- `evidence/task-pm-01d-m4-h/VERIFICATION.txt`: exact commands, exit codes, disposable-DB names, SQL outputs, failed-environment triage and cross-document scan results. Raw logs remain in `/tmp/pm01dm4h-*.log` / `/tmp/pm01dm4h-*-summary.txt`; the durable source of truth is the pushed branch commit.
+- Stage 1 `12b80451ab69de72b2bf4039324a015ff794c472` (3 files) fixed the doubled-quote ownership SQL and replaced the obsolete Persian migration-role recovery instruction. Stage 2 `95bd63ac3184445fe616783ae9f1d4be45ace550` (12 files) reconciled security-report ownership claims, labelled historical architecture/runtime wording, clarified `0063.down` before `0062.down`, and preserved all protected migration SQL. Later stage commits add this index, the H report, the verification ledger and the final scan result.
+- Validation: `git diff --check`, `npm run openapi:check` (201/284/153/3), `node scripts/contract-drift.mjs` (0), `node scripts/check-test-partition.mjs` (80 files), root `npm run typecheck`, `node scripts/test-migrations.mjs` (64 up/down/up, 1029 identical objects), and focused Vitest `migration-rollback-race.test.ts` + `migrations-security.test.ts` (2 files / 16 tests) all PASS. The exact H-01 ownership command returned `postgres` on an isolated DB; the historic doubled-quote form failed with `syntax error at or near "public"`. Two idempotent `select fn_ensure_partitions(2);` calls restored an empty future partition, kept 1 historical audit row, and preserved RLS/policies/grants while `dms_app`/`dms_migrator`/`dms_owner` had no EXECUTE. Direct `0062.down` with `0063` applied failed closed (exit 3, two dependent policies); standard `0063.down -> 0062.down` then succeeded.
+- Boundaries preserved: PR #14 OPEN / DRAFT and PR body unchanged; no approve/merge/release/deploy, production/shared DB change, production role/secret change, owner decision, new architecture, permission expansion, runtime authorization logic change, `pg_sleep`/test hook in repository SQL, or edit to `0062.down`, `0063.down`, `0064.up/down`, `0041`, `0019`, `0042`. `R = FAIL`, `F-R = FAIL`, PM-B1..PM-B8, whole-file atomicity and Product Master acceptance remain OPEN / NOT APPROVED / BLOCKED. M4 technical and domain acceptance remain `UNVERIFIED` / `BLOCKED`; H improves documentation consistency but does **not** claim full M4 acceptance.
+
+## TASK-PM-01D-M4-I — evidence-based M4 acceptance closure (authoritative reconciliation)
+
+- `M4_ACCEPTANCE_MATRIX.md`: current authoritative A–D matrix and historical/current status ledger. Current rows use only `PASS`, `FAIL`, `UNVERIFIED`, or `NOT APPLICABLE`; historical labels `FAIL`, `PASS WITH FINDINGS`, `VERIFIED SAFE`, `BLOCKED`, `PARTIAL`, and `OPEN / NOT APPROVED` are quoted and preserved with exact source SHAs. It supersedes the 14-item M4 §7 matrix as a current acceptance posture but does not rewrite that historical report.
+- `TASK-PM-01D-M4-I_IMPLEMENTATION.md`: I implementation/audit report, exact baseline `8c40105f8c5b38660a605078207ac5bd90215359`, Stage A `ce34fdcd738240025fb4f8c801da1a948eb98108`, source-SHA chain, F-R-03/04 implementation, validation, residual gates and readiness. Exact final I SHA and exact final-SHA CI run IDs are recorded in PR #14 body and the final chat report, not as a self-referential hash in this tree.
+- `evidence/task-pm-01d-m4-i/VERIFICATION.txt` and `evidence/task-pm-01d-m4-i/VERIFICATION.json`: durable exact command/result and structured source-SHA/verdict/CI ledgers. Raw `/tmp/pm01dm4i-*` logs remain non-durable; these files preserve the G-R narrow review result, exact H and Stage A CI run IDs, and the contradiction resolution.
+- Reconciliation of preserved historical contradictions: earlier F/G/H index entries that say `R = FAIL`, `F-R = FAIL`, the G independent review request was “not executed”, and Product Master acceptance is `BLOCKED` are preserved as historical records at their own SHAs. G-R was later executed as a narrow independent read-only review at exact SHA `2e6d2711cb2a8b1f60b8c39b87eeb3f3a13a295c`: F-R-01/F-R-02 `VERIFIED SAFE`, M4-G technical acceptance `UNVERIFIED`, production topology `UNVERIFIED`, Product Master `BLOCKED`, overall `PASS WITH FINDINGS` with 4 LOW caveats. I separates historical aggregate verdict, implementation status, independent verification, exact SHA and scope; it does not erase old verdicts or promote G-R to aggregate M4 acceptance. H documenting a finding correctly is not treated as resolving it.
+- Stage A `ce34fdcd738240025fb4f8c801da1a948eb98108` (6 files, +593/−2) closed F-R-03 with `scripts/cleanup-expired-bulk-previews.mjs` (explicit owner DB URL, single tenant UUID, ISO cutoff, dry-run default, `--apply`, no scheduler/queue/runtime grant/`SECURITY DEFINER`/protected SQL edit), `product-bulk-preview-cleanup.test.ts` (5 disposable-PG tests), the DB-backed manifest entry and operator guide §۴-ب. It closed F-R-04 with a direct viewer POST reconcile 403/401 test asserting unchanged ledger, zero evidence/audit rows, unchanged versions and `reconciled:false`. It also fixed the three H non-ZWNJ spellings in `PRODUCTION_DEPLOYMENT.md`.
+- Validation: focused Vitest 2 files / 17 tests; static checks (OpenAPI 201/284/153/3, drift 0, partition 81, root typecheck, diffcheck); 64-migration up/down/up with 1029 identical objects; M4 regression 7 files / 117 tests; full local API unit 26 files / 339 tests, web 17 files / 88 tests and root build all PASS. Local PG16.2 trust-auth limitations and Redis/PG teardown notices are disclosed, not treated as CI-equivalent. All four exact G-R original `dms_*` SCRAM hashes were restored, equality-verified and left NOLOGIN.
+- Exact-SHA CI: H `8c40105...` 8/8 check-runs + 4/4 workflow runs success (CI `42852806525`, e2e `42852806522`, release-image `42852806482`, migrations `42852806515`); Stage A `ce34fdc...` 9/9 check-runs + 5/5 workflow runs success (push migrations `42856944161`, PR CI `42856956874`, release-image `42856956995`, e2e `42856957000`, migrations `42856957011`). `gh pr checks 14` and `gh pr checks 14 --watch -i 15` both EXIT=0. No workflow was edited or rerun to manufacture green; status is never transferred to another SHA.
+- Current mandatory M4 A/B rows are `PASS`, but the independent full read-only re-audit of all seven original R findings at the final SHA (R-AGG) is `UNVERIFIED`; exact missing evidence is the re-audit with commands/results plus production topology/owner authorization. Therefore aggregate M4 readiness is `UNVERIFIED`, not `PASS`. Production topology, S3/MinIO production grade, manual RTL/a11y/console review, network/ACK/pool/`ACCESS EXCLUSIVE` operational impact, external archive and retention/scheduling remain `UNVERIFIED`.
+- Boundaries preserved: PR #14 OPEN / DRAFT; no approve/merge/release/deploy, production/shared DB/config change, CI trigger change, protected migration/SQL edit, runtime grant expansion, owner decision, domain registry, queue/worker, external archive, or new `SECURITY DEFINER`. G-03 `PARTIAL / VERIFIED=NO`, PM-B1..PM-B8 `OPEN / NOT APPROVED`, whole-file atomicity Q1–Q5 `OPEN / NOT APPROVED` and full Product Master acceptance `BLOCKED` remain separate from M4. Readiness is evidence assessment only, not authorization.
+
+## TASK-PM-01D-M4-J — independent read-only final M4 acceptance review (durable copy)
+
+- `evidence/task-pm-01d-m4-j/INDEPENDENT_REVIEW.md`: durable repository copy of the **complete Agent-2 chat report supplied by the project owner**, reproduced in full after a K metadata wrapper. Only trailing Markdown hard-break spaces were normalized for `git diff --check`; no report content changed. Classification: **independent review**, **read-only**, exact target SHA `39355a377fe66f3fd8c2bae996c8ec92211bd4db`, overall verdict `PASS WITH FINDINGS`, **M4 technical scope only**, Product Master `BLOCKED`, production deployment `NOT AUTHORIZED`. The wrapper and report preserve the limitation that the original R report was chat-only and that the seven finding IDs/groupings `R-REC-01`…`R-REC-07` were reconstructed from available evidence; they are not represented as original IDs.
+- `evidence/task-pm-01d-m4-j/REVIEW_METADATA.json`: structured independent-review metadata, exact SHA, verdicts, scope boundaries and preserved limitations.
+- Exact-SHA CI independently re-queried by J: 8/8 check-runs and 4/4 workflow runs `completed / success` at `head_sha=39355a377fe66f3fd8c2bae996c8ec92211bd4db`. Workflow runs `42859214454`, `42859214511`, `42859214519`, `42859215185`; check-run/job IDs `129980469451`, `129980470263`, `129980472444`, `129980472808`, `129980472963`, `129980473065`, `129980473154`, `129980481452`.
+- J limitations preserved: raw per-test CI log counts could not be independently retrieved because the external blob log returned EOF; local PG16.2 trust-auth is not CI- or production-equivalent; exact production topology/object owner/operator authorization remains `UNVERIFIED`. J performed no repository writes, no PR metadata writes, no CI configuration writes, no approval/merge/release/deploy, no production access, and no role/grant/secret/config change.
+
+## TASK-PM-01D-M4-K — final acceptance ledger reconciliation
+
+- `TASK-PM-01D-M4-K_IMPLEMENTATION.md`: dated K reconciliation report. Required starting SHA `39355a377fe66f3fd8c2bae996c8ec92211bd4db`; branch `arena/be5eaff3-green-dms`; PR #14 remains `OPEN / DRAFT`. K final commit SHA and exact final-SHA CI IDs are recorded in PR #14 body and the final chat report, not as a self-referential hash in this tree.
+- `evidence/task-pm-01d-m4-k/VERIFICATION.txt` and `VERIFICATION.json`: durable K command/result and structured current-state ledger. Earlier `evidence/task-pm-01d-m4-i/VERIFICATION.*` files remain unchanged as historical I records.
+- `M4_ACCEPTANCE_MATRIX.md` §8 is the **current authoritative acceptance state**; §§1–7 and the I readiness line are preserved as historical I records. R-AGG remains a mandatory M4 acceptance evidence row and is not silently removed. §8 explicitly separates (A) current isolated M4 technical correctness `PASS WITH FINDINGS`, (B) historical evidence completeness `UNVERIFIED`, and (C) production topology/operational authorization `UNVERIFIED` / `NOT AUTHORIZED`.
+- Scope-resolution source references recorded in §8: `TASK-PM-01D-M4_IMPLEMENTATION.md:199-210`, `GAP_REGISTER.md:220-227`, `PRODUCT_MASTER_TARGET_DESIGN.md:288-299`, `TASK-PM-01D-M4-F_INDEPENDENT_REVIEW_REQUEST.md:75-81`, `TASK-PM-01D-M4-I_IMPLEMENTATION.md:7`, and `M4_ACCEPTANCE_MATRIX.md:64-84`. These establish production topology/operator authorization as separate production-release gates and exact original R IDs as historical-evidence completeness, not current-code M4 technical prerequisites. No owner approval or approval decision is invented.
+- A-20 now cites exact SHA `39355a377fe66f3fd8c2bae996c8ec92211bd4db`, the 8/8 check-runs, 4/4 workflow runs, exact workflow/check-run IDs, and the independent J review. It also records the raw per-test CI log and local trust-auth limitations.
+- Factual correction: `TASK-PM-01D-M4-I_IMPLEMENTATION.md:40` now says the earlier prose incorrectly named `created_at` as the cleanup filter; the tool filters by the explicit `expires_at` cutoff, matching `scripts/cleanup-expired-bulk-previews.mjs:111-132`, and `created_at` is not that filter. Historical I verdict text is unchanged.
+- Current final verdicts: **M4 TECHNICAL ACCEPTANCE: PASS WITH FINDINGS**; **PRODUCT MASTER ACCEPTANCE: BLOCKED**; **PRODUCTION DEPLOYMENT: NOT AUTHORIZED**. Historical R `FAIL`, F-R `FAIL`, G-R narrow `VERIFIED SAFE`, H `PASS WITH FINDINGS` and I `UNVERIFIED` are preserved.
+- Validation: documentation, evidence-index, link/path, JSON and consistency checks only. No DB-backed suite was rerun, no database roles were altered, and no application code, migration, grant, authorization, secret, production configuration, CI configuration, approval, merge, release, deployment, or PR readiness change was made.
+
+## TASK-PM-02 — مرز سروریشدهٔ مرکزی/دامنهای و نمای صریح scope (PM-02-B1)
+
+- `TASK-PM-02_IMPLEMENTATION_MAP.md`: نقشهٔ کوتاه و کدمحور پیش از پیادهسازی — آنچه وجود دارد و کار میکند (هویت مرکزی، D1–D5، D4، تاریخچهٔ ۰۰۶۰، import/export/bulk، RBAC/RLS/audit، مرز ۴۰۰/۵۰۳، صفحات فارسی)، آنچه نیمه است (G-03،D4/جدایی، UI دامنه)، آنچه در کد فعلی غایب است (بدون رجیستری/عضویت/RLS دامنهای/ارائهدهنده)، آنچه با تصمیم مالک BLOCKED است، و آنچه با الزامات مصوب قابل انجام است. هیچ شکاف مستندی بدون بررسی کد «باقیمانده» فرض نشد؛ کار M4 تکرار نشد و احکام تاریخی M4 تغییر نکرد.
+- `TASK-PM-02_OWNER_DECISION_REGISTER.md`: ثبت فشردهٔ PM-B1..PM-B8 و Q1..Q5 با پرسش دقیق، تفسیر مستند فعلی، گزینهها، پیامدها، توصیه (فقط مشاوره) و پاسخ صریح «آیا پیادهسازی میتواند ادامه یابد؟»؛ بهعلاوه بررسی دقیق G-03/دونفره: تنها اقدام عینی دونفره `POST /pricing/margin-exceptions/{id}/decision` با قید `ck_margin_exception_second_person` و `403 second_person_required` است، گردش عمومی `self_approval_forbidden`/`requester_identity_missing`/`entity_creator_identity_missing` را اعمال میکند، هویتها از نشست و `approval_step_def` میآیند، زیرساخت برای قیمت/سفارش وجود دارد ولی **هیچ binding دونفره برای Product Master وجود ندارد**؛ `RBAC + confirm_sensitive + audit` همچنان کنترل مصوب D4/M-5 است. هیچ معنای دونفره تضعیف، دورزده یا ساخته نشد.
+- `TASK-PM-02_IMPLEMENTATION.md`: گزارش بادوام با SHA مبنا `c382d6a822fdf52b711f168f1778443a70194a24`، SHA نهایی و CI دقیق همان SHA در بدنهٔ PR #14 و گزارش نهایی چت (قرارداد خودارجاعی مخزن)، قابلیت دقیق، فهرست کامل فایلها/عدم مهاجرت، تصمیمات معماری، رفتار API/UI، نتایج واقعی تستها، تصمیمات باقیمانده، محدودیتها و یک گام بعدی پیشنهادی.
+- `evidence/task-pm-02/VERIFICATION.txt` و `VERIFICATION.json`: دفتر دقیق فرمان/نتیجهٔ محلی، پشتیبان قابل راستیآزمایی `/home/user/pm02-backup.tar.gz` با sha256 `3deb84dd66de0f250e22a3d6886d095e538133e4cc95a30a70d49737cd69ebc2`، محدودیت PostgreSQL محلی trust-auth و نبود Redis.
+- کد جدید: `product-domain-boundary.ts` (قرارداد خالص و اسکن فقط کلیدها، فارسی/انگلیسی، سقفدار)، `domain-boundary.guard.ts` (نگهبان پیش از pipe، ممیزی با GUCهای transaction-local)، `product-domain-scope.service.ts` / `.controller.ts` (نمای خواندنی مرکزی با `available:false` و سه فیلد `unresolved`). سیمکشی در `product.controller.ts`، `product-import.controller.ts` و `master-data.module.ts`؛ `OPERATIONAL_DOMAIN_AUTHORITY` همچنان ثبت نشده است.
+- قرارداد/کلاینت/UI: مسیر `GET /products/{id}/domain-scope` و اسکیمای `ProductDomainScope` در OpenAPI (۲۰۲ مسیر / ۲۸۵ عملیات / ۱۵۴ اسکیما / ۳ وب هوک)، کدهای `domain_property_rejected` و `domain_context_not_supported`، کلاینت تولیدشدهٔ `schema.ts` (+۹۲ خط)، سه صفحهٔ فارسی RTL (تب دامنهٔ جزئیات کالا، صفحهٔ تصمیمهای دامنه، یادداشت صفحهٔ import). هیچ کنترل عضویت/فعالسازی ساختگی اضافه نشد.
+- تستها: واحد خالص ۷/۷، نگهبان ۸/۸، نمای scope ۹/۹ (مجموع ۲۴ بیداده)، HTTP بومی روی PostgreSQL ۱۶.۲ یکبارمصرف ۱۲/۱۲ (شامل رد `domain_id` بدون اثر، سرستون فارسی/انگلیسی، `x-domain-id` ۴۰۰، بیننده ۴۰۳، کالای شرکت دیگر ۴۰۴، ردیف `audit_log` بدون مقدار خام)، وب ۹۴/۹۴ (۱۸ فایل)، واحد API بیداده ۳۶۳/۳۶۳ (۲۹ فایل)، ۶۴ مهاجرت up/down/up با دقیقاً ۱۰۲۹ شیء یکسان، typecheck/OpenAPI/drift/partition/root build/`git diff --check` همگی PASS.
+- مرزها: بدون مهاجرت، جدول دامنه، گرانت/RLS/نقش/seed تازه، ارائهدهنده، مجوز دامنهای، عضویت، lifecycle، backfill، cutover، تغییر §E، تغییر G-03/D4، تغییر D1–D5، تغییر ۰۰۶۰..۰۰۶۴، تغییر پیکربندی CI، تغییر آمادگی PR، merge/approve/release/deploy یا دسترسی به DB/زیرساخت/secret تولید. PM-B1..PM-B8 و Q1..Q5 همچنان `OPEN / NOT APPROVED`؛ پذیرش کامل Product Master `BLOCKED`؛ استقرار تولید `NOT AUTHORIZED`.
+- بهروزرسانی همراستا: `PRODUCT_MASTER_TARGET_DESIGN.md` (پیوست TASK-PM-02) و `TASK-PM-01_PRODUCT_MASTER_SPEC.md` §12. `M4_ACCEPTANCE_MATRIX.md` و سایر اسناد M4 دستنخورده ماندند.
+
+---
+
+## TASK-PM-02-B2 — بستهٔ تصمیم مالک و همسانی سطوح خواندنی مرکزی
+
+- `TASK-PM-02-B2_OWNER_DECISION_PACKAGE.md`: بستهٔ فشردهٔ درخواست تصمیم برای سه
+  گلوگاه PM-B1 (هویت دامنه)، PM-B2 (چرخهٔ حیات) و PM-B4 (اختیار/انتساب)؛ پرسش
+  دقیق، گزینهها، توصیهٔ فقطمشاورهای، پیامدها، فهرست دقیق عناصر مسدود (رجیستری،
+  مهاجرت، FK، نگاشت/backfill، ماشین حالت، ماتریس اختیار، انتساب، مجوزها، RLS،
+  API/UI دامنهای)، شواهد پذیرش، قالب جدول هفتستونی امضاشده، شواهد دروازهٔ بسته،
+  و احکام PASS/FAIL/UNVERIFIED/BLOCKED. وضعیت همهٔ تصمیمها `OPEN / NOT APPROVED`.
+- `evidence/task-pm-02/VERIFICATION-B2.txt` و `VERIFICATION-B2.json`: دفتر
+  فرمان/نتیجهٔ محلی B2، پشتیبان `/home/user/pm02-b2-backup.tar.gz` با sha256
+  `0ae60fac33f3a6f35e25f35834ba745586af6fa9316577bfdb35a981857540e8`، و اثبات
+  اینکه ۴ فایل/۱۷ تست ناکام محیطی (PostGIS/trust-auth) عیناً روی مبنای دستنخورده
+  نیز ناکاماند و رگرسیون B2 نیستند.
+- کد تغییریافته (فقط-parity، بدون معنای دامنهای): `product.controller.ts`
+  (`list`/`get`)، `product-export.controller.ts` (`export`)،
+  `product-import.controller.ts` (`report/:id`) همگی `@UseGuards(DomainBoundaryGuard)`
+  گرفتند؛ ترتیب `AuthGuard, PermissionsGuard` پیش از نگهبان مرز حفظ شد. مسیرهای
+  `CatalogFoundationController` که `@Headers("x-domain-id")` میخوانند بدون نگهبان
+  ماندند؛ `OPERATIONAL_DOMAIN_AUTHORITY` همچنان ثبت نشده است.
+- قرارداد/کلاینت: `openapi.yaml` خطای `400` روی `GET /products/import/report/{id}`
+  و توضیح مرز B2 در `Error.code`؛ `packages/api-client/src/schema.ts` با
+  openapi-typescript ۷٫۱۳٫۰ بازتولید شد (تولید قطعی، ۱۲+/۱− خط). شمارشها بدون
+  تغییر: ۲۰۲ مسیر / ۲۸۵ عملیات / ۱۵۴ اسکیما / ۳ وب هوک.
+- تستهای نو: `product-domain-boundary-guard.test.ts` (+۶ مورد خواندنی بیداده)،
+  `product-domain-boundary-read-parity.test.ts` (جدید، ۴ مورد ساختاری بیداده:
+  پوشش ۵ handler، ترتیب نگهبانها، نبود رد سراسری مسیرهای زمینهٔ دامنه، نبود
+  ارائهدهنده)، `product-domain-boundary.api.test.ts` (+۷ مورد HTTP واقعی).
+  نتایج محلی: واحد بیدادهٔ متمرکز ۳/۲۵، پارتیشن کامل بیداده ۳۰/۳۷۳، وب ۱۸/۹۴،
+  مرز HTTP بومی ۱/۱۹، رگرسیون هدفمند DB ۷/۱۴۶، مهاجرت up/down/up دقیقاً ۱۰۲۹
+  شیء یکسان، typecheck/OpenAPI/drift/partition/root build/`git diff --check`
+  همگی PASS. اجرای کامل DB ۵۱/۵۵ فایل و ۱۰۹۲/۱۱۰۹ تست؛ ۴ فایل/۱۷ تست ناکام
+  (`customers`/`geofences`/`tours`/`postgres-init-role`) عیناً روی مبنای
+  `dad4ce8…` بازتولید شدند ← محدودیت محیط محلی، نه رگرسیون.
+- بهروزرسانی همراستا: `TASK-PM-02_OWNER_DECISION_REGISTER.md` §5،
+  `PRODUCT_MASTER_TARGET_DESIGN.md` پیوست B2، `TASK-PM-02_IMPLEMENTATION.md` §9.
+  اسناد M4 و `M4_ACCEPTANCE_MATRIX.md` دستنخورده ماندند. PM-B1..PM-B8 و Q1..Q5
+  `OPEN / NOT APPROVED`؛ پذیرش کامل `BLOCKED`؛ استقرار تولید `NOT AUTHORIZED`؛
+  PR #14 `OPEN / DRAFT`؛ بدون merge/approve/release/deploy.
+
+---
+
+## TASK-PM-02-C1 — مرکز تصاویر و اسناد کالا (شواهد تازه)
+
+- گزارش اصلی: `TASK-PM-02-C1_IMPLEMENTATION.md`؛ کارنامهٔ دروازهها:
+  `VERIFICATION-C1.txt` / `VERIFICATION-C1.json` (۲۰ دروازه با نتیجه و شاهد).
+- کد: `apps/api/src/modules/master-data/product-media.{rules,service,controller}.ts`،
+  `apps/api/src/modules/master-data/master-data.module.ts`،
+  `apps/api/src/modules/attachments/{attachments.module,attachments.service}.ts`،
+  `apps/web/src/app/products/[id]/{product-media.tsx,product-media.test.tsx,page.tsx}`،
+  `apps/web/src/lib/api.ts`، `packages/contracts/openapi.yaml`،
+  `packages/api-client/src/schema.ts`.
+- تستها: `apps/api/test/product-media-rules.test.ts` (۹، بیداده)،
+  `apps/api/test/product-media.api.test.ts` (۸، HTTP واقعی + PostgreSQL بومی)،
+  `apps/web/src/app/products/[id]/product-media.test.tsx` (۷، jsdom).
+- نتایج: واحد قواعد ۹/۹؛ ترکیب C1 بکاند ۲ فایل/۱۷ تست؛ واحد بیدادهٔ کامل API
+  ۳۱ فایل/۳۸۲ تست؛ وب ۱۹ فایل/۱۰۱ تست؛ `npm run typecheck` و `npm run build -w apps/web`
+  سبز؛ OpenAPI ۲۰۴ مسیر/۲۸۸ عملیات/۱۵۶ اسکیما/۳ webhook؛ drift=۰؛ پارتیشن تست ۸۸ فایل
+  declared==computed؛ `git diff --check` صفر. **بدون مهاجرت تازه**.
+- مرز: `DomainBoundaryGuard` روی ۳ مسیر تازه؛ `x-domain-id` و `?available=true` در تست
+  HTTP بهترتیب `domain_context_not_supported` و `domain_property_rejected` (۴۰۰) دادند.
+  PM-B1..PM-B8 / Q1..Q5 / G-03 و پذیرش کامل `BLOCKED`؛ PR #14 `OPEN / DRAFT`؛
+  CI روی SHA نهایی تا اجرای واقعی `UNVERIFIED / PENDING`.
+
+
+---
+
+## TASK-PM-02-C2 — مدیریت دادههای مرجع کالا (شواهد تازه)
+
+- گزارش اصلی: `TASK-PM-02-C2_IMPLEMENTATION.md`؛ کارنامهٔ ۳۰ دروازه:
+  `VERIFICATION-C2.txt` / `VERIFICATION-C2.json`؛ شاهد زندهٔ همانمبدأ:
+  `evidence/task-pm-02/VERIFICATION-C2-LIVE.txt`.
+- کد: `migrations/0065_reference_data_admin.{up,down}.sql`،
+  `reference-data.{rules,repository,service,controller}.ts`، سیمکشی
+  `master-data.module.ts`، `product.repository.ts` / `product.service.ts`،
+  `packages/contracts/openapi.yaml`، `packages/api-client/src/schema.ts`،
+  `apps/web/src/app/products/reference-data/*`، صفحات `products`/`new`/`[id]`/
+  `settings` و `products-lib.ts`.
+- تستها: `reference-data-rules.test.ts` (۷)، `reference-data.api.test.ts` (۹)،
+  `reference-data-lib.test.ts` (۶)، `reference-selectors.test.tsx` (۴)،
+  `page.test.tsx` (۷)، بهروزرسانی آگاهانهٔ `migrations-security.test.ts` و نگهبان
+  `setup-pg-guard.ts`.
+- نتایج: متمرکز بکاند ۱۶/۱۶؛ متمرکز وب ۱۷/۱۷؛ وب کامل ۲۲/۱۱۸؛ واحد بیدادهٔ API
+  ۳۲/۳۸۹؛ قرارداد اجراشده ۸۰/۸۰؛ OpenAPI ۲۱۱/۳۰۴/۱۷۴/۳ و drift=۰؛ کلاینت +۷۲۶؛
+  typecheck/build ریشه؛ پارتیشن ۹۰ فایل؛ diffcheck صفر؛ مهاجرت up/down/up با
+  ۱۰۳۳ شیء یکسان؛ اجرای کامل DB ۸۵/۹۰ فایل و ۱۵۰۵/۱۵۲۴ تست با کنترل مبنای
+  `aa0028a…` عیناً همان ۵/۱۹ شکست محیطی (`identical=True`).
+- مرز: `DomainBoundaryGuard` و رد `x-domain-id` / بدنه/پارامتر ناشناخته؛ بدون
+  مجوز/نقش/seed/RLS/grant/دامنه تازه؛ PM-B1..PM-B8 / Q1..Q5 / G-03 و پذیرش
+  کامل `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14 `OPEN / DRAFT`.
+- همسنجی: عبارت «برند/UOM … BLOCKED» در C1 محدودهٔ همان کامیت بود، نه تصمیم
+  مالک؛ پیوستهای C2 در پنج سند بالادستی/گزارش/ثبت مالک/شکافها/شاخص شواهد و
+  راهنمای اپراتور بهصورت افزودنی ثبت شدند. `M4_ACCEPTANCE_MATRIX.md` و احکام
+  تاریخی M4 دستنخورده ماندند.
+- محدودیتهای صریح: CI نهایی دقیقSHA، مرورگر دستی/RTL/a11y/console، MinIO/S3
+  production و معادل CI/تولید `UNVERIFIED`؛ هیچ اسکرینشات ساختگی ثبت نشد.
+
+---
+
+## TASK-PM-02-C3 — ضمائم سازمانی (Enterprise-Wide Entity Attachments)
+
+- Git: کامیت معمولی `8b538da734b8d2c9797ef90a21584891c95e57cc` (۲۸ فایل /
+  ۳٬۳۵۵+/۱۸۰−، push `19d412a..8b538da`) و کامیت دوم شواهد Git؛ نتیجهٔ CI
+  دقیقSHA و شش نمای نهایی بهصورت افزودنی در بدنهٔ PR #14 / گزارش نهایی چت،
+  بدون commit پساCI یا trigger مصنوعی.
+- مبنا: `19d412a966bd612694a08b58e133f71d9c6ba3fa` (C2)؛ شش نمای SHA در ابتدا
+  `ALL_AGREE=True`، worktree پاک، diffcheck صفر. چکپوینت قابل بازیابی
+  `/home/user/pm02-c3-checkpoint.tar.gz` (sha256
+  `75d2cf6fed6d0ebfbb6b6dbd00272e97a08bc9b22b988329b2c935918eb2dd5e`،
+  `sha256sum -c` → `OK`) و `/home/user/pm02-c3-checkpoint.bundle`.
+- کد: قواعد خالص/سرویس/کنترلر/ماژول `entity-attachments.*`، قلاب اختیاری
+  `UploadHooks` در `attachments.service.ts`، سیمکشی `app.module.ts`،
+  `packages/contracts/openapi.yaml` (+۳ مسیر / ۴ اسکیما)، کلاینت بازتولیدشده،
+  `EntityAttachments.tsx`، `uploadEntityAttachment`، نگهدارندهٔ سازگاری،
+  پنج صفحهٔ واقعی، `/attachments-center` و `navigation.ts`.
+- ماتریس واجدشرایطبودن، معماری، مرزها، نتایج و احکام جداگانه:
+  `TASK-PM-02-C3_IMPLEMENTATION.md`؛ شواهد ساختاریافته
+  `VERIFICATION-C3.{txt,json}`؛ شاهد زندهٔ همانمبدأ
+  `evidence/task-pm-02/VERIFICATION-C3-LIVE.txt`؛ راهنمای اپراتور §۸.
+- تستها: متمرکز API ۲/۱۶، متمرکز وب ۲/۱۴، وب کامل ۲۴/۱۳۲، واحد بیدادهٔ API ۳۳/۳۹۵،
+  قرارداد ۸۰/۸۰، امنیت مهاجرتها ۸/۸، رگرسیون C1/C2/مالکیت ۸/۸، ۹/۹، ۱۹/۱۹،
+  OpenAPI ۲۱۳/۳۰۷/۱۷۸/۳ و drift=۰، typecheck/build ریشه، پارتیشن ۹۲ فایل،
+  up/down/up ۱۰۳۳ شیء، اجرای کامل DB ۸۷/۹۲ و ۱۵۲۱/۱۵۴۰ با ۵/۱۹ شکست
+  محیطی عیناً همان مبنای پاک C2 (`identical=True`).
+- شاهد زنده: پنج آپلود واقعی، فهرست/شمارش، URL تازه (۳۰۰ ثانیه)، ۴۰۴ مالک
+  دیگر، رد انواع اختراعی/محصول/`other`/تزریق مالک/هدر دامنه/کوئری/امضای جعلی،
+  رگرسیون API قدیم و C1، شش صفحهٔ وب ۲۰۰؛ DB: ۵ رویداد ممیزی، صفر نشت
+  URL/`storage_key` در `after_data`.
+- مرز: بدون مهاجرت، مجوز، نقش، grant، seed، RLS، نوع مالک یا معنای دامنهای
+  تازه؛ بدون حذف/بایگانی/اصلی/نگهداشت؛ PM-B1..PM-B8 / Q1..Q5 / G-03 و
+  پذیرش کامل Product Master `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14
+  `OPEN / DRAFT`. مرورگر دستی RTL/a11y/console و MinIO/S3 production
+  `UNVERIFIED`؛ هیچ اسکرینشات ساختگی ثبت نشد.
+
+
+---
+
+## TASK-PM-02-C4 — مرکز انتقال ضمائم چندموجودیتی (شواهد تازه)
+
+- مبنا و بازیابی: `8ca19b4dfa6fc9b255915c383c0530f7a67adf1d` (C3)، شش نمای SHA
+  `ALL_AGREE=True`، `Already up to date`، worktree پاک و diffcheck صفر. چکپوینت
+  `/home/user/pm02-c4-checkpoint.tar.gz` (sha256
+  `3a3aa375b3e871c8508e9ed1c00a4fb7553cdcb2afc9dfc95a697a8fc9fa49ab`،
+  `sha256sum -c OK`، ۲٬۸۸۷ فایل) و bundle کامل `--all`. بدنهٔ PR پیش از C4
+  ۱۱۲٬۹۸۵ نویسه / ۱۲۲٬۳۱۶ بایت با هش
+  `6ef4a5089c4caa552032ca86a9a1e9d54bd01944eebaa2a78bddfe4b8d310f4e` حفظ شد.
+- کد: `attachment-transfer.{rules,package,types,service,controller,module}.ts`،
+  `StorageService.get(key,maxBytes)` باندشده، ثبت در `app.module.ts`، ۱۱ مسیر
+  OpenAPI + تگ `attachment-transfer` + ۲۵ اسکیمای `Transfer*`، کلاینت تولیدشده
+  (+۸۱۰ خط)، `apps/web/src/lib/attachment-transfer.ts`،
+  `AttachmentTransferCenter.tsx`، صفحهٔ محافظتشدهٔ `/attachment-transfer`،
+  ناوبری `IconTransfer` و کارت پیوند در `/attachments-center`. **بدون مهاجرت،
+  مجوز، نقش، grant، seed، RLS، مالک، دامنه، ارائهدهنده یا سیاست نگهداشت تازه.**
+- قرارداد/ساخت: OpenAPI **۲۲۴ مسیر / ۳۱۸ عملیات / ۲۰۳ اسکیما / ۳ وبحوک**؛
+  drift **۳۱۸/۳۱۸ و انحراف ۰**؛ `build:packages`، typecheckـهای API/وب/کلاینت،
+  `next build` (شامل `/attachment-transfer`) و `node apps/api/dist/main.js` PASS؛
+  up/down/up **۱٬۰۳۳ شیء یکسان**؛ پارتیشن **۹۵ فایل** `declared == computed`؛
+  `git diff --check=۰`.
+- تستها: واحد C4 **۲/۱۷**، سرتاسری HTTP+PostgreSQL **۱/۷**، جزء وب **۱/۵**،
+  وب کامل **۲۵/۱۳۷**، واحد بیدادهٔ API **۳۵/۴۱۲**، رگرسیون هدفمند **۹/۱۰ فایل و
+  ۲۰۶/۲۰۸ تست** (۲ شکست مبنای محیطی `attachments.api` عیناً C3)، اجرای کامل DB
+  **۹۰/۹۵ فایل و ۱٬۵۴۵/۱٬۵۶۴ تست** با ۵ فایل/۱۹ عنوان شکست
+  `identical=True` نسبت به `/tmp/pm02c3-api-full.log`. «Full DB PASS» اعلام نشد.
+- شاهد زندهٔ همانمبدأ:
+  `evidence/task-pm-02/VERIFICATION-C4-LIVE.txt` (sha256
+  `409044cd7a3623e07a6299c861cb67f2588a6cd1b02c9666d7365af74ddca1ff`،
+  ۷٬۲۵۲ بایت). ۸ مالک مصوب، ۵ رکورد، بستهٔ ۵ فایل / ZIP ۳٬۵۱۵ بایت، دانلود
+  باینری با هش، پیشنمایش ۵ duplicate، `crc_mismatch`، تزریق `company_id` رد،
+  نگاشت نسخهٔ ۲ و بیاعتباری تأیید، تأیید جعلی ۴۰۰، اجرا `409 approval_required`،
+  `attachment` بدون تغییر (۶←۶)، ۷ رویداد ممیزی و **۰ نشت**؛ دو صفحهٔ وب ۲۰۰.
+- **BLOCKED:** اجرای ورود ضمائم. `FINGERPRINT_FIELDS`/`ENTITY_STATE_SQL` فقط سه
+  عملیات مصوب M4 را میشناسند؛ `attachment.import.execute` فقط نام وابستگی است،
+  `fingerprint_supported=false`، `submitForApproval` fail-closed،
+  `consumeApprovedBinding` در همان تراکنش لازم است. هیچ عملیات/اثرانگشت/سیاست/
+  زنجیره/مهاجرت/گرنت/RLS تازهای ساخته نشد؛ UI دکمهٔ اجرا ندارد.
+- Receipt/POD: بکند مصوب حفظ شد؛ صفحهای عملیاتی واجدشرایط یافت نشد
+  (`/payments` فقط بکند، `treasury` موقعیتها/بستنها، `waybills` فهرست/جزئیات
+  حوالهها) ⇒ UI اختصاصی **DEFERRED** با ثبت وابستگی دقیق.
+- اسناد: `TASK-PM-02-C4_IMPLEMENTATION.md`، `VERIFICATION-C4.{txt,json}`،
+  پیوست §۹ راهنمای اپراتور. PM-B1..PM-B8 / Q1..Q5 / G-03 / G-13 و پذیرش کامل
+  Product Master `BLOCKED`؛ استقرار `NOT AUTHORIZED`؛ PR #14 `OPEN / DRAFT`؛
+  مرورگر دستی RTL/a11y/console و MinIO/S3 production `UNVERIFIED`؛ CI دقیقSHA و
+  شش نمای نهایی بهصورت افزودنی در بدنهٔ PR/گزارش چت ثبت میشود، بدون commit پساCI.
+
+## TASK-PM-02-C5 — چرخهٔ حیات مرکزی کالا (شواهد تازه)
+
+- مبنا و بازیابی: `f0d39980fbcd3d1ca4d00cb13b4db24b3f664341` (پایان C4)، شش نمای SHA
+  `ALL_AGREE=True`، `Already up to date`، worktree پاک و diffcheck صفر. چک‌پوینت
+  `/home/user/pm02-c5-checkpoint.tar.gz` (sha256
+  `0c2057d700cfdd0457b2fb6b5cc2176c851c3ce557ce1abd4cb6b3d012843f88`،
+  `sha256sum -c OK`، ۲٬۹۰۳ فایل) و bundle کامل `--all` (۳٬۱۴۸٬۷۴۰ بایت). بدنهٔ PR پیش
+  از C5: ۱۲۶٬۲۸۶ نویسه / ۱۳۹٬۹۶۸ بایت با هش
+  `4b4d1a1d2904239130926fd597268d4c56f6dd6ad90c79f9fbd7e930693d4b0b` حفظ شد.
+- سیاست: `product-lifecycle.rules.ts` تنها مرجع ماتریس ۳×۳ + `deleted_soft` است و در
+  همان نقطهٔ D4 (`assertSensitiveConfirmed`) اعمال می‌شود؛ بنابراین PATCH عمومی، import،
+  بسته‌بندی/واحد و مسیر اختصاصی همگی یک حکم می‌گیرند. تنها `active↔blocked` پشتیبانی
+  می‌شود؛ پنج گذار شامل `discontinued` با `lifecycle_transition_blocked` و گذار
+  بی‌تغییر با `lifecycle_transition_unchanged` رد می‌شوند. **تصحیح دامنه:** پیش‌نویس
+  نخست C5 شش گذار را supported می‌دانست؛ این تضاد با تصمیم مصوب در همین کار اصلاح شد.
+- کد: `product-lifecycle.{rules,service,controller}.ts`، ویرایش `product-sensitivity.ts`،
+  `product.dto.ts`، `product-master.service.ts` (پیش‌نمایش import) و `master-data.module.ts`؛
+  ۲ مسیر OpenAPI + ۷ اسکیمای `ProductLifecycle*` (action/transition فقط
+  `[active, blocked]`)؛ کلاینت تولیدشده (+۲۷۰ خط)؛ `product-lifecycle.tsx` به‌عنوان تب
+  نخست «چرخه حیات» و تبدیل `select` وضعیت تب مشخصات به نشان **فقط‌خواندنی**.
+  **بدون مهاجرت، مجوز، نقش، grant، seed، RLS، شرکت، دامنه یا سیاست نگهداشت تازه.**
+- امنیت: `AuthGuard` + `PermissionsGuard` + `DomainBoundaryGuard`، بازاعتبارسنجی مجوز از
+  DB پیش/داخل `CatalogAccess.write`، GUC شرکت/کاربر، قفل advisory،
+  `SELECT … FOR UPDATE` + `row_version` الزامی و قید نسخه در UPDATE، `recordRequired`
+  fail-closed و تریگر ۰۰۶۰ در همان تراکنش، کنشگر/زمان فقط از نشست، ۴۰۰ صریح برای
+  فیلدهای شرکت/هویت/مجوز/ممیزی/دامنه، ۴۰۴ یکنواخت بین‌شرکتی، ۴۰۹ بدون SQL.
+- قرارداد/ساخت: OpenAPI **۲۲۶ مسیر / ۳۲۰ عملیات / ۲۱۰ اسکیما / ۳ وب‌هوک**؛ drift
+  **۳۲۰/۳۲۰ و انحراف ۰**؛ `build:packages`، `npm run typecheck`، `npm run build` و
+  `node apps/api/dist/main.js` PASS؛ up/down/up **۱٬۰۳۳ شیء یکسان**؛ پارتیشن **۹۷ فایل**
+  `declared == computed`؛ `git diff --check=۰`.
+- تست‌ها: واحد بی‌دادهٔ C5 **۱/۴**، سرتاسری HTTP+PostgreSQL **۱/۱۳**، import BLOCKED
+  برای `discontinued` **PASS**، جزء وب **۱/۶**، وب کامل **۲۶/۱۴۳**، واحد بی‌دادهٔ API
+  **۳۶/۴۱۶**، رگرسیون هدفمند **۱۱ فایل / ۲۴۱ تست**، اجرای کامل DB **۹۲/۹۷ فایل و
+  ۱٬۵۶۳/۱٬۵۸۲ تست** با ۵ فایل/۱۹ عنوان شکست **عیناً یکسان** با
+  `/tmp/pm02c4-api-full.log` (بدون رگرسیون تازه). «Full DB PASS» اعلام نشد.
+- شاهد زندهٔ همان‌مبدأ: `evidence/task-pm-02/VERIFICATION-C5-LIVE.txt` (sha256
+  `4d392651b7b9cc4796c52b29c3bcac2c2d5696b567aeb02fe4f078db03dff417`، ۹٬۷۹۸ بایت).
+  سلامت `database=up`، ورود `c1_admin`، ساخت کالا با `active/row_version=0`، نمای ۱۲ ردیفی
+  با دقیقاً ۲ گذار supported و ۵ BLOCKED، رد ۶ درخواست خواندنی و ۷ درخواست گذارِ ساختگی/ناقض بدون تغییر ردیف،
+  `active→blocked` با `row_version 0→1` و `audit product_lifecycle.transition|blocked|active`،
+  تاریخچهٔ ۰۰۶۰، `409 version_conflict` بدون SQL، `blocked→active` (۱→۲)، کالای قدیمی
+  `discontinued` بدون هیچ عمل/گذار و بدون تغییر، ۴۰۱ بی‌نشست، ۴۰۴ یکنواخت،
+  `domain_context_not_supported`، و بازگشت شمارش‌ها به مبنا (**product=4، audit=3**).
+- **BLOCKED:** همهٔ گذارهای به/از `discontinued` و معنای توقف/برگشت‌ناپذیری/دلیل/بایگانی؛
+  حذف/بازگردانی/نگهداشت؛ G-03 و جایگزینی D4؛ PM-B1..PM-B8 / Q1..Q5 / G-13؛ هر مهاجرت/
+  مجوز/نقش/grant/RLS/شرکت/دامنه/seed تازه؛ تغییر رفتار قیمت/بارنامه/سفارش/موجودی/فاکتور/
+  ضمائم؛ پذیرش کامل Product Master؛ استقرار تولید.
+- اسناد: `TASK-PM-02-C5_IMPLEMENTATION.md`، `VERIFICATION-C5.{txt,json}`، پیوست §۱۰
+  راهنمای اپراتور. PR #14 `OPEN / DRAFT`؛ مرورگر دستی RTL/a11y/console و زیرساخت معادل
+  تولید `UNVERIFIED`؛ CI دقیقSHA و شش نمای نهایی به‌صورت افزودنی در بدنهٔ PR/گزارش چت
+  ثبت می‌شود، **بدون commit پساCI**.
+
+## TASK-PM-02-C6 — روابط کالا‑به‑کالا: جایگزین و مکمل (شواهد تازه)
+
+- مبنا و بازیابی: `50a7a587b6e8542cf7217dde3922e88dc39da74a` (پایان C5)، شش نمای SHA
+  هم‌خوان، `Already up to date`، worktree پاک و `git diff --check=0`. چک‌پوینت
+  `/home/user/pm02-c6-checkpoint.tar.gz` (۳٬۰۹۷٬۲۷۲ بایت، sha256
+  `1c1c199532c15b201404c12dd97ac3181592659705f5d2153c623697fc356e0e`، `sha256sum -c OK`)
+  و bundle کامل `--all` (۳٬۲۰۵٬۴۰۷ بایت، complete history، HEAD `50a7a58…`). بدنهٔ PR پیش از
+  C6: ۱۳۱٬۴۷۴ نویسه / ۱۴۶٬۹۳۲ بایت با هش
+  `c8fb45a7211bbd49bc59ceb38d8124a15d1a6a524ec8531204e08a69a1a00610` بایت‌به‌بایت حفظ شد.
+- کاتالوگ: فقط دو نوع مصوب `0046` — `substitute` (سیاست حلقه = قاعدهٔ موجود) و
+  `complement` (بدون قاعدهٔ مصوب حلقه). هیچ نوع/جهت/کاردینالیتی/اثر عملیاتی تازه ساخته نشد؛
+  شش تصمیم باز به‌صورت `C6-D1..C6-D6` (۲ BLOCKED / ۴ UNRESOLVED) در API و UI اعلام می‌شوند.
+- کد: `product-relations.{rules,service,controller}.ts` (تازه)، حذف مسیرهای قدیمی
+  رابطه از `product-catalog.controller.ts` و `product-master.service.ts`، ثبت در
+  `master-data.module.ts`؛ ۴ مسیر بازطراحی‌شده + ۳ مسیر تازه OpenAPI و ۱۰ اسکیمای
+  `ProductRelation*`؛ کلاینت بازتولیدشده؛ تب فارسی RTL `product-relations.tsx` جایگزین
+  کامپوننت درون‌خطی. **بدون مهاجرت، مجوز، نقش، grant، seed، RLS، شرکت یا دامنهٔ تازه.**
+- امنیت: `AuthGuard → PermissionsGuard → DomainBoundaryGuard` روی کل سطح (شکاف پیش از C6:
+  این کنترلر گارد مرز دامنه نداشت)، `assertProduct`/۴۰۴ یکنواخت روی خواندن‌ها (شکاف پیشین:
+  کالای ناموجود/بین‌شرکتی ۲۰۰ توخالی می‌گرفت)، فیلدهای شرکت/هویت/مجوز/ممیزی/دامنه و
+  `reciprocal` صریحاً ۴۰۰، `CatalogAccess.write` با advisory lock + `recordRequired`
+  fail-closed، تاریخچهٔ `0060` در همان تراکنش.
+- قرارداد/ساخت: OpenAPI **۲۲۸ مسیر / ۳۲۳ عملیات / ۲۲۱ اسکیما / ۳ وب‌هوک**؛ drift
+  **۳۲۳/۳۲۳، انحراف ۰**؛ `npm run typecheck` (۰ خطا)، `npm run build`،
+  `node apps/api/dist/main.js` PASS؛ up/down/up **۱٬۰۳۳ شیء یکسان**؛ پارتیشن
+  **۹۹ فایل `declared == computed`**؛ `git diff --check=۰`.
+- تست‌ها: واحد بی‌دادهٔ C6 **۱/۹** (بدون `DATABASE_URL` هم PASS)، سرتاسری HTTP+PostgreSQL
+  **۱/۱۴**، کامپوننت وب **۱/۷**، رگرسیون هدفمند **۸ فایل/۶۲ تست**، وب کامل **۲۷/۱۵۰**،
+  API کامل DB بدون فایل C6 **۹۴/۹۸ فایل و ۱٬۵۷۴/۱٬۵۹۱ تست** با ۴ فایل/۱۷ عنوان شکست
+  **عیناً همان‌های مبنا** (`attachments/customers/geofences/tours/postgres-init-role`؛
+  `attachments` جداگانه ۹/۹ PASS). «Full DB PASS» اعلام نشد.
+- شاهد زندهٔ همین‌مبدأ: `evidence/task-pm-02/VERIFICATION-C6-LIVE.txt` (sha256
+  `6bff0d1b21ffcf6e00b9e2a8a56fd959c4b0a8debaf4945819a15ba09f43473f`، ۱۰٬۰۹۸ بایت):
+  نمای خالی با دو نوع/۶ تصمیم باز، افزودن A→B بدون ساخت معکوس، نمای ورودی از B،
+  `self_relation` ۴۰۰ / `duplicate_relation` ۴۰۹ / `relation_cycle` ۴۰۰ و پذیرش حلقهٔ مکمل،
+  شش ۴۰۰ صریح برای فیلد شرکت/`reciprocal`/نوع/کوئری/هدر و ویژگی دامنه، ۴۰۱/۴۰۴،
+  ویرایش اولویت با تاریخچهٔ UPDATE، سقف پیمایش، هشدار کالای مسدود، حذف با ممیزی و
+  تاریخچهٔ `INSERT,UPDATE,DELETE`، بدون هیچ تغییر در کالا/بسته/ممیزی product، و بازگشت
+  شمارش‌ها به مبنا (**product=4، product_relation=0، product_bundle=0، audit=0**).
+- **BLOCKED:** جایگزینی خودکار در سند (C6-D1)، گسترش عملیاتی بسته/P5 (C6-D6)،
+  PM-B1..PM-B8 / Q1..Q5 / G-13 / G-03، حذف/بایگانی/نگهداشت، هر مهاجرت/مجوز/نقش/grant/
+  RLS/شرکت/دامنه/seed تازه، تغییر رفتار قیمت/موجودی/COGS/سفارش/فاکتور/بارنامه، پذیرش کامل
+  Product Master و استقرار.
+- **UNRESOLVED (پیاده نشد):** تقارن/رابطهٔ معکوس خودکار (C6-D2)، حلقهٔ مکمل (C6-D3)،
+  کاردینالیتی/الزام حداقل–حداکثر (C6-D4)، مسدودسازی رابطه با کالای غیرفعال (C6-D5).
+- اسناد: `TASK-PM-02-C6_IMPLEMENTATION.md`، `VERIFICATION-C6.{txt,json}`، پیوست §۱۱
+  راهنمای اپراتور. PR #14 `OPEN / DRAFT`؛ مرورگر دستی RTL/a11y/console و زیرساخت معادل
+  تولید `UNVERIFIED`؛ CI دقیق‌SHA و شش نمای نهایی **بدون commit پساCI** ثبت می‌شود.
+
+## TASK-PM-02-C7 — هویت کالا: نام‌های جایگزین و مقادیر صفات (شواهد تازه)
+
+- مبنا/چک‌پوینت: `a894246fe3fc8ee33fbb792bd074b7df56f2c49c` (پایان C6)؛ شش نمای SHA هم‌خوان
+  پیش از نخستین نوشتن؛ checkpoint `pm02-c7-checkpoint.tar.gz` (۳٬۱۵۱٬۲۱۷ بایت، sha256
+  `a5cbd0b2f58aca088419886a241788ae749ee3168933f57e6df93d038160dc96`) + bundle با
+  `git bundle verify` = complete history.
+- کشفِ مستند: سه نوع alias (`brand_slang|latin|code`، قید `0046`)، یکتایی واقعی فقط
+  `unique(product_id, alias_norm)`، کنترل برخورد H-1 (بarcode/کد کالا/alias کالای دیگر)،
+  نرمال‌سازی `normalizeText`، مصرف در `GET /products?q`، `/products/export?q` و `scan`
+  (فقط `kind=code`)؛ مدل صفات: کاتالوگ شرکت (`product_attribute_def`) + مقدار SKU
+  (`product_attribute_value`، قید یک‌ستونی، `numeric(19,4)`), enum در
+  `product_attribute_enum_value`، الزام شرکت‌محور، امضای variant و M-3، تاریخچهٔ ۰۰۶۰.
+- تغییرات: سرویس/کنترلر `product-identity.{service,controller,rules}.ts`؛ حذف مسیرهای
+  تکراری alias/مقادیر از `product-catalog.controller.ts`/`product-master.service.ts`؛
+  حذف `DELETE /product-aliases/{aliasId}` (خارج از قرارداد)؛ رفع ۵۰۰ واقعی مقدار خالی صفت
+  (اکنون پاک‌کردن با `clear`/خالی → ۲۰۰) و رفع ۵۰۰ کد/مقدار enum تکراری (اکنون ۴۰۹)؛
+  قرارداد **۲۲۹ مسیر / ۳۲۴ عملیات / ۲۳۳ اسکیما / ۳ وب‌هوک** با drift **۳۲۴/۳۲۴ = ۰**؛
+  کلاینت تولیدشده بازتولید شد؛ UI فارسی RTL: `product-aliases.tsx` و `product-attributes.tsx`.
+- تست‌ها: `product-identity.test.ts` **۲۷/۲۷ PASS** (PostgreSQL واقعی)،
+  `product-aliases.test.tsx` + `product-attributes.test.tsx` **۱۵/۱۵ PASS**،
+  focused API (۱۰ فایل محصول/C7) **۱۷۰/۱۷۰**، unittest بی‌داده **۳۷ فایل/۴۲۵**،
+  وب کامل **۲۹ فایل/۱۶۵ تست**، API کامل **۹۶/۱۰۰ فایل و ۱٬۶۱۵/۱٬۶۳۲ تست** با
+  **همان فایل‌های شکستِ مبنا** (`customers` ۲، `geofences` ۸، `postgres-init-role` ۱،
+  `tours` ۶) و **بدون هیچ عنوانِ تازه** (`comm` روی فهرست FAILها خالی)؛ «Full DB PASS» اعلام نشد.
+- مهاجرت‌ها: بدون مهاجرت تازه؛ up/down/up **۱٬۰۳۳ شیء یکسان**.
+- شاهد زندهٔ همین‌مبدأ: `evidence/task-pm-02/VERIFICATION-C7-LIVE.txt` — **۴۸/۴۸ PASS**
+  (نمای alias با سه نوع و شمارش، نرمال‌سازی، `duplicate_alias`/`alias_collision`، فیلتر
+  `kind`/`limit`، حذف ۲۰۰/۴۰۴ و ممیزی `create,delete`، تاریخچهٔ `INSERT,DELETE`،
+  ۴۰۱/۴۰۴/۴۰۰، شش ۴۰۰ صریح تزریق/دامنه، `invalid_attribute_value`/`invalid_attribute`/
+  `required_attribute_missing`، `variant_signature_immutable`، پاک‌کردن با `null`/`clear`،
+  `duplicate_attribute_code`/`duplicate_enum_value`، جست‌وجو/CSV/scan، و بازگشت شمارش‌ها به
+  مبنا: **product=4 · alias=0 · def=0 · value=0**).
+- **BLOCKED:** یکتایی شرکتی/جهانی alias (C7-D1)، ویرایش alias موجود (C7-D2)، دامنهٔ الزام
+  صفات (C7-D4)، صفات دسته/دامنه و وراثت (C7-D5)، backfill نام‌های تاریخی (C7-D7)،
+  `product_bundle`، PM-B1..PM-B8 / Q1..Q5 / G-03 / G-13، هر مهاجرت/نقش/grant/RLS/seed تازه،
+  تغییر رفتار قیمت/موجودی/سفارش/فاکتور/بارنامه، و بازنویسی شناسهٔ اسناد تاریخی.
+- **UNRESOLVED (پیاده نشد):** جست‌وجو/انتخاب کالا با نام جایگزین در فروش (C7-D3)،
+  چرخهٔ حیات/بازگردانی مقدار صفت (C7-D6).
+- اسناد: `TASK-PM-02-C7_IMPLEMENTATION.md`، `VERIFICATION-C7.{txt,json}`، پیوست §۱۲
+  راهنمای اپراتور. **UNVERIFIED:** بازبینی دستی مرورگر (RTL/konsol/تعامل واقعی؛ Playwright
+  در این محیط نصب نیست)، زیرساخت معادل تولید، و CI روی SHA دقیقِ نهایی.
+
+## TASK-PM-02-C8 — بستهٔ تصمیم مالک و یکپارچگی شواهد (شواهد تازه)
+
+- مبنا/چک‌پوینت: `8f610bb61ae5a577f7d52c543e98b9bbab5db527` (پایان C7)؛ شش نمای SHA هم‌خوان و
+  worktree پاک پیش از نخستین نوشتن؛ checkpoint `pm02-c8-checkpoint.tar.gz` (۳٬۸۱۸٬۸۱۳ بایت،
+  sha256 `acc8c2a67365c5bec7239d6616b9ccccc246bcdfabdba164c3be3964af6759d9`، `sha256sum -c` OK)
+  + bundle با `git bundle verify` = complete history (HEAD `8f610bb…`).
+- **دامنهٔ کار:** فقط مستندسازیِ تصمیم و راستی‌آزماییِ شواهد. بدون مهاجرت، بدون API/UI تازه،
+  بدون تغییر در یکتایی/ویرایش alias، دامنهٔ الزام صفات، ورود/خروج، bundle، چرخهٔ حیات، روابط،
+  مجوز/نقش/grant/RLS/seed و بدون دسترسی به دادهٔ تولید.
+- **بستهٔ تصمیم:** `TASK-PM-02-C8_OWNER_DECISION_PACKAGE.md` برای `C7-D1` (دامنهٔ یکتاییِ
+  نام جایگزین: کالا / شرکت / سراسری)، `C7-D2` (سیاستِ ویرایش: تغییرناپذیر / ویرایش کامل /
+  ویرایشِ نوع‌های غیرِاسکن / ویرایش با تأیید دوم) و `C7-D4` (دامنهٔ الزام صفات: شرکت / دسته /
+  خانواده / اختیاری) — با رفتار فعلی و شاهد، پیامد کسب‌وکار، برخورد، جداسازی شرکت، اثر بارکد و
+  کد کالا، واردات/اسکن، ریسکِ مهاجرت و تعارضِ تاریخی، سازگاری API، مثال‌های عینی
+  (دو کالای هم‌نام، دو شرکت با یک کد، الزامِ دسته‌محور نوشیدنی/لبنیات/شوینده)، معیار پذیرش و
+  ماتریس تصمیم. **هیچ گزینه‌ای تصویب یا پیاده نشد.**
+
+- **پرسش الف — پیشوندِ تاریخیِ PR #14:** پیشوند تا افزودنیِ C6 = ۱۳۱٬۴۷۴ نویسه / ۱۴۶٬۹۳۲ بایت با
+  sha256 `c8fb45a7…a00610` (برابرِ تعهدِ **کامیت‌شده** در `VERIFICATION-C6.txt:13`/`.json`، کامیت
+  `a894246`)؛ پیشوند تا افزودنیِ C7 = ۱۳۸٬۲۵۲ نویسه / ۱۵۶٬۵۴۳ بایت با sha256 `cf483858…5a41fef`
+  (برابرِ `VERIFICATION-C7.txt:16`/`.json`)؛ تفاضل (افزودنیِ C6) = ۶٬۷۷۸ نویسه / ۹٬۶۱۱ بایت با
+  sha256 `aff31c0c…14d50f5`. حساب: ۱۴۶٬۹۳۲ + ۹٬۶۱۱ = ۱۵۶٬۵۴۳ **دقیقاً** ⇒ زنجیرهٔ پیشوندها
+  بایت‌به‌بایت پیوسته و **بدون تغییرِ تاریخی**. ریشهٔ عددِ متناقضِ ۱۵۶٬۵۴۴: **خطای اندازه‌گیریِ
+  یک‌بایتیِ ابزار**، نه تغییرِ متن — `gh pr view --json body` یک خطِ جدیدِ پایانی اضافه می‌کند
+  (REST خام ۱۴۵٬۲۹۸ نویسه/۱۶۶٬۲۱۰ بایت در برابر ۱۴۵٬۲۹۹/۱۶۶٬۲۱۱)؛ نویسه از رشتهٔ trim‌شده +
+  بایت از خروجیِ خطِ فرمان = همان جفتِ ۱۳۸٬۲۵۲/۱۵۶٬۵۴۴. آن عدد در **هیچ سندِ کامیت‌شده‌ای نیست**
+  (`git log --all -S"156544"` خالی) و SHA حالتِ +خطِ‌جدید (`6ec80b53…`) هرگز ثبت نشده است.
+  رویدادِ `edited` در PR = ۰؛ توضیحات برای پنهان‌کردنِ تناقض بازنویسی نشد. **UNVERIFIED:**
+  جملهٔ مستقلِ تاریخیِ بدنه (GitHub نسخه‌بندیِ توضیحات ندارد) — با تعهدِ کامیت‌شده و تفاضلِ
+  بایتی جبران شد و تعیین‌کننده نیست.
+- **پرسش ب — پاک‌سازیِ probe زندهٔ C7:** انتساب **شناسه‌محور** (نه زمانی) در
+  `evidence/task-pm-02/EVIDENCE-C8-PROBE-CLEANUP.txt`: ۱۳ ردیف `audit_log` تعریفِ صفت +
+  ۳۴ ردیف تاریخچهٔ تعریفِ صفت + ۷۰ ردیف تاریخچهٔ مقدار/مقدارِ مجاز (همه به defهای حذف‌شده) +
+  ۹ ردیف تاریخچهٔ محصول (`C7-PROBE-1`, `C7LIVE-P1/P2`) = **۱۲۶ ردیفِ منتسب به C7**. ۲۰ ردیفِ
+  دیگرِ `history(product DELETE)` از probeهای C5/C6 است. هیچ ردیفِ پیش‌موجود آسیب ندید
+  (`audit_log(product)=3` برابرِ مبنای C5؛ هیچ seed/مهاجرت/اسکریپتِ C1..C6 نام جایگزین نمی‌سازد).
+  وضعیتِ نهایی: `product=4 · alias=0 · def=0 · value=0 · history(alias)=0 · audit(alias)=0`.
+  **در C8 هیچ حذفِ بیشتری انجام نشد** چون `product_catalog_history` عمداً فقط-افزودنی است
+  (grant `dms_app` → SELECT؛ policy: SELECT/INSERT) و شاهدِ قابلِ اعتماد ترجیح دارد. انحرافِ
+  رویه‌ایِ C7 (حذفِ تاریخچه با نقشِ ابرکاربر در محیطِ پیش‌نمایشِ محلی) ثبت شد.
+- **بی‌تغییریِ اثبات‌شده:** `npm run typecheck` ۰ خطا؛ OpenAPI **۲۲۹/۳۲۴/۲۳۳/۳** با drift **۰**؛
+  پارتیشن تست `declared == computed`؛ **۰ مهاجرت**؛ تست‌های هویت کالا **۴۷ (API) + ۱۵ (web)** PASS.
+- **UNRESOLVED:** `C7-D1` / `C7-D2` / `C7-D4` (باز، بدون تصویب). **BLOCKED:** هر پیاده‌سازی پیش از
+  تصویب و هر تغییرِ اسکیما/مجوز/رفتار. **NOT DONE:** merge/approve/release/deploy و commit مصنوعی.
+
+## TASK-PM-02-C9 — ارزیابیِ اثرِ هویت کالا، فقط-خواندنی (شواهد تازه)
+
+- مبنا `1c709da84efc25510150018a090567c2383b0540` (پایان C8)؛ شش نمای SHA هم‌خوان؛ worktree پاک؛
+  چک‌پوینت `pm02-c9-checkpoint.tar.gz` (۳٬۲۰۶٬۵۴۵ بایت، sha256 `0c35f0e3…2035ca`، `sha256sum -c` OK،
+  فقط فایل‌های تحتِ git) + bundle با `git bundle verify` = complete history.
+- **فقط-خواندنی:** همهٔ دستورها `SELECT`؛ صفر `INSERT/UPDATE/DELETE/TRUNCATE/DDL`، صفر مهاجرت/مجوز/
+  RLS/seed، صفر تغییرِ کد/API/UI، صفر پاک‌سازیِ داده، صفر probe تازه.
+- **جداسازیِ DB: PASS** — `127.0.0.1:55432` (loopback)، داده در `/tmp/pm01dm2-pgdata`، PostgreSQL
+  16.2 از هارنسِ آزمونِ `pgserver`؛ بدونِ اتصال به تولید. **محدودیت:** این خوشه دادهٔ واقعی ندارد.
+- **حجمِ داده (اجرا `2026-11-13T10:43:43Z`):** `company=1 · product(live)=4 · product_alias=0 ·
+  product_barcode=0 · attribute_def=0 · attribute_value=0 · category=7 · family=0`.
+  ⇒ **صفرهای D1/D4 «صفرِ ساختاری»‌اند** (مخرج صفر)، نه شاهدِ سالم‌بودن. تصمیم بر پایهٔ آن‌ها نادرست است.
+- **D1 (اجراشده):** تکرار در یک کالا=۰ · تکرار در یک شرکت=۰ · alias=کد کالا=۰ · alias=بارکد=۰ ·
+  کد=بارکد=۰؛ شرکت/کالای متأثر=۰. **یافتهٔ کد (مستقل از داده):** مسیرِ افزودنِ alias از امروز
+  هم‌نامیِ بین دو کالا را با `۴۰۹ alias_collision` رد می‌کند (`product-identity.service.ts:447-452`)
+  در حالی که قیدِ DB فقط `(product_id, alias_norm)` است ⇒ گزینهٔ B عملاً رفتارِ نوشتن را تغییر نمی‌دهد.
+- **D4 (اجراشده):** صفتِ الزامی=۰ · کالای ناقص=۰ · کالای بدونِ دسته=۰ از ۴ · جدولِ اتصالِ
+  دسته↔صفت **وجود ندارد**. **یافتهٔ کد:** الزام فقط هنگامِ نوشتنِ مقدارها بررسی می‌شود
+  (`required_attribute_missing`)؛ ساختِ کالا و وارداتِ CSV صفت را اعتبارسنجی نمی‌کنند ⇒ الزامِ فعلی
+  عملاً «الزامِ ویرایش» است.
+- **FAIL (نقصِ موجود، ترمیم نشد):** `normalizeText('كوكا') ≠ normalizeText('کوکا')` و
+  `normalizeText('علي') ≠ normalizeText('علی')` (ی/ک عربی یکسان‌سازی نمی‌شود)؛ و عدمِ تقارنِ فاصله
+  (`alias_norm` فاصله را نگه می‌دارد، بارکد حذف می‌کند) ⇒ برخی برخوردها شناسایی نمی‌شوند.
+  ارقام فارسی/عربی و کوچک‌شدنِ حروف درست کار می‌کند.
+- **حفظِ شواهدِ C8: دست‌نخورده** — `audit_log=112` · `history=138` · ۱۳ audit def · ۳۴ history def ·
+  ۵۸ history value/enum · ۲۹ history product-DELETE. ادعای «محیطِ پاک» نمی‌شود.
+- **خودتصحیحیِ C8:** تعدادِ ردیف‌های value/enum در C8 «۷۰» گزارش شده بود؛ اندازه‌گیریِ C9 = **۵۸**
+  (۴۲ + ۱۶) ⇒ مجموعِ درست **۱۱۴** به‌جای ۱۲۶. انتساب درست بود، شمارش اشتباه.
+- **UNVERIFIED:** تعدادِ واقعیِ تعارض/نقص در دادهٔ سازمان · نیازِ دسته↔صفت · نقشِ خانوادهٔ کالا ·
+  RTL/دسترس‌پذیری. **BLOCKED:** اجرا روی کپیِ فقط-خواندنی از دادهٔ واقعی (نیازمندِ تأییدِ مالک/امنیت).
+- **NOT DONE:** merge/approve/release/deploy · تغییرِ رفتار · commit مصنوعی برای CI.
+
+## TASK-PM-02-C10 — ارزیابیِ اثر بر دادهٔ واقعی (شواهد تازه)
+
+- مبنا `f429bcbeb407411f8f3efc7d173b27148e352acd` (C9 final)؛ شش نمای SHA هم‌خوان؛ worktree پاک؛
+  چک‌پوینت `pm02-c10-checkpoint.tar.gz` (۳٬۲۲۰٬۶۰۴ بایت، sha256 `24f0abe7…aa9f2`، `sha256sum -c` OK،
+  ۲٬۹۴۵ ورودی) + bundle با «complete history».
+- **حکمِ اصلی: `UNVERIFIED — AUTHORIZED ISOLATED DATA COPY UNAVAILABLE`.**
+  تنها خوشهٔ قابلِ دسترس، هارنسِ آزمونِ موقتِ `/tmp/pm01dm2-pgdata` روی `127.0.0.1:55432` است.
+  هیچ نسخهٔ دادهٔ سازمانی و هیچ سندِ مجوز وجود ندارد. هیچ backup/restore/clone/export ساخته نشد و
+  هیچ اتصالی به تولید برقرار نشد.
+- **دروازهٔ ایمنی (اجراشده):** هویت/محیط PASS · جداسازی از تولید PASS · موتور PostgreSQL 16.2 PASS ·
+  نبودِ مسیرِ نوشتنِ مشترک PASS · **اجبارِ فقط‌خواندنی FAIL** (اتصال با `postgres`، `rolsuper=true`) ·
+  **کفایتِ داده FAIL** · منشأ/مجوز UNVERIFIED.
+- **کفایتِ داده (FAIL):** `company=1 · product=4 · alias=0 · barcode=0 · attribute_def=0 ·
+  attribute_value=0 · category=7 · family=0` (اجرا `2026-11-13T12:38:14Z`).
+  ⇒ همهٔ صفرهای D1/D4 **صفرِ ساختاری**‌اند و به‌صراحت **شاهدِ سلامتِ داده گزارش نمی‌شوند**.
+- **D1 (۸ دسته، اجراشده):** همه ۰ ⇒ طبقه‌بندی **NOT FOUND IN INSPECTED DATA** (نه «سالم است»).
+  **CONFIRMED:** مسیرِ نوشتنِ alias از امروز یکتاییِ سطحِ شرکت را با `۴۰۹ alias_collision` اعمال می‌کند
+  (`product-identity.service.ts:447-452`) در حالی که قیدِ DB فقط `(product_id, alias_norm)` است.
+- **D4 (اجراشده):** الزامی=۰ · کالای ناقص=۰ · بدونِ دسته=۰ از ۴؛ جدولِ نگاشتِ دسته↔صفت و
+  خانواده↔صفت **وجود ندارد**. **CONFIRMED:** الزام در چرخهٔ عمر **ناپیوسته** است (ساختِ کالا،
+  وارداتِ CSV، bulk و انتقالِ دسته هیچ‌کدام آن را اعمال نمی‌کنند) ⇒ عملاً «الزامِ ویرایش».
+- **نرمال‌سازی (۱۹ مورد، توابعِ بومی):** PASS برای ارقامِ فارسی/عربی، فاصله، NFC، کوچک‌شدنِ حروف.
+  **FAIL بالا:** `ي/ی` · `ك/ک` · `آ/ا` · `أ/ا` · نیم‌فاصله · **عدمِ تقارنِ `normalizeText` با
+  `normalizeBarcode`** (`"123 456"` در اولی می‌ماند، در دومی `123456` می‌شود). **FAIL پایین:**
+  ویرگولِ عربی، خطِ تیرهٔ کشیده، لاتینِ تمام‌عرض. قراردادِ ۷ مرحله‌ای پیشنهاد شد و **پیاده نشد**.
+- **تطبیقِ شواهد:** `audit_log=112` · `history=138` · تعریفِ صفت ۳۴ · مقدار+مقدارِ مجاز **۵۸**
+  (نه ۷۰ گزارش‌شده در C8) · محصول `DELETE`=۲۹ (۹ از C7 + ۲۰ از C5/C6) · audit def=۱۳.
+  **مجموعِ درستِ منتسب: ۱۱۴، نه ۱۲۶.** `VERIFICATION-C7/C8/C9` و `EVIDENCE-C8/C9` بدونِ تغییر.
+- **برنامهٔ تهیه** در سندِ اصلی آمده (تأییدِ مالک/امنیت → replica موجود → محیطِ ایزوله →
+  نقشِ `c10_readonly` با `default_transaction_read_only=on` → اجرا → حذفِ کنترل‌شده).
+- **NOT DONE:** پیاده‌سازیِ D1/D4 · تغییرِ کد/اسکیما/داده/RLS · پاک‌سازیِ شواهد · merge/approve.
+
+## TASK-PM-02-C11 — قراردادِ نرمال‌سازیِ canonیک هویت کالا (شواهد تازه)
+
+- مبنا `96eaf67a2a05dedce432b920ba381927822d50a2` (C10 final)؛ شش نمای SHA هم‌خوان؛ worktree پاک؛
+  چک‌پوینت `pm02-c11-checkpoint.tar.gz` (۳٬۲۴۱٬۸۱۱ بایت، sha256 `f6d48d82…40cb42`، ۲٬۹۴۹ ورودی) + bundle.
+- **هیچ رفتارِ تولیدی فعال نشد.** ماژولِ نامزد در `experimental/` است و تستِ `C11/8` با `grep` اثبات
+  می‌کند در هیچ مسیرِ دیگری import نشده. صفر تغییر در کدِ تولیدی، مهاجرت، قید، RLS و داده.
+- **نقشهٔ وابستگی — پنج نرمال‌سازِ واگرا:** `product-normalize.normalizeText` (ي/ك: **خیر**، ارقام: بله)
+  · `normalizeBarcode` (همهٔ فاصله‌ها حذف، بدونِ کوچک‌سازی) · `reference-data.rules.normalizeText`
+  (**هم‌نام** ولی ي/ك: **بله**، ارقام: **خیر**) · `web/lib/text.normalizeFa` (اعراب+ZWJ+ارقام) ·
+  `foldDigits`. ⇒ یک رشتهٔ یکسان در سه مسیر **سه کلیدِ متفاوت** می‌گیرد.
+- **سه ناسازگاریِ ساختاری:** `uq_product_code` حساس به حروف است ولی مقایسه‌ها `lower()` می‌کنند ·
+  بررسیِ برخورد یک طرف را نرمال و طرفِ دیگر (`barcode`) را **خام** مقایسه می‌کند · جست‌وجوی `ilike('%q%')`
+  **هیچ** نرمال‌سازی ندارد در حالی که سمتِ وب نرمال می‌کند.
+- **قراردادِ شش‌پروفایلی:** `ProductName` (NFC) · `ProductNameLatin` (NFKC) · `ProductAlias` ·
+  `ProductCode` · `Barcode` · `SearchKey`. سه‌لایه: display ≠ raw ≠ comparison key.
+  ي/ى/ك/ة یکسان می‌شوند؛ **آ/أ/إ عمداً یکسان نمی‌شوند** (بازگشت‌ناپذیر + معنادار)؛ اعراب/تطویل حذف؛
+  نیم‌فاصله → فاصله؛ **صفرِ ابتدایی هرگز حذف نمی‌شود**؛ ورودیِ نامعتبر خطا نه حذفِ بی‌صدا؛
+  `toLowerCase` (نه `toLocaleLowerCase`) برای قطعیتِ مستقل از locale.
+- **ماتریسِ اجرایی: ۲۸ مورد × ۶ پروفایل** (`EVIDENCE-C11-NORMALIZATION-MATRIX.json`) و
+  **۳۹ تستِ اجراییِ PASS** (`apps/api/test/c11-normalization-contract.test.ts`).
+  ماتریس دو باگِ طراحی را خودش پیدا کرد و اصلاح شد: ترتیبِ حذفِ کاراکترِ کنترلی (تب/خط جدید
+  حذف می‌شدند نه تبدیل به فاصله) و SearchKey (نشانه‌گذاری حذف می‌شد نه تبدیل به جداکننده).
+- **۱۶ fixture برخورد** (`EVIDENCE-C11-COLLISION-FIXTURES.json`): رد ۹ · هشدار ۳ · بازبینیِ دستی ۳ ·
+  مجاز ۱ (بین‌شرکتی). **مهم‌ترین یافته: CF-10** — برخوردِ «alias = بارکدِ فاصله‌دار» **امروز از دست
+  می‌رود** چون فقط یک طرف نرمال می‌شود. مرزِ شرکت حفظ می‌شود (`uq_product_barcode_gs1` تنها استثنای
+  سراسریِ پیشین است و تغییر نکرد).
+- **سازگاری/مهاجرت** (`EVIDENCE-C11-COMPATIBILITY.md`): `alias_norm` و `product.code` ریسکِ **بالا**،
+  `barcode` متوسط، `name` پایین. ترتیبِ امنِ شش‌فازی + هشدارِ اتمی‌بودنِ نرمال‌سازی و داده (وگرنه
+  اسکن می‌شکند). بدونِ backup ستون‌های هویتی، فازِ بازمحاسبه **بازگشت‌ناپذیر** است.
+- **ADR:** `ADR-C11-CANONICAL-NORMALIZATION.md` — تصمیم: چند-پروفایلی به‌جای یک تابعِ جهانی؛
+  گزینه‌های رد‌شده (NFKC برای فارسی، ادغامِ همهٔ حروفِ مشابه، یکتاییِ سراسری، فعال‌سازیِ مستقیم).
+- **UNVERIFIED:** تعدادِ ردیف‌های متأثر و برخوردهای تازه در دادهٔ واقعی · جفت‌های `ABC/abc` ·
+  بارکدهای خط‌تیره‌دار · حجمِ تاریخچهٔ بازمحاسبه · بازبینیِ مستقلِ Agent-2 (در دسترس نیست، جعل نشد).
+- **BLOCKED:** فعال‌سازیِ قرارداد در تولید — نیازمندِ C12 + تصویبِ مالک.
+- **تصمیم‌های باز (تصویب‌نشده):** D-C11-1 رقمِ کنترلی · D-C11-2 آ/أ · D-C11-3 حساسیتِ حروفِ کد ·
+  D-C11-4 خطِ تیره در بارکد · D-C11-5 نیم‌فاصله · D-C11-6 نرمال‌سازیِ جست‌وجو.
+
+## TASK-PM-02-C12 — شاخصِ سایه‌ایِ هویت و آمادگیِ مهاجرتِ ایمن (شواهد تازه)
+
+- مبنا `205e914930f203f620576cfbdd47755559e4849a` (C11 final)؛ شش نمای SHA هم‌خوان؛ worktree پاک؛
+  چک‌پوینت `pm02-c12-checkpoint.tar.gz` (۳٬۲۷۹٬۴۹۱ بایت، sha256 `d86db884…6b362a5`، ۲٬۹۵۸ ورودی) + bundle.
+- **محیطِ اجرا صادقانه ثبت شد: Linux 6.1.158+ x86_64، Node `v22.22.3` — نه Windows.** هویتِ Git:
+  `Tadbir-Sabz <335086850+Tadbir-Sabz@users.noreply.github.com>`. هیچ هویتِ agentی ادعا نشد.
+- **دروازهٔ مجوزِ داده: `BLOCKED — REAL DATA IMPACT ASSESSMENT`.** هیچ‌یک از شش شرط برقرار نبود؛
+  `dms_readonly` با `rolconfig=null` یک **نام** است نه تضمینِ فقط-خواندنی. صفر پرس‌وجوی دادهٔ واقعی،
+  صفر نشستِ superuser به‌عنوان شاهد. همهٔ کار روی fixture **۱۰۰٪ مصنوعی**.
+- **هیچ چیزی فعال نشد:** صفر تغییر در رکوردِ کالا، `alias_norm`، بارکد، توابعِ نرمال‌سازیِ فعال،
+  قیدِ یکتایی، RLS، مهاجرتِ تولیدی و رفتارِ ورودِ داده. ایزولاسیون با guardِ `grep` روی
+  **importهای واقعی** اثبات شد (C12/11 و C11/8)، پس هر importِ تولیدیِ آینده CI را می‌شکند.
+- **شاخصِ سایه‌ای:** هر ورودی ده میدان را نگه می‌دارد (`entity_id`، `company_id`، `field`، `profile`،
+  `profile_version`، `display_value`، `stored_normalized`، `proposed_key`، `invalid_reason`،
+  `source_ref`). روی fixture کوچک: ۲۴ ورودی، ۱ نامعتبرِ دارای دلیل، **۹ مقدار (۳۷٪) با مهاجرت
+  تغییر می‌کنند** ⇒ مهاجرت بی‌اثر نیست.
+- **موتورِ برخورد: ۱۲ از ۱۲ دسته با شاهدِ اجرایی.** ۲۳ برخورد (hard ۷ · soft ۱۳ · review ۳) و
+  **۲۱ مورد امروز دیده نمی‌شوند**. شناسهٔ `COL-<category>-<8 hex>` مستقل از ترتیب و پایدار.
+- **یافتهٔ مهم (پوشش):** تستِ اولیه فهرستِ ۱۱ دسته را **دستی** بررسی می‌کرد؛ `alias_to_product_name`
+  اعلان داشت ولی هیچ fixture‌ای آن را تولید نمی‌کرد. تست اکنون از **قرارداد** مشتق می‌شود و اگر
+  دسته‌ای بی‌شاهد بماند شکست می‌دهد (+ تستِ معکوس). **اعلامِ پوشش ≠ پوشش.**
+- **پیامدِ قراردادیِ تازه:** پروفایل‌ها فضای کلیدِ متفاوت دارند (`ProductAlias` فاصله را حفظ،
+  `Barcode` حذف می‌کند) ⇒ برخوردِ alias↔barcode در گروه‌بندیِ ساده پنهان می‌ماند و نیازمندِ یک
+  **«فضای مقایسهٔ مشترک»** صریح است. این باید در C11 رسمی شود (D-C12-2).
+- **شبیه‌سازیِ ۹ مرحله‌ای:** قطع پس از ۵ عملیات → ادامه → **همان وضعیتِ نهایی** · اجرای مکرر →
+  همان نتیجه · ادامه از حالتِ کامل → **صفر** عملیات · `batch 1 == batch 16` ·
+  بازگشت `restored=24`، `unrecovered=[]`، `returns_to_original=true` · نمایش `24/24` دست‌نخورده.
+- **باگِ خودارجاع در بازگشت:** نسخهٔ اول `unrecovered` را با مقایسهٔ مقدار **با خودش** می‌سنجید و
+  همیشه صفر می‌گفت — یعنی بازگشتِ کامل را دروغ می‌گفت. اصلاح شد.
+- **کارایی:** ۱۰۰→۲ ms · ۱٬۰۰۰→۲۳ ms · ۵٬۰۰۰→۱۴۰ ms؛ حدود **۱۹–۲۸ ms/۱۰۰۰ ردیف** (تقریباً خطی).
+  نسخهٔ اول **O(n²)** بود (۵٬۰۰۰ ردیف = ۱۴٬۲۲۸ ms)؛ با in-place **۷۵ ms** ⇒ **۱۹۰×**. حافظه ۴٫۱ MB.
+  ⚠️ اعداد **درون‌حافظه‌ای و مصنوعی**اند، **نه** benchmarkِ تولید.
+- **تست‌ها:** `c12-shadow-index` **۲۵ PASS** · `c12-migration-simulation` **۲۳ PASS** (جمعاً ۴۸) ·
+  C11 regression ۳۹ PASS · typecheck **۰ خطا** · ۴۰ فایلِ غیر-DB PASS با **۰ شکستِ assert**.
+  ۶۳ فایلِ DB متصل نشد (`DATABASE_URL` تنظیم نیست) — شکستِ محیطی، **نه** regression؛
+  هیچ فایلِ C11/C12 در آن فهرست نیست.
+- **UNVERIFIED:** اثرِ واقعی روی داده (BLOCKED) · کاراییِ واقعیِ PostgreSQL · بازبینیِ مستقلِ
+  Agent-2 (در دسترس نیست، **جعل نشد**).
+- **NOT DONE:** فعال‌سازیِ قید/قرارداد · تغییرِ داده/اسکیما/RLS/مهاجرت · merge یا approve PR #14.
+
+## TASK-PM-02-C13 — حلِ هویتِ بین‌میدانی و ارزیابیِ سایه‌ای (شواهد تازه)
+
+- مبنا `ca2382315c758e211d463d2b73c3eb51974b487d` (C12 final)؛ شش نمای SHA هم‌خوان؛ worktree پاک؛
+  چک‌پوینت `pm02-c13-checkpoint.tar.gz` (۳٬۳۲۳٬۰۴۵ بایت، sha256 `57fbd118…`، ۲٬۹۷۲ ورودی، `-c` OK) + bundle.
+- **دروازهٔ محیط: `BLOCKED — REQUIRED WINDOWS EXECUTION ENVIRONMENT UNAVAILABLE`.** اندازه‌گیری:
+  Debian GNU/Linux 12، هستهٔ ۶٫۱٫۱۵۸+، x86_64، Node `v22.22.3`. `/c/Windows` وجود ندارد، هیچ‌یک از
+  `cmd.exe`/`powershell.exe`/`pwsh` روی PATH نیست، WSL نیست (`microsoft` در `/proc/version` نه).
+  **هیچ‌جا ادعای اعتبارسنجیِ Windows نشد.** کارِ فنی روی Linux ادامه یافت و همین‌طور گزارش شد.
+- **دروازهٔ دادهٔ واقعی: `BLOCKED — REAL DATA IMPACT ASSESSMENT`.** شش شرط اثبات نشد؛
+  `dms_readonly` با `rolconfig=NULL` یک **نام** است نه تضمین (درسِ C12 در کد اجرا شد). صفر پرس‌وجوی
+  دادهٔ واقعی، صفر نشستِ superuser به‌عنوان شاهد. اجراکننده منبعِ غیرمجاز را **رد می‌کند**.
+- **معماریِ تازه: «فضای مقایسه» بالای پروفایل‌هایِ C11.** نرمال‌سازیِ میدانی دست‌نخورده؛ چهار فضا
+  (`field` · `scan` · `alnum` · `text`) که سه‌تایِ آخر **به میدان وابسته نیستند** ⇒ هر دو طرفِ مقایسه
+  یک تبدیل می‌گیرند (تقارن = ضمانتِ درستی). جدولِ اعلانیِ **۱۵ جفت‌میدان** با تصمیمِ صریح؛ جفتِ
+  تعریف‌نشده **خطا** می‌دهد، نه سکوت. قرارداد `c13.1` سوار بر نرمال‌سازیِ `c11.1`.
+- **CF-10 حل شد:** `C13-a311815e` — alias «400 111» و barcode «400111» در فضای `scan` به کلید
+  `400111` می‌رسند و `HARD_CONFLICT` می‌سازند. در C12 کلیدهایِ میدانی متفاوت بودند و دیده نمی‌شد.
+- **پوششِ ۱۰ جفتِ بین‌میدانی** با قاعدهٔ صریح. **«هر شباهتِ متنی تعارض نیست»:** ۱۰ قاعدهٔ
+  soft/review/`NOT_COMPARABLE` در برابرِ ۴ قاعدهٔ hard. نامِ عددی ↔ بارکد = `NOT_COMPARABLE`.
+- **پنج واژهٔ تصمیم:** `HARD_CONFLICT` · `SOFT_CONFLICT` · `MANUAL_REVIEW` · `ALLOWED` · `NOT_COMPARABLE`.
+  هر نتیجه: شناسهٔ پایدار `C13-<8hex>` · طرفین · میدان‌ها · شرکت/دامنه · مقادیر · کلیدها · قاعده+نسخه ·
+  توضیح · شدت · توصیه · منبع · اطمینان · ابهام.
+- **🔒 جداسازی:** مقایسهٔ بین‌شرکتی `ALLOWED` با **مقدارِ `null`**، شناسه و `source_ref` هش‌شده —
+  در **سه** ترکیبِ گزینه‌ها هم قابلِ خاموش‌کردن نیست. آزمونِ خصمانه: ۵۰ شرکت، ۵ شناسه،
+  **۰ نشتِ مقدار، ۰ نشتِ منبع**، ۵ برخورد همچنان کشف شد. بین‌دامنه = `MANUAL_REVIEW` با مقدارِ
+  قابلِ مشاهده (هر دو طرفِ همان شرکت). RLS پایگاه‌داده **دست‌نخورده**؛ این لایهٔ دوم است.
+- **چهار باگِ واقعی که تست‌هایِ خودِ C13 پیدا کردند:** ① قاعدهٔ «بین‌شرکتی» با جفتِ `['alias','alias']`
+  قاعدهٔ **واقعیِ** alias را بی‌صدا بازنویسی می‌کرد ② نامعتبریِ پروفایلِ میدان ورود به فضاهایِ دیگر را
+  مسدود می‌کرد ③ **`provenance` مقدارِ خامِ `source_ref` شرکتِ دیگر را لو می‌داد** (کشف با آزمونِ
+  خصمانه) ④ کمیت‌سنجِ تودرتو در regex جداکننده ⇒ غیرقطعیت. یک خطایِ فرآیندی هم: ویرایشِ برنامه‌ای
+  بخشی از ماژول را حذف کرد؛ از صفر بازنویسی شد و این بار همهٔ رفع‌ها با `assert` اعمال شدند.
+- **اجراکنندهٔ ارزیابیِ سایه‌ای:** دروازهٔ **شش‌شرطی** که **رد می‌کند** (نه هشدار) پیش از هر محاسبه ·
+  اثرِ انگشتِ محتوا و گزارش (قطعی، مستقل از ترتیب) · اجرایِ افزایشی با `diffAssessments` ·
+  گزارشِ صریحِ مجموعهٔ ناقص · منبعِ واقعی هرگز با نامِ خام گزارش نمی‌شود.
+- **ماتریسِ تصمیم: ۱۰ تصمیم باز، صفر تصویب.** `isApproved()` عمداً همیشه `false`. هر گزینه با
+  پیامدِ فنی/کسب‌وکار، ریسکِ سازگاری و **شاهدِ اجرایی** (۲۴ تست). **یافتهٔ زنده: D-C11-3** —
+  قیدِ پایگاه‌داده حساس به حروف است ولی بررسیِ برخورد نامحسوس؛ ناسازگاری **امروز** وجود دارد و
+  C13 آن را آشکار کرد. یک تصمیمِ فنیِ نو: نیم‌فاصله در فضای `scan` **صریحاً رد** می‌شود، نه حذفِ خاموش.
+- **تست‌ها:** C13 **۱۳۵ PASS** (۶۰+۲۶+۱۹+۲۴+۶) · C11 regression ۳۹ PASS · C12 regression ۴۹ PASS ·
+  typecheck **۰ خطا**. گاردهایِ ایزولاسیون: `C13/22`×۲ + `C11/8` + `C12/11`.
+- **کارایی:** ۱۰۰ هویت→۹ ms · ۱٬۰۰۰→۱۰۹ ms · ۵٬۰۰۰→۴۶۵ ms · ۲۵٬۰۰۰→۲٬۰۸۳ ms · ۱۰۰٬۰۰۰→۹٬۱۹۱ ms.
+  **۲۶–۳۴ ms به‌ازایِ هر ۱۰۰۰ ردیف** ⇒ مقیاسِ نزدیک-خطی محقق. حافظه تا ۵۶۸ MB در ۳۲۰٬۰۰۰ ردیف.
+  ⚠️ اعداد **درون‌حافظه‌ای و مصنوعی**اند، **نه** بنچمارکِ تولید.
+- **UNVERIFIED:** بازبینیِ مستقلِ Agent-2 (در دسترس نیست، **جعل نشد**) · مقیاس‌پذیریِ واقعیِ PostgreSQL.
+- **NOT DONE:** فعال‌سازیِ قید/قرارداد · تغییرِ داده/اسکیما/RLS/مهاجرت/D1/ورودِ داده · merge یا approve PR #14.

@@ -1,3 +1,4 @@
+import { ProductPackagingService } from './product-packaging.service';
 import {
   Body,
   Controller,
@@ -92,6 +93,7 @@ export class SetDefaultPackagingDto {
 @Controller('packaging')
 export class PackagingController {
   constructor(
+    private readonly packaging: ProductPackagingService,
     @Inject(MASTER_DATA_REPOSITORY) private readonly repo: MasterDataRepository,
     private readonly productMaster: ProductMasterService,
     @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
@@ -109,15 +111,7 @@ export class PackagingController {
     @CurrentUser() user: AuthContext,
     @Body() dto: CreateUomDto,
     @RequestMetaParam() meta: RequestMeta,
-  ) {
-    const created = await this.repo.createUom(user.companyId, dto);
-    await this.audit.record({
-      companyId: user.companyId, actorUserId: user.userId, action: 'create',
-      entityType: 'uom', entityId: (created as { id?: string }).id, after: created,
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-    return created;
-  }
+  ) { return this.packaging.createUom(user, dto, meta); }
 
   @Get('product-packaging/:productId')
   @RequirePermissions('master.product.view')
@@ -145,46 +139,7 @@ export class PackagingController {
     @CurrentUser() user: AuthContext,
     @Body() dto: CreateProductPackagingDto,
     @RequestMetaParam() meta: RequestMeta,
-  ) {
-    // D4 — enforcement در مرزِ نوشتن: فاکتورِ تبدیل حساس است (همهٔ مسیرها)
-    assertSensitiveConfirmed(
-      [{ field: 'factor_to_base', before: null, after: dto.factor_to_base }],
-      dto.confirm_sensitive ?? false,
-      true,
-      'تعریفِ بسته‌بندی با فاکتورِ تبدیل',
-    );
-
-    const created = await this.repo.createProductPackaging(user.companyId, dto);
-    if (!created) {
-      throw new NotFoundException({
-        code: 'not_found',
-        message_fa: 'کالای درخواستی در این شرکت یافت نشد.',
-      });
-    }
-
-    // H-1: بارکد در مدلِ جدیدِ product_barcode هم ثبت می‌شود (ستونِ legacy تا P5 می‌ماند)
-    if (dto.barcode && dto.barcode.trim()) {
-      await this.productMaster.addBarcode(
-        user.companyId,
-        dto.product_id,
-        {
-          barcode: dto.barcode,
-          kind: 'other',
-          packaging_id: (created as { id?: string }).id ?? null,
-          is_primary: true,
-        },
-        meta,
-        user.userId,
-      );
-    }
-
-    await this.audit.record({
-      companyId: user.companyId, actorUserId: user.userId, action: 'create',
-      entityType: 'product_packaging', entityId: (created as { id?: string }).id, after: created,
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-    return created;
-  }
+  ) { return this.packaging.createProductPackaging(user, dto, meta); }
 
   @Patch('product-packaging/:id/default')
   @RequirePermissions('master.product.update')
@@ -193,19 +148,5 @@ export class PackagingController {
     @Param('id') id: string,
     @Body() dto: SetDefaultPackagingDto,
     @RequestMetaParam() meta: RequestMeta,
-  ) {
-    const updated = await this.repo.setDefaultPackaging(user.companyId, id, dto?.is_sales_default ?? true);
-    if (!updated) {
-      throw new NotFoundException({
-        code: 'not_found',
-        message_fa: 'بسته‌بندی درخواستی در این شرکت یافت نشد.',
-      });
-    }
-    await this.audit.record({
-      companyId: user.companyId, actorUserId: user.userId, action: 'update',
-      entityType: 'product_packaging', entityId: id, after: { is_sales_default: dto?.is_sales_default ?? true },
-      ip: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId,
-    });
-    return updated;
-  }
+  ) { return this.packaging.setDefaultPackaging(user, dto, id, meta); }
 }

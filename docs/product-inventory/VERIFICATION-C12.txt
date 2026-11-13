@@ -1,0 +1,203 @@
+TASK-PM-02-C12 — SHADOW IDENTITY INDEX & SAFE MIGRATION READINESS
+================================================================
+Execution environment : Linux 6.1.158+ x86_64  (NOT Windows)
+Node                  : v22.22.3
+Git identity          : Tadbir-Sabz <335086850+Tadbir-Sabz@users.noreply.github.com>
+Baseline commit       : 205e914930f203f620576cfbdd47755559e4849a
+Branch                : arena/be5eaff3-green-dms
+Pull request          : #14  OPEN / DRAFT  (not merged, body append-only)
+
+----------------------------------------------------------------
+1. DATA AUTHORIZATION GATE
+----------------------------------------------------------------
+Verdict: BLOCKED — REAL DATA IMPACT ASSESSMENT
+
+  owner authorization ............ NOT FOUND
+  documented provenance .......... NONE
+  proven isolation ............... NO  (only a pre-existing synthetic cluster on 127.0.0.1:55432)
+  enforced read-only role ........ NO  (dms_readonly: rolsuper=f, rolbypassrls=f, rolconfig=NULL
+                                       -> default_transaction_read_only is NOT set; a name, not a guarantee)
+  no shared write path ........... NOT PROVEN
+  confidentiality controls ....... NONE
+
+  Only available database: greendms_c1_preview -> 1 company, 4 products, 0 aliases, 0 barcodes.
+  Even if authorized it could not answer the real-data impact question.
+
+  Real-data queries executed ..... 0
+  Superuser session used as read-only evidence ... NO (explicitly forbidden)
+
+  => All work performed on 100% synthetic fixtures. Plan for obtaining an authorized copy
+     is documented in section 2 of TASK-PM-02-C12_SHADOW_IDENTITY_MIGRATION.md.
+
+----------------------------------------------------------------
+2. TESTS
+----------------------------------------------------------------
+c12-shadow-index.test.ts ............ 25 PASS
+c12-migration-simulation.test.ts .... 23 PASS
+                                     -----------
+                                     48 PASS / 48
+
+C11 normalizer contract (regression)  39 PASS / 39
+Typecheck (npm run typecheck) ........ 0 errors
+Non-DB unit test files ............... 40 files PASS (0 assertion failures)
+DB-backed test files ................. 63 files could not connect (DATABASE_URL unset in this sandbox);
+                                       every one of them fails at connection setup, not at an assertion.
+                                       These are environment failures, NOT regressions from C12.
+                                       ZERO C11/C12 files appear among them.
+
+----------------------------------------------------------------
+3. SHADOW INDEX
+----------------------------------------------------------------
+contract version .................... c11.1
+rows in / entries ................... 24 / 24
+invalid inputs (reason recorded) .... 1
+keys changed by migration ........... 9
+by field ............................ {"name": 5, "alias": 8, "code": 5, "barcode": 4, "name_latin": 2}
+
+Each entry retains: entity_id, company_id, field, profile, profile_version, display_value,
+stored_normalized, proposed_key, invalid_reason, key_differs_from_stored, source_ref.
+The original display value and the stored normalized value are NEVER overwritten.
+
+----------------------------------------------------------------
+4. COLLISION ENGINE — 12 / 12 CATEGORIES WITH EXECUTIVE EVIDENCE
+----------------------------------------------------------------
+categories declared ................. 12
+categories observed in the ledger ... 12
+categories without evidence ......... []   <-- must stay empty
+
+total collisions .................... 23
+  hard .............................. 7
+  soft .............................. 13
+  review ............................ 3
+newly exposed (invisible today) ..... 21 / 23
+
+by category:
+  alias_to_alias               1
+  alias_to_barcode             1
+  alias_to_product_code        1
+  alias_to_product_name        1
+  barcode_collision            1
+  cross_company                3
+  exact_duplicate              2
+  legacy_vs_proposed           9
+  persian_arabic_letters       1
+  product_code_collision       1
+  search_only_equivalence      1
+  unicode_normalization        1
+
+by company: {"company-fixture-A": 19, "*": 3, "company-fixture-B": 1}
+tenant isolation: no in-company collision mixes two company ids; cross_company defaults to
+'review' severity and options.crossCompanyIsConflict = false
+(an approved business rule is required to escalate; RLS is never weakened to resolve a conflict).
+
+FINDING: the coverage test originally asserted a HAND-MAINTAINED list of 11 categories, so
+'alias_to_product_name' was declared but never exercised (11 of 12). Now the test derives its
+expectations from the contract itself and fails loudly if ANY declared category has no evidence,
+plus a reverse check that every ledger category is declared. Coverage is 12/12.
+
+----------------------------------------------------------------
+5. MIGRATION SIMULATION — 9 STAGES
+----------------------------------------------------------------
+  1. baseline snapshot / backup
+  2. shadow key calculation
+  3. conflict detection
+  4. conflict classification
+  5. manual resolution (out of scope for C12)
+  6. recalculation
+  7. verification
+  8. controlled activation (NOT performed)
+  9. rollback
+
+full run: batches=6 ops=47 recalculated=23 rows=24
+display values preserved: 24/24
+
+interruption & recovery: injected fail_after_ops=5,
+  interrupted=true, recovered=true,
+  same final state as the uninterrupted run=true
+
+idempotency: rerun identical=true,
+  resume on complete state = 0 ops,
+  batch_1 == batch_16 = true
+
+rollback: restored=24, unrecovered=[],
+  returns_to_original=true,
+  display_untouched=true
+
+ATOMICITY RISK (explicit): changing stored canonical values without atomically changing the
+comparison logic makes scans and uniqueness checks disagree — barcodes may stop resolving and
+duplicate aliases may slip through. Mitigation: dual-read first, then recompute and switch the
+comparison logic in the SAME release. Recompute without a column backup is IRREVERSIBLE.
+
+----------------------------------------------------------------
+6. PERFORMANCE (synthetic, in-memory — NOT a production benchmark)
+----------------------------------------------------------------
+    100 rows | simulate    2 ms | detect   1 ms | total    2 ms | collisions    41 | hard 0 | display 100/100 | 25 ms/1k
+    500 rows | simulate    6 ms | detect   5 ms | total   11 ms | collisions   205 | hard 0 | display 500/500 | 22 ms/1k
+   1000 rows | simulate   14 ms | detect   8 ms | total   23 ms | collisions   410 | hard 0 | display 1000/1000 | 23 ms/1k
+   2000 rows | simulate   22 ms | detect  17 ms | total   39 ms | collisions   820 | hard 0 | display 2000/2000 | 19 ms/1k
+   5000 rows | simulate   86 ms | detect  54 ms | total  140 ms | collisions  2050 | hard 0 | display 5000/5000 | 28 ms/1k
+
+memory: 5000 rows -> heap growth 4.1 MB
+
+Scaling is approximately linear (19-28 ms per 1000 rows). The first implementation was O(n^2)
+because it rebuilt the whole state Map on every operation: 5000 rows took 14,228 ms. Switching to
+in-place mutation with a snapshot only at the output cut that to ~75 ms (a 190x improvement).
+
+hard = 0 on every large run: the large fixture deliberately produces soft collisions; the hard
+categories are exercised in the small targeted fixture.
+
+----------------------------------------------------------------
+7. WHAT DID NOT CHANGE (C12 MUST NOT)
+----------------------------------------------------------------
+product records ...................... UNCHANGED
+alias_norm ........................... UNCHANGED
+barcode values ....................... UNCHANGED
+active normalization functions ....... UNCHANGED
+uniqueness constraints ............... NONE CREATED
+RLS policies ......................... UNCHANGED
+production migrations ................ NONE ADDED
+import behaviour ..................... UNCHANGED
+PR #14 ............................... OPEN / DRAFT, NOT MERGED, body append-only
+
+Isolation is PROVEN, not claimed: the C12/11 isolation guard greps src/ and test/ for real
+import statements and fails the build if the experimental modules are ever pulled into a
+production path. The same guard exists for the C11 candidate normalizer.
+
+----------------------------------------------------------------
+8. VERDICTS (restricted vocabulary)
+----------------------------------------------------------------
+shadow index .................... PASS
+collision engine (12 categories)  PASS WITH FINDINGS  (one coverage gap found and closed)
+migration simulation / rollback .. PASS
+multi-company isolation .......... PASS
+performance ...................... PASS (synthetic, in-memory)
+existing product regression ...... PASS for all non-DB suites; DB suites NOT RUN (no DATABASE_URL)
+real-data impact assessment ...... BLOCKED (no authorized dataset)
+independent review (Agent-2) ..... UNVERIFIED (agent-2 connector unavailable; NOT fabricated)
+activation ....................... NOT PERFORMED (separate approval gate)
+
+OVERALL: PASS WITH FINDINGS for the simulation scope; BLOCKED for real-data impact.
+
+----------------------------------------------------------------
+9. FILES
+----------------------------------------------------------------
+NEW
+  apps/api/src/modules/master-data/experimental/shadow-identity-index.candidate.ts
+  apps/api/src/modules/master-data/experimental/shadow-identity-migration.candidate.ts
+  apps/api/test/fixtures/c12-synthetic-identities.ts
+  apps/api/test/c12-shadow-index.test.ts
+  apps/api/test/c12-migration-simulation.test.ts
+  docs/product-inventory/TASK-PM-02-C12_SHADOW_IDENTITY_MIGRATION.md
+  docs/product-inventory/ADR-C12-SHADOW-INDEX.md
+  docs/product-inventory/VERIFICATION-C12.txt
+  docs/product-inventory/VERIFICATION-C12.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C12-SHADOW-INDEX.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C12-COLLISION-LEDGER.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C12-MIGRATION-SIMULATION.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C12-PERFORMANCE.json
+  docs/product-inventory/evidence/task-pm-02/EVIDENCE-C12-ROLLBACK.md
+MODIFIED
+  docs/product-inventory/EVIDENCE_INDEX.md
+  apps/api/test/c11-normalization-contract.test.ts   (isolation guard: real imports only + C12 allowlist)
+
+NO production file was modified.

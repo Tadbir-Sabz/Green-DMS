@@ -27,8 +27,8 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"  
 | متغیر | نقش | قاعدهٔ ردشدن (fail-closed) |
 |---|---|---|
 | `JWT_SECRET` | امضای توکن‌ها | نبود/جای‌نگه‌دار/کوتاه‌تر از ۳۲ نویسه/تک‌نویسه ⇒ رد |
-| `APP_DATABASE_URL` | نقشِ زمانِ اجرا (`dms_app`) | نبود یا یکی‌بودن با نقشِ مهاجرت ⇒ رد |
-| `DATABASE_URL` | نقشِ مهاجرت/مدیریت | فقط برایِ migrate؛ رمزِ جای‌نگه‌دار ⇒ رد |
+| `APP_DATABASE_URL` | نقشِ زمانِ اجرا (`dms_app`) | نبود یا یکی بودن با هویتِ مالک اشیاء / اجرای مهاجرتها ⇒ رد |
+| `DATABASE_URL` | **هویتِ مالک اشیاء** که مهاجرتها را اعمال می‌کند (نه `dms_migrator` مستقل) | فقط برایِ migrate و ترمیم مجاز پارتیشن؛ رمزِ جای‌نگه‌دار ⇒ رد |
 | `ALLOWED_ORIGINS` | فهرستِ CORS (کاما-جدا) | نبود یا ورودیِ نامعتبر ⇒ رد؛ `*` ممنوع |
 | `SMS_PROVIDER` + درگاه | تحویلِ OTP | `log` بدونِ `SMS_ALLOW_LOG_PROVIDER=true` ⇒ رد |
 | `PSP_WEBHOOK_SECRET` | HMAC وب‌هوک PSP | فقط اگر `PSP_ENDPOINT` ست باشد؛ جای‌نگه‌دار ⇒ رد |
@@ -59,6 +59,29 @@ alter role dms_app login;   -- فقط LOGIN؛ هیچ رمزی در متنِ دس
 - برایِ حجمِ محلیِ **تازه**، اسکریپتِ init (`docker/postgres-init/10-runtime-role.sh`)
   همین کار را خودکار و بدونِ نشتِ رمز انجام می‌دهد؛ رویِ دیتابیسِ موجود **هرگز** اجرا
   نمی‌شود (فقط وقتی volume خالی است).
+
+### ۳-الف) بازیابی پارتیشن ماهانهٔ ممیزی (TASK-PM-01D-M4-G / F-R-02)
+
+اگر عملیات نگهداشت گروهی با خطای `audit_partition_missing` روبرو شد، **برنامه
+هرگز پارتیشن نمیسازد**؛ اقدام زیر فقط توسط اپراتور و خارج از API انجام میشود:
+
+1. با همان هویتِ مجازِ `DATABASE_URL` که مهاجرتها را اعمال کرده و **مالکِ
+   `public.audit_log`، `location_sample` و `inventory_txn`** است وصل شوید. بررسی
+   مالکیت (دستور دقیق، قابل کپی/پیست و اجراشده روی DB ایزوله):
+   `select relowner::regrole from pg_class where oid = 'public.audit_log'::regclass;`
+   پیشنیازهای همان اتصال: مالکیت والدها + `USAGE`/`CREATE` روی `public` +
+   `EXECUTE` روی `fn_ensure_partitions(integer)`. `dms_app`، `dms_readonly`،
+   `dms_migrator` و `dms_owner` مادامیکه مالک نشدهاند مجاز نیستند؛ `0064`
+   اجرای `fn_ensure_partitions` را از آنها گرفته است.
+2. `select fn_ensure_partitions(2);` — بایدار و قابل تکرار؛ فقط پارتیشنهای موجودنبوده
+   ساخته میشوند، ردیفهای تاریخی ممیزی و RLS اجباری دستنخورده میمانند.
+3. ساختهشدن پارتیشن، `FORCE ROW LEVEL SECURITY`، سیاست والد و گرانت `dms_app` را
+   بررسی و اقدام را در لاگ استقرار ثبت کنید؛ سپس عملیات تازهای آغاز کنید.
+
+هیچ `SECURITY DEFINER` تازهای، هیچ grant گسترده و هیچ تغییر نقش/رمز production
+برای این ترمیم لازم نیست. جزئیات مالکیت و اثبات نقشها:
+`docs/db-privilege-architecture.md` §۲-الف و
+`docs/product-inventory/TASK-PM-01D-M4-G_IMPLEMENTATION.md`.
 
 ## ۴) راه‌اندازی
 

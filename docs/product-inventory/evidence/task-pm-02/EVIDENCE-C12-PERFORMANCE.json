@@ -1,0 +1,72 @@
+{
+  "task": "TASK-PM-02-C12",
+  "baseline_commit": "205e914930f203f620576cfbdd47755559e4849a",
+  "synthetic_only": true,
+  "environment": {
+    "node": "v22.22.3",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "measurements": [
+    {
+      "rows": 100,
+      "simulate_ms": 2,
+      "detect_ms": 1,
+      "total_ms": 2,
+      "collisions": 41,
+      "hard": 0,
+      "display_preserved": 100,
+      "ms_per_1000_rows": 25
+    },
+    {
+      "rows": 500,
+      "simulate_ms": 6,
+      "detect_ms": 5,
+      "total_ms": 11,
+      "collisions": 205,
+      "hard": 0,
+      "display_preserved": 500,
+      "ms_per_1000_rows": 22
+    },
+    {
+      "rows": 1000,
+      "simulate_ms": 14,
+      "detect_ms": 8,
+      "total_ms": 23,
+      "collisions": 410,
+      "hard": 0,
+      "display_preserved": 1000,
+      "ms_per_1000_rows": 23
+    },
+    {
+      "rows": 2000,
+      "simulate_ms": 22,
+      "detect_ms": 17,
+      "total_ms": 39,
+      "collisions": 820,
+      "hard": 0,
+      "display_preserved": 2000,
+      "ms_per_1000_rows": 19
+    },
+    {
+      "rows": 5000,
+      "simulate_ms": 86,
+      "detect_ms": 54,
+      "total_ms": 140,
+      "collisions": 2050,
+      "hard": 0,
+      "display_preserved": 5000,
+      "ms_per_1000_rows": 28
+    }
+  ],
+  "scaling": {
+    "observed": "approximately linear after an O(n^2) fix",
+    "note": "an early version rebuilt the entire state Map per operation; switching to in-place mutation cut 5000 rows from ~14228 ms to ~75 ms"
+  },
+  "memory": {
+    "rows": 5000,
+    "heap_growth_mb": 4.1,
+    "recalculated": 5000
+  },
+  "caveat": "synthetic in-memory figures on this sandbox; NOT a production benchmark"
+}

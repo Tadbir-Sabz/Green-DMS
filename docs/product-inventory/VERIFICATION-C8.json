@@ -1,0 +1,264 @@
+{
+  "task": "TASK-PM-02-C8",
+  "title": "Product Identity Owner Decision Package & Evidence Integrity Closeout",
+  "role": "Agent-1 (Arena.ai) — Windows Development Agent / Technical Architect / Documentation Executor",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "baseline_commit": "8f610bb61ae5a577f7d52c543e98b9bbab5db527",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "base": "main",
+    "merge_approve_release_deploy": "NOT AUTHORIZED / NOT PERFORMED"
+  },
+  "baseline_verification": {
+    "six_sha_views_all_agree": true,
+    "working_tree_clean": true,
+    "checkpoint_tar": "/home/user/pm02-c8-checkpoint.tar.gz",
+    "checkpoint_bytes": 3818813,
+    "checkpoint_sha256": "acc8c2a67365c5bec7239d6616b9ccccc246bcdfabdba164c3be3964af6759d9",
+    "checkpoint_integrity": "sha256sum -c: OK",
+    "checkpoint_bundle": "/home/user/pm02-c8-checkpoint.bundle",
+    "checkpoint_bundle_bytes": 3333110,
+    "checkpoint_bundle_verify": "The bundle records a complete history",
+    "reset_rebase_amend_force_push": "NONE"
+  },
+  "scope_discipline": {
+    "business_semantics_changed": false,
+    "runtime_behaviour_changed": false,
+    "schema_or_migrations_changed": false,
+    "roles_permissions_grants_seeds_changed": false,
+    "rls_changed": false,
+    "new_api_endpoints": 0,
+    "new_ui_controls": 0,
+    "alias_uniqueness_behaviour": "unchanged (soft conflict only)",
+    "alias_update_behaviour": "unchanged (no update path)",
+    "attribute_required_scope": "unchanged (company-wide)",
+    "production_data_touched": false
+  },
+  "owners_decisions_package": {
+    "document": "docs/product-inventory/TASK-PM-02-C8_OWNER_DECISION_PACKAGE.md",
+    "bytes": 40134,
+    "sha256": "4c638b740e846ad3c3358dbaa69e7080b74fd2cc3000c1941fadaa253582c71c",
+    "decisions": [
+      {
+        "id": "C7-D1",
+        "topic_fa": "دامنهٔ یکتایی نام جایگزین",
+        "options": [
+          "A: per-product (current)",
+          "B: per-company",
+          "C: global"
+        ],
+        "technical_recommendation": "A now; B only with pre-flight conflict report",
+        "approved": false
+      },
+      {
+        "id": "C7-D2",
+        "topic_fa": "سیاست ویرایش نام جایگزین",
+        "options": [
+          "1 immutable (current)",
+          "2 full controlled edit",
+          "3 edit non-scan kinds only",
+          "4 edit with second approval"
+        ],
+        "technical_recommendation": "1 now; 3 if operators prove the need",
+        "approved": false
+      },
+      {
+        "id": "C7-D4",
+        "topic_fa": "دامنهٔ الزام صفات",
+        "options": [
+          "A company-wide (current)",
+          "B category-scoped",
+          "C family/other controlled classification",
+          "D all optional"
+        ],
+        "technical_recommendation": "A until three companion rules are approved",
+        "approved": false
+      }
+    ],
+    "concept_distinction_documented": [
+      "hard uniqueness constraint",
+      "soft warning/conflict report",
+      "lookup ambiguity requiring operator resolution"
+    ],
+    "fabricated_approvals": 0,
+    "signature_slots": "empty (owner to fill)"
+  },
+  "evidence_integrity": {
+    "A_pr_prefix": {
+      "method": "GitHub API full body; slice at real appendix headings; SHA-256 over UTF-8 bytes",
+      "prefix_before_c6": {
+        "characters": 131474,
+        "bytes": 146932,
+        "sha256": "c8fb45a7211bbd49bc59ceb38d8124a15d1a6a524ec8531204e08a69a1a00610",
+        "matches_committed_c6_commitment": true,
+        "commitment_commit": "a894246fe3fc8ee33fbb792bd074b7df56f2c49c"
+      },
+      "prefix_before_c7": {
+        "characters": 138252,
+        "bytes": 156543,
+        "sha256": "cf48385848e055385061cd7ac53722b10e8c841d176cb83c1d83cdaaa5a41fef",
+        "matches_c7_recorded_value": true
+      },
+      "c6_appendix_delta": {
+        "characters": 6778,
+        "bytes": 9611,
+        "sha256": "aff31c0c876d61269ad87328dfa2aff0bab12dfaa8911f6fe1ff5cb3a14d50f5"
+      },
+      "arithmetic_check": "146932 + 9611 = 156543 exactly (zero bytes missing or extra in the real text)",
+      "finding": "the conflicting figure is a one-byte measurement artifact (gh CLI trailing newline); the prefix chain is byte-continuous and matches both committed commitments",
+      "historical_modification_detected": false,
+      "pr_edited_events": 0,
+      "independent_snapshot_available": false,
+      "independent_snapshot_status": "UNVERIFIED — GitHub does not version PR descriptions; verified against the committed commitment instead",
+      "description_rewritten_to_conceal": false,
+      "measurement_artifact_root_cause": {
+        "suspected_figure": "156544 bytes for the 138252-character prefix",
+        "appears_in_any_committed_document": false,
+        "ever_committed_anywhere": false,
+        "git_log_all_S_search": "empty",
+        "mechanism": "gh pr view --json body appends a trailing newline not present in the PR description",
+        "measured_raw_rest": {
+          "characters": 145298,
+          "bytes": 166210
+        },
+        "measured_gh_cli": {
+          "characters": 145299,
+          "bytes": 166211
+        },
+        "why_156544_arises": "characters counted on the trimmed string + bytes counted on the CLI output = 138252 / 156544",
+        "prefix_plus_newline": {
+          "characters": 138253,
+          "bytes": 156544,
+          "sha256": "6ec80b5367ea309711e38f375f7263b9adb49d4b82064f4eaea02538848e9d4a",
+          "sha256_recorded_anywhere": false
+        },
+        "conclusion": "one-byte measurement/reporting artifact of the tooling, not a historical modification"
+      }
+    },
+    "B_c7_probe_cleanup": {
+      "evidence": "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C8-PROBE-CLEANUP.txt",
+      "evidence_bytes": 3016,
+      "evidence_sha256": "f486009c04a4456e3771c8526c25c759d27db06700fabb4e3d70ff2dd01c937d",
+      "attribution_method": "stable identifiers (code/def_id/product code) — not timestamps or approximate counts",
+      "rows_attributed_to_c7": 126,
+      "breakdown": {
+        "audit_product_attribute_def": 13,
+        "history_product_attribute_def": 34,
+        "history_value_and_enum": 70,
+        "history_product_delete": 9
+      },
+      "other_probe_rows_present": {
+        "history_product_delete_non_c7": 20,
+        "source": "C5/C6 probes, documented in their own ledgers"
+      },
+      "pre_existing_rows_affected": false,
+      "pre_existing_evidence": "audit_log(product)=3 (three C2 products) equals the C5-recorded baseline; history(product) complete for the four surviving products; no C1..C6 seed/migration/script creates product_alias",
+      "final_counts": {
+        "product": 4,
+        "product_alias": 0,
+        "product_attribute_def": 0,
+        "product_attribute_value": 0,
+        "history_product_alias": 0,
+        "audit_product_alias": 0,
+        "audit_total": 112,
+        "history_total": 138
+      },
+      "additional_deletions_in_c8": 0,
+      "why_no_further_deletion": "product_catalog_history is append-only by design (dms_app granted SELECT only; policies SELECT/INSERT); attribution is provable but further deletion would weaken trustworthy evidence",
+      "procedural_deviation_recorded": "C7 cleanup of catalog history ran as superuser, bypassing the application role's append-only path; local preview DB only, no production data"
+    }
+  },
+  "tests_rerun": {
+    "typecheck": {
+      "status": "PASS",
+      "errors": 0
+    },
+    "openapi_check": {
+      "status": "PASS",
+      "paths": 229,
+      "operations": 324,
+      "schemas": 233,
+      "webhooks": 3
+    },
+    "contract_drift": {
+      "status": "PASS",
+      "drift": 0
+    },
+    "test_partition": {
+      "status": "PASS",
+      "declared_equals_computed": true
+    },
+    "migrations_changed": 0,
+    "api": {
+      "files": 3,
+      "tests": 47,
+      "status": "PASS"
+    },
+    "web": {
+      "files": 2,
+      "tests": 15,
+      "status": "PASS"
+    }
+  },
+  "status": {
+    "PASS": [
+      "baseline + checkpoint",
+      "typecheck",
+      "OpenAPI 229/324/233/3",
+      "contract drift 0",
+      "test partition",
+      "no migrations",
+      "identity tests 47 API + 15 web",
+      "owner decision package produced",
+      "PR prefix discrepancy resolved as a one-byte gh-CLI measurement artifact",
+      "126 probe rows attributed by identifier"
+    ],
+    "UNVERIFIED": [
+      "independent historical snapshot of the PR description (GitHub has no description versioning)"
+    ],
+    "BLOCKED": [
+      "any implementation of C7-D1/D2/D4 before owner approval",
+      "migrations/constraints/permissions/seeds",
+      "import/export, bundle, lifecycle, relationship, company/domain ownership changes"
+    ],
+    "UNRESOLVED": [
+      "C7-D1 alias uniqueness scope",
+      "C7-D2 alias update policy",
+      "C7-D4 required attribute scope"
+    ],
+    "NOT_DONE": [
+      "merge",
+      "approve",
+      "release",
+      "deploy",
+      "PR status change",
+      "artificial commits for CI"
+    ]
+  },
+  "approvers_required": {
+    "C7-D1": [
+      "مالک کاتالوگ",
+      "مدیر فروش/انبار"
+    ],
+    "C7-D2": [
+      "مالک کاتالوگ",
+      "مالک انبار (برای نوع code)"
+    ],
+    "C7-D4": [
+      "مالک کاتالوگ",
+      "مالک کیفیت داده"
+    ],
+    "note": "role placeholders only — no names, signatures or approvals fabricated"
+  },
+  "next_increment_recommendation": "C9 should be scoped only after the owner returns at least one approved option; if C7-D2 option 3 or C7-D4 option B is approved, the first increment is a pre-flight conflict/incompleteness report (read-only) before any constraint or validation change.",
+  "documents": [
+    "docs/product-inventory/TASK-PM-02-C8_OWNER_DECISION_PACKAGE.md",
+    "docs/product-inventory/VERIFICATION-C8.txt",
+    "docs/product-inventory/VERIFICATION-C8.json",
+    "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C8-PROBE-CLEANUP.txt",
+    "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §13",
+    "docs/product-inventory/EVIDENCE_INDEX.md (append)"
+  ]
+}

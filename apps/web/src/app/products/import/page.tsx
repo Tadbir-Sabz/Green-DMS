@@ -2,10 +2,17 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { api, getToken } from '@/lib/api';
 import { AppLoader } from '@/components/AppShell';
 import {
+  IMPORT_BATCH_STATUS_LABEL,
+  IMPORT_CATEGORY_LABEL,
+  IMPORT_OUTCOME_LABEL,
+  IMPORT_STATUS_LABEL,
+  importLabel,
+  importToneCls,
   type ImportResult,
   type ImportValidationResult,
   type RowIssue,
@@ -37,6 +44,7 @@ SKU-1001,شیر پرچرب پگاه,DAIRY,pcs,6261000000001,1
 
 export default function ImportPage(): React.JSX.Element {
   const router = useRouter();
+  const auth = useAuth();
   const [ready, setReady] = useState(false);
 
   const [csv, setCsv] = useState('');
@@ -113,7 +121,8 @@ export default function ImportPage(): React.JSX.Element {
     setResult((data as ImportResult) ?? null);
   };
 
-  if (!ready) return <AppLoader />;
+  if (!ready || auth.isLoading) return <AppLoader />;
+  if (!auth.hasPermission('master.product.import')) return <section className={panelCls}><p role="alert">مجوز این عملیات را ندارید.</p><Link href="/products" className={btnGhost}>بازگشت به کاتالوگ</Link></section>;
 
   const rowIssues: RowIssue[] = validation ? [...validation.row_errors, ...validation.warnings] : [];
   const validationOk = validation != null && validation.row_errors.length === 0;
@@ -134,6 +143,12 @@ export default function ImportPage(): React.JSX.Element {
           ستون‌های شناخته‌شده: <span className="font-mono" dir="ltr">code, name, name_latin, category_code, base_uom_code, brand_name, tax_code, barcode, status, min_order_qty</span>
           {' — '}سرستون‌های فارسی («کد کالا»، «نام»، «گروه»، «واحد»، …) هم پذیرفته می‌شوند. حداکثر ۱۰٬۰۰۰ ردیف.
           ردیفِ بدونِ <span className="font-mono" dir="ltr">category_code</span> یا <span className="font-mono" dir="ltr">base_uom_code</span> خطا می‌گیرد.
+        </p>
+        <p className="mb-3 text-xs text-ink-muted">
+          ستون‌های عضویت، دسترسپذیری، فعالسازی یا شناسهٔ دامنه (مانند «دامنه»،
+          «وضعیت عرضه» یا <span className="font-mono" dir="ltr">domain_id</span>)
+          در کاتالوگ مرکزی پذیرفته نمی‌شوند؛ فایل پیش از هر نوشتنی رد می‌شود،
+          زیرا وضعیت عرضه در دامنه ویژگی سراسری کالا نیست.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <input
@@ -237,7 +252,8 @@ export default function ImportPage(): React.JSX.Element {
             </div>
             <p className="mt-2 text-xs text-ink-muted">
               اجرا idempotent است: تکرارِ همان درخواست (کلیدِ یکتا) import تکراری نمی‌سازد. هر دسته یا کامل اعمال می‌شود یا
-              هیچ (همه‌یاهیچ)؛ ردیف‌های ناموفق در گزارش می‌مانند و پایگاه‌داده خراب نمی‌شود.
+              هیچ (همه‌یا‌هیچ)؛ ردیف‌های ناموفق در گزارش می‌مانند و دسته‌های بعدی طبق §E ادامه می‌یابند. نتیجهٔ نامشخص تراکنش
+              هرگز به‌عنوان موفقیت یا مجوز پخش خودکار فرض نمی‌شود.
             </p>
           </div>
         </section>
@@ -254,6 +270,57 @@ export default function ImportPage(): React.JSX.Element {
             <span className="text-info-ink">به‌روزشده: <b>{result.updated_rows}</b></span>
             <span className="text-danger-ink">ناموفق: <b>{result.failed_rows}</b></span>
           </div>
+          <div className="mb-3 grid gap-2 rounded-lg bg-surface-alt p-3 text-sm sm:grid-cols-2">
+            <span>وضعیت: <b className={importToneCls(result.status)}>{importLabel(IMPORT_STATUS_LABEL, result.status)}</b></span>
+            <span>نتیجهٔ تراکنش: <b className={importToneCls(result.transaction_outcome)}>{importLabel(IMPORT_OUTCOME_LABEL, result.transaction_outcome)}</b></span>
+            <span>دستهٔ خطا: <b>{importLabel(IMPORT_CATEGORY_LABEL, result.failure_category)}</b></span>
+            <span>تلاش مجدد امن: <b>{result.retryable ? 'بله (فقط نتیجهٔ قطعی برگشت)' : 'خیر'}</b></span>
+            {result.last_batch_no != null && <span>آخرین دستهٔ ثبت‌شده: <b>{result.last_batch_no}</b></span>}
+          </div>
+          {result.transaction_outcome === 'unknown' && (
+            <p className={`mb-3 ${errorCls}`}>
+              نتیجهٔ تراکنش نامشخص است؛ برای جلوگیری از اثر دوباره، پخش خودکار متوقف شد و بررسی اپراتور لازم است.
+            </p>
+          )}
+          {result.batches && result.batches.length > 0 && (
+            <div className="mb-4">
+              <h3 className="mb-2 text-sm font-semibold">گزارش دسته‌ها (همه‌یا‌هیچ در هر دسته)</h3>
+              <div className={tableWrapCls}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className={thCls}>دسته</th>
+                      <th className={thCls}>وضعیت</th>
+                      <th className={thCls}>نتیجهٔ تراکنش</th>
+                      <th className={thCls}>دستهٔ خطا</th>
+                      <th className={thCls}>ساخته/به‌روزشده/ناموفق</th>
+                      <th className={thCls}>تلاش‌ها</th>
+                      <th className={thCls}>توضیح</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.batches.map((batch) => (
+                      <tr key={batch.batch_no} className="border-t border-line">
+                        <td className={tdCls}>{batch.batch_no}</td>
+                        <td className={`${tdCls} ${importToneCls(batch.status)}`}>
+                          {importLabel(IMPORT_BATCH_STATUS_LABEL, batch.status)}
+                        </td>
+                        <td className={`${tdCls} ${importToneCls(batch.transaction_outcome)}`}>
+                          {importLabel(IMPORT_OUTCOME_LABEL, batch.transaction_outcome)}
+                        </td>
+                        <td className={tdCls}>{importLabel(IMPORT_CATEGORY_LABEL, batch.failure_category)}</td>
+                        <td className={tdCls} dir="ltr">
+                          {batch.created_rows}/{batch.updated_rows}/{batch.failed_rows}
+                        </td>
+                        <td className={tdCls}>{batch.attempts}</td>
+                        <td className={tdCls}>{batch.message_fa ?? batch.reason_code ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           <p className="mb-3 text-xs text-ink-muted">
             شناسهٔ import: <span className="font-mono" dir="ltr">{result.import_id}</span>
             {' — '}
@@ -267,6 +334,7 @@ export default function ImportPage(): React.JSX.Element {
                 <thead>
                   <tr>
                     <th className={thCls}>ردیف</th>
+                    <th className={thCls}>دسته</th>
                     <th className={thCls}>کد خطا</th>
                     <th className={thCls}>توضیح</th>
                   </tr>
@@ -275,6 +343,7 @@ export default function ImportPage(): React.JSX.Element {
                   {result.errors.map((issue, i) => (
                     <tr key={i} className="border-t border-line">
                       <td className={tdCls}>{issue.row ?? '—'}</td>
+                      <td className={tdCls}>{issue.batch_no ?? '—'}</td>
                       <td className={`${tdCls} font-mono text-xs`} dir="ltr">
                         {issue.code ?? '—'}
                       </td>

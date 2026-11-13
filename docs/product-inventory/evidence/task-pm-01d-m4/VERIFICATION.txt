@@ -1,0 +1,137 @@
+TASK-PM-01D-M4 — local verification ledger
+===========================================
+
+Baseline: 8509255f9154e328319dd323896316666140a8e0 (M3 final / M4 start).
+Branch: arena/be5eaff3-green-dms. PR #14: OPEN / DRAFT, base main.
+Local DB: disposable PostgreSQL 16.2 UTF8, 127.0.0.1:55432, trust auth.
+PSQL: /tmp/pm01dm2-venv/lib/python3.11/site-packages/pgserver/pginstall/bin/psql
+DATABASE_URL: postgresql://postgres@127.0.0.1:55432/postgres
+
+Environment caveat: no real PostGIS, real pgcrypto, MinIO or Redis in this
+sandbox. ECONNREFUSED 127.0.0.1:6379 is nonfatal; native ERROR/FATAL lines in
+negative tests are expected. CI uses real postgis/postgis:16-3.4 and real
+services. No production or shared database was touched.
+
+Commands and exact results
+--------------------------
+
+1) npm run openapi:check
+   200 paths / 283 operations / 153 schemas / 3 webhooks — valid.
+
+2) node scripts/contract-drift.mjs
+   283 / 283 / 283 — diff 0.
+
+3) node scripts/check-test-partition.mjs
+   total test files 77; declared manifest == computed partition.
+
+4) npm run generate -w packages/api-client && npm run build -w packages/api-client
+   PASS (twice, after preview/execute/status and after fields route).
+
+5) npm run typecheck -w apps/api
+   PASS (after service/controller, after fields route, after tests).
+
+6) npm run typecheck -w apps/web
+   PASS (after nav/import/dir and helper test import fixes).
+
+7) npm run typecheck && npm run build
+   PASS; Next.js production build includes /products/bulk-maintenance.
+
+8) npm run test -w apps/api -- $(node scripts/check-test-partition.mjs --print unit)
+   26 files / 338 tests PASS.
+
+9) npm run test -w apps/api -- test/product-bulk-maintenance-unit.test.ts
+   3 / 3 PASS.
+
+10) PG-env npm run test -w apps/api -- test/product-bulk-maintenance.api.test.ts
+    11 / 11 PASS. Scenarios: server whitelist; 401/403/protected/invalid/
+    unbounded; exact read-only preview without product writes/history/audit;
+    cross-company IDs and references; one commit with audit/history correlation
+    and idempotent replay; stale/expired; real row_version conflict rollback;
+    concurrent execute serialization; explicit confirmation and crafted payload;
+    ambiguous unknown fail-closed; committed/rolled-back evidence reconciliation.
+
+11) PG-env selected Product Master/contract/RLS/history regressions:
+    12 files / 244 tests PASS.
+
+12) PG-env broad local DB-backed selection:
+    44 files / 925 tests PASS. Excluded locally: customers.api, geofences.api,
+    postgres-init-role.api, tours.api (real PostGIS / password auth), plus
+    attachments.api, task24w-conversion-and-parity.api,
+    task24y-approval-engine.api (sandbox-dependent failures). A broader 47-file
+    run had 12 failures: 10 in task24w/task24y and 2 in attachments. The same
+    10 task24w/task24y failures were reproduced on an isolated worktree at exact
+    baseline 8509255. Their root cause is the UTC-vs-business-date window in
+    item 17, not M4 source code; the 2 attachments failures are caused by the
+    missing MinIO service in this sandbox. Exact CI at 975c12f had only the 10
+    task24w/task24y failures and attachments passed.
+
+13) npm run test:web
+    17 files / 88 tests PASS, including the two new bulk-maintenance test files
+    (3 helper tests + 3 RTL page tests).
+
+14) PG-env npm run test -w apps/api -- test/migrations-security.test.ts
+    3 / 3 PASS.
+
+15) DATABASE_URL=... TEST_DB=greendms_pm01dm4_cycle npm run test:migrations
+    62 migrations; strict up/down/up; empty schema after down; both up passes
+    have exactly 1013 identical objects; temporary database dropped.
+
+16) git diff --cached --check
+    PASS (staged all source, tests, docs and evidence before commit).
+
+17) CI diagnosis for the first M4 push 975c12f4533996f832c7639ee534c327a1c7df4d:
+    run 42709786143 / job 129475954785, step 7 failed: 2 failed / 48 passed
+    files and 10 failed / 1043 passed tests, all in
+    task24w-conversion-and-parity.api.test.ts and
+    task24y-approval-engine.api.test.ts. Attachments passed in CI. M3 baseline
+    run 42685616824 at 8509255 was green, but started at 19:45 UTC; GitHub
+    refused to rerun it. Root cause: these two legacy test files used
+    new Date().toISOString().slice(0,10) (UTC) for TODAY / order_date while the
+    server uses businessToday() (Asia/Tehran). Between 20:30 and 24:00 UTC the
+    UTC date is one day behind the business date, so documents were treated as
+    backdated: 403, 400 override_reason_required instead of price_missing, etc.
+    The first M4 CI started at 22:12 UTC, inside that window. This is a
+    pre-existing time-of-day test fragility, not an M4 source regression.
+    Fix: the two test files now import businessToday / shiftBusinessDate from
+    src/common/business-date. No production source, migration, workflow or
+    .github file was changed.
+
+18) Local validation after the time-of-day fix (still inside 20:30-24:00 UTC):
+    targeted 2 files / 48 tests PASS (/tmp/pm01dm4-datefix-targeted.log);
+    CI-equivalent 46-file PG selection / 973 tests PASS
+    (/tmp/pm01dm4-datefix-selected-db.log). The full 50-file CI-equivalent
+    local run (/tmp/pm01dm4-datefix-full-db.log) had 17 failures confined to
+    customers.api, geofences.api, postgres-init-role.api and tours.api; these
+    require real PostGIS / password auth and passed in exact CI at 975c12f.
+    Root typecheck, OpenAPI 200/283/153/3, contract drift 0, partition 77 and
+    git diff --check PASS after the fix (/tmp/pm01dm4-datefix-*.log).
+
+Logs retained outside Git in /tmp:
+  /tmp/pm01dm4-baseline-api.log          10 files / 230 tests PASS
+  /tmp/pm01dm4-baseline-web.log          15 files /  82 tests PASS
+  /tmp/pm01dm4-page-test.log             targeted web test iterations
+  /tmp/pm01dm4-web.log                   17 files /  88 tests PASS
+  /tmp/pm01dm4-bulk-api.log              11 / 11 PASS
+  /tmp/pm01dm4-api-unit.log              26 files / 338 tests PASS
+  /tmp/pm01dm4-selected-db.log           12 files / 244 tests PASS
+  /tmp/pm01dm4-selected-db-green.log     44 files / 925 tests PASS
+  /tmp/pm01dm4-full-db.log               47 files; 44 passed / 3 failed files
+                                         (12 tests: 10 time-window + 2 MinIO)
+  /tmp/pm01dm4-baseline-isolate.log      same 10 task24w/task24y failures
+                                         at baseline + 2 MinIO-only failures
+  /tmp/pm01dm4-migration-cycle.log       62 up/down/up PASS
+  /tmp/pm01dm4-migrations-security.log   3 / 3 PASS
+  /tmp/pm01dm4-typecheck.log             root typecheck PASS
+  /tmp/pm01dm4-build.log                 root build PASS
+  /tmp/pm01dm4-datefix-targeted.log      2 files / 48 tests PASS
+  /tmp/pm01dm4-datefix-selected-db.log   46 files / 973 tests PASS
+  /tmp/pm01dm4-datefix-full-db.log       50 files; 4 sandbox-only files failed
+  /tmp/pm01dm4-datefix-typecheck.log     root typecheck PASS after fix
+  /tmp/pm01dm4-datefix-openapi.log       OpenAPI PASS after fix
+  /tmp/pm01dm4-datefix-drift.log         contract drift 0 after fix
+  /tmp/pm01dm4-datefix-partition.log     partition 77 PASS after fix
+  /tmp/pm01dm4-datefix-diffcheck.log     git diff --check PASS after fix
+
+Exact-final-SHA CI outcome, including the follow-up test-fix SHA, is recorded
+in PR #14 body and the final report; local evidence alone is not a
+production-equivalent or CI-equivalence claim.

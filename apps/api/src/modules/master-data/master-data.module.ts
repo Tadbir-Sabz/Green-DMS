@@ -1,6 +1,30 @@
+import { CatalogFoundationController, CatalogFoundationService } from './catalog-foundation.controller';
+import { ProductPackagingService } from './product-packaging.service';
+import { CatalogAccess } from './catalog-access.service';
+import { DomainCatalogGate } from './domain-catalog.contract';
+import { DomainBoundaryGuard } from './domain-boundary.guard';
+import { ProductDomainScopeController } from './product-domain-scope.controller';
+import { ProductDomainScopeService } from './product-domain-scope.service';
+// TASK-PM-02-C5: centralized, read/transition-only central product lifecycle.
+import { ProductLifecycleController } from './product-lifecycle.controller';
+import { ProductRelationsController } from './product-relations.controller';
+import { ProductIdentityController } from './product-identity.controller';
+import { ProductIdentityService } from './product-identity.service';
+import { ProductRelationsService } from './product-relations.service';
+import { ProductLifecycleService } from './product-lifecycle.service';
+import { OrderCreationLock } from '../sales/order-creation-lock';
 import { Module } from '@nestjs/common';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
 import { PricingModule } from '../pricing/pricing.module';
+// TASK-PM-02-C1: بازاستفاده از زنجیرهٔ مالکیت و استوریجِ verified ضمیمهها
+// (§A طراحی هدف) بهجای ساختن لایهٔ ذخیرهسازی/RLS تازه.
+import { AttachmentsModule } from '../attachments/attachments.module';
+import { ProductMediaController } from './product-media.controller';
+import { ProductMediaService } from './product-media.service';
+// TASK-PM-02-C2: مدیریت دادههای مرجع (برند/واحد/دسته) روی همان جداول ۰۰۰۵.
+import { ReferenceDataController } from './reference-data.controller';
+import { ReferenceDataService } from './reference-data.service';
+import { ReferenceDataRepository } from './reference-data.repository';
 import { MasterDataController } from './master-data.controller';
 import { MasterDataRepository } from './master-data.repository';
 import { PackagingController } from './packaging.controller';
@@ -10,6 +34,11 @@ import { PersonService } from './person.service';
 import { ProductBarcodeController } from './product-barcode.controller';
 import { ProductCatalogController } from './product-catalog.controller';
 import { ProductController } from './product.controller';
+import { ProductExportController } from './product-export.controller';
+import { ProductExportService } from './product-export.service';
+import { ProductBulkMaintenanceController } from './product-bulk-maintenance.controller';
+import { ProductBulkMaintenanceService } from './product-bulk-maintenance.service';
+import { ProductBulkMaintenanceRepository } from './product-bulk-maintenance.repository';
 import { ProductImportController } from './product-import.controller';
 import { ProductMasterRepository } from './product-master.repository';
 import { ProductMasterService } from './product-master.service';
@@ -45,14 +74,25 @@ import {
  * (گاردهای کنترلر در همین ماژول نمونه‌سازی می‌شوند و به providerهای آن نیاز دارند).
  */
 @Module({
-  imports: [IdentityRbacModule, PricingModule],
+  imports: [IdentityRbacModule, PricingModule, AttachmentsModule],
   controllers: [
+    CatalogFoundationController,
     MasterDataController,
     // نکته: کنترلرهای Product Master باید قبل از ProductController ثبت شوند تا
     // مسیرهای literal زیرمجموعهٔ /products (مثل duplicate-check) قبل از ':id' match شوند.
     ProductImportController,
+    ProductDomainScopeController,
+    ProductLifecycleController,
+    ProductRelationsController,
+    ProductIdentityController,
     ProductBarcodeController,
     ProductCatalogController,
+    ProductExportController,
+    ProductMediaController,
+    // مسیرهای /reference-data/* پیش از ProductController فرستاده میشوند تا هیچ
+    // تداخلی با :id محصول نداشته باشند (هرچند پیشوندشان متفاوت است).
+    ReferenceDataController,
+    ProductBulkMaintenanceController,
     ProductController,
     PackagingController,
     PersonController,
@@ -62,12 +102,28 @@ import {
     PromotionController,
   ],
   providers: [
+    CatalogAccess,
+    OrderCreationLock,
+    DomainCatalogGate,
+    DomainBoundaryGuard,
+    ProductDomainScopeService,
+    ProductLifecycleService,
+    ProductRelationsService,
+    ProductIdentityService,
+    CatalogFoundationService,
+    ProductPackagingService,
     ProductMasterRepository,
     ProductMasterService,
     ProductRepository,
     { provide: PRODUCT_REPOSITORY, useExisting: ProductRepository },
     ProductService,
     { provide: PRODUCT_SERVICE, useExisting: ProductService },
+    ProductExportService,
+    ProductMediaService,
+    ReferenceDataService,
+    ReferenceDataRepository,
+    ProductBulkMaintenanceService,
+    ProductBulkMaintenanceRepository,
     MasterDataRepository,
     { provide: MASTER_DATA_REPOSITORY, useExisting: MasterDataRepository },
     PersonRepository,

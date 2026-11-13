@@ -11,15 +11,37 @@ export type ProductBarcode = components['schemas']['ProductBarcode'];
 export type ProductPackaging = components['schemas']['ProductPackaging'];
 export type ProductAttributeDef = components['schemas']['ProductAttributeDef'];
 export type ProductAttributeValue = components['schemas']['ProductAttributeValue'];
-export type ProductRelation = components['schemas']['ProductRelation'];
+// TASK-PM-02-C6 — روابط کالا از قرارداد بازطراحی‌شدهٔ C6 تولید می‌شوند.
+export type ProductRelationsOverview = components['schemas']['ProductRelationsOverview'];
+export type ProductRelationItem = components['schemas']['ProductRelationItem'];
+export type ProductRelationHistory = components['schemas']['ProductRelationHistory'];
+export type ProductRelationGraph = components['schemas']['ProductRelationGraph'];
 export type BundleComponent = components['schemas']['BundleComponent'];
 export type ProductFamily = components['schemas']['ProductFamily'];
 export type ScanResult = components['schemas']['ScanResult'];
 export type DuplicateCheckResult = components['schemas']['DuplicateCheckResult'];
 export type ImportValidationResult = components['schemas']['ImportValidationResult'];
 export type ImportResult = components['schemas']['ImportResult'];
+export type BulkMaintenanceFieldsResponse = components['schemas']['BulkMaintenanceFieldsResponse'];
+export type BulkMaintenancePreviewRequest = components['schemas']['BulkMaintenancePreviewRequest'];
+export type BulkMaintenancePreviewResponse = components['schemas']['BulkMaintenancePreviewResponse'];
+export type BulkMaintenanceExecuteRequest = components['schemas']['BulkMaintenanceExecuteRequest'];
+export type BulkMaintenanceOperationResult = components['schemas']['BulkMaintenanceOperationResult'];
+export type BulkMaintenanceField = components['schemas']['BulkMaintenanceField'];
+export type BulkMaintenanceDiff = components['schemas']['BulkMaintenanceDiff'];
+export type BulkMaintenancePreviewItem = components['schemas']['BulkMaintenancePreviewItem'];
+export type BulkMaintenanceOperationItem = components['schemas']['BulkMaintenanceOperationItem'];
+export type BulkMaintenanceChanges = components['schemas']['BulkMaintenanceChanges'];
 export type Category = components['schemas']['ProductCategory'];
 export type Unit = components['schemas']['Unit'];
+// TASK-PM-02-C2 — انواع تولیدشده از قرارداد مدیریت دادههای مرجع
+export type Brand = components['schemas']['Brand'];
+export type BrandDetail = components['schemas']['BrandDetail'];
+export type UnitDetail = components['schemas']['UnitDetail'];
+export type CategoryDetail = components['schemas']['CategoryDetail'];
+export type ReferenceProduct = components['schemas']['ReferenceProduct'];
+export type ReferenceAuditEvent = components['schemas']['ReferenceAuditEvent'];
+export type ReferenceMutationResult = components['schemas']['ReferenceMutationResult'];
 
 /** کلاس‌های ثابتِ فرم — هم‌سبک با صفحات موجود (RTL، تایپوگرافی فارسی) */
 export const inputCls =
@@ -53,6 +75,48 @@ export const DIST_LABEL: Record<string, string> = {
   warm: 'گرم',
   both: 'سرد و گرم',
 };
+
+export const IMPORT_STATUS_LABEL: Record<string, string> = {
+  processing: 'در حال پردازش',
+  completed: 'پایان‌یافته',
+  failed: 'ناموفق',
+};
+
+export const IMPORT_OUTCOME_LABEL: Record<string, string> = {
+  committed: 'همهٔ دسته‌ها ثبت شدند',
+  partial: 'برخی دسته‌ها ثبت و برخی برگشت خوردند',
+  rolled_back: 'دسته‌ها برگشت خوردند',
+  not_started: 'تراکنشی آغاز نشد',
+  unknown: 'نتیجهٔ تراکنش نامشخص — بررسی اپراتور',
+};
+
+export const IMPORT_CATEGORY_LABEL: Record<string, string> = {
+  none: 'بدون خطا',
+  validation: 'اعتبارسنجی',
+  business: 'قواعد کسب‌وکار',
+  permission: 'مجوز',
+  concurrency: 'همزمانی',
+  infrastructure: 'زیرساخت',
+};
+
+export const IMPORT_BATCH_STATUS_LABEL: Record<string, string> = {
+  committed: 'ثبت‌شده',
+  rolled_back: 'برگشت‌خورده',
+  rejected: 'پیش از تراکنش رد شد',
+  failed: 'ناموفق',
+};
+
+export function importLabel(map: Record<string, string>, key?: string | null): string {
+  if (!key) return '—';
+  return map[key] ?? key;
+}
+
+export function importToneCls(value?: string | null): string {
+  if (value === 'committed' || value === 'completed') return 'text-success-ink';
+  if (value === 'partial' || value === 'processing') return 'text-warning-ink';
+  if (value === 'unknown' || value === 'failed' || value === 'rolled_back') return 'text-danger-ink';
+  return 'text-info-ink';
+}
 
 export const ALIAS_KIND_LABEL: Record<string, string> = {
   brand_slang: 'نامِ عامیانه/برند',

@@ -1,0 +1,700 @@
+{
+  "task": "TASK-PM-02-C12",
+  "baseline_commit": "205e914930f203f620576cfbdd47755559e4849a",
+  "contract_version": "c11.1",
+  "synthetic_only": true,
+  "contains_organizational_data": false,
+  "categories_declared": [
+    "exact_duplicate",
+    "persian_arabic_letters",
+    "unicode_normalization",
+    "alias_to_alias",
+    "alias_to_product_name",
+    "alias_to_product_code",
+    "alias_to_barcode",
+    "product_code_collision",
+    "barcode_collision",
+    "cross_company",
+    "legacy_vs_proposed",
+    "search_only_equivalence"
+  ],
+  "categories_observed": [
+    "exact_duplicate",
+    "persian_arabic_letters",
+    "unicode_normalization",
+    "alias_to_alias",
+    "alias_to_product_name",
+    "alias_to_product_code",
+    "alias_to_barcode",
+    "product_code_collision",
+    "barcode_collision",
+    "cross_company",
+    "legacy_vs_proposed",
+    "search_only_equivalence"
+  ],
+  "categories_without_evidence": [],
+  "options": {
+    "crossCompanyIsConflict": false
+  },
+  "summary": {
+    "total": 23,
+    "hard": 7,
+    "soft": 13,
+    "review": 3,
+    "by_category": {
+      "alias_to_alias": 1,
+      "alias_to_barcode": 1,
+      "alias_to_product_code": 1,
+      "alias_to_product_name": 1,
+      "barcode_collision": 1,
+      "cross_company": 3,
+      "exact_duplicate": 2,
+      "legacy_vs_proposed": 9,
+      "persian_arabic_letters": 1,
+      "product_code_collision": 1,
+      "search_only_equivalence": 1,
+      "unicode_normalization": 1
+    },
+    "by_company": {
+      "company-fixture-A": 19,
+      "*": 3,
+      "company-fixture-B": 1
+    },
+    "rows_considered": 23
+  },
+  "newly_exposed": 21,
+  "stability": {
+    "method": "FNV-1a over category + company + key + sorted party signature",
+    "order_independent": true,
+    "rerun_identical": true
+  },
+  "collisions": [
+    {
+      "collision_id": "COL-alias_to_alias-b923935b",
+      "category": "alias_to_alias",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductAlias",
+      "key": "کوکا",
+      "parties": [
+        {
+          "entity_id": "A-p1",
+          "field": "alias",
+          "display_value": "كوكا",
+          "source_ref": "A-p1-alias"
+        },
+        {
+          "entity_id": "A-p2",
+          "field": "alias",
+          "display_value": "کوکا",
+          "source_ref": "A-p2-alias"
+        }
+      ],
+      "message_fa": "یک نام جایگزین برای بیش از یک کالا در همین شرکت ثبت شده است.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p1-alias#alias",
+        "A-p2-alias#alias"
+      ]
+    },
+    {
+      "collision_id": "COL-alias_to_barcode-95c7cca5",
+      "category": "alias_to_barcode",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "Barcode",
+      "key": "123456",
+      "parties": [
+        {
+          "entity_id": "A-p6",
+          "field": "barcode",
+          "display_value": "123 456",
+          "source_ref": "A-p6-barcode"
+        },
+        {
+          "entity_id": "A-p7",
+          "field": "alias",
+          "display_value": "123 456",
+          "source_ref": "A-p7-alias"
+        }
+      ],
+      "message_fa": "نام جایگزین با بارکدِ کالای دیگری یکسان است؛ اسکن دوپهلو می‌شود.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p6-barcode#barcode@barcode-space",
+        "A-p7-alias#alias@barcode-space"
+      ]
+    },
+    {
+      "collision_id": "COL-alias_to_product_code-254952a9",
+      "category": "alias_to_product_code",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductCode",
+      "key": "ab-12",
+      "parties": [
+        {
+          "entity_id": "A-p4",
+          "field": "code",
+          "display_value": "AB-12",
+          "source_ref": "A-p4-code"
+        },
+        {
+          "entity_id": "A-p5",
+          "field": "alias",
+          "display_value": "ab-12",
+          "source_ref": "A-p5-alias"
+        }
+      ],
+      "message_fa": "نام جایگزین با کدِ کالای دیگری یکسان است؛ اسکن دوپهلو می‌شود.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p4-code#code",
+        "A-p5-alias#alias"
+      ]
+    },
+    {
+      "collision_id": "COL-alias_to_product_name-e17dc08f",
+      "category": "alias_to_product_name",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductName",
+      "key": "شیر پرچرب",
+      "parties": [
+        {
+          "entity_id": "A-p15",
+          "field": "name",
+          "display_value": "شیر پرچرب",
+          "source_ref": "A-p15-name"
+        },
+        {
+          "entity_id": "A-p16",
+          "field": "alias",
+          "display_value": "شیر پرچرب",
+          "source_ref": "A-p16-alias"
+        }
+      ],
+      "message_fa": "نام جایگزین با نامِ کالای دیگری یکسان است.",
+      "visible_under_current_normalization": true,
+      "provenance": [
+        "A-p15-name#name",
+        "A-p16-alias#alias"
+      ]
+    },
+    {
+      "collision_id": "COL-barcode_collision-4ebbaf6b",
+      "category": "barcode_collision",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "Barcode",
+      "key": "007",
+      "parties": [
+        {
+          "entity_id": "A-p8",
+          "field": "barcode",
+          "display_value": "007",
+          "source_ref": "A-p8-barcode"
+        },
+        {
+          "entity_id": "A-p9",
+          "field": "barcode",
+          "display_value": "0-0-7",
+          "source_ref": "A-p9-barcode"
+        }
+      ],
+      "message_fa": "دو کالا در یک شرکت بارکدِ یکسان (پس از نرمال‌سازی) دارند.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p8-barcode#barcode",
+        "A-p9-barcode#barcode"
+      ]
+    },
+    {
+      "collision_id": "COL-cross_company-379a75fa",
+      "category": "cross_company",
+      "severity": "review",
+      "company_id": "*",
+      "crosses_company_boundary": true,
+      "profile": "ProductAlias",
+      "key": "کوکا",
+      "parties": [
+        {
+          "entity_id": "A-p1",
+          "field": "alias",
+          "display_value": "كوكا",
+          "source_ref": "A-p1-alias"
+        },
+        {
+          "entity_id": "A-p2",
+          "field": "alias",
+          "display_value": "کوکا",
+          "source_ref": "A-p2-alias"
+        },
+        {
+          "entity_id": "B-p1",
+          "field": "alias",
+          "display_value": "کوکا",
+          "source_ref": "B-p1-alias"
+        }
+      ],
+      "message_fa": "همین مقدار در شرکتِ دیگری هم وجود دارد؛ طبقِ مرزِ شرکت مجاز است.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "company-fixture-A:A-p1-alias#alias",
+        "company-fixture-A:A-p2-alias#alias",
+        "company-fixture-B:B-p1-alias#alias"
+      ]
+    },
+    {
+      "collision_id": "COL-cross_company-612cf67f",
+      "category": "cross_company",
+      "severity": "review",
+      "company_id": "*",
+      "crosses_company_boundary": true,
+      "profile": "Barcode",
+      "key": "123456",
+      "parties": [
+        {
+          "entity_id": "A-p6",
+          "field": "barcode",
+          "display_value": "123 456",
+          "source_ref": "A-p6-barcode"
+        },
+        {
+          "entity_id": "B-p3",
+          "field": "barcode",
+          "display_value": "123456",
+          "source_ref": "B-p3-barcode"
+        }
+      ],
+      "message_fa": "همین مقدار در شرکتِ دیگری هم وجود دارد؛ طبقِ مرزِ شرکت مجاز است.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "company-fixture-A:A-p6-barcode#barcode",
+        "company-fixture-B:B-p3-barcode#barcode"
+      ]
+    },
+    {
+      "collision_id": "COL-cross_company-abfd1e89",
+      "category": "cross_company",
+      "severity": "review",
+      "company_id": "*",
+      "crosses_company_boundary": true,
+      "profile": "ProductCode",
+      "key": "ab-12",
+      "parties": [
+        {
+          "entity_id": "A-p4",
+          "field": "code",
+          "display_value": "AB-12",
+          "source_ref": "A-p4-code"
+        },
+        {
+          "entity_id": "A-p5",
+          "field": "alias",
+          "display_value": "ab-12",
+          "source_ref": "A-p5-alias"
+        },
+        {
+          "entity_id": "B-p2",
+          "field": "code",
+          "display_value": "AB-12",
+          "source_ref": "B-p2-code"
+        }
+      ],
+      "message_fa": "همین مقدار در شرکتِ دیگری هم وجود دارد؛ طبقِ مرزِ شرکت مجاز است.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "company-fixture-A:A-p4-code#code",
+        "company-fixture-A:A-p5-alias#alias",
+        "company-fixture-B:B-p2-code#code"
+      ]
+    },
+    {
+      "collision_id": "COL-exact_duplicate-72a3f167",
+      "category": "exact_duplicate",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductNameLatin",
+      "key": "cola",
+      "parties": [
+        {
+          "entity_id": "A-p14",
+          "field": "name_latin",
+          "display_value": "ＣＯＬＡ",
+          "source_ref": "A-p14-latin"
+        },
+        {
+          "entity_id": "A-p15",
+          "field": "name_latin",
+          "display_value": "cola",
+          "source_ref": "A-p15-latin"
+        }
+      ],
+      "message_fa": "دو مقدار عیناً یکسان‌اند.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p14-latin#name_latin",
+        "A-p15-latin#name_latin"
+      ]
+    },
+    {
+      "collision_id": "COL-exact_duplicate-bd93fd6f",
+      "category": "exact_duplicate",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductAlias",
+      "key": "نوشابه مشکی",
+      "parties": [
+        {
+          "entity_id": "A-p3",
+          "field": "alias",
+          "display_value": "نوشابه مشکی",
+          "source_ref": "A-p3-alias1"
+        },
+        {
+          "entity_id": "A-p3",
+          "field": "alias",
+          "display_value": "نوشابه   مشکی",
+          "source_ref": "A-p3-alias2"
+        }
+      ],
+      "message_fa": "دو مقدار عیناً یکسان‌اند.",
+      "visible_under_current_normalization": true,
+      "provenance": [
+        "A-p3-alias1#alias",
+        "A-p3-alias2#alias"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-06dca87b",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductName",
+      "key": "علی رضایی",
+      "parties": [
+        {
+          "entity_id": "A-p1",
+          "field": "name",
+          "display_value": "علی رضایی",
+          "source_ref": "A-p1-name"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p1-name#name",
+        "stored=علي رضايي"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-2c837994",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-B",
+      "crosses_company_boundary": false,
+      "profile": "ProductCode",
+      "key": "ab-12",
+      "parties": [
+        {
+          "entity_id": "B-p2",
+          "field": "code",
+          "display_value": "AB-12",
+          "source_ref": "B-p2-code"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "B-p2-code#code",
+        "stored=AB-12"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-397377b6",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductName",
+      "key": "café",
+      "parties": [
+        {
+          "entity_id": "A-p13",
+          "field": "name",
+          "display_value": "Café",
+          "source_ref": "A-p13-name"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p13-name#name",
+        "stored=café"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-66ae3d46",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductCode",
+      "key": "ab-12",
+      "parties": [
+        {
+          "entity_id": "A-p4",
+          "field": "code",
+          "display_value": "AB-12",
+          "source_ref": "A-p4-code"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p4-code#code",
+        "stored=AB-12"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-b328e33c",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductName",
+      "key": "علی رضایی",
+      "parties": [
+        {
+          "entity_id": "A-p2",
+          "field": "name",
+          "display_value": "علي رضایی",
+          "source_ref": "A-p2-name"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p2-name#name",
+        "stored=علي رضايي"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-b72816ce",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "Barcode",
+      "key": "007",
+      "parties": [
+        {
+          "entity_id": "A-p9",
+          "field": "barcode",
+          "display_value": "0-0-7",
+          "source_ref": "A-p9-barcode"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p9-barcode#barcode",
+        "stored=0-0-7"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-e522ae90",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductNameLatin",
+      "key": "cola",
+      "parties": [
+        {
+          "entity_id": "A-p14",
+          "field": "name_latin",
+          "display_value": "ＣＯＬＡ",
+          "source_ref": "A-p14-latin"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p14-latin#name_latin",
+        "stored=ｃｏｌａ"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-f46fc499",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductCode",
+      "key": "sku-9",
+      "parties": [
+        {
+          "entity_id": "A-p10",
+          "field": "code",
+          "display_value": "SKU-9",
+          "source_ref": "A-p10-code"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p10-code#code",
+        "stored=SKU-9"
+      ]
+    },
+    {
+      "collision_id": "COL-legacy_vs_proposed-fed94d46",
+      "category": "legacy_vs_proposed",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductAlias",
+      "key": "کوکا",
+      "parties": [
+        {
+          "entity_id": "A-p1",
+          "field": "alias",
+          "display_value": "كوكا",
+          "source_ref": "A-p1-alias"
+        }
+      ],
+      "message_fa": "کلیدِ نامزد با مقدارِ ذخیره‌شدهٔ فعلی فرق دارد؛ مهاجرت آن را تغییر می‌دهد.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p1-alias#alias",
+        "stored=كوكا"
+      ]
+    },
+    {
+      "collision_id": "COL-persian_arabic_letters-2240658b",
+      "category": "persian_arabic_letters",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductName",
+      "key": "علی رضایی",
+      "parties": [
+        {
+          "entity_id": "A-p1",
+          "field": "name",
+          "display_value": "علی رضایی",
+          "source_ref": "A-p1-name"
+        },
+        {
+          "entity_id": "A-p2",
+          "field": "name",
+          "display_value": "علي رضایی",
+          "source_ref": "A-p2-name"
+        }
+      ],
+      "message_fa": "تفاوت فقط در رسم‌الخطِ عربی/فارسی است (ي/ی، ك/ک).",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p1-name#name",
+        "A-p2-name#name"
+      ]
+    },
+    {
+      "collision_id": "COL-product_code_collision-b9af97f0",
+      "category": "product_code_collision",
+      "severity": "hard",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductCode",
+      "key": "sku-9",
+      "parties": [
+        {
+          "entity_id": "A-p10",
+          "field": "code",
+          "display_value": "SKU-9",
+          "source_ref": "A-p10-code"
+        },
+        {
+          "entity_id": "A-p11",
+          "field": "code",
+          "display_value": "sku-9",
+          "source_ref": "A-p11-code"
+        }
+      ],
+      "message_fa": "دو کالا در یک شرکت کدِ یکسان (پس از نرمال‌سازی) دارند.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p10-code#code",
+        "A-p11-code#code"
+      ]
+    },
+    {
+      "collision_id": "COL-search_only_equivalence-8981b8c2",
+      "category": "search_only_equivalence",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "SearchKey",
+      "key": "123 456",
+      "parties": [
+        {
+          "entity_id": "A-p6",
+          "field": "barcode",
+          "display_value": "123 456",
+          "source_ref": "A-p6-barcode"
+        },
+        {
+          "entity_id": "A-p7",
+          "field": "alias",
+          "display_value": "123 456",
+          "source_ref": "A-p7-alias"
+        }
+      ],
+      "message_fa": "دو مقدار فقط برای جست‌وجو یکسان دیده می‌شوند، نه برای یکتایی.",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p6-barcode#barcode",
+        "A-p7-alias#alias"
+      ]
+    },
+    {
+      "collision_id": "COL-unicode_normalization-a2fa29a9",
+      "category": "unicode_normalization",
+      "severity": "soft",
+      "company_id": "company-fixture-A",
+      "crosses_company_boundary": false,
+      "profile": "ProductName",
+      "key": "café",
+      "parties": [
+        {
+          "entity_id": "A-p12",
+          "field": "name",
+          "display_value": "Café",
+          "source_ref": "A-p12-name"
+        },
+        {
+          "entity_id": "A-p13",
+          "field": "name",
+          "display_value": "Café",
+          "source_ref": "A-p13-name"
+        }
+      ],
+      "message_fa": "دو رشته پس از نرمال‌سازیِ یونیکد یکسان می‌شوند (NFC/NFD).",
+      "visible_under_current_normalization": false,
+      "provenance": [
+        "A-p12-name#name",
+        "A-p13-name#name"
+      ]
+    }
+  ]
+}

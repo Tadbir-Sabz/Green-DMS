@@ -35,11 +35,6 @@ export class CreateFamilyDto {
   @IsString() @MaxLength(255) name: string;
 }
 
-export class CreateAliasDto {
-  @IsString() @MaxLength(255) alias: string;
-  @IsOptional() @IsIn(['brand_slang', 'latin', 'code']) kind?: string;
-}
-
 export class CreateAttributeDefDto {
   @IsString() @MaxLength(64) code: string;
   @IsString() @MaxLength(255) title: string;
@@ -52,24 +47,6 @@ export class CreateAttributeDefDto {
 
 export class AddEnumValueDto {
   @IsString() @MaxLength(255) value: string;
-}
-
-export class AttributeValueItemDto {
-  @IsUUID('4') def_id: string;
-  @IsOptional() @IsString() value_text?: string | null;
-  @IsOptional() @IsNumber() value_num?: number | null;
-  @IsOptional() @IsString() value_enum?: string | null;
-}
-
-export class SetAttributeValuesDto {
-  @IsArray() @ValidateNested({ each: true }) @Type(() => AttributeValueItemDto)
-  values: AttributeValueItemDto[];
-}
-
-export class CreateRelationDto {
-  @IsUUID('4') related_id: string;
-  @IsIn(['substitute', 'complement']) kind: string;
-  @IsOptional() @IsInt() @Min(0) priority?: number;
 }
 
 export class BundleItemDto {
@@ -118,34 +95,11 @@ export class ProductCatalogController {
     return this.service.createFamily(user.companyId, dto.code, dto.name, meta, user.userId);
   }
 
-  // ---------- alias ----------
-  @Get('products/:id/aliases')
-  @RequirePermissions('master.product.view')
-  listAliases(@CurrentUser('companyId') companyId: string, @Param('id') id: string) {
-    return this.service.listAliases(companyId, id);
-  }
-
-  @Post('products/:id/aliases')
-  @RequirePermissions('master.product.update')
-  addAlias(
-    @CurrentUser() user: AuthContext,
-    @Param('id') id: string,
-    @Body() dto: CreateAliasDto,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    return this.service.addAlias(user.companyId, id, dto.alias, dto.kind ?? 'brand_slang', meta, user.userId);
-  }
-
-  @Delete('product-aliases/:aliasId')
-  @RequirePermissions('master.product.update')
-  async removeAlias(
-    @CurrentUser() user: AuthContext,
-    @Param('aliasId') aliasId: string,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    await this.service.removeAlias(user.companyId, aliasId, meta, user.userId);
-    return { deleted: true };
-  }
+  // ---------- alias / صفاتِ کالا ----------
+  // TASK-PM-02-C7: این دو سطح به `ProductIdentityController` منتقل شدند
+  // (نمای کامل alias با برخوردهای نرم، افزودن/حذف با ممیزی fail-closed،
+  // نمای صفات با الزام/محور/امضا، ثبت/پاک‌کردن مقدار و تاریخچهٔ هویت).
+  // این کنترلر فقط کاتالوگِ صفات (تعریف/مقدارِ مجاز) و bundle/تشخیص تکرار را نگه می‌دارد.
 
   // ---------- صفات ----------
   @Get('product-attributes')
@@ -181,51 +135,11 @@ export class ProductCatalogController {
     return this.service.addAttributeEnumValue(user.companyId, defId, dto.value, meta, user.userId);
   }
 
-  @Get('products/:id/attributes')
-  @RequirePermissions('master.product.view')
-  getAttributeValues(@CurrentUser() user: AuthContext, @Param('id') id: string) {
-    return this.service.getProductAttributeValues(user.companyId, id);
-  }
-
-  @Put('products/:id/attributes')
-  @RequirePermissions('master.product.update')
-  setAttributeValues(
-    @CurrentUser() user: AuthContext,
-    @Param('id') id: string,
-    @Body() dto: SetAttributeValuesDto,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    return this.service.setProductAttributeValues(user.companyId, id, dto.values, meta, user.userId);
-  }
-
   // ---------- روابط ----------
-  @Get('products/:id/relations')
-  @RequirePermissions('master.product.view')
-  listRelations(@CurrentUser('companyId') companyId: string, @Param('id') id: string) {
-    return this.service.listRelations(companyId, id);
-  }
-
-  @Post('products/:id/relations')
-  @RequirePermissions('master.product.update')
-  addRelation(
-    @CurrentUser() user: AuthContext,
-    @Param('id') id: string,
-    @Body() dto: CreateRelationDto,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    return this.service.addRelation(user.companyId, id, dto.related_id, dto.kind, dto.priority ?? 100, meta, user.userId);
-  }
-
-  @Delete('product-relations/:relationId')
-  @RequirePermissions('master.product.update')
-  async removeRelation(
-    @CurrentUser() user: AuthContext,
-    @Param('relationId') relationId: string,
-    @RequestMetaParam() meta: RequestMeta,
-  ) {
-    await this.service.removeRelation(user.companyId, relationId, meta, user.userId);
-    return { deleted: true };
-  }
+  // TASK-PM-02-C6: سطحِ روابطِ کالا به `ProductRelationsController` منتقل شد
+  // (نمای کامل، تاریخچه، پیمایشِ محدود، افزودن/ویرایشِ اولویت/حذف با ممیزیِ
+  // fail-closed). این کنترلر فقط منابعِ خانواده/alias/صفات/bundle را نگه می‌دارد
+  // تا هیچ مسیرِ تکراری یا نسخهٔ قدیمیِ ضعیف‌تر در دسترس نماند.
 
   // ---------- bundle (D5 — فقط کاتالوگ) ----------
   @Get('products/:id/bundle')

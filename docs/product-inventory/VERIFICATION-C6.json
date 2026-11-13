@@ -1,0 +1,203 @@
+{
+  "task": "TASK-PM-02-C6",
+  "title": "Product-to-product relationships & dependency management (substitute/complement, catalog-only)",
+  "role": "Agent-1 (Arena.ai) — Lead Developer / Architect / Full-Stack Executor",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "branch_base_commit": "6b4429ba7e55f7e02f407e63f2b2b2e197fad1fa",
+  "baseline_commit": "50a7a587b6e8542cf7217dde3922e88dc39da74a",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "base": "main",
+    "body_before_c6": {
+      "characters": 131474,
+      "bytes": 146932,
+      "sha256": "c8fb45a7211bbd49bc59ceb38d8124a15d1a6a524ec8531204e08a69a1a00610"
+    },
+    "body_preservation_rule": "the 131474-char / 146932-byte prefix with sha256 c8fb45a7211bbd49bc59ceb38d8124a15d1a6a524ec8531204e08a69a1a00610 must remain byte-for-byte; C6 only appends",
+    "merge_approve_release_deploy": "NOT AUTHORIZED / NOT PERFORMED"
+  },
+  "baseline_recovery": {
+    "fetch_pull_ff_only": "Already up to date",
+    "six_sha_views_all_agree": true,
+    "working_tree_clean_at_baseline": true,
+    "git_diff_check_at_baseline": 0,
+    "checkpoint_tar": "/home/user/pm02-c6-checkpoint.tar.gz",
+    "checkpoint_bytes": 3097272,
+    "checkpoint_sha256": "1c1c199532c15b201404c12dd97ac3181592659705f5d2153c623697fc356e0e",
+    "checkpoint_integrity": "sha256sum -c: OK",
+    "checkpoint_bundle": "/home/user/pm02-c6-checkpoint.bundle",
+    "checkpoint_bundle_bytes": 3205407,
+    "checkpoint_bundle_verify": "complete history",
+    "destructive_git_operations": "none",
+    "post_ci_commits": "none"
+  },
+  "relationship_catalog": {
+    "source_of_truth": [
+      "migrations/0046_product_master.up.sql (product_relation: kind check substitute/complement, priority smallint default 100, unique(product_id, related_id, kind), check product_id <> related_id; product_bundle)",
+      "migrations/0047_product_master_rls.up.sql (hybrid tenant RLS on product_relation/product_bundle)",
+      "migrations/0060_product_catalog_history.up.sql (immutable history trigger incl. product_relation/product_bundle)",
+      "apps/api/src/modules/master-data/product-master.service.ts (pre-C6 controls: master.product.update, self_relation, relation_cycle for substitute, duplicate_relation, delete policy)",
+      "apps/api/src/modules/master-data/product-relations.rules.ts (new catalog of record)",
+      "docs/product-inventory/PRODUCT_MASTER_TARGET_DESIGN.md §A",
+      "docs/product-inventory/TASK-PM-01_PRODUCT_MASTER_SPEC.md §1 (reuse 0046 relations)"
+    ],
+    "IMPLEMENTABLE": [
+      {
+        "kind": "substitute",
+        "label_fa": "جایگزین",
+        "direction": "directed",
+        "cycle_policy": "rejected_by_existing_rule",
+        "operational_effect": "none — information only; no auto substitution in orders/invoices/waybills, no price/stock/COGS/document change"
+      },
+      {
+        "kind": "complement",
+        "label_fa": "مکمل",
+        "direction": "directed",
+        "cycle_policy": "no_approved_rule",
+        "operational_effect": "none — no bundle expansion or auto suggestion"
+      }
+    ],
+    "BLOCKED": [
+      "automatic substitution inside documents (C6-D1)",
+      "operational bundle expansion / PM-P5 semantics (C6-D6)",
+      "domain-scoped relationships and domain assignment (PM-B1..PM-B8)",
+      "any third relationship kind without owner approval + migration",
+      "G-03 two-person approval / D4 policy replacement",
+      "deletion, archival, retention policies",
+      "new migrations, roles, grants, RLS, companies, seeds"
+    ],
+    "UNRESOLVED": [
+      "C6-D2 reciprocal/symmetric auto-creation (not implemented; reciprocal payload field rejected with 400)",
+      "C6-D3 complement cycles (no approved rule invented; not blocked)",
+      "C6-D4 cardinality / minimum or maximum requirements",
+      "C6-D5 blocking relationships to blocked/discontinued products (warn only)"
+    ],
+    "UNSUPPORTED": [
+      "relationship kinds outside the 0046 enum (validated: 400 validation_failed)",
+      "domain context on the central relation surface (400 domain_context_not_supported / domain_property_rejected)"
+    ],
+    "invented_semantics": "none"
+  },
+  "api_surface": {
+    "GET /products/{id}/relations": {
+      "permission": "master.product.view",
+      "query": ["kind", "direction", "limit"],
+      "returns": "product, actor.can_update, kinds[], items[], counts, downstream_notes_fa, owner_decisions_fa"
+    },
+    "GET /products/{id}/relations/history": { "permission": "master.product.view", "source": "product_catalog_history (0060)" },
+    "GET /products/{id}/relations/graph": {
+      "permission": "master.product.view",
+      "query": ["depth<=3", "kind"],
+      "technical_bounds": "outgoing-only, depth<=3, nodes<=100, technical_limits echoed"
+    },
+    "POST /products/{id}/relations": { "permission": "master.product.update", "body_allowlist": ["related_id", "kind", "priority", "confirm_add"] },
+    "PATCH /products/{id}/relations/{relationId}": { "permission": "master.product.update", "body_allowlist": ["priority"] },
+    "DELETE /products/{id}/relations/{relationId}": { "permission": "master.product.update", "scope": "outgoing relation of this product only (existing policy)" },
+    "removed_endpoints": ["GET /product-relations/{relationId}", "POST /product-relations", "DELETE /product-relations/{relationId}"],
+    "error_codes": [
+      "invalid_id", "self_relation", "duplicate_relation", "relation_cycle", "relation_not_found",
+      "relation_unchanged", "forbidden_client_field", "unsupported_request_field", "validation_failed",
+      "product_not_found", "domain_context_not_supported", "domain_property_rejected",
+      "relation_write_failed", "relation_read_failed", "audit_partition_missing"
+    ]
+  },
+  "security": {
+    "guards": ["AuthGuard", "PermissionsGuard", "DomainBoundaryGuard"],
+    "guard_order_verified": true,
+    "permission_revalidation": "from DB before/inside CatalogAccess.write",
+    "company_identity": "session only (AuthContext); company_id/tenant_id/actor_user_id in body or query => 400 forbidden_client_field",
+    "rls": "product_relation RLS enabled + FORCE RLS, policies present (verified live via pg_class/pg_policy)",
+    "tenant_isolation": "uniform 404 for unknown and cross-company products and for relations owned by another product",
+    "transaction": "CatalogAccess.write (per-company advisory lock + GUC + fail-closed audit via recordRequired)",
+    "history": "0060 trigger in the same transaction; read surface exposes only action/target kind/priority/actor/time",
+    "audit_entities": ["product_relation (create/update/delete)"],
+    "write_effects_on_other_tables": "none"
+  },
+  "gaps_closed": [
+    "ProductCatalogController relation routes had no DomainBoundaryGuard -> now the whole C6 surface is guarded",
+    "relation reads did not call assertProduct -> unknown/cross-company product returned an empty 200; now uniform 404",
+    "no priority edit and no incoming-direction view -> PATCH priority + two-direction overview with editable/removable flags"
+  ],
+  "documented_remaining_gaps": [
+    "bundle/alias/attribute routes in ProductCatalogController still lack DomainBoundaryGuard and full assertProduct (out of C6 scope; input for C7/PM-B)",
+    "external clients of the removed /product-relations/{relationId} path must migrate to /products/{id}/relations/{relationId}"
+  ],
+  "contract": {
+    "openapi": { "paths": 228, "operations": 323, "schemas": 221, "webhooks": 3, "valid": true },
+    "drift": { "contract_operations": 323, "code_operations": 323, "shared": 323, "drift": 0 },
+    "generated_client": "packages/api-client/src/schema.ts regenerated with openapi-typescript"
+  },
+  "database": {
+    "migrations_added": 0,
+    "migration_cycle": "up/down/up 1033 objects identical",
+    "grants_or_roles_added": 0,
+    "test_partition": "99 test files, declared == computed"
+  },
+  "ui": {
+    "component": "apps/web/src/app/products/[id]/product-relations.tsx",
+    "language": "fa-IR RTL",
+    "features": [
+      "direction labels and per-kind grouping with counts",
+      "kind/direction filters",
+      "search-and-select product, kind, priority and explicit confirmation before POST",
+      "in-place priority edit and delete for outgoing rows only",
+      "status warning for blocked/discontinued counterparts",
+      "bounded graph view and immutable history list",
+      "BLOCKED/UNRESOLVED decision register rendered in place",
+      "read-only mode without master.product.update"
+    ],
+    "error_mapping_codes": 12
+  },
+  "build": {
+    "typecheck": "PASS (0 errors)",
+    "build": "PASS (packages + api + web)",
+    "api_boot": "PASS (health database=up)",
+    "git_diff_check": 0
+  },
+  "tests": {
+    "c6_unit": { "files": 1, "tests": 9, "result": "PASS (also without DATABASE_URL)" },
+    "c6_api_db": { "files": 1, "tests": 14, "result": "PASS" },
+    "c6_web_component": { "files": 1, "tests": 7, "result": "PASS" },
+    "focused_regression": { "files": 8, "tests": 62, "result": "PASS" },
+    "web_full": { "files": 27, "tests": 150, "result": "PASS" },
+    "api_full_db_excluding_c6": {
+      "files_passed": 94,
+      "files_failed": 4,
+      "files_total": 98,
+      "tests_passed": 1574,
+      "tests_failed": 17,
+      "tests_total": 1591,
+      "failed_files": ["customers.api.test.ts", "geofences.api.test.ts", "tours.api.test.ts", "postgres-init-role.api.test.ts"],
+      "baseline_comparison": "/tmp/pm02c5-api-full.log — same 5 files / 19 titles (attachments/customers/geofences/tours/postgres-init-role), i.e. pre-existing/environmental, no C6 regression",
+      "attachments_isolated_run": "9/9 PASS",
+      "full_db_pass_claimed": false
+    }
+  },
+  "live_evidence": {
+    "file": "docs/product-inventory/evidence/task-pm-02/VERIFICATION-C6-LIVE.txt",
+    "bytes": 10098,
+    "sha256": "6bff0d1b21ffcf6e00b9e2a8a56fd959c4b0a8debaf4945819a15ba09f43473f",
+    "environment": "PostgreSQL 16.2 at 127.0.0.1:55432 (greendms_c1_preview) + API built from this tree on :4000 + Next.js on :3000",
+    "baseline_counts": { "product": 4, "product_relation": 0, "product_bundle": 0, "audit_log_product_relation": 0 },
+    "final_counts": { "product": 4, "product_relation": 0, "product_bundle": 0, "audit_log_product_relation": 0 },
+    "sensitive_leak_check": "no raw before/after, storage keys, signed URLs, contact/identity data or infrastructure strings"
+  },
+  "documents": [
+    "docs/product-inventory/TASK-PM-02-C6_IMPLEMENTATION.md",
+    "docs/product-inventory/VERIFICATION-C6.txt",
+    "docs/product-inventory/VERIFICATION-C6.json",
+    "docs/product-inventory/EVIDENCE_INDEX.md (additive C6 section)",
+    "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §۱۱ (additive)"
+  ],
+  "unverified": [
+    "manual browser review (RTL/a11y/console/real interaction)",
+    "production-equivalent infrastructure (real MinIO/S3, queue/cache)",
+    "full Product Master acceptance",
+    "browser e2e suite execution",
+    "deployment, merge, approve, release"
+  ],
+  "no_go_areas_touched": false,
+  "pr_14_state": "OPEN / DRAFT — merge/approve/release NOT AUTHORIZED"
+}

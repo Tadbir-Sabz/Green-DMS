@@ -1,3 +1,4 @@
+import { CatalogAccess } from './catalog-access.service';
 import {
   BadRequestException,
   ConflictException,
@@ -21,6 +22,7 @@ import { permissionMatches } from '../identity-rbac/permissions';
 @Injectable()
 export class ProductService {
   constructor(
+    private readonly access: CatalogAccess,
     @Inject(PRODUCT_REPOSITORY) private readonly repo: ProductRepository,
     private readonly masterRepo: ProductMasterRepository,
     @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
@@ -53,9 +55,22 @@ export class ProductService {
     actor: { userId: string; permissions: string[] },
     meta: RequestMeta,
   ): Promise<ProductRow> {
+ return this.access.write(companyId, actor.userId, 'master.product.create', async () => {
+
+
     await this.assertReferences(companyId, dto);
     // D1: کدِ دستی یا تولیدِ خودکار
-    const code = dto.code ?? (await this.masterRepo.nextCodeSeq(companyId).then((seq) => `SKU-${String(seq).padStart(6, '0')}`));
+    let code = dto.code;
+    if (!code) {
+      // The company transaction lock also serializes manual writers. Skip occupied
+      // generated codes rather than rejecting the first manual/automatic collision.
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const seq = await this.masterRepo.nextCodeSeq(companyId);
+        const candidate = `SKU-${String(seq).padStart(6, '0')}`;
+        if (!(await this.masterRepo.productCodeExists(companyId, candidate))) { code = candidate; break; }
+      }
+      if (!code) throw new ConflictException({ code: 'sku_generation_conflict', message_fa: 'کد خودکار آزاد پیدا نشد؛ کد دستی وارد کنید.' });
+    }
     try {
       const row = await this.repo.insert(companyId, { ...dto, code });
       await this.audit.record({
@@ -73,7 +88,9 @@ export class ProductService {
     } catch (err) {
       throw this.mapDbError(err, 'ساخت کالا');
     }
-  }
+
+ });
+ }
 
   async update(
     companyId: string,
@@ -82,16 +99,19 @@ export class ProductService {
     actor: { userId: string; permissions: string[] },
     meta: RequestMeta,
   ): Promise<ProductRow> {
+ return this.access.write(companyId, actor.userId, 'master.product.update', async () => {
+    const servicePermissions = await this.access.assert(companyId, actor.userId, 'master.product.update');
+
     this.assertId(id);
     const existing = await this.repo.findById(companyId, id);
     if (!existing) {
       throw new NotFoundException({ code: 'not_found', message_fa: 'کالا یافت نشد' });
     }
-    await this.assertReferences(companyId, dto);
+    await this.assertReferences(companyId, dto.family_id === existing.family_id ? { ...dto, family_id: undefined } : dto);
 
     // D4 — نگهبانِ حساسیت در مرزِ نوشتن (همهٔ مسیرها همین service را می‌گذرانند)
     const changes = detectSensitiveProductChanges(existing, dto);
-    const hasStatusPermission = actor.permissions.some((p) => permissionMatches(p, 'master.product.status'));
+    const hasStatusPermission = servicePermissions.some((p) => permissionMatches(p, 'master.product.status'));
     assertSensitiveConfirmed(changes, dto.confirm_sensitive ?? false, hasStatusPermission, 'ویرایشِ کالا');
 
     // M-3 — تغییرناپذیریِ هویتِ variant پس از نخستینِ ارجاعِ عملیاتی
@@ -138,7 +158,9 @@ export class ProductService {
       requestId: meta.requestId,
     });
     return row;
-  }
+
+ });
+ }
 
   async remove(
     companyId: string,
@@ -146,6 +168,7 @@ export class ProductService {
     actor: { userId: string; permissions: string[] },
     meta: RequestMeta,
   ): Promise<void> {
+ return this.access.write(companyId, actor.userId, 'master.product.update', async () => {
     this.assertId(id);
     const ok = await this.repo.softDelete(companyId, id);
     if (!ok) throw new NotFoundException({ code: 'not_found', message_fa: 'کالا یافت نشد' });
@@ -159,22 +182,32 @@ export class ProductService {
       userAgent: meta.userAgent,
       requestId: meta.requestId,
     });
-  }
+
+ });
+ }
 
   private async assertReferences(
     companyId: string,
     dto: CreateProductDto | UpdateProductDto,
   ): Promise<void> {
-    if (dto.category_id && !(await this.repo.categoryExists(companyId, dto.category_id))) {
+    if (dto.category_id && !(await this.repo.activeCategoryExists(companyId, dto.category_id))) {
       throw new BadRequestException({
         code: 'invalid_category',
-        message_fa: 'دسته‌بندی انتخاب‌شده برای این شرکت تعریف نشده است.',
+        message_fa: 'دسته‌بندی انتخاب‌شده برای این شرکت تعریف نشده یا غیرفعال است؛ دسته‌ای فعال انتخاب کنید.',
       });
     }
-    if (dto.base_uom_id && !(await this.repo.uomExists(dto.base_uom_id))) {
+    if (dto.base_uom_id && !(await this.repo.activeUomExists(dto.base_uom_id))) {
       throw new BadRequestException({
         code: 'invalid_uom',
-        message_fa: 'واحد اندازه‌گیری انتخاب‌شده معتبر نیست.',
+        message_fa: 'واحد اندازه‌گیری انتخاب‌شده معتبر نیست یا غیرفعال است؛ واحدی فعال انتخاب کنید.',
+      });
+    }
+    // TASK-PM-02-C2: برند نیز (مانند دسته/واحد) باید در همان شرکت و فعال باشد.
+    if (dto.brand_id !== undefined && dto.brand_id !== null &&
+        !(await this.repo.activeBrandExists(companyId, dto.brand_id))) {
+      throw new BadRequestException({
+        code: 'invalid_brand',
+        message_fa: 'برند انتخاب‌شده برای این شرکت تعریف نشده یا غیرفعال است؛ برندی فعال انتخاب کنید.',
       });
     }
     if (dto.family_id && !(await this.masterRepo.familyExists(companyId, dto.family_id))) {

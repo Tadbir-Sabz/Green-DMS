@@ -10,6 +10,7 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { CONTROL, CONTROL_SIZES, stateClass } from "@/components/ui/Form";
 import { cn } from "@/lib/cn";
 import { Modal } from "@/components/ui/Modal";
+import { EntityAttachments } from "@/components/EntityAttachments";
 import { JalaliDatePicker } from "@/components/ui/JalaliDatePicker";
 import { ExportButtons } from "@/components/reports/ExportButtons";
 import { useToast } from "@/components/ui/Toast";
@@ -339,6 +340,14 @@ function JournalsPanel() {
                 </tbody>
               </table>
             </div>
+            {/* TASK-PM-02-C3: مستندات پیوست سند حسابداری (مالک = journal_entry) */}
+            {selectedId && (
+              <EntityAttachments
+                ownerType="journal_entry"
+                ownerId={selectedId}
+                showNavigation={false}
+              />
+            )}
           </div>
         )}
       </Modal>

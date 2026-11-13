@@ -1,0 +1,404 @@
+{
+  "task": "TASK-PM-02-C13",
+  "title": "Cross-Field Identity Resolution & Shadow Assessment",
+  "baseline_commit": "ca2382315c758e211d463d2b73c3eb51974b487d",
+  "branch": "arena/be5eaff3-green-dms",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN",
+    "draft": true,
+    "merged": false
+  },
+  "environment": {
+    "os": "Linux 6.1.158+ x86_64 (Debian GNU/Linux 12 bookworm)",
+    "node": "v22.22.3",
+    "git_identity": "Tadbir-Sabz <335086850+Tadbir-Sabz@users.noreply.github.com>",
+    "windows_markers_absent": [
+      "/c/Windows",
+      "cmd.exe",
+      "powershell.exe",
+      "pwsh",
+      "WSL",
+      "OS env",
+      "WINDIR"
+    ],
+    "windows_gate": "BLOCKED — REQUIRED WINDOWS EXECUTION ENVIRONMENT UNAVAILABLE",
+    "windows_validation_claimed": false
+  },
+  "checkpoint": {
+    "tarball": "pm02-c13-checkpoint.tar.gz",
+    "bytes": 3323045,
+    "sha256_prefix": "57fbd118cc6ef1e33b82205e",
+    "entries": 2972,
+    "integrity": "OK",
+    "bundle": "pm02-c13-checkpoint.bundle",
+    "bundle_history": "complete",
+    "bundle_head": "ca23823"
+  },
+  "tests": {
+    "c13_cross_field": {
+      "passed": 60,
+      "failed": 0
+    },
+    "c13_shadow_assessment": {
+      "passed": 26,
+      "failed": 0
+    },
+    "c13_rls_isolation": {
+      "passed": 19,
+      "failed": 0
+    },
+    "c13_decisions": {
+      "passed": 24,
+      "failed": 0
+    },
+    "c13_performance": {
+      "passed": 6,
+      "failed": 0
+    },
+    "c13_total": 135,
+    "c11_regression": {
+      "passed": 39,
+      "failed": 0
+    },
+    "c12_regression": {
+      "passed": 49,
+      "failed": 0
+    },
+    "typecheck_errors": 0
+  },
+  "comparison_contract": {
+    "version": "c13.1",
+    "underlying_normalization": "c11.1",
+    "spaces": [
+      "field",
+      "scan",
+      "alnum",
+      "text"
+    ],
+    "field_dependent_spaces": [
+      "field"
+    ],
+    "field_independent_spaces": [
+      "scan",
+      "alnum",
+      "text"
+    ],
+    "symmetry_guarantee": "field-independent spaces apply one identical transform to both sides",
+    "rule_count": 15,
+    "decisions": [
+      "HARD_CONFLICT",
+      "SOFT_CONFLICT",
+      "MANUAL_REVIEW",
+      "ALLOWED",
+      "NOT_COMPARABLE"
+    ],
+    "cross_field_pairs_covered": [
+      "alias~barcode (CF-10)",
+      "alias~code",
+      "barcode~code",
+      "alias~name",
+      "alias~name_latin",
+      "name~name_latin",
+      "code~name",
+      "code~name_latin",
+      "barcode~name",
+      "barcode~name_latin"
+    ],
+    "not_automatically_hard": "هر جفتِ متنی به‌طور خودکار hard نیست: ۱۰ قاعده soft/review/NOT_COMPARABLE در برابرِ ۴ قاعدهٔ hard درون‌شرکتی."
+  },
+  "cf10": {
+    "resolved": true,
+    "collision_id": "C13-a311815e",
+    "rule_id": "C13-R-alias~barcode",
+    "decision": "HARD_CONFLICT",
+    "severity": "hard",
+    "space": "scan",
+    "space_key": "400111",
+    "company_id": "company-synth-A",
+    "parties": [
+      {
+        "entity_id": "A-p01",
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "field": "alias",
+        "display_value": "400 111",
+        "field_key": "400 111",
+        "comparison_key": "400111",
+        "source_ref": "A-p01-alias",
+        "redacted": false,
+        "field_invalid_reason": null
+      },
+      {
+        "entity_id": "A-p02",
+        "company_id": "company-synth-A",
+        "domain_id": "domain-A-retail",
+        "field": "barcode",
+        "display_value": "400111",
+        "field_key": "400111",
+        "comparison_key": "400111",
+        "source_ref": "A-p02-barcode",
+        "redacted": false,
+        "field_invalid_reason": null
+      }
+    ],
+    "explanation_fa": "نامِ جایگزینِ یک کالا در فضای اسکن با بارکدِ کالایِ دیگر یکی می‌شود. اسکن دو کالایِ متفاوت را برمی‌گرداند — همان ابهامی که امروز دیده نمی‌شود (CF-10).",
+    "recommended_resolution_fa": "بازبینیِ دستی: اگر مقدار واقعاً یک بارکد است، alias باید به میدانِ بارکد منتقل شود؛ اگر یک نامِ انسانی است، باید از فضای اسکن خارج بماند. حلِ خودکار ممنوع.",
+    "visible_under_current_normalization": false,
+    "why_c12_missed_it": "ProductAlias فاصله را حفظ می‌کند و Barcode حذف؛ پس کلیدهای میدانی متفاوت بودند."
+  },
+  "collision_statistics": {
+    "total": 15,
+    "by_decision": {
+      "HARD_CONFLICT": 5,
+      "SOFT_CONFLICT": 4,
+      "MANUAL_REVIEW": 3,
+      "ALLOWED": 2,
+      "NOT_COMPARABLE": 1
+    },
+    "newly_exposed": 14,
+    "duplicates_suppressed": 6,
+    "raw_pairs_suppressed": 17,
+    "all_five_decisions_produced": true
+  },
+  "rls_isolation": {
+    "db_connection_used": false,
+    "rls_policies_modified": 0,
+    "same_company": {
+      "results": 13,
+      "all_single_company": true,
+      "display_values_visible": true
+    },
+    "cross_company": {
+      "results": 1,
+      "default_decision": "ALLOWED",
+      "display_values_visible": false,
+      "entity_ids_hashed": true,
+      "provenance_redacted": true
+    },
+    "cross_domain": {
+      "results": 1,
+      "decision": "MANUAL_REVIEW",
+      "display_values_visible": true,
+      "rationale": "دامنه‌ها مرزِ امنیتی نیستند؛ هر دو طرف متعلق به همان شرکت‌اند."
+    },
+    "adversarial_leak_test": {
+      "companies": 50,
+      "distinct_identifiers": 5,
+      "raw_values_leaked": 0,
+      "leaked_value_names": [],
+      "source_refs_leaked": 0,
+      "conflicts_still_detected": 5
+    },
+    "redaction_cannot_be_disabled": true,
+    "scope_note": "asserts the engine disclosure contract, not database RLS (which is unchanged)"
+  },
+  "shadow_assessment": {
+    "gate_conditions": 6,
+    "refuses_unauthorized_sources": true,
+    "refusal_demonstrated": {
+      "refused": true,
+      "error_class": "UnauthorizedDatasetError",
+      "verdict": "BLOCKED — REAL DATA IMPACT ASSESSMENT",
+      "failed": [
+        "proven_isolation"
+      ],
+      "message": "C13 shadow assessment refused: BLOCKED — REAL DATA IMPACT ASSESSMENT. Conditions not proven: proven_isolation. No query was executed against this source."
+    },
+    "run_id": "C13-RUN-9cfd2602",
+    "report_fingerprint": "193128c1",
+    "content_fingerprint": "d1c5353fdcc2c517",
+    "completeness_reported": true,
+    "incremental_reruns": true,
+    "capabilities": {
+      "documented_dataset_source": true,
+      "authorization_and_isolation_validated": true,
+      "read_only_validated": true,
+      "shadow_keys_calculated": true,
+      "ledger_generated": true,
+      "aggregate_statistics": true,
+      "original_values_preserved": true,
+      "incremental_reruns": true,
+      "deterministic_evidence": true,
+      "incomplete_dataset_reported": true,
+      "unauthorized_source_refused": true
+    }
+  },
+  "real_data_authorization": {
+    "verdict": "BLOCKED — REAL DATA IMPACT ASSESSMENT",
+    "owner_authorization": false,
+    "documented_provenance": false,
+    "proven_isolation": false,
+    "enforced_read_only_role": false,
+    "enforced_read_only_detail": "dms_readonly: rolsuper=false, rolbypassrls=false, rolconfig=NULL ⇒ default_transaction_read_only تنظیم نشده. یک نام، نه تضمین.",
+    "no_shared_write_path": false,
+    "confidentiality_controls": false,
+    "real_data_queries_run": 0,
+    "superuser_used_as_readonly_evidence": false
+  },
+  "performance": {
+    "measurements": [
+      {
+        "identities": 100,
+        "rows": 320,
+        "total_ms": 9,
+        "ms_per_1000_rows": 28.24,
+        "heap_delta_mb": 3.6,
+        "results": 310,
+        "by_decision": {
+          "HARD_CONFLICT": 300,
+          "SOFT_CONFLICT": 10,
+          "MANUAL_REVIEW": 0,
+          "ALLOWED": 0,
+          "NOT_COMPARABLE": 0
+        },
+        "raw_pairs_suppressed": 300,
+        "duplicates_suppressed": 0
+      },
+      {
+        "identities": 1000,
+        "rows": 3200,
+        "total_ms": 109,
+        "ms_per_1000_rows": 34.06,
+        "heap_delta_mb": 13.8,
+        "results": 3100,
+        "by_decision": {
+          "HARD_CONFLICT": 3000,
+          "SOFT_CONFLICT": 100,
+          "MANUAL_REVIEW": 0,
+          "ALLOWED": 0,
+          "NOT_COMPARABLE": 0
+        },
+        "raw_pairs_suppressed": 3000,
+        "duplicates_suppressed": 0
+      },
+      {
+        "identities": 5000,
+        "rows": 16000,
+        "total_ms": 465,
+        "ms_per_1000_rows": 29.04,
+        "heap_delta_mb": 33.8,
+        "results": 15500,
+        "by_decision": {
+          "HARD_CONFLICT": 15000,
+          "SOFT_CONFLICT": 500,
+          "MANUAL_REVIEW": 0,
+          "ALLOWED": 0,
+          "NOT_COMPARABLE": 0
+        },
+        "raw_pairs_suppressed": 15000,
+        "duplicates_suppressed": 0
+      },
+      {
+        "identities": 25000,
+        "rows": 80000,
+        "total_ms": 2083,
+        "ms_per_1000_rows": 26.04,
+        "heap_delta_mb": 168.3,
+        "results": 77500,
+        "by_decision": {
+          "HARD_CONFLICT": 75000,
+          "SOFT_CONFLICT": 2500,
+          "MANUAL_REVIEW": 0,
+          "ALLOWED": 0,
+          "NOT_COMPARABLE": 0
+        },
+        "raw_pairs_suppressed": 75000,
+        "duplicates_suppressed": 0
+      },
+      {
+        "identities": 100000,
+        "rows": 320000,
+        "total_ms": 9191,
+        "ms_per_1000_rows": 28.72,
+        "heap_delta_mb": 568.2,
+        "results": 309985,
+        "by_decision": {
+          "HARD_CONFLICT": 299985,
+          "SOFT_CONFLICT": 10000,
+          "MANUAL_REVIEW": 0,
+          "ALLOWED": 0,
+          "NOT_COMPARABLE": 0
+        },
+        "raw_pairs_suppressed": 300000,
+        "duplicates_suppressed": 15
+      }
+    ],
+    "scaling": {
+      "observed": "نزدیک به خطی — هزینهٔ هر ۱۰۰۰ ردیف در بازهٔ ۲۴–۵۰ ms می‌ماند",
+      "target_met": true,
+      "algorithm": "گروه‌بندیِ هش‌محور در یک گذر؛ خروجی محدود به تعدادِ جفت‌میدان‌های موجود در هر گروه، نه O(n²) جفتِ ردیف",
+      "quadratic_guard": "raw_pairs_suppressed نشان می‌دهد چند جفتِ خام با گروه‌بندی مهار شدند"
+    },
+    "limits": {
+      "memory": "آزمونِ ۳۲۰٬۰۰۰ ردیف حدود ۴۴۵ MB heap مصرف کرد — سقفِ عملیِ این sandbox",
+      "caveat": "اعداد درون‌حافظه‌ای و مصنوعی‌اند؛ بنچمارکِ تولید نیستند"
+    }
+  },
+  "decisions": {
+    "open_count": 10,
+    "approved_count": 0,
+    "isApproved_always_false": true,
+    "ids": [
+      "D-C11-1",
+      "D-C11-2",
+      "D-C11-3",
+      "D-C11-4",
+      "D-C11-5",
+      "D-C11-6",
+      "D-C12-1",
+      "D-C12-2",
+      "D-C12-3",
+      "D-C13-1"
+    ],
+    "live_inconsistency_found": "D-C11-3: DB constraint is case-sensitive while collision checks are not"
+  },
+  "bugs_found_and_fixed": [
+    "cross-company placeholder rule overwrote the real alias same-field rule in the pair map",
+    "field-profile invalidity wrongly gated entry into other comparison spaces",
+    "provenance leaked raw source_ref of foreign companies (adversarial test found it)",
+    "nested quantifier in the separator regex made replacement order non-deterministic",
+    "process: a scripted edit truncated part of the module; rewritten and re-applied with asserts"
+  ],
+  "mutations": {
+    "production_product_records": 0,
+    "alias_norm_rewrites": 0,
+    "barcode_rewrites": 0,
+    "canonical_normalization_activated": false,
+    "new_uniqueness_constraints": 0,
+    "rls_policy_changes": 0,
+    "production_migration_changes": 0,
+    "d1_activated": false,
+    "import_behaviour_changes": 0,
+    "pr_merged": false
+  },
+  "isolation_proof": [
+    "C13/22: C13 experimental modules imported only by experimental modules and tests",
+    "C13/22: no production file imports anything from experimental/",
+    "C11/8 and C12/11 guards extended with a C13 allowlist"
+  ],
+  "verdicts": {
+    "shared_comparison_space": "PASS",
+    "cross_field_coverage": "PASS",
+    "cf10": "PASS",
+    "decision_engine": "PASS",
+    "rls_isolation": "PASS",
+    "shadow_assessment": "PASS",
+    "decision_matrix": "PASS WITH FINDINGS",
+    "performance": "PASS",
+    "existing_product_regression": "PASS (non-DB) / UNVERIFIED (DB)",
+    "windows_environment": "BLOCKED",
+    "real_data_impact": "BLOCKED",
+    "independent_review": "UNVERIFIED",
+    "activation": "NOT PERFORMED"
+  },
+  "overall": "PASS WITH FINDINGS (technical) / BLOCKED (Windows environment, real data)",
+  "deliverable_sha256": {
+    "EVIDENCE-C13-CROSS-FIELD-MATRIX.json": "67e0c2b1d03e2e678d4184976a785527b1ab35a530c2a37ba8b32cfc2497d8ee",
+    "EVIDENCE-C13-COLLISION-LEDGER.json": "d2bd26a0ecd746bc54377793de3d5eb54b36fcf89afc0f50db75f3cf5493bc05",
+    "EVIDENCE-C13-RLS-ISOLATION.json": "a1eca26593813d59a615ad61388f7c6ef2d5e6628150925c9669cea5061227c6",
+    "EVIDENCE-C13-SHADOW-ASSESSMENT.json": "87ae3bb8f353ff3faa30aa9a2ee9f5b03883a41b621d568cb02ee0036a70dc25",
+    "EVIDENCE-C13-PERFORMANCE.json": "83d63b6b2b7acc76800b177f20bfa63982197af06f797c937911632bf0c810a6",
+    "EVIDENCE-C13-DECISIONS.md": "7f093171be2929d73052e4a8236d96cbf52acc62557e155bbdaa649aa0c66ea1"
+  }
+}

@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { findProductLifecycleTransition } from './product-lifecycle.rules';
 
 /**
  * ماتریسِ حساسیتِ سطحِ فیلد (D4 مصوب — §F طرحِ هدف):
@@ -31,7 +32,7 @@ export interface SensitiveChange {
 /**
  * تشخیصِ تغییراتِ حساس نسبت به وضعیتِ فعلی.
  * - `tax_code_id`: هر تغییر (شاملِ حذف/افزودن)
- * - `status`: هر گذارِ وضعیت (§A: blocked→active و بازگشت از discontinued ممتازند)
+ * - `status`: هر گذارِ وضعیت (active↔blocked شاهدپذیر؛ گذارهای شامل discontinued BLOCKEDاند)
  * - `base_uom_id`: هر تغییر
  */
 export function detectSensitiveProductChanges(
@@ -69,7 +70,25 @@ export function assertSensitiveConfirmed(
   if (changes.length === 0) return;
 
   const statusChanges = changes.filter((c) => c.field === 'status');
-  const otherChanges = changes.filter((c) => c.field !== 'status');
+
+  // TASK-PM-02-C5: ماتریس مرکزی در همان نقطهٔ D4 که همهٔ مسیرهای نوشتن
+  // (PATCH، import، بستهبندی و سرویس اختصاصی چرخهٔ حیات) از آن میگذرند اعمال
+  // میشود. فقط active↔blocked مجازاند؛ پنج گذار شامل discontinued و همچنین
+  // حالتهای بیتغییر/حذف نرم عمداً BLOCKEDاند. هیچ سیاست تازهای ساخته نشد.
+  for (const change of statusChanges) {
+    const source = typeof change.before === 'string' ? change.before : '';
+    const target = typeof change.after === 'string' ? change.after : '';
+    const transition = findProductLifecycleTransition(source, target);
+    if (!transition?.supported) {
+      throw new BadRequestException({
+        code: transition?.rejection_code ?? 'lifecycle_transition_unsupported',
+        message_fa:
+          transition?.reason_fa ??
+          'گذارِ وضعیت درخواستشده بر اساس قواعد مرکزی موجود پشتیبانی نمیشود.',
+        details: { fields: ['status'] },
+      });
+    }
+  }
 
   // گذارِ وضعیت: همیشه مجوزِ ممتازِ master.product.status (§A)
   if (statusChanges.length > 0 && !hasStatusPermission) {

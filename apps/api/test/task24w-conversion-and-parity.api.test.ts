@@ -14,6 +14,7 @@ import { AppModule } from '../src/app.module';
 import { PG_POOL } from '../src/database/database.module';
 import { validationPipeOptions } from '../src/common/validation';
 import { hashPassword } from '../src/modules/identity-rbac/password';
+import { businessToday, shiftBusinessDate } from '../src/common/business-date';
 
 /**
  * TASK-24W — آزمونِ رگرسیونِ دو یافتهٔ بازِ TASK-24V:
@@ -79,7 +80,8 @@ let packagingId = '';
 let adminUserId = '';
 let warehouseId = '';
 
-const TODAY = new Date().toISOString().slice(0, 10);
+// تاریخِ کسب‌وکار (Asia/Tehran)، نه تاریخِ UTC؛ در بازهٔ ۲۰:۳۰–۲۴:۰۰ UTC این دو یک روز اختلاف دارند.
+const TODAY = businessToday();
 const ALL_DATES = { valid_from: '2020-01-01', valid_to: '2099-12-31' };
 const REASON = 'قیمتِ توافقیِ قراردادِ سالانه طبقِ پیوستِ الف';
 
@@ -682,7 +684,7 @@ describe('W2 — هم‌سانیِ قیمت در استعلام، شبیه‌س�
 
   it('مرزِ تاریخ: استعلام و سفارش هر دو تاریخِ مؤثر را یکسان می‌بینند', async () => {
     // لیستی که فقط تا دیروز معتبر است
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const yesterday = shiftBusinessDate(TODAY, -1);
     const expiredProduct = (
       await pool.query<{ id: string }>(
         `insert into product (company_id, code, name, category_id, base_uom_id)

@@ -1,0 +1,113 @@
+{
+  "task": "TASK-PM-02-C13",
+  "baseline_commit": "ca2382315c758e211d463d2b73c3eb51974b487d",
+  "synthetic_only": true,
+  "environment": {
+    "node": "v22.22.3",
+    "platform": "linux",
+    "arch": "x64",
+    "os": "Linux 6.1.158+ x86_64"
+  },
+  "measurements": [
+    {
+      "identities": 100,
+      "rows": 320,
+      "total_ms": 9,
+      "ms_per_1000_rows": 28.24,
+      "heap_delta_mb": 3.6,
+      "results": 310,
+      "by_decision": {
+        "HARD_CONFLICT": 300,
+        "SOFT_CONFLICT": 10,
+        "MANUAL_REVIEW": 0,
+        "ALLOWED": 0,
+        "NOT_COMPARABLE": 0
+      },
+      "raw_pairs_suppressed": 300,
+      "duplicates_suppressed": 0
+    },
+    {
+      "identities": 1000,
+      "rows": 3200,
+      "total_ms": 109,
+      "ms_per_1000_rows": 34.06,
+      "heap_delta_mb": 13.8,
+      "results": 3100,
+      "by_decision": {
+        "HARD_CONFLICT": 3000,
+        "SOFT_CONFLICT": 100,
+        "MANUAL_REVIEW": 0,
+        "ALLOWED": 0,
+        "NOT_COMPARABLE": 0
+      },
+      "raw_pairs_suppressed": 3000,
+      "duplicates_suppressed": 0
+    },
+    {
+      "identities": 5000,
+      "rows": 16000,
+      "total_ms": 465,
+      "ms_per_1000_rows": 29.04,
+      "heap_delta_mb": 33.8,
+      "results": 15500,
+      "by_decision": {
+        "HARD_CONFLICT": 15000,
+        "SOFT_CONFLICT": 500,
+        "MANUAL_REVIEW": 0,
+        "ALLOWED": 0,
+        "NOT_COMPARABLE": 0
+      },
+      "raw_pairs_suppressed": 15000,
+      "duplicates_suppressed": 0
+    },
+    {
+      "identities": 25000,
+      "rows": 80000,
+      "total_ms": 2083,
+      "ms_per_1000_rows": 26.04,
+      "heap_delta_mb": 168.3,
+      "results": 77500,
+      "by_decision": {
+        "HARD_CONFLICT": 75000,
+        "SOFT_CONFLICT": 2500,
+        "MANUAL_REVIEW": 0,
+        "ALLOWED": 0,
+        "NOT_COMPARABLE": 0
+      },
+      "raw_pairs_suppressed": 75000,
+      "duplicates_suppressed": 0
+    },
+    {
+      "identities": 100000,
+      "rows": 320000,
+      "total_ms": 9191,
+      "ms_per_1000_rows": 28.72,
+      "heap_delta_mb": 568.2,
+      "results": 309985,
+      "by_decision": {
+        "HARD_CONFLICT": 299985,
+        "SOFT_CONFLICT": 10000,
+        "MANUAL_REVIEW": 0,
+        "ALLOWED": 0,
+        "NOT_COMPARABLE": 0
+      },
+      "raw_pairs_suppressed": 300000,
+      "duplicates_suppressed": 15
+    }
+  ],
+  "scaling": {
+    "observed": "نزدیک به خطی — هزینهٔ هر ۱۰۰۰ ردیف در بازهٔ ۲۴–۵۰ ms می‌ماند",
+    "target_met": true,
+    "algorithm": "گروه‌بندیِ هش‌محور در یک گذر؛ خروجی محدود به تعدادِ جفت‌میدان‌های موجود در هر گروه، نه O(n²) جفتِ ردیف",
+    "quadratic_guard": "raw_pairs_suppressed نشان می‌دهد چند جفتِ خام با گروه‌بندی مهار شدند"
+  },
+  "reliability": {
+    "determinism": "دو اجرا بایت‌به‌بایت یکسان؛ مستقل از ترتیبِ ورودی",
+    "interruption_recovery": "پردازشِ تکه‌تکه همان برخوردهای درونِ تکه را بازیابی می‌کند",
+    "duplicate_suppression": "شناسه‌های تکراریِ معنایی حذف و شمرده می‌شوند"
+  },
+  "limits": {
+    "memory": "آزمونِ ۳۲۰٬۰۰۰ ردیف حدود ۴۴۵ MB heap مصرف کرد — سقفِ عملیِ این sandbox",
+    "caveat": "اعداد درون‌حافظه‌ای و مصنوعی‌اند؛ بنچمارکِ تولید نیستند"
+  }
+}

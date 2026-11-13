@@ -1,0 +1,32 @@
+sequenceDiagram
+  participant Client
+  participant AuthGuard
+  participant PermissionsGuard
+  participant Gate as DomainCatalogGate FOUNDATION
+  participant Authority as Proposed Authority
+  participant Access as CatalogAccess IMPLEMENTED
+  participant DB as PostgreSQL and RLS
+  participant Audit as Immutable History
+
+  Client->>AuthGuard: Bearer token
+  AuthGuard->>AuthGuard: verify live session, user, company
+  AuthGuard->>PermissionsGuard: AuthContext without domain identity
+  PermissionsGuard->>PermissionsGuard: existing central RBAC check
+  PermissionsGuard->>Gate: domainId plus action plus actor
+
+  alt Current PM-01B state, no approved authority
+    Gate-->>Client: 400 missing context or 503 fail closed
+    Note over Gate,DB: No domain resolve, membership read, write, or history query
+  else Future owner-approved contract only
+    Gate->>Authority: resolveDomain company, actor, domainId, action
+    Authority-->>Gate: same-company descriptor or null
+    Gate->>Authority: authorize action-specific domain scope
+    Authority-->>Gate: allow or deny
+    Gate->>Access: enter shared transaction and central permission recheck
+    Access->>DB: set app.company_id and app.user_id inside transaction
+    Gate->>Authority: revalidate domain authorization inside transaction
+    Access->>DB: proposed membership read or write
+    DB->>DB: existing company RLS plus proposed domain RLS
+    DB-->>Audit: atomic before and after domain membership event
+    Audit-->>Client: success with auditable correlation
+  end

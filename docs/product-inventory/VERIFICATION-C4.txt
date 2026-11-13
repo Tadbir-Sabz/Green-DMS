@@ -1,0 +1,152 @@
+TASK-PM-02-C4 — Multi-Entity Attachment Import & Export Center
+گزارش راستیآزمایی مستقل (Agent-1 / Arena.ai) — بستهٔ DEVELOPMENT، نه ممیزی صرف
+مخزن: Tadbir-Sabz/Green-DMS · شاخه: arena/be5eaff3-green-dms · PR #14: OPEN / DRAFT / base main
+مبنای اعلامشده و بازیابیشده: 8ca19b4dfa6fc9b255915c383c0530f7a67adf1d (پایان C3)
+
+────────────────────────────────────────────────────────────
+۱) بازیابی، حفظ شواهد و چکپوینت
+────────────────────────────────────────────────────────────
+git fetch / git pull --ff-only            : Already up to date
+شش نمای SHA در مبنا                        : ALL_AGREE=True (همگی 8ca19b4dfa6fc9b255915c383c0530f7a67adf1d)
+worktree / git diff --check در مبنا        : پاک / ۰
+چکپوینت                                    : /home/user/pm02-c4-checkpoint.tar.gz (۲٬۸۸۷ فایل)
+sha256 چکپوینت                            : 3a3aa375b3e871c8508e9ed1c00a4fb7553cdcb2afc9dfc95a697a8fc9fa49ab
+sha256sum -c                               : OK
+git bundle --all                           : /home/user/pm02-c4-checkpoint.bundle (۳٬۰۴۱٬۱۱۷ بایت، تاریخچهٔ کامل)
+بدنهٔ PR پیش از C4                         : ۱۱۲٬۹۸۵ نویسه / ۱۲۲٬۳۱۶ بایت
+sha256 بدنهٔ PR پیشین                     : 6ef4a5089c4caa552032ca86a9a1e9d54bd01944eebaa2a78bddfe4b8d310f4e
+اسناد C1/C2/C3/B2/M4/K/J                   : بدون ویرایش؛ فقط پیوستهای افزودنی C4
+amend / force / reset / rebase / merge / approve / release / deploy : هیچکدام انجام نشد
+
+────────────────────────────────────────────────────────────
+۲) واجدشرایطبودن — فقط هشت مالک مصوب موجود
+────────────────────────────────────────────────────────────
+منبع حقیقت: ATTACHMENT_OWNER_TYPES، ownerTenantSql (۸ زنجیرهٔ راستیآزمایشده +
+other fail-closed)، OpenAPI enum، مهاجرتهای ۰۰۰۲/۰۰۱۰/۰۰۱۴/۰۰۳۵/۰۰۳۶/۰۰۴۱.
+فهرست C4: product, invoice, sales_order, return_request, stock_count,
+journal_entry, receipt, pod. محصول در انحصار نمای C1 ماند (تکرار نشد).
+receipt/pod بکند مصوب دارند ولی صفحهٔ عملیاتی واجدشرایطی یافت نشد ⇒ UI DEFERRED:
+/payments فقط بکند است، treasury موقعیتها/بستنها و waybills فهرست/جزئیات حوالهها
+را نشان میدهند. other/brand/category/warehouse/uom/دامنه/نوع اختراعی ۴۰۰ صریح.
+هیچ owner_type، جدول، مهاجرت، مجوز، نقش، grant، seed، RLS، ارائهدهنده،
+سیاست حذف/نگهداشت یا معنای دامنهای تازهای ساخته نشد.
+
+────────────────────────────────────────────────────────────
+۳) معماری و امنیت
+────────────────────────────────────────────────────────────
+مسیرها (۱۱): owner-types, owners, exports/preview, exports/{id}/package,
+imports/preview, imports/{id}, imports/{id}/mappings, imports/{id}/execute,
+operations, operations/{id}, operations/{id}/cancel.
+AuthGuard + PermissionsGuard + DomainBoundaryGuard در سطح کلاس؛ فقط
+attachment.view / attachment.upload و master.product.view موجود؛ بازاعتبارسنجی
+مجوز از DB، GUC تراکنش-محلی، RLS/FORCE RLS و ownerTenantSql. بدنه/کوئری/هدر
+مالکیتی/دامنهای، فیلد ناشناخته و پارامتر کوئری تعریفنشده ۴۰۰ صریح (نه حذف بیصدا).
+StorageService.get(key,maxBytes) باندشده روی همان کلاینت MinIO/S3؛
+getObject داخل try؛ خطاهای invalid_storage_read_limit / attachment_too_large /
+storage_read_failed. بسته ZIP با node:crypto/node:zlib/CRC32 دستی، manifest و
+checksums قطعی، مسیرهای files/NNNN-<sha12>.(jpg|jpeg|png|webp|pdf)، CRC/SHA/MIME/
+امضای بایتی/پسوند، رد ZIP64/رمزگذاری/چنددیسکی/traversal/duplicate/unexpected/
+بمب فشردهسازی؛ stored تولید، deflate فقط خواندن، method تستی صرفاً برای بمب.
+سقفها ۳۲MiB/۴۸MiB/۲۰۰/۸MiB/۱MiB/۱۰۰/۵۰/۵۰. export/preview، import/preview،
+updateMappings و download ارزیابی + ممیزی را در همان tenantTransaction انجام میدهند.
+after_data عاری از storage_key/URL/توکن/bucket/company_id/دامنه است. دانلود همانمبدأ
+با application/zip، Content-Disposition، Content-Length، X-Transfer-Package-Sha256،
+Cache-Control:no-store، X-Content-Type-Options:nosniff؛ بدون URL امضاشده.
+
+────────────────────────────────────────────────────────────
+۴) اجرای ورود — BLOCKED / fail-closed
+────────────────────────────────────────────────────────────
+معماری مصوب M4: rules-engine policy composition ← approval_request/binding با
+entity_fingerprint ← approval_decision تغییرناپذیر ← رد self-approval ←
+consumeApprovedBinding در همان تراکنش. ENTITY_STATE_SQL/FINGERPRINT_FIELDS فقط
+sales.order.approve / sales.return.approve / ap.purchase.approve را میشناسند؛
+submitForApproval برای عملیات ناشناخته fail-closed است. confirm_sensitive و
+دفتر token/hash پیشنمایش BulkMaintenance مکانیزم عمومی هش بسته نیستند.
+TRANSFER_APPROVAL_OPERATION='attachment.import.execute' فقط نام وابستگی است؛
+fingerprintFieldsFor آن [] ⇒ approval.fingerprint_supported=false،
+status=blocked، reason_code=approval_policy_missing. هیچ عملیات/فیلد اثرانگشت/
+سیاست/زنجیره/مجوز/نقش/گرنت/مهاجرت/RLS تازهای ساخته نشد.
+execute با بدنهٔ خالی ۴۰۹ approval_required؛ با approved_by/confirm جعلی ۴۰۰
+forbidden_client_field؛ رویداد attachment_transfer.execution با blocked ثبت میشود؛
+شمارش attachment ثابت میماند؛ UI دکمهٔ اجرا ندارد و checkImportExecutionGate
+پاسخ واقعی سرور را نشان میدهد. فعالسازی نیازمند تصمیم/امضای مصوب مالک است.
+
+────────────────────────────────────────────────────────────
+۵) قرارداد، کلاینت، پایگاهداده و ساخت
+────────────────────────────────────────────────────────────
+OpenAPI                    : PASS — ۲۲۴ مسیر / ۳۱۸ عملیات / ۲۰۳ اسکیما / ۳ وبحوک
+contract-drift             : PASS — ۳۱۸/۳۱۸، انحراف operation/enum/required صفر
+کلاینت TypeScript          : packages/api-client/src/schema.ts (+۸۱۰ خط)، build:packages PASS
+اسکیماهای تازه             : ۲۵ اسکیمای Transfer* + تگ attachment-transfer
+مهاجرت تازه               : هیچ
+up/down/up                 : PASS — DB موقت، ۱٬۰۳۳ شیء یکسان، DB موقت حذف شد
+test-partition             : PASS — ۹۵ فایل، declared == computed
+typecheck                  : PASS — apps/api، apps/web، packages/api-client
+build                      : PASS — apps/api، packages/*، next build (شامل /attachment-transfer)
+git diff --check           : ۰
+فایلهای build در Git        : خیر (dist/.next نادیده گرفته شدند)
+
+────────────────────────────────────────────────────────────
+۶) تستهای خودکار
+────────────────────────────────────────────────────────────
+واحد C4 (قواعد/ZIP/سرویس mock)              : PASS ۲ فایل / ۱۷ تست
+سرتاسری C4 (HTTP + PostgreSQL موقت)          : PASS ۱ فایل / ۷ تست
+جزء وب C4                                   : PASS ۱ فایل / ۵ تست
+وب کامل                                     : PASS ۲۵ فایل / ۱۳۷ تست
+واحد بیدادهٔ API                             : PASS ۳۵ فایل / ۴۱۲ تست
+رگرسیون هدفمند C1–C4 (۱۰ فایل)              : PASS ۹ فایل / ۲۰۶ تست؛ ۲ شکست
+  attachments.api.test.ts عیناً مبنای محیطی C3 (MinIO محلی، 500/404)
+اجرای کامل DB-backed API                   : ۹۰/۹۵ فایل، ۱٬۵۴۵/۱٬۵۶۴ تست PASS
+  فایلهای ناکام: attachments.api، customers.api، geofences.api،
+  postgres-init-role.api، tours.api — ۱۹ عنوان شکست
+  مقایسه با /tmp/pm02c3-api-full.log: identical=True (هم فایلها و هم ۱۹ عنوان)
+  ⇒ شکستهای محیطی PostGIS/trust-auth/MinIO، نه رگرسیون C4.
+  «اجرای کامل DB محلی PASS» اعلام نمیشود.
+تستهای شکست: ۴۰۱، ۴۰۳، x-domain-id، کوئری تعریفنشده، نوع مالک نامعتبر،
+مالک بیناجارهای، تزریق company_id/approved_by، فیلد ممنوع manifest،
+پسوند غلط، بایت دستکاریشده، بمب فشردهسازی، نگاشت بینشرکتی، اجرای fail-closed،
+لغو و انقضای پیشنمایش، نشت storage_key/URL در پاسخ و ممیزی.
+
+────────────────────────────────────────────────────────────
+۷) شاهد زندهٔ همانمبدأ
+────────────────────────────────────────────────────────────
+فایل: docs/product-inventory/evidence/task-pm-02/VERIFICATION-C4-LIVE.txt
+sha256: 409044cd7a3623e07a6299c861cb67f2588a6cd1b02c9666d7365af74ddca1ff
+اندازه: ۷٬۲۵۲ بایت · زمان: 2026-11-11T22:54:17Z
+مسیر: مرورگر/سند → http://127.0.0.1:3000/api/v1 → Next rewrite → API ساختهشده
+(node apps/api/dist/main.js, :4000) → greendms_c1_preview + MinIO شبیهساز :9100.
+ورود c1_admin؛ پنج ضمیمهٔ واقعی C3؛ ۴۰۱/۴۰۰/۴۰۰ مرزها؛ ۸ نوع مالک؛ کشف ۵ رکورد؛
+پیشنمایش صدور ۵ فایل / ۱۶۷ بایت محتوا؛ ZIP باینری ۳٬۵۱۵ بایت با هش یکپارچگی و
+هش خام فایل؛ پیشنمایش ورود ۵ duplicate؛ crc_mismatch؛ forbidden_client_field؛
+نگاشت نسخهٔ ۲ + بیاعتباری تأیید؛ ۴۰۰ تأیید جعلی؛ ۴۰۹ approval_required؛
+attachment ۶←۶؛ تاریخچه/جزئیات/لغو/preview_expired؛ ۷ رویداد ممیزی تازه؛
+۰ نشت storage_key/URL/زیرساخت در after_data؛ دو صفحهٔ وب ۲۰۰.
+نتیجه: PASS. هیچ توکن/URL/اسکرینشات ساختگی ذخیره نشد. MinIO/S3 production و
+مرورگر دستی RTL/a11y/console جداگانه UNVERIFIED است.
+
+────────────────────────────────────────────────────────────
+۸) Git / CI / PR
+────────────────────────────────────────────────────────────
+کامیت C4 معمولی و push معمولی به origin/arena/be5eaff3-green-dms انجام میشود.
+SHA دقیق نهایی، نتیجهٔ CI دقیقSHA (چهار workflow / هشت check)، شش نمای نهایی و
+هش بدنهٔ PR پس از پیوست، بهصورت **افزودنی در بدنهٔ PR #14 و گزارش پایانی چت** ثبت
+میشوند. دلیل عدم درج در فایل مخزن: ویرایش پساCI شاخهٔ تحت آزمون را عوض میکند.
+هیچ commit پساCI / trigger مصنوعی / amend / force وجود ندارد.
+پیوست PR با gh api -X PATCH --input انجام میشود و پیشوند 6ef4a508… بایتبهبایت
+حفظ میگردد. queued/in_progress/null/cancelled هرگز PASS اعلام نمیشوند.
+PR همچنان OPEN / DRAFT؛ بدون merge/approve/release/deploy.
+
+────────────────────────────────────────────────────────────
+۹) احکام نهایی
+────────────────────────────────────────────────────────────
+PASS          : صدور، دانلود همانمبدأ، بازرسی ZIP، پیشنمایش امن ورود، نگاشت،
+                تاریخچه/ممیزی تراکنشی، لغو، قرارداد/کلاینت، RTL، تستها، شاهد زنده.
+FAIL          : هیچ، در محدودهٔ تحویلشده.
+BLOCKED       : اجرای ورود ضمائم؛ گردش/اثرانگشت/سیاست تأیید مصوب؛ Receipt/POD UI؛
+                برند/دسته/انبار/واحد/other؛ انتساب بینشرکتی؛ ایجاد مالک مفقود؛
+                بازنویسی/حذف/بایگانی/جایگزینی/نگهداشت؛ مهاجرت/مجوز/نقش/grant/
+                RLS/دامنه/ارائهدهنده/معنای کسبوکاری تازه؛ PM-B1..PM-B8، Q1..Q5،
+                G-03، G-13؛ پذیرش کامل Product Master؛ استقرار تولید.
+UNVERIFIED    : مرورگر دستی RTL/a11y/console، MinIO/S3 production-equivalent،
+                CI دقیقSHA تا پیش از ثبت افزودنی در PR/چت.
+عدم مجوز      : merge / approve / release / deploy / تغییر production انجام نشد.

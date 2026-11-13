@@ -1272,6 +1272,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    sort?: "code_asc" | "code_desc";
                     /** @description مقدار `next_cursor` صفحه قبلی */
                     cursor?: components["parameters"]["cursor"];
                     /** @description اندازه صفحه */
@@ -1331,6 +1332,285 @@ export interface paths {
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * خروجی CSV از کالاهای کاتالوگ مرکزی (TASK-PM-01D-M3)
+         * @description یک snapshot فقط-خواندنی و قطعی از کالاهای حذف‌نشدهٔ همان شرکت، با همان فیلترهای فهرست کالا (بدون صفحه‌بندی cursor). ستون‌های قابلِ استفاده در ورود گروهی محصول حفظ می‌شوند؛ ستون‌های تشخیصی اضافی نادیده گرفته می‌شوند. سقف پیش‌فرض ۱۰٬۰۰۰ ردیف است. در صورت وجود ردیف بیشتر، خروجی بریده شده و سربرگ X-Product-Export-Truncated مقدار true می‌گیرد؛ پاسخ هرگز به‌صورت بی‌صدا ناقص اعلام نمی‌شود. خروجی شامل تاریخچه، صفات، روابط، بسته‌ها، بسته‌بندی و عضویت دامنه نیست. مجوز master.product.view و ممیزی export اعمال می‌شود.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    sort?: "code_asc" | "code_desc";
+                    q?: string;
+                    category_id?: string;
+                    brand_id?: string;
+                    status?: "active" | "blocked" | "discontinued";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فایل CSV با BOM UTF-8 و سربرگ‌های امن در برابر فرمول صفحه گسترده */
+                200: {
+                    headers: {
+                        /** @description تعداد ردیف‌های کالای نوشته‌شده در فایل */
+                        "X-Product-Export-Row-Count"?: number;
+                        /** @description true یعنی فیلتر بیش از سقف مجاز نتیجه داشته و فایل کامل نیست */
+                        "X-Product-Export-Truncated"?: boolean;
+                        /** @description سقف اعمال‌شده بر تعداد ردیف‌ها */
+                        "X-Product-Export-Max-Rows"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * فهرست فیلدهای مجاز نگهداشت گروهی (TASK-PM-01D-M4)
+         * @description فهرست سفید و برچسبهای فارسی فیلدها از سرور؛ مرورگر هیچ فیلد محافظتشده، دامنهای، انباری، قیمتی یا وضعیتی را پیشنهاد نمیدهد. این پاسخ فقط ابزار ساخت فرم است و اعمال تغییری نمیکند. مجوز master.product.update لازم است.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فیلدهای مجاز، نوع مقدار و برچسب فارسی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceFieldsResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * پیشنمایش محصولی فقطخواندنی نگهداشت گروهی کالا (TASK-PM-01D-M4)
+         * @description پیشنمایش سروری و دقیقِ قبل/بعد برای حداکثر ۱۰۰ کالای همان شرکت و حداکثر ۹ فیلد مرکزی مجاز. هیچ ردیف product بهروزرسانی نمیشود، هیچ ردیف product_catalog_history یا audit_log ساخته نمیشود؛ تنها یک ردیف دفتر عملیات پایدار با نشانهٔ یکبارمصرف درج میشود. بنابراین این مسیر از نظر محصول فقطخواندنی است، نه یک GET بدون اثر جانبی (TASK-PM-01D-M4-F). مجوز master.product.update لازم است؛ master.product.view یا خروجی CSV مجوز نوشتن گروهی نیست.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BulkMaintenancePreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description پیشنمایش سروری، تفاوت دقیق هر کالا و شمار واجد/ردشدهها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenancePreviewResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * اجرای همهیا هیچ نگهداشت گروهی با هویت بایدار (TASK-PM-01D-M4)
+         * @description اجرا فقط مقادیر ذخیرهشدهٔ همان پیشنمایش را میپذیرد؛ changes تازهای در این مسیر ارسال نمیشود. تأیید صریح، نشانهٔ پیشنمایش، مجوز نوشتن، بررسی تازگی نسخهها و قفل خوشبینانهٔ واقعی row_version الزامی است. همهٔ بهروزرسانیها، ممیزی همبسته، تاریخچهای 0060 و وضعیت دفتر عملیات در یک تراکنش commit میشوند. پخش مجدد همان شناسه/نشانه دوباره اعمال نمیشود؛ نتیجهٔ نامشخص تنها با تطبیق شواهد و بدون اجرای کور مجدد بررسی میشود.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BulkMaintenanceExecuteRequest"];
+                };
+            };
+            responses: {
+                /** @description نتیجهٔ نهایی، پخش مجدد بیاثر، رد قطعی یا وضعیت نامشخص failclosed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceOperationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/operations/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * وضعیت بایدار و واقعاً فقطخواندنی یک عملیات نگهداشت گروهی
+         * @description وضعیت دفتر عملیات همان شرکت/بازیگر را برمیگرداند: پیشنمایش ایجادشده، کهنه، منقضی، ثبتشده، ردشده یا نامشخص. این GET هیچ گذار وضعیت یا تطبیق شواهد انجام نمیدهد (TASK-PM-01D-M4-F)؛ تطبیق فقط با اکشن صریح POST /operations/{operationId}/reconcile ممکن است.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    operationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description وضعیت بایدار عملیات و نتیجهٔ تطبیق در صورت نیاز */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceOperationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk-maintenance/operations/{operationId}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * اکشن صریح تطبیق شواهد operation-bound یک عملیات (TASK-PM-01D-M4-F)
+         * @description فقط برای وضعیتهای نامشخص/پذیرفتهشده، شواهد سرور-کنترلشدهٔ ۰۰۶۳ (ممیزی الزامی، تاریخچهٔ ۰۰۶۰ و جدول شواهد) را بهصورت کامل، سازگار، بدون تکرار و بدون اتصال به عملیات/شرکت/بازیگر دیگر بررسی میکند. ناقص، ناسازگار، تکراری، جداافتاده یا شواهد عملیات دیگر ⇒ fail-closed نامشخص. GET وضعیت هرگز تغییری نمیدهد. مجوز master.product.update لازم است.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    operationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ تطبیق قطعی (committed/rolled_back) یا نامشخص failclosed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMaintenanceOperationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         delete?: never;
@@ -1507,6 +1787,757 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * فهرست تصاویر و اسناد کالا + تصویرِ اصلی خودکار (§B4 طراحی هدف)
+         * @description نمای محصولمحورِ ضمیمههای `owner_type='product'` (بازاستفاده از زنجیرهٔ مالکیت راستیآزمایشدهٔ §A). تصویرِ اصلی v1 نخستین «تصویر» بر اساس `created_at` است و در لحظهٔ خواندن محاسبه میشود؛ هیچ ستون `is_primary` یا `sort_order` و هیچ مهاجرت تازهای وجود ندارد. برچسب UI دقیقاً «اصلی (خودکار)» است. اسناد PDF هرگز تصویرِ اصلی نمیشوند. این نما هیچ هویت، عضویت، وضعیت یا دسترسپذیری دامنهای برنمیگرداند؛ کلیدها و هدر `x-domain-id` دامنهای مانند سایر سطوح خواندنی کاتالوگ (B2) با ۴۰۰ رد میشوند. خطاهای ممکن: `invalid_id`، `product_not_found`، `domain_property_rejected`، `domain_context_not_supported`، `forbidden`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تصاویر/اسناد کالا همراه URL امضاشدهٔ کوتاهعمر */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductMediaView"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (کد storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * بارگذاری تصویر/سند کالا (multipart/form-data — فقط فیلد file)
+         * @description مالک (`owner_type='product'`, `owner_id={id}`) و شرکت فقط از مسیر و نشست سرور مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`، `uploaded_by` یا `storage_key` در بدنه با ۴۰۰ `product_media_owner_scope_rejected` رد میشود، نه اینکه بیصدا حذف شود. مجوزها: `master.product.update` (§F) و `attachment.upload`؛ هر دو دوباره از پایگاهداده بازاعتبارسنجی میشوند. همان خط لولهٔ `POST /attachments` (سقف حجم، allowlist، امضای بایتی، SHA-256، کلید نامفضاشده به شرکت، URL امضاشده) دوباره استفاده میشود، بیآنکه قرارداد آن تغییر کند. آپلود، ثبت metadata و رویداد `audit_log` با `action=create` و `entity_type=product_media` در یک تراکنشاند؛ شکست ممیزی ⇒ rollback و پاکسازی شیء آپلودشده. حذف ضمیمه در v1 وجود ندارد (مسیر حذف مصوبی نیست). خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`، `unverifiable_content_type`، `content_type_mismatch`، `malformed_content`، `product_media_owner_scope_rejected`، `product_not_found`، `forbidden`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp، application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی پذیرفته نمیشود.
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description فایل ذخیره و metadata + رویداد ممیزی ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductMediaItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description حجم فایل بیش از حد مجاز (file_too_large) */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description نوع/امضای محتوای فایل پذیرفته نشد */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/media/{mediaId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+                /** @description شناسهٔ ضمیمهٔ همین کالا */
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * URL امضاشدهٔ تازه برای تصویر/سند دقیقاً همین کالا
+         * @description علاوه بر زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر صریحاً `owner_id = {id}` و `company_id` نشست را قید میزند؛ ضمیمهٔ کالای دیگر حتی در همان شرکت ۴۰۴ `media_not_found` میگیرد. URL کوتاهعمر است و bucket هرگز عمومی نمیشود. مجوزها: `master.product.view` و `attachment.view`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                    /** @description شناسهٔ ضمیمهٔ همین کالا */
+                    mediaId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description URL امضاشدهٔ دانلود و عمر آن به ثانیه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUrl"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تاریخچهٔ ممیزی دادههای مرجع (برند/واحد/دسته) */
+        get: {
+            parameters: {
+                query?: {
+                    entity_type?: "brand" | "uom" | "product_category";
+                    entity_id?: string;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description رویدادهای ممیزی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceHistoryList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست برندهای شرکت با جستوجو، فیلتر وضعیت، شمارش استفاده و صفحهبندی */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از برندها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ایجاد برند (کد و نام یکتا در هر شرکت) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BrandCreate"];
+                };
+            };
+            responses: {
+                /** @description برند ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Brand"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/brands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** جزئیات برند + کالاهای متصل */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description جزئیات برند */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BrandDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** حذف امن برند (فقط اگر به کالایی متصل نباشد) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ حذف */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceMutationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** ویرایش برند (نام/نام لاتین/کد/وضعیت) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BrandUpdate"];
+                };
+            };
+            responses: {
+                /** @description برند بهروزشده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Brand"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
+    "/reference-data/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست واحدهای اندازهگیری (مرجع سراسری) با جستوجو/فیلتر/شمارش استفاده */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از واحدها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnitList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ایجاد واحد اندازهگیری (کد سراسری یکتا؛ دقت اعشار ۰..۴ طبق D3) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UnitCreate"];
+                };
+            };
+            responses: {
+                /** @description واحد ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Unit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/units/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** جزئیات واحد + کالاهای متصل */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description جزئیات واحد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnitDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** حذف امن واحد (فقط اگر به کالا/بستهبندی متصل نباشد) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ حذف */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceMutationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** ویرایش واحد (کد تغییرناپذیر است) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UnitUpdate"];
+                };
+            };
+            responses: {
+                /** @description واحد بهروزشده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Unit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/reference-data/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست دستهبندیهای درختی شرکت با جستوجو/فیلتر/شمارش استفاده */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    parent_id?: string;
+                    root?: boolean;
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از دستهبندیها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryList"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** ایجاد دستهبندی (کد یکتا؛ والد اختیاری؛ جلوگیری از حلقه) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryCreate"];
+                };
+            };
+            responses: {
+                /** @description دستهبندی ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCategory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-data/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** جزئیات دستهبندی + زنجیرهٔ والدها، فرزندان و کالاها */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description جزئیات دستهبندی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CategoryDetail"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** حذف امن دستهبندی؛ reassign_to وابستگان را پیش از حذف منتقل میکند */
+        delete: {
+            parameters: {
+                query?: {
+                    reassign_to?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نتیجهٔ حذف/انتساب */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferenceMutationResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** ویرایش/جابهجایی دستهبندی (حلقه و عمق بررسی میشود) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryUpdate"];
+                };
+            };
+            responses: {
+                /** @description دستهبندی بهروزشده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCategory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
         trace?: never;
     };
     "/products/barcodes/{barcodeId}": {
@@ -1714,7 +2745,7 @@ export interface paths {
                         /** @enum {string} */
                         mode: "create" | "update" | "upsert";
                         idempotency_key: string;
-                        /** @description M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند) */
+                        /** @description M-5: ردیف‌های دارایِ فیلدِ حساس فقط با تأییدِ صریح (else رد می‌شوند). TASK-PM-02-C5: وضعیت `discontinued` حتی با این تأیید هم BLOCKED است و با `lifecycle_transition_blocked` رد می‌شود. */
                         confirm_sensitive?: boolean;
                     };
                 };
@@ -1750,7 +2781,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** گزارشِ import انجام‌شده */
+        /**
+         * گزارشِ import انجام‌شده
+         * @description گزارشِ مرکزی و شرکتـمحورِ یک دستهٔ import. زمینهٔ دامنه (`x-domain-id`) پذیرفته نیست؛ TASK-PM-02-B2 همان نگهبان مرز مرکزی/دامنهای سطوح نوشتنی را روی این خواندن نیز اعمال میکند (fail-closed، بدون ایجاد هویت یا اختیار دامنه).
+         */
         get: {
             parameters: {
                 query?: never;
@@ -1771,6 +2805,7 @@ export interface paths {
                         "application/json": components["schemas"]["ImportResult"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -1862,10 +2897,16 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** فهرست aliasهای کالا */
+        /**
+         * نمای نام‌های جایگزین کالا (سه نوعِ مصوب + برخوردهای نرم)
+         * @description TASK-PM-02-C7 — فقط سه نوعِ موجود در قید `0046`: `brand_slang`، `latin`، `code`. یکتاییِ DB فقط `(product_id, alias_norm)` است؛ برخورد با نام جایگزینِ کالای دیگر در پاسخ به‌صورت **اطلاع‌رسان** (`conflict`) گزارش می‌شود و قاعدهٔ یکتاییِ شرکتی ساخته نمی‌شود (C7-D1).
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    kind?: "brand_slang" | "latin" | "code";
+                    limit?: number;
+                };
                 header?: never;
                 path: {
                     id: components["parameters"]["idPath"];
@@ -1874,21 +2915,26 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description aliasها */
+                /** @description نمای نام‌های جایگزین */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductAlias"][];
+                        "application/json": components["schemas"]["ProductAliasOverview"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
-        /** ثبت alias (نرمال‌سازی + جلوگیری از برخورد با کد/بارکد — H-1) */
+        /**
+         * افزودن نام جایگزین (نرمال‌سازی + جلوگیری از برخورد H-1)
+         * @description مقدار در سرور نرمال می‌شود (NFC، ارقامِ فارسی/عربی→لاتین، فشردن فاصله، casefold). نام جایگزین هم‌ارز با بارکد یا کد کالا، و نام جایگزینِ کالای دیگر (طبق بررسی موجود) با ۴۰۹ رد می‌شود. کد اصلی کالا هرگز تغییر نمی‌کند.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -1907,17 +2953,19 @@ export interface paths {
                          * @enum {string}
                          */
                         kind?: "brand_slang" | "latin" | "code";
+                        /** @description تأیید صریح اپراتور */
+                        confirm_add?: boolean;
                     };
                 };
             };
             responses: {
-                /** @description alias ثبت شد */
+                /** @description نام جایگزین ثبت شد */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductAlias"];
+                        "application/json": components["schemas"]["ProductAliasItem"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -1933,11 +2981,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product-aliases/{aliasId}": {
+    "/products/{id}/aliases/{aliasId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                id: components["parameters"]["idPath"];
                 aliasId: string;
             };
             cookie?: never;
@@ -1945,12 +2994,13 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** حذف alias */
+        /** حذف نام جایگزین (فقط ردیف همین کالا و همین شرکت) */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    id: components["parameters"]["idPath"];
                     aliasId: string;
                 };
                 cookie?: never;
@@ -1963,11 +3013,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
+                        "application/json": components["schemas"]["ProductAliasDeleteResult"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -2138,7 +3187,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** مقادیرِ صفاتِ SKU + امضای فعلیِ variant (نمایش در UI جزئیات) */
+        /**
+         * نمای صفات کالا (کاتالوگِ شرکت + مقدار + الزام + محور variant)
+         * @description TASK-PM-02-C7 — مدل، EAVِ محدودِ موجود در `0046` است: کاتالوگ صفت در سطح شرکت (`product_attribute_def` با `kind ∈ {text, number, enum}` و `is_variant_axis`/`is_required`)، مقادیر در سطح SKU (`product_attribute_value` با قید «دقیقاً یک ستونِ مقدار»). این مسیر فقط همان مدل را می‌خواند و سیاست تازه‌ای نمی‌سازد.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -2150,24 +3202,25 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description مقادیر + امضا */
+                /** @description نمای صفات */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            values: components["schemas"]["ProductAttributeValue"][];
-                            variant_signature: string | null;
-                        };
+                        "application/json": components["schemas"]["ProductAttributesOverview"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
-        /** ثبت مقادیرِ صفاتِ SKU + محاسبهٔ امضای variant (M-3؛ تغییرناپذیر پس از ارجاعِ عملیاتی) */
+        /**
+         * ثبت/ویرایش/پاک‌کردن مقادیر صفات + امضای variant (M-3)
+         * @description همان اعتبارسنجی‌های موجود: تطابقِ ستونِ مقدار با `kind`، مقدارِ enum فقط از فهرستِ مجازِ همان صفت، الزامِ `is_required` در سطح شرکت، و تغییرناپذیریِ محورهای variant پس از نخستین ارجاع عملیاتی (`variant_signature_immutable`). `clear: true` یا مقدارِ خالی، ردیفِ مقدار را **حذف** می‌کند (رفتار قبلی برای مقدارِ خالی خطای ۵۰۰ می‌داد).
+         */
         put: {
             parameters: {
                 query?: never;
@@ -2180,27 +3233,18 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        values: {
-                            /** Format: uuid */
-                            def_id: string;
-                            value_text?: string | null;
-                            value_num?: number | null;
-                            value_enum?: string | null;
-                        }[];
+                        values: components["schemas"]["ProductAttributeValueInput"][];
                     };
                 };
             };
             responses: {
-                /** @description مقادیر + امضا */
+                /** @description مقادیر ثبت شد */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            values?: components["schemas"]["ProductAttributeValue"][];
-                            variant_signature?: string | null;
-                        };
+                        "application/json": components["schemas"]["ProductAttributeValuesResult"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -2217,7 +3261,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/products/{id}/relations": {
+    "/products/{id}/identity/history": {
         parameters: {
             query?: never;
             header?: never;
@@ -2226,7 +3270,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** فهرست جایگزین/مکمل‌های کالا */
+        /**
+         * تاریخچهٔ تغییرناپذیر هویت کالا (alias و مقادیر صفات — تریگر ۰۰۶۰)
+         * @description فقط رویدادهای `product_alias` و `product_attribute_value` همین شرکت که به این کالا مربوط‌اند؛ بدون before/after خام.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -2238,21 +3285,77 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description روابط */
+                /** @description تاریخچه */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductRelation"][];
+                        "application/json": components["schemas"]["ProductIdentityHistory"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
-        /** ثبت رابطه (خودارجاع/حلقهٔ substitute ممنوع) */
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * نمای مرکزی روابط کالا (جایگزین/مکمل) با جهت، وضعیت کالای مرتبط و سیاست‌های باز
+         * @description TASK-PM-02-C6 — فقط دو نوع مصوب مهاجرت ۰۰۴۶ (`substitute`, `complement`). رابطه جهت‌دار و **فقط اطلاع‌رسان** است: هیچ جایگزینی خودکار، تغییر سند، قیمت، موجودی یا دسترس‌پذیری دامنه‌ای از آن ساخته نمی‌شود. هر آیتم جهت (`outgoing`/`incoming`)، وضعیت کالای مرتبط و هشدار فارسی را برمی‌گرداند. `available_actions`/`editable`/`removable` فقط برای روابط خروجی true است (مدل مصوب فقط رابطه از این کالا را ویرایش/حذف می‌کند).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    kind?: "substitute" | "complement";
+                    direction?: "outgoing" | "incoming" | "both";
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نمای روابط */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationsOverview"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        /**
+         * افزودن رابطه کالا (خودارجاع/تکرار/حلقهٔ substitute ممنوع)
+         * @description مجوز `master.product.update`؛ شرکت فقط از نشست. بدنه فقط `related_id`، `kind`، `priority` و `confirm_add` را می‌پذیرد؛ هر فیلد شرکت/هویت/مجوز/ممیزی/دامنه یا فیلد تعریف‌نشده ۴۰۰ صریح می‌گیرد. افزودن و ممیزی و تاریخچهٔ ۰۰۶۰ در یک تراکنش ثبت می‌شوند (fail-closed).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -2271,6 +3374,8 @@ export interface paths {
                         kind: "substitute" | "complement";
                         /** @default 100 */
                         priority?: number;
+                        /** @description تأیید صریح اپراتور برای افزودن رابطه */
+                        confirm_add?: boolean;
                     };
                 };
             };
@@ -2281,7 +3386,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ProductRelation"];
+                        "application/json": components["schemas"]["ProductRelationItem"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -2297,11 +3402,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product-relations/{relationId}": {
+    "/products/{id}/relations/history": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * تاریخچهٔ تغییرناپذیر روابط این کالا (تریگر ۰۰۶۰)
+         * @description فقط رویدادهای `entity_type='product_relation'` همان شرکت که این کالا در مبدأ یا مقصد آن‌ها است؛ خروجی فقط کنشگر، زمان و نوع/اولویت است و before/after خام یا دادهٔ شخصی برنمی‌گرداند.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تاریخچه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationHistory"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/relations/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * پیمایش فنی و محدود روابط خروجی (نگهبان فنی، نه قاعده کسب‌وکار)
+         * @description عمق حداکثر ۳ و حداکثر ۱۰۰ گره؛ فقط روابط خروجی دنبال می‌شوند. این مسیر هیچ حکمی دربارهٔ مجاز بودن حلقه، تقارن یا اثر عملیاتی نمی‌دهد و صرفاً از پردازش/پاسخ بی‌کران جلوگیری می‌کند.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    depth?: number;
+                    kind?: "substitute" | "complement";
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description گراف محدود */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationGraph"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/relations/{relationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
                 relationId: string;
             };
             cookie?: never;
@@ -2309,12 +3512,16 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** حذف رابطه */
+        /**
+         * حذف رابطه (سیاست موجود ۰۰۴۶/سرویس)
+         * @description حذف فقط برای رابطهٔ خروجی همین کالا و با مجوز `master.product.update`؛ حذف و ممیزی و تاریخچه در یک تراکنش ثبت می‌شوند. حذف کالا، بایگانی یا سیاست نگهداشت تازه‌ای ایجاد نمی‌کند.
+         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    id: components["parameters"]["idPath"];
                     relationId: string;
                 };
                 cookie?: never;
@@ -2327,11 +3534,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
+                        "application/json": components["schemas"]["ProductRelationDeleteResult"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -2339,7 +3545,40 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /** ویرایش اولویت رابطه (تنها فیلد قابل ویرایش در مدل مصوب) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                    relationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        priority: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description اولویت به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductRelationItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
         trace?: never;
     };
     "/products/{id}/bundle": {
@@ -2455,7 +3694,36 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** ایجاد گروه مرکزی کالا */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        code: string;
+                        name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description گروه ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCategory"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -8365,6 +9633,199 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entity-attachments/{ownerType}/{ownerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند. */
+                ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                /** @description شناسهٔ رکورد مالک در همان شرکت نشست */
+                ownerId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * فهرست مشترک ضمائم یک موجودیت واجدشرایط + شمارش و برچسب فارسی
+         * @description همان خط لولهٔ `GET /attachments` (زنجیرهٔ مالکیت `ownerTenantSql`، RLS/FORCE RLS، URL امضاشدهٔ کوتاهعمر) دوباره استفاده میشود، ولی مالک فقط از مسیر و نشست مشتق میگردد. مجوز `attachment.view` در گارد route و دوباره از روی DB بررسی میشود. هیچ فیلد دامنهای، عضویت، وضعیت عرضه، `is_primary` یا `sort_order`ای برگردانده نمیشود؛ هدر `x-domain-id` و کلیدهای دامنهای/مالکیتی در کوئری صریحاً ۴۰۰ میگیرند (همسانی B2). خطاها: `unsupported_owner_type`، `invalid_owner_id`، `owner_not_found`، `owner_scope_denied`، `entity_attachment_owner_scope_rejected`، `unsupported_request_field`، `domain_property_rejected`، `domain_context_not_supported`، `forbidden`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند. */
+                    ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                    /** @description شناسهٔ رکورد مالک در همان شرکت نشست */
+                    ownerId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نمای یکسان ضمائم موجودیت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EntityAttachmentView"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * بارگذاری امن ضمیمه برای یک موجودیت (multipart — فقط فیلد file)
+         * @description مالک (`owner_type`, `owner_id`) و `company_id` فقط از مسیر و نشست سرور مشتق میشوند؛ ارسال `owner_type`، `owner_id`، `company_id`، `uploaded_by`، `storage_key` یا فیلد دامنهای در بدنه/کوئری با ۴۰۰ صریح رد میشود، نه حذف بیصدا. مجوز `attachment.upload` در گارد route و دوباره از DB بررسی میشود؛ RLS/FORCE RLS و زنجیرهٔ مالکیت والد دستنخوردهاند. همان خط لولهٔ `POST /attachments` (سقف حجم، allowlist، امضای بایتی، SHA-256، کلید نامفضاشده به شرکت، URL امضاشده) دوباره استفاده میشود. ثبت ردیف `attachment` و رویداد `audit_log` با `action=create` و `entity_type=entity_attachment` در **یک تراکنش**اند؛ شکست ممیزی، شکست ثبت DB یا شکست صدور URL ⇒ rollback و پاکسازی شیء آپلودشده تا فایل اورفان باقی نماند. URL امضاشده هرگز وارد ممیزی یا لاگ نمیشود. حذف/بایگانی/انتخاب تصویر اصلی/سیاست نگهداشت تعریف نشدهاند. خطاها: `empty_file`، `file_too_large`، `unsupported_media_type`، `unverifiable_content_type`، `content_type_mismatch`، `malformed_content`، `extension_mismatch`، `unsupported_owner_type`، `owner_not_found`، `owner_scope_denied`، `entity_attachment_owner_scope_rejected`، `unsupported_request_field`، `forbidden`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description نوع موجودیت مالک ضمیمه. فقط هفت نوع مصوب دارای زنجیرهٔ مالکیت راستیآزمایشده پذیرفته میشوند؛ `product` (نمای C1)، `other` و هر نوع تازهای (brand/category/warehouse/…) با ۴۰۰ unsupported_owner_type رد میشود. مالک و شرکت هرگز از بدنه/کوئری/هدر کلاینت خوانده نمیشوند. */
+                    ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                    /** @description شناسهٔ رکورد مالک در همان شرکت نشست */
+                    ownerId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description بایتهای فایل. انواع مجاز: image/jpeg، image/png، image/webp، application/pdf؛ سقف حجم پیشفرض ۸ مگابایت. هیچ فیلد مالکیتی یا دامنهای پذیرفته نمیشود.
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description فایل ذخیره، metadata ثبت و رویداد ممیزی در همان تراکنش نوشته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EntityAttachmentItem"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description حجم فایل بیش از حد مجاز (file_too_large) */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description نوع/امضای محتوای فایل پذیرفته نشد */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description ذخیرهسازی شیء پیکربندی نشده یا در دسترس نیست */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-attachments/{ownerType}/{ownerId}/{attachmentId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                ownerId: string;
+                /** @description شناسهٔ ضمیمهٔ دقیقاً همین رکورد */
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * URL امضاشدهٔ تازه برای ضمیمهٔ دقیقاً همین موجودیت
+         * @description علاوه بر راستیآزمایی زنجیرهٔ مالکیت `/attachments/{id}/url`، این مسیر صریحاً `owner_type` و `owner_id` مسیر و `company_id` نشست را قید میزند؛ ضمیمهٔ رکوردی دیگر حتی در همان شرکت ۴۰۴ `entity_attachment_not_found` میگیرد. URL کوتاهعمر است و bucket هرگز عمومی نمیشود. مجوز `attachment.view` در دو لایه بررسی میشود.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ownerType: components["schemas"]["EntityAttachmentOwnerType"];
+                    ownerId: string;
+                    /** @description شناسهٔ ضمیمهٔ دقیقاً همین رکورد */
+                    attachmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description URL امضاشدهٔ دانلود و عمر آن به ثانیه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentUrl"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description ذخیرهسازی شیء پیکربندی نشده است (storage_not_configured) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bi/kpi": {
         parameters: {
             query?: never;
@@ -10590,6 +12051,887 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product-families/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** ویرایش نام یا فعال/غیرفعال کردن خانواده با حفظ هویت */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        is_active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description خانواده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductFamily"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/products/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** تاریخچه اتمی کاتالوگ کالا */
+        get: {
+            parameters: {
+                query?: {
+                    before?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description تاریخچه */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCatalogHistoryPage"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-catalog/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * تاریخچه سراسری و فقط خواندنی کاتالوگ مرکزی
+         * @description رویدادهای تغییرناپذیر کاتالوگ مرکزی را در محدوده شرکت نشست و با صفحهبندی keyset نمایش میدهد. فقط انواع موجودیت مهاجرت 0060 مجازاند؛ تاریخچه عضویت دامنه، قیمت و موجودی در این مسیر وجود ندارد.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    entity_type?: "product" | "product_category" | "product_family" | "product_alias" | "product_attribute_def" | "product_attribute_enum_value" | "product_attribute_value" | "product_relation" | "product_bundle" | "product_barcode" | "product_packaging";
+                    product_id?: string;
+                    before?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description صفحهای از تاریخچه مرکزی شرکت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductCatalogHistoryPage"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-domain-integration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * قرارداد اتصال کاتالوگ به دامنه عملیاتی
+         * @description وضعیت تصمیمهای مالک و مرز فنی اتصال را برمیگرداند؛ `available` تا تصمیم مالک و پیادهسازی عضویت همواره `false` است.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description قرارداد و فهرست تصمیمهای لازم؛ جریان کاری دامنه غیرفعال است */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DomainCatalogContractStatus"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/domain-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته اتصال دامنه؛ عرضه سراسری فرض نمیشود */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/domain-scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * نمای صریح جدایی هویت مرکزی کالا از عضویت و دسترسپذیری دامنهای
+         * @description TASK-PM-02: پاسخی خواندنی و بیداده در سطح **هویت مرکزی**. چرخهٔ حیات
+         *     مرکزی کالا نمایش داده میشود، ولی `domain_context`، `domain_membership`
+         *     و `domain_availability` همیشه `unresolved` و `available` همیشه `false`
+         *     است. وضعیت `active` مرکزی هرگز به معنی عرضه در دامنه یا فعال بودن در
+         *     همهٔ دامنهها نیست. هیچ عضویت، فهرست دامنه، تاریخچه یا دادهٔ ساختگی
+         *     برگردانده نمیشود. ارسال هدر `x-domain-id` یا پارامتر دامنهای با خطای
+         *     `domain_context_not_supported` / `domain_property_rejected` رد میشود.
+         *     مجوز `master.product.view`، RLS شرکت و قید صریح `company_id` اعمال
+         *     میشوند؛ کالای شرکت دیگر ۴۰۴ یکسان میگیرد تا وجودش افشا نشود.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description مرز مرکزی/دامنهای کالا؛ بدون هیچ نتیجهگیری دامنهای */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductDomainScope"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * وضعیت، ماتریس گذار، اختیارات نشست و تاریخچه چرخه حیات مرکزی کالا
+         * @description TASK-PM-02-C5: نمای فقطخواندنی و متمرکز چرخه حیات **مرکزی**. وضعیت فعلی،
+         *     `row_version`، گذارهای موجود تحت D4، دلیل دردسترسنبودن هر عمل، و تاریخچه
+         *     تغییرناپذیر `0060` همراه با کنشگر و زمان بازگردانده میشود. تنها
+         *     `active↔blocked` شاهدپذیر و قابل اجراست؛ همهٔ گذارهای شامل
+         *     `discontinued` با `lifecycle_transition_blocked` عمداً BLOCKED /
+         *     NOT AUTHORIZEDاند و هرگز در `available_actions` قرار نمیگیرند. تاریخچه فقط
+         *     وضعیت قبل/بعد را نشان میدهد و داده خام قبل/بعد، اطلاعات دامنهای یا
+         *     اطلاعات سایر شرکتها را افشا نمیکند. مجوز `master.product.view` هم در
+         *     route و هم از پایگاهداده بازاعتبارسنجی میشود؛ قید صریح company_id و RLS
+         *     برقرارند. هیچ کنترل یا سیاست دامنهای/حذف/بایگانی ساخته نشده است.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    before?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نمای مرکزی چرخه حیات و تاریخچه وضعیت */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductLifecycleView"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description خطای عمومی بدون افشای جزئیات پایگاهداده */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/lifecycle/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * اجرای یک گذار وضعیت مرکزی موجود با D4، قفل خوشبینانه و ممیزی تراکنشی
+         * @description فقط گذارهای شاهدپذیر `active→blocked` و `blocked→active` را با همان
+         *     `master.product.status` و `confirm_sensitive` اجرا میکند؛ قاعده تازهای
+         *     اضافه نمیشود. درخواستهای شامل `discontinued`، وضعیت بیتغییر و حذف نرم
+         *     صریحاً رد میشوند. `row_version` در این مسیر الزامی است. فیلدهای مالکیت،
+         *     شرکت/tenant، هویت کنشگر، مجوزها و فراداده ممیزی از کلاینت صریحاً رد
+         *     میشوند. بهروزرسانی محصول، رویداد تغییرناپذیر `0060` و `audit_log` در یک
+         *     تراکنش با `recordRequired` commit یا rollback میشوند. وضعیت مرکزی به
+         *     دسترسپذیری دامنهای تعبیر نمیشود و downstream تغییر نمیکند.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProductLifecycleTransitionRequest"];
+                };
+            };
+            responses: {
+                /** @description گذار انجام شد؛ وضعیت، نسخه و نشانگر ممیزی تراکنشی */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductLifecycleTransitionResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+                /** @description خطای عمومی بدون افشای جزئیات پایگاهداده */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** مرز بسته فهرست دامنههای مجاز؛ بدون داده ساختگی */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** مرز بسته تفکیک دامنه جاری؛ زمینه دامنه اجباری است */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                    "x-domain-id": components["parameters"]["xDomainIdHeader"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains/{domainId}/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                domainId: components["parameters"]["domainIdPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته فهرست کالاهای دامنه؛ بدون عضویت یا وضعیت ساختگی */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        /** مرز بسته افزودن کالای مرکزی به دامنه؛ هیچ نوشتهای انجام نمیشود */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operational-domains/{domainId}/products/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                domainId: components["parameters"]["domainIdPath"];
+                /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+                productId: components["parameters"]["productIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** مرز بسته حذف/غیرفعالسازی عضویت؛ تاریخچهای ساخته یا پاک نمیشود */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                    /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+                    productId: components["parameters"]["productIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** مرز بسته تغییر وضعیت دامنهای؛ هیچ نوشتهای انجام نمیشود */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+                    domainId: components["parameters"]["domainIdPath"];
+                    /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+                    productId: components["parameters"]["productIdPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        trace?: never;
+    };
+    "/products/{id}/domain-membership": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                "x-domain-id": components["parameters"]["xDomainIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته عضویت کالا در دامنه؛ بدون نشت اطلاعات بین دامنهای */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                    "x-domain-id": components["parameters"]["xDomainIdHeader"];
+                };
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/domain-membership/history": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                "x-domain-id": components["parameters"]["xDomainIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** مرز بسته تاریخچه عضویت؛ بدون نشت اطلاعات بین دامنهای */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+                    "x-domain-id": components["parameters"]["xDomainIdHeader"];
+                };
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                503: components["responses"]["ServiceUnavailable"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/owner-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** انواع مالک مصوب ضمائم برای صدور/ورود بسته */
+        get: operations["attachmentTransferOwnerTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** رکوردهای مالک مجاز همان شرکت، با شمارش ضمائم */
+        get: operations["attachmentTransferOwners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/exports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * پیشنمایش بستهٔ صدور و تولید manifest/جمعکنترلها
+         * @description هیچ رکورد محصول، دادهٔ مرجع، شرکت یا پیکربندی دامنهای ساخته/تغییر نمیکند. manifest فقط مرجع مالک و فرادادهٔ فایل دارد؛ کلید استوریج، URL امضاشده و اطلاعات زیرساخت هرگز برگردانده نمیشود.
+         */
+        post: operations["attachmentTransferExportPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/exports/{operationId}/package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * دانلود امن بستهٔ ZIP صدور با اختیار تازه
+         * @description بسته از سابقهٔ ممیزی و ضمائم مجاز همان شرکت بازسازی و هش آن دوباره مقایسه میشود. پاسخ باینری همانمبدأ است؛ URL امضاشده یا کلید استوریج در بدنه/سرصفحه/تاریخچه وجود ندارد.
+         */
+        get: operations["attachmentTransferExportPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * بارگذاری و پیشنمایش امن بستهٔ ضمائم
+         * @description فقط بستهٔ ضمائم بازرسی میشود: یکپارچگی، مسیرها، MIME، امضای بایتی، مالکیت، تکراریها و نگاشت به رکورد موجود. هیچ اجرای ورود، ساخت مالک، جایگزینی، حذف یا انتساب شرکتی انجام نمیشود.
+         */
+        post: operations["attachmentTransferImportPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** بازخوانی پیشنمایش کوتاهعمر ورود */
+        get: operations["attachmentTransferImportStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/{operationId}/mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * نگاشت صریح فایلهای حلنشده به رکورد مالک موجود و مجاز
+         * @description فقط owner_id همان owner_type و همان شرکت تغییر میکند؛ نوع مالک، شرکت، دامنه و محتوای بسته تغییرناپذیر است. هر تغییر نگاشت، هش پیشنمایش را عوض میکند و هر تأیید پیشین را بیاعتبار میسازد.
+         */
+        post: operations["attachmentTransferUpdateMappings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/imports/{operationId}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * دروازهٔ اجرای ورود —fail-closed تا تصمیم مصوب مالک
+         * @description معماری تأیید دونفرهٔ موجود برای این عملیات بستهای سیاست/اثرانگشت مصوب ندارد؛ بنابراین تلاش اجرا در ممیزی ثبت و با ۴۰۹ رد میشود. هیچ درج، بهروزرسانی، حذف یا جایگزینی ضمیمه انجام نمیشود.
+         */
+        post: operations["attachmentTransferExecute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** تاریخچهٔ عملیات صدور/ورود و رویدادهای ممیزی */
+        get: operations["attachmentTransferHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/operations/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** جزئیات یک عملیات و manifest امن آن */
+        get: operations["attachmentTransferOperationDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attachment-transfer/operations/{operationId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** لغو پیشنمایش ورود؛ حفظ سابقه و بدون حذف فیزیکی */
+        post: operations["attachmentTransferCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export interface webhooks {
     invoicePosted: {
@@ -10753,11 +13095,29 @@ export interface components {
              *     - `approver_not_authorized`: تصمیم‌گیرنده نقش/کارمندِ آن مرحله نیست (`403`).
              *     - `amount_band_mismatch`: مبلغِ درخواست با باندِ گامِ ورودی نمی‌خواند.
              *     - `duplicate_decision`: برای این مرحله قبلاً تصمیم ثبت شده است.
+             *
+             *     **مرز مرکزی/دامنهای Product Master (TASK-PM-02)** — همگی `400`
+             *     - `domain_property_rejected`: ویژگی عضویت، دسترسپذیری، فعالسازی یا
+             *       هویت دامنهای در بدنه، query یا سرستون CSV یک عملیات کاتالوگ مرکزی
+             *       ارسال شده است؛ هیچ نوشتهای انجام نشد. `details.fields` نام فیلدها
+             *       و `details.owner_decisions` تصمیمهای باز مالک را میدهد.
+             *     - `domain_context_not_supported`: هدر `x-domain-id` روی عملیات
+             *       کاتالوگ مرکزی ارسال شده است. شناسهٔ ارسالی مشتری اثبات هویت دامنه
+             *       نیست و نمای مرکزی را دامنهای نمیکند.
+             *
+             *     **همسانی سطوح خواندنی مرکزی (TASK-PM-02-B2)** — فهرست، جزئیات،
+             *     خروجی CSV و گزارش import نیز همین مرز را اعمال میکنند: کلید query
+             *     دامنهای ناشناخته پیش از حذف بیصدای `whitelist` رد میشود، بنابراین
+             *     درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
+             *     «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
+             *     عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict
              * @example request_already_converted
              * @example approval_chain_required
+             * @example domain_property_rejected
+             * @example domain_context_not_supported
              */
             code: string;
             /** @description پیام فارسی آماده نمایش به کاربر */
@@ -11136,7 +13496,10 @@ export interface components {
             min_order_qty?: number;
             weight_gr?: number | null;
             volume_cm3?: number | null;
-            /** @enum {string} */
+            /**
+             * @description TASK-PM-02-C5: فقط active↔blocked قابل اجراست. هر گذارِ به/از discontinued با 400 `lifecycle_transition_blocked` رد می‌شود (BLOCKED تا تصویب مالک)؛ وضعیت بی‌تغییر نادیده گرفته می‌شود.
+             * @enum {string}
+             */
             status?: "active" | "blocked" | "discontinued";
             /** @description قفل خوش‌بینانه — مقدار فرستاده‌شده باید با مقدار فعلی سرور یکی باشد */
             row_version?: number;
@@ -11154,6 +13517,17 @@ export interface components {
              * @description والد در سلسله‌مراتب
              */
             parent_id?: string | null;
+            name_latin?: string | null;
+            parent_name?: string | null;
+            /** @enum {string} */
+            cost_method?: "moving_avg" | "fifo" | "standard";
+            is_active?: boolean;
+            product_count?: number;
+            child_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
         };
         /** @description واحد اندازه‌گیری — داده مرجع سراسری (جدول uom) */
         Unit: {
@@ -11167,6 +13541,15 @@ export interface components {
             code: string;
             title: string;
             decimal_places?: number;
+            symbol?: string | null;
+            title_latin?: string | null;
+            is_active?: boolean;
+            product_count?: number;
+            packaging_count?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
         };
         /** @description لیست قیمت؛ قیمت مشتری‌محور در `customer_price` اولویت دارد */
         PriceList: {
@@ -13032,6 +15415,245 @@ export interface components {
             /** @description عمرِ URL به ثانیه */
             expires_in: number;
         };
+        /**
+         * @description انواع مالک مصوب C3 — دقیقاً همان enum تاریخی `Attachment.owner_type` منهای `product` (نمای محصولمحور C1) و `other` (راستیآزماییناپذیر، fail-closed). همگی در `owner-scope.ts` زنجیرهٔ مالکیت اجارهای دارند.
+         * @enum {string}
+         */
+        EntityAttachmentOwnerType: "invoice" | "sales_order" | "return_request" | "stock_count" | "receipt" | "journal_entry" | "pod";
+        EntityAttachmentCounts: {
+            images: number;
+            documents: number;
+            total: number;
+        };
+        /** @description همان `schemas.Attachment` بهعلاوهٔ دستهبندی تصویر/سند که فقط در لحظهٔ خواندن محاسبه میشود. هیچ `is_primary`، `sort_order`، `domain_id` یا وضعیت ذخیرهشدهای وجود ندارد. */
+        EntityAttachmentItem: {
+            /** Format: uuid */
+            id: string;
+            owner_type: components["schemas"]["EntityAttachmentOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            /** @description اثر انگشت SHA-256 محتوای فایل */
+            sha256: string;
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ کوتاهعمر
+             */
+            url: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            kind: "image" | "document";
+            /** @description «تصویر» یا «سند» */
+            kind_label_fa: string;
+        };
+        /** @description نمای مشترک ضمائم یک موجودیت واجدشرایط — شکل یکسان برای فاکتور، سفارش، مرجوعی، انبارگردانی، سند حسابداری، رسید پرداخت و POD. صرفاً کاتالوگ مرکزی/عملیاتی؛ هیچ فیلد دامنهای، عضویت یا دسترسپذیری دامنهای ندارد. */
+        EntityAttachmentView: {
+            owner_type: components["schemas"]["EntityAttachmentOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            /** @description برچسب فارسی مصوب موجودیت */
+            owner_label_fa: string;
+            /** @description نشانی صفحهٔ مدیریت موجودیت برای ناوبری */
+            module_path: string;
+            /** @description جدیدترین ضمیمه اول (ترتیب قطعی created_at سپس id) */
+            items: components["schemas"]["EntityAttachmentItem"][];
+            counts: components["schemas"]["EntityAttachmentCounts"];
+            /** @description محدودیتهای مصوب (بدون حذف/بایگانی/انتخاب اصلی) */
+            note_fa: string;
+            /** @description یادآوری مرز مرکزی/دامنهای */
+            message_fa: string;
+        };
+        /** @description یک تصویر/سند کالا؛ همان schemas.Attachment بهعلاوهٔ دستهبندی و نشانگر تصویرِ اصلی که فقط در لحظهٔ خواندن محاسبه شده است (§B4 — بدون ستون DB). */
+        ProductMediaItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            owner_type: "product";
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            /** @description اثرِ انگشت SHA-256 محتوای فایل */
+            sha256: string;
+            /**
+             * Format: uri
+             * @description URL امضاشدهٔ کوتاهعمر
+             */
+            url: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @enum {string} */
+            kind: "image" | "document";
+            /** @description «تصویر» یا «سند» */
+            kind_label_fa: string;
+            /** @description فقط نخستین تصویر بر اساس created_at مقدار true دارد */
+            is_primary: boolean;
+            /** @description «اصلی (خودکار)» یا null */
+            primary_label_fa: string | null;
+        };
+        /** @description نمای مرکز تصاویر/اسناد یک کالای مرکزی. صرفاً کاتالوگ مرکزی؛ هیچ فیلد دامنهای، عضویت، وضعیت عرضه یا دسترسپذیری دامنهای ندارد. */
+        ProductMediaView: {
+            /** Format: uuid */
+            product_id: string;
+            product_code: string;
+            product_name: string;
+            /** @description قدیمیترین ضمیمه اول (ترتیب قطعی created_at سپس id) */
+            items: components["schemas"]["ProductMediaItem"][];
+            primary_image: components["schemas"]["ProductMediaItem"] | null;
+            counts: {
+                images: number;
+                documents: number;
+                total: number;
+            };
+            /** @enum {string} */
+            primary_image_rule: "first_image_by_created_at";
+            /** @description برچسب مصوب §B4 */
+            primary_image_label_fa: string;
+            /** @description محدودیت مستند جابهجایی خودکار تصویرِ اصلی */
+            primary_image_note_fa: string;
+            message_fa: string;
+        };
+        ReferenceProduct: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            status?: string;
+        };
+        ReferenceAuditEvent: {
+            id: string;
+            action: string;
+            /** @enum {string} */
+            entity_type: "brand" | "uom" | "product_category";
+            entity_id?: string | null;
+            actor_user_id?: string | null;
+            /** Format: date-time */
+            at: string;
+            before_data?: unknown;
+            after_data?: unknown;
+        };
+        ReferenceHistoryList: {
+            items: components["schemas"]["ReferenceAuditEvent"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        ReferenceMutationResult: {
+            deleted: boolean;
+            message_fa: string;
+            reassigned?: {
+                children?: number;
+                products?: number;
+            };
+        };
+        /** @description برند شرکتمحور (جدول brand موجود ۰۰۰۵ + ستونهای ۰۰۶۵) */
+        Brand: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description ردیفهای قدیمی ممکن است بدون کد باشند */
+            code?: string | null;
+            name: string;
+            name_latin?: string | null;
+            is_active: boolean;
+            product_count: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        BrandCreate: {
+            code: string;
+            name: string;
+            name_latin?: string | null;
+            /** @default true */
+            is_active: boolean;
+        };
+        BrandUpdate: {
+            code?: string;
+            name?: string;
+            name_latin?: string | null;
+            is_active?: boolean;
+        };
+        BrandDetail: components["schemas"]["Brand"] & {
+            usage_count: number;
+            products: components["schemas"]["ReferenceProduct"][];
+        };
+        BrandList: {
+            items: components["schemas"]["Brand"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        UnitList: {
+            items: components["schemas"]["Unit"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        UnitCreate: {
+            code: string;
+            title: string;
+            symbol?: string | null;
+            title_latin?: string | null;
+            /** @default 0 */
+            decimal_places: number;
+            /** @default true */
+            is_active: boolean;
+        };
+        /** @description کد واحد تغییرناپذیر است؛ ارسال code پاسخ ۴۰۰ صریح میگیرد */
+        UnitUpdate: {
+            code?: string;
+            title?: string;
+            symbol?: string | null;
+            title_latin?: string | null;
+            decimal_places?: number;
+            is_active?: boolean;
+        };
+        UnitDetail: components["schemas"]["Unit"] & {
+            usage_count: number;
+            products: components["schemas"]["ReferenceProduct"][];
+        };
+        CategoryList: {
+            items: components["schemas"]["ProductCategory"][];
+            total: number;
+            limit: number;
+            offset: number;
+        };
+        CategoryAncestor: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+        };
+        CategoryCreate: {
+            code: string;
+            name: string;
+            name_latin?: string | null;
+            /** Format: uuid */
+            parent_id?: string | null;
+            /** @default true */
+            is_active: boolean;
+        };
+        CategoryUpdate: {
+            code?: string;
+            name?: string;
+            name_latin?: string | null;
+            /**
+             * Format: uuid
+             * @description null = انتقال به ریشه
+             */
+            parent_id?: string | null;
+            is_active?: boolean;
+        };
+        CategoryDetail: components["schemas"]["ProductCategory"] & {
+            ancestors: components["schemas"]["CategoryAncestor"][];
+            children: components["schemas"]["ProductCategory"][];
+            products: components["schemas"]["ReferenceProduct"][];
+        };
         /** @description تنظیم با دامنه — حوزه‌ها فقط محدوده خود را می‌بینند (ماژول ۱۱) */
         SettingEntry: {
             /**
@@ -13180,11 +15802,213 @@ export interface components {
                 score?: number;
             }[];
         };
+        ProductCatalogHistoryPage: {
+            has_more: boolean;
+            next_cursor: string | null;
+            items: {
+                id: string;
+                /** @enum {string} */
+                entity_type: "product" | "product_category" | "product_family" | "product_alias" | "product_attribute_def" | "product_attribute_enum_value" | "product_attribute_value" | "product_relation" | "product_bundle" | "product_barcode" | "product_packaging";
+                /** Format: uuid */
+                product_id?: string | null;
+                /** Format: uuid */
+                entity_id?: string | null;
+                /** @enum {string} */
+                action: "INSERT" | "UPDATE" | "DELETE";
+                /** Format: uuid */
+                actor_user_id?: string | null;
+                /** Format: date-time */
+                at: string;
+                before_data?: {
+                    [key: string]: unknown;
+                } | null;
+                after_data?: {
+                    [key: string]: unknown;
+                } | null;
+            }[];
+        };
+        DomainOwnerDecision: {
+            /** @enum {string} */
+            id: "PM-B1" | "PM-B2" | "PM-B3" | "PM-B4" | "PM-B5" | "PM-B6" | "PM-B7" | "PM-B8";
+            title: string;
+        };
+        DomainCatalogContractStatus: {
+            /** @constant */
+            available: false;
+            authority_registered: boolean;
+            /** @enum {string} */
+            code: "domain_identity_unresolved" | "domain_catalog_not_implemented";
+            message_fa: string;
+            decision_document: string;
+            /** Format: uri */
+            decision_document_url: string;
+            owner_decisions: components["schemas"]["DomainOwnerDecision"][];
+            technical_contract: string[];
+            source?: string;
+        };
+        DomainCatalogUnavailable: components["schemas"]["DomainCatalogContractStatus"] & {
+            operation: string;
+        };
+        ProductDomainScope: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            /** @enum {string} */
+            central_status: "active" | "blocked" | "discontinued";
+            central_status_label_fa: string;
+            /** @enum {string} */
+            domain_context: "unresolved";
+            /** @enum {string} */
+            domain_membership: "unresolved";
+            /** @enum {string} */
+            domain_availability: "unresolved";
+            /** @constant */
+            available: false;
+            /** @enum {string} */
+            state: "domain_identity_unresolved";
+            /** @constant */
+            central_status_is_domain_availability: false;
+            message_fa: string;
+            decision_document: string;
+            /** Format: uri */
+            decision_document_url: string;
+            owner_decisions: components["schemas"]["DomainOwnerDecision"][];
+        };
+        ProductLifecycleTransitionRequest: {
+            /**
+             * @description فقط active/blocked قابل اجرا هستند؛ مقادیر شامل discontinued با 400 lifecycle_transition_blocked رد میشوند.
+             * @enum {string}
+             */
+            target_status: "active" | "blocked" | "discontinued";
+            /** @description نسخه فعلی قفل خوشبینانه؛ مغایرت 409 */
+            row_version: number;
+            /** @description D4: تأیید صریح؛ بدون true درخواست 400 میگیرد */
+            confirm_sensitive?: boolean;
+        };
+        ProductLifecycleTransitionRule: {
+            /** @enum {string} */
+            source_status: "active" | "blocked" | "discontinued" | "deleted_soft";
+            /** @enum {string} */
+            target_status: "active" | "blocked" | "discontinued";
+            supported: boolean;
+            action_id: string;
+            label_fa: string;
+            reason_fa: string;
+            validation_fa: string;
+            authorization_fa: string;
+            side_effects_fa: string[];
+            dependent_modules_fa: string[];
+            audit_fa: string;
+            evidence: string[];
+            test_coverage_fa: string[];
+            decision_dependency_fa: string | null;
+            rejection_code: string | null;
+        };
+        ProductLifecycleAction: {
+            action_id: string;
+            /**
+             * @description فقط عملیات شاهدپذیر active↔blocked برگردانده میشود؛ هیچ عمل discontinuedای وجود ندارد.
+             * @enum {string}
+             */
+            target_status: "active" | "blocked";
+            label_fa: string;
+            /** @constant */
+            confirmation_required: true;
+            /** @enum {string} */
+            method: "POST";
+            /** @enum {string} */
+            path: "/products/{id}/lifecycle/transitions";
+            /** @constant */
+            requires_row_version: true;
+            decision_dependency_fa: string | null;
+        };
+        ProductLifecycleActor: {
+            can_update: boolean;
+            can_change_status: boolean;
+            can_transition: boolean;
+            unavailable_reason_fa: string | null;
+        };
+        ProductLifecycleHistoryItem: {
+            id: string;
+            /** @enum {string} */
+            action: "INSERT" | "UPDATE" | "DELETE";
+            event_label_fa: string;
+            from_status: string | null;
+            to_status: string | null;
+            /** Format: uuid */
+            actor_user_id: string | null;
+            actor_label_fa: string;
+            /** Format: date-time */
+            at: string;
+        };
+        ProductLifecycleView: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            /** @enum {string} */
+            status: "active" | "blocked" | "discontinued";
+            status_label_fa: string;
+            row_version: number;
+            policy: {
+                /** @enum {string} */
+                source: "existing_d4_contract";
+                permissions_fa: string;
+                confirmation_fa: string;
+                concurrency_fa: string;
+                /** @enum {string} */
+                two_person_approval: "BLOCKED";
+            };
+            actor: components["schemas"]["ProductLifecycleActor"];
+            available_actions: components["schemas"]["ProductLifecycleAction"][];
+            transitions: components["schemas"]["ProductLifecycleTransitionRule"][];
+            downstream_notes_fa: string[];
+            owner_decisions_fa: string[];
+            history: {
+                items: components["schemas"]["ProductLifecycleHistoryItem"][];
+                has_more: boolean;
+                next_cursor: string | null;
+            };
+        };
+        ProductLifecycleTransitionResult: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            /**
+             * @description مبدأ فقط یکی از گذارهای شاهدپذیر است
+             * @enum {string}
+             */
+            from_status: "active" | "blocked";
+            /**
+             * @description مقصد فقط یکی از گذارهای شاهدپذیر است
+             * @enum {string}
+             */
+            status: "active" | "blocked";
+            status_label_fa: string;
+            row_version: number;
+            action_id: string;
+            action_label_fa: string;
+            audit: {
+                /** @constant */
+                committed: true;
+                /** @enum {string} */
+                action: "product_lifecycle.transition";
+                /** @constant */
+                transactional: true;
+                /** @enum {string} */
+                actor_source: "session";
+            };
+            message_fa: string;
+        };
         ProductFamily: {
             /** Format: uuid */
             readonly id: string;
             code: string;
             name: string;
+            /** @default true */
+            is_active: boolean;
         };
         ProductAlias: {
             /** Format: uuid */
@@ -13195,6 +16019,183 @@ export interface components {
             readonly alias_norm: string;
             /** @enum {string} */
             kind: "brand_slang" | "latin" | "code";
+        };
+        ProductAliasKindSpec: {
+            /** @enum {string} */
+            kind: "brand_slang" | "latin" | "code";
+            label_fa: string;
+            meaning_fa: string;
+            /** @description فقط kind=code در resolution اسکن استفاده می‌شود. */
+            used_in_scan: boolean;
+            evidence: string;
+        };
+        ProductAliasItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            alias: string;
+            alias_norm: string;
+            /** @enum {string} */
+            kind: "brand_slang" | "latin" | "code";
+            kind_label_fa: string;
+            used_in_scan: boolean;
+            warning_fa?: string | null;
+            /** @description برخوردِ نرم با نام جایگزینِ کالای دیگر — اطلاع‌رسان، نه یکتاییِ DB. */
+            conflict?: {
+                /** Format: uuid */
+                product_id?: string | null;
+                code?: string | null;
+                name?: string | null;
+            } | null;
+            created_at?: string | null;
+        };
+        ProductAliasOwnerDecision: {
+            id: string;
+            title_fa: string;
+            /** @enum {string} */
+            status: "BLOCKED" | "UNRESOLVED";
+            detail_fa: string;
+        };
+        ProductAliasOverview: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name?: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "discontinued";
+            };
+            /** @enum {string} */
+            scope: "central";
+            actor: {
+                can_view: boolean;
+                can_update: boolean;
+                unavailable_reason_fa?: string | null;
+            };
+            kinds: components["schemas"]["ProductAliasKindSpec"][];
+            items: components["schemas"]["ProductAliasItem"][];
+            /** @description سازگاریِ عقب‌رو: آرایهٔ سادهٔ ردیف‌های product_alias. */
+            aliases: components["schemas"]["ProductAlias"][];
+            counts: {
+                total: number;
+                brand_slang: number;
+                latin: number;
+                code: number;
+                truncated: boolean;
+            };
+            scan_resolution_fa?: string;
+            downstream_notes_fa: string[];
+            owner_decisions_fa: components["schemas"]["ProductAliasOwnerDecision"][];
+        };
+        ProductAliasDeleteResult: {
+            /** @constant */
+            deleted: true;
+            /** Format: uuid */
+            alias_id: string;
+        };
+        ProductAttributeKindSpec: {
+            /** @enum {string} */
+            kind: "text" | "number" | "enum";
+            label_fa: string;
+            meaning_fa: string;
+            evidence: string;
+        };
+        ProductAttributeCatalogEntry: {
+            /** Format: uuid */
+            def_id: string;
+            code: string;
+            title: string;
+            /** @enum {string} */
+            kind: "text" | "number" | "enum";
+            kind_label_fa: string;
+            is_variant_axis: boolean;
+            is_required: boolean;
+            sort_order: number;
+            enum_values: {
+                /** Format: uuid */
+                id: string;
+                value: string;
+            }[];
+            value: {
+                /** Format: uuid */
+                id: string | null;
+                value_text: string | null;
+                value_num: string | null;
+                value_enum: string | null;
+            };
+            filled: boolean;
+            warning_fa?: string | null;
+        };
+        ProductAttributesOverview: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name?: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "discontinued";
+            };
+            /** @enum {string} */
+            scope: "central";
+            actor: {
+                can_view: boolean;
+                can_update: boolean;
+                unavailable_reason_fa?: string | null;
+            };
+            variant_signature: string | null;
+            /** @description پس از نخستین ارجاع عملیاتی true؛ تغییر محورها ممنوع (M-3). */
+            signature_locked: boolean;
+            signature_rule_fa?: string;
+            required_policy_fa?: string;
+            kinds: components["schemas"]["ProductAttributeKindSpec"][];
+            attributes: components["schemas"]["ProductAttributeCatalogEntry"][];
+            /** @description سازگاریِ عقب‌رو: ردیف‌های خامِ product_attribute_value. */
+            values: components["schemas"]["ProductAttributeValue"][];
+            counts: {
+                total: number;
+                filled: number;
+                required: number;
+                required_missing: number;
+                variant_axes: number;
+            };
+            downstream_notes_fa: string[];
+            owner_decisions_fa: components["schemas"]["ProductAliasOwnerDecision"][];
+        };
+        ProductAttributeValueInput: {
+            /** Format: uuid */
+            def_id: string;
+            value_text?: string | null;
+            /** @description در بازهٔ numeric(19,4) */
+            value_num?: number | null;
+            value_enum?: string | null;
+            /** @description حذف مقدار ثبت‌شده برای این صفت */
+            clear?: boolean;
+        };
+        ProductAttributeValuesResult: {
+            values: components["schemas"]["ProductAttributeValue"][];
+            variant_signature: string | null;
+            cleared: string[];
+        };
+        ProductIdentityHistoryEvent: {
+            id: string;
+            /** @enum {string} */
+            action: "INSERT" | "UPDATE" | "DELETE";
+            event_label_fa: string;
+            /** @enum {string} */
+            entity_type: "product_alias" | "product_attribute_value";
+            entity_id: string;
+            /** Format: uuid */
+            actor_user_id?: string | null;
+            actor_label_fa: string;
+            at: string;
+            def_code?: string | null;
+            def_title?: string | null;
+        };
+        ProductIdentityHistory: {
+            items: components["schemas"]["ProductIdentityHistoryEvent"][];
+            limit: number;
+            source_fa: string;
         };
         ProductAttributeDef: {
             /** Format: uuid */
@@ -13234,18 +16235,157 @@ export interface components {
             value_num?: string | null;
             value_enum?: string | null;
         };
-        ProductRelation: {
+        /**
+         * @description فقط دو نوع مصوب مهاجرت ۰۰۴۶؛ هیچ نوع تازه‌ای در C6 اضافه نشد.
+         * @enum {string}
+         */
+        ProductRelationKind: "substitute" | "complement";
+        ProductRelationRelatedProduct: {
             /** Format: uuid */
-            readonly id: string;
+            id: string;
+            code: string;
+            name?: string | null;
+            /** @enum {string} */
+            status: "active" | "blocked" | "discontinued";
+            status_label_fa: string;
+            /** @description هشدار اطلاع‌رسان برای کالای غیرفعال؛ رابطه را مسدود نمی‌کند (بدون سند مصوب). */
+            warning_fa?: string | null;
+        };
+        ProductRelationItem: {
+            /** Format: uuid */
+            id: string;
             /** Format: uuid */
             product_id: string;
             /** Format: uuid */
             related_id: string;
+            kind: components["schemas"]["ProductRelationKind"];
+            kind_label_fa: string;
+            priority: number;
+            /**
+             * @description رابطه جهت‌دار است؛ رابطهٔ متقابل خودکار ساخته نمی‌شود.
+             * @enum {string}
+             */
+            direction: "outgoing" | "incoming";
+            related: components["schemas"]["ProductRelationRelatedProduct"];
+            created_at?: string;
+            /** @description فقط رابطهٔ خروجی قابل ویرایش است. */
+            editable: boolean;
+            /** @description فقط رابطهٔ خروجی قابل حذف است. */
+            removable: boolean;
+        };
+        ProductRelationKindSpec: {
+            kind: components["schemas"]["ProductRelationKind"];
+            label_fa: string;
+            meaning_fa: string;
+            operational_effect_fa: string;
             /** @enum {string} */
-            kind: "substitute" | "complement";
-            priority?: number;
-            readonly related_code?: string;
-            readonly related_name?: string;
+            cycle_policy: "rejected_by_existing_rule" | "no_approved_rule";
+        };
+        ProductRelationOwnerDecision: {
+            id: string;
+            title_fa: string;
+            /** @enum {string} */
+            status: "BLOCKED" | "UNRESOLVED";
+            detail_fa: string;
+        };
+        ProductRelationsOverview: {
+            /** Format: uuid */
+            product_id: string;
+            product: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name?: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "discontinued";
+                status_label_fa: string;
+            };
+            /** @enum {string} */
+            scope: "central";
+            actor: {
+                can_view: boolean;
+                can_update: boolean;
+                unavailable_reason_fa?: string | null;
+            };
+            kinds: components["schemas"]["ProductRelationKindSpec"][];
+            items: components["schemas"]["ProductRelationItem"][];
+            counts: {
+                outgoing: number;
+                incoming: number;
+                substitute: number;
+                complement: number;
+                truncated: boolean;
+            };
+            downstream_notes_fa: string[];
+            owner_decisions_fa: components["schemas"]["ProductRelationOwnerDecision"][];
+        };
+        ProductRelationHistoryEvent: {
+            id: string;
+            /** @enum {string} */
+            action: "INSERT" | "UPDATE" | "DELETE";
+            event_label_fa: string;
+            /** Format: uuid */
+            actor_user_id?: string | null;
+            actor_label_fa: string;
+            at: string;
+            kind?: string | null;
+            priority?: number | null;
+            before_kind?: string | null;
+            before_priority?: number | null;
+            /** Format: uuid */
+            product_id?: string | null;
+            /** Format: uuid */
+            related_id?: string | null;
+        };
+        ProductRelationHistory: {
+            items: components["schemas"]["ProductRelationHistoryEvent"][];
+            has_more: boolean;
+            limit: number;
+            source_fa: string;
+        };
+        ProductRelationGraphNode: {
+            /** Format: uuid */
+            product_id: string;
+            code: string;
+            name?: string | null;
+            /** @enum {string} */
+            status: "active" | "blocked" | "discontinued";
+            kind?: string | null;
+            depth: number;
+            /** Format: uuid */
+            via_relation_id?: string | null;
+        };
+        ProductRelationGraphEdge: {
+            /** Format: uuid */
+            relation_id: string;
+            /** Format: uuid */
+            from: string;
+            /** Format: uuid */
+            to: string;
+            kind: components["schemas"]["ProductRelationKind"];
+            priority: number;
+        };
+        ProductRelationGraph: {
+            /** Format: uuid */
+            product_id: string;
+            /** @enum {string} */
+            scope: "central";
+            depth: number;
+            nodes: components["schemas"]["ProductRelationGraphNode"][];
+            edges: components["schemas"]["ProductRelationGraphEdge"][];
+            truncated: boolean;
+            technical_limits: {
+                max_depth: number;
+                max_nodes: number;
+                requested_depth: number;
+            };
+            semantics_fa?: string;
+        };
+        ProductRelationDeleteResult: {
+            /** @constant */
+            deleted: true;
+            /** Format: uuid */
+            relation_id: string;
         };
         /** @description D5 — ترکیبِ کاتالوگیِ بسته؛ SKU بسته تا P5 غیرقابل سفارش/فروش/حرکت موجودی */
         BundleComponent: {
@@ -13275,6 +16415,51 @@ export interface components {
             }[];
             headers: string[];
         };
+        /** @description ردیفِ عادی‌شدهٔ گزارشِ import؛ خطاهای خام SQL یا فیلدهای بینشرکتی ندارد. */
+        ImportIssue: {
+            row: number;
+            code: string;
+            message_fa: string;
+            batch_no?: number;
+            /** Format: uuid */
+            import_id?: string;
+            product_code?: string;
+            /** Format: uuid */
+            product_id?: string;
+            /** @enum {string} */
+            status?: "created" | "updated" | "failed" | "rejected" | "rolled_back";
+            failure_category: components["schemas"]["ImportFailureCategory"];
+            retryable: boolean;
+            transaction_outcome: components["schemas"]["ImportTransactionOutcome"];
+        };
+        /**
+         * @description دستهٔ فنی و پایدار خطا؛ قواعد کسب‌وکار D1–D5/M-5 را تغییر نمی‌دهد.
+         * @enum {string}
+         */
+        ImportFailureCategory: "none" | "validation" | "business" | "permission" | "concurrency" | "infrastructure";
+        /**
+         * @description نتیجهٔ تراکنش یک دسته؛ unknown هرگز موفقیت فرض نمی‌شود.
+         * @enum {string}
+         */
+        ImportTransactionOutcome: "committed" | "rolled_back" | "not_started" | "unknown";
+        /** @description نتیجهٔ یک دستهٔ ۱۰۰ردیفی؛ دسته‌های commit‌شده در همان تراکنش محصول ثبت می‌شوند. */
+        ImportBatchOutcome: {
+            batch_no: number;
+            /** @enum {string} */
+            status: "committed" | "rolled_back" | "rejected" | "failed";
+            transaction_outcome: components["schemas"]["ImportTransactionOutcome"];
+            failure_category: components["schemas"]["ImportFailureCategory"];
+            retryable: boolean;
+            reason_code?: string;
+            message_fa?: string;
+            total_rows: number;
+            created_rows: number;
+            updated_rows: number;
+            failed_rows: number;
+            attempts: number;
+            report: components["schemas"]["ImportIssue"][];
+        };
+        /** @description نتیجهٔ اجرا یا پخش مجدد import؛ قرارداد §E (همه‌یا‌هیچ در هر دسته و ادامهٔ دسته‌های بعدی) حفظ می‌شود. */
         ImportResult: {
             /** Format: uuid */
             import_id: string;
@@ -13283,11 +16468,128 @@ export interface components {
             updated_rows: number;
             failed_rows: number;
             idempotent_replay?: boolean;
-            errors: {
-                row?: number;
-                code?: string;
-                message_fa?: string;
-            }[];
+            /** @enum {string} */
+            status?: "processing" | "completed" | "failed";
+            /**
+             * @description نتیجهٔ تجمیعی؛ partial یعنی برخی دسته‌ها commit و برخی قطعاً برگشت خورده‌اند.
+             * @enum {string}
+             */
+            transaction_outcome?: "committed" | "partial" | "rolled_back" | "not_started" | "unknown";
+            failure_category?: components["schemas"]["ImportFailureCategory"];
+            /** @description فقط تلاش‌مجدد داخلیِ نتیجهٔ قطعی rolled_back؛ unknown نیاز به بررسی اپراتور دارد. */
+            retryable?: boolean;
+            last_batch_no?: number;
+            report?: components["schemas"]["ImportIssue"][];
+            batches?: components["schemas"]["ImportBatchOutcome"][];
+            errors: components["schemas"]["ImportIssue"][];
+        };
+        BulkMaintenanceFieldsResponse: {
+            supported_fields: components["schemas"]["BulkMaintenanceField"][];
+        };
+        /** @description مقدارِ ساده و غیرشیئی یک فیلد مجاز نگهداشت گروهی */
+        BulkMaintenanceChangeValue: string | number | boolean | null;
+        /** @description فقط کلیدهای فهرست سفید سرور؛ فیلدهای محافظتشده حتی در درخواست دستساز رد میشوند. */
+        BulkMaintenanceChanges: {
+            [key: string]: components["schemas"]["BulkMaintenanceChangeValue"];
+        };
+        BulkMaintenancePreviewRequest: {
+            product_ids: string[];
+            changes: components["schemas"]["BulkMaintenanceChanges"];
+        };
+        BulkMaintenanceField: {
+            /** @enum {string} */
+            key: "name" | "name_latin" | "brand_id" | "min_order_qty" | "weight_gr" | "volume_cm3" | "distribution_kind" | "is_returnable_container" | "requires_permit";
+            label_fa: string;
+            /** @enum {string} */
+            kind: "text" | "nullable_text" | "uuid" | "number" | "nullable_integer" | "enum" | "boolean";
+            nullable: boolean;
+            max_length?: number | null;
+            enum_values?: string[] | null;
+        };
+        BulkMaintenanceDiff: {
+            field: string;
+            label_fa: string;
+            before: components["schemas"]["BulkMaintenanceChangeValue"];
+            after: components["schemas"]["BulkMaintenanceChangeValue"];
+            before_label: string;
+            after_label: string;
+            changed: boolean;
+        };
+        BulkMaintenancePreviewItem: {
+            /** Format: uuid */
+            product_id: string;
+            code: string;
+            name: string;
+            row_version: number;
+            /** @enum {string} */
+            status: "eligible" | "rejected";
+            reason_code?: string | null;
+            message_fa?: string | null;
+            changes: components["schemas"]["BulkMaintenanceDiff"][];
+        };
+        BulkMaintenancePreviewResponse: {
+            /** Format: uuid */
+            operation_id: string;
+            preview_token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @enum {string} */
+            status: "preview_created";
+            eligible_count: number;
+            rejected_count: number;
+            supported_fields: components["schemas"]["BulkMaintenanceField"][];
+            items: components["schemas"]["BulkMaintenancePreviewItem"][];
+        };
+        BulkMaintenanceExecuteRequest: {
+            /** Format: uuid */
+            operation_id: string;
+            preview_token: string;
+            /** @enum {boolean} */
+            confirm: true;
+        };
+        BulkMaintenanceLifecycleEvent: {
+            /** @enum {string} */
+            state: "preview_created" | "preview_stale" | "preview_expired" | "accepted" | "committed" | "rejected" | "unknown";
+            /** Format: date-time */
+            at: string;
+        };
+        BulkMaintenanceOperationItem: {
+            /** Format: uuid */
+            product_id: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "updated" | "rejected";
+            row_version_before?: number | null;
+            row_version_after?: number | null;
+            message_fa?: string | null;
+            product_url: string;
+        };
+        BulkMaintenanceOperationResult: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            status: "preview_created" | "preview_stale" | "preview_expired" | "accepted" | "committed" | "rejected" | "unknown";
+            /** @enum {string} */
+            outcome: "not_started" | "committed" | "rolled_back" | "unknown";
+            lifecycle: components["schemas"]["BulkMaintenanceLifecycleEvent"][];
+            eligible_count: number;
+            updated_count: number;
+            rejected_count: number;
+            failure_category: string;
+            reason_code?: string | null;
+            message_fa?: string | null;
+            /** Format: date-time */
+            accepted_at?: string | null;
+            /** Format: date-time */
+            committed_at?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+            idempotent_replay?: boolean;
+            reconciled?: boolean;
+            retryable?: boolean;
+            reconciliation_hint_fa?: string | null;
+            items: components["schemas"]["BulkMaintenanceOperationItem"][];
         };
         /** @description زنجیره تأیید با گام‌های تعریف‌شده */
         ApprovalChain: {
@@ -13397,6 +16699,275 @@ export interface components {
             is_mocked?: boolean;
             provider?: string | null;
         };
+        /**
+         * @description فقط انواع مالک مصوب C1/C3 دارای زنجیرهٔ راستیآزمایشدهٔ مالکیت؛ other، brand، product_category، warehouse، uom و انواع تازه ممنوعاند.
+         * @enum {string}
+         */
+        TransferOwnerType: "product" | "invoice" | "sales_order" | "return_request" | "stock_count" | "journal_entry" | "receipt" | "pod";
+        /** @description بدنهٔ خالی؛ مالک، شرکت، دامنه، تأییدکننده و توکن پذیرفته نمیشود. */
+        TransferEmptyRequest: Record<string, never>;
+        TransferSelection: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+        };
+        TransferExportPreviewRequest: {
+            selections: components["schemas"]["TransferSelection"][];
+        };
+        TransferOwnerTypeOption: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            label_fa: string;
+            module_path: string;
+            /** @enum {boolean} */
+            backend_supported: true;
+            /** @enum {string} */
+            ui_module: "product_media" | "operational_entity" | "backend_only";
+            note_fa: string;
+        };
+        TransferOwnerTypesResponse: {
+            items: components["schemas"]["TransferOwnerTypeOption"][];
+            note_fa: string;
+        };
+        TransferOwnerRecord: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            reference: string;
+            title_fa: string;
+            label_fa: string;
+            module_path: string;
+            attachment_count: number;
+        };
+        TransferOwnersResponse: {
+            items: components["schemas"]["TransferOwnerRecord"][];
+            note_fa: string;
+        };
+        /** @description فقط مرجع مالکیت و فرادادهٔ فایل؛ بدون storage_key/URL/اعتبارنامه */
+        TransferManifestFile: {
+            path: string;
+            /** Format: uuid */
+            attachment_id: string;
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            /** @enum {string} */
+            content_type: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+            size_bytes: number;
+            sha256: string;
+            crc32: number;
+            /** Format: date-time */
+            exported_at: string;
+        };
+        TransferChecksums: {
+            /** @enum {string} */
+            schema: "green-dms.attachment-transfer/1";
+            manifest_sha256: string;
+            package_sha256: string;
+            total_bytes: number;
+            file_count: number;
+        };
+        TransferManifest: {
+            /** @enum {string} */
+            schema: "green-dms.attachment-transfer/1";
+            /** Format: uuid */
+            operation_id: string;
+            /** Format: date-time */
+            created_at: string;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            file_count: number;
+            total_bytes: number;
+            files: components["schemas"]["TransferManifestFile"][];
+            checksums: components["schemas"]["TransferChecksums"];
+        };
+        TransferRejectedFile: {
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            /** Format: uuid */
+            attachment_id: string;
+            file_name: string;
+            reason_code: string;
+            message_fa: string;
+        };
+        TransferExportPreview: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            operation_type: "export";
+            /** @enum {string} */
+            phase: "preview";
+            /** @enum {string} */
+            execution_status: "completed";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            selections: components["schemas"]["TransferSelection"][];
+            file_count: number;
+            total_bytes: number;
+            estimated_package_size_bytes: number;
+            rejected_count: number;
+            rejected_files: components["schemas"]["TransferRejectedFile"][];
+            manifest: components["schemas"]["TransferManifest"] | null;
+            downloads_available: boolean;
+            note_fa: string;
+        };
+        TransferPreviewItem: {
+            path: string;
+            /** Format: uuid */
+            attachment_id: string;
+            owner_type: components["schemas"]["TransferOwnerType"];
+            /** Format: uuid */
+            owner_id: string;
+            file_name: string;
+            content_type: string;
+            size_bytes: number;
+            sha256: string;
+            /** @enum {string} */
+            status: "accepted" | "rejected" | "duplicate" | "unresolved";
+            reason_code: string;
+            message_fa: string;
+        };
+        /** @description وضعیت دونفرهٔ fail-closed؛ تا زمان تصمیم/امضای مصوب برای سیاست و اثرانگشت بسته، هیچ تأییدکننده یا اجرای معتبری وجود ندارد. */
+        TransferApprovalStatus: {
+            /** @enum {string} */
+            status: "blocked";
+            /** @enum {string} */
+            reason_code: "approval_policy_missing";
+            message_fa: string;
+            /** @enum {string} */
+            operation: "attachment.import.execute";
+            mechanism: string;
+            fingerprint_supported: boolean;
+            required_dependency_fa: string;
+            /** Format: uuid */
+            initiator_user_id: string;
+            approver_user_id: null;
+            approved_at: null;
+            approved_package_sha256: null;
+            approved_mapping_sha256: null;
+            approved_preview_sha256: null;
+            current_package_sha256: string;
+            current_mapping_sha256: string;
+            current_preview_sha256: string;
+            approval_invalidated: boolean;
+            /** @enum {boolean} */
+            self_approval_forbidden: true;
+        };
+        TransferImportCounts: {
+            accepted: number;
+            rejected: number;
+            duplicate: number;
+            unresolved: number;
+        };
+        TransferImportPreview: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            operation_type: "import";
+            /** @enum {string} */
+            phase: "preview" | "approval";
+            /** @enum {string} */
+            execution_status: "blocked";
+            /** @enum {string} */
+            status: "approval_blocked";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            version: number;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            file_count: number;
+            total_bytes: number;
+            package_sha256: string;
+            manifest_sha256: string;
+            mapping_sha256: string;
+            preview_sha256: string;
+            items: components["schemas"]["TransferPreviewItem"][];
+            counts: components["schemas"]["TransferImportCounts"];
+            manifest: components["schemas"]["TransferManifest"];
+            approval: components["schemas"]["TransferApprovalStatus"];
+            execution: {
+                /** @enum {boolean} */
+                allowed: false;
+                /** @enum {string} */
+                reason_code: "approval_policy_missing";
+                message_fa: string;
+            };
+            note_fa: string;
+        };
+        TransferMappingOverride: {
+            path: string;
+            /** Format: uuid */
+            owner_id: string;
+        };
+        TransferMappingRequest: {
+            mapping_overrides: components["schemas"]["TransferMappingOverride"][];
+        };
+        TransferSafeFailure: {
+            code: string;
+            message_fa: string;
+        };
+        TransferAuditEvent: {
+            event_id: string;
+            action: string;
+            /** @enum {string} */
+            phase: "preview" | "approval" | "execution" | "download" | "failure" | "cancellation";
+            status: string;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            actor_user_id: string | null;
+            actor_label: string | null;
+            safe_failure: components["schemas"]["TransferSafeFailure"] | null;
+        };
+        TransferHistoryItem: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            operation_type: "export" | "import";
+            phase: string;
+            execution_status: string;
+            /** Format: uuid */
+            initiator_user_id: string | null;
+            initiator_label: string;
+            approver_user_id: null;
+            approver_label: string;
+            package_schema: string | null;
+            package_sha256: string | null;
+            manifest_sha256: string | null;
+            total_bytes: number;
+            estimated_package_size_bytes: number;
+            entity_types: components["schemas"]["TransferOwnerType"][];
+            file_count: number;
+            accepted_count: number;
+            rejected_count: number;
+            duplicate_count: number;
+            unresolved_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+            safe_failure: components["schemas"]["TransferSafeFailure"] | null;
+            events: components["schemas"]["TransferAuditEvent"][];
+        };
+        TransferOperationList: {
+            items: components["schemas"]["TransferHistoryItem"][];
+            note_fa: string;
+        };
+        TransferOperationDetail: components["schemas"]["TransferHistoryItem"] & {
+            manifest: components["schemas"]["TransferManifest"] | null;
+            note_fa: string;
+        };
+        TransferCancelResult: {
+            /** Format: uuid */
+            operation_id: string;
+            /** @enum {string} */
+            status: "cancelled";
+            note_fa: string;
+        };
     };
     responses: {
         /** @description درخواست نامعتبر (خطای اعتبارسنجی) */
@@ -13462,6 +17033,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description اتصال کاتالوگ دامنه تا تصمیم مالک و مرجع معتبر غیرفعال است؛ هیچ داده عضویت ارائه نمیشود */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["DomainCatalogUnavailable"];
+            };
+        };
         /** @description نرخ درخواست بیش از حد مجاز. بدنهٔ پاسخ کدِ too_many_requests و retry_after_sec را دارد؛ Retry-After هم به‌صورتِ سرصفحهٔ استاندارد برمی‌گردد. */
         TooManyRequests: {
             headers: {
@@ -13483,10 +17063,353 @@ export interface components {
         /** @description اندازه صفحه */
         limit: number;
         idPath: string;
+        /** @description شناسه دامنه؛ تنها پس از احراز مالکیت و اختیار سرور قابل مصرف است */
+        domainIdPath: string;
+        /** @description شناسه کالای مرکزی؛ هویت کالا شبیهسازی یا تکثیر نمیشود */
+        productIdPath: string;
+        /** @description زمینه اجباری دامنه؛ نبود آن بستهشدن ایمن با ۴۰۰ است */
+        xDomainIdHeader: string;
     };
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    attachmentTransferOwnerTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description فهرست هشت نوع مالک دارای زنجیرهٔ راستیآزمایشده */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOwnerTypesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    attachmentTransferOwners: {
+        parameters: {
+            query?: {
+                entity_types?: components["schemas"]["TransferOwnerType"][];
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description فقط رکوردهای مجاز همان شرکت */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOwnersResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    attachmentTransferExportPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferExportPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description پیشنمایش و شناسهٔ عملیات صدور */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferExportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description خواندن ضمیمه از ذخیرهسازی ممکن نشد؛ بستهٔ ناقصی ساخته نشد */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attachmentTransferExportPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description بستهٔ ZIP کنترلشده */
+            200: {
+                headers: {
+                    /** @description هش SHA-256 یکپارچگی بسته */
+                    "X-Transfer-Package-Sha256"?: string;
+                    /** @description عدم ذخیرهسازی پاسخ */
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description بازسازی بسته از ذخیرهسازی ممکن نشد */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attachmentTransferImportPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description بستهٔ ZIP کنترلشده
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description پیشنمایش کامل پذیرفته/ردشده/تکراری/حلنشده و وضعیت تأیید */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description حجم بسته بیش از سقف مجاز */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description نوع یا پسوند بسته مجاز نیست */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attachmentTransferImportStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description پیشنمایش معتبر همان آغازکننده */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferImportPreview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    attachmentTransferUpdateMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferMappingRequest"];
+            };
+        };
+        responses: {
+            /** @description پیشنمایش تازه با هش نگاشت تازه */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    attachmentTransferExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferEmptyRequest"];
+            };
+        };
+        responses: {
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    attachmentTransferHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description تاریخچهٔ تراکنشی بدون کلید استوریج/URL/اعتبارنامه */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOperationList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    attachmentTransferOperationDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description وضعیت، رویدادها، شمارشها و manifest بدون اطلاعات زیرساخت */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferOperationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    attachmentTransferCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransferEmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description پیشنمایش لغو و رویداد لغو ثبت شد */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferCancelResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+}

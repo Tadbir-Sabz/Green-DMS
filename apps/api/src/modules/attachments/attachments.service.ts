@@ -33,6 +33,17 @@ export interface UploadContext {
   companyId: string;
 }
 
+/**
+ * TASK-PM-02-C3 — قلاب افزودنی (اختیاری) برای لایهٔ هماهنگکنندهٔ ضمائم سازمانی.
+ * دقیقاً پس از موفقیت `storage.put` و پیش از ثبت ردیف فراخوانی میشود تا لایهٔ
+ * بالاتر کلید شیء را داشته باشد و بتواند در صورت شکست **هر** گام بعدی (ثبت DB،
+ * صدور URL امضاشده یا ممیزی تراکنشی) شیء اورفان را پاک کند. اختیاری است؛
+ * فراخوانهای تاریخی (`POST /attachments` و C1) بدون تغییر میمانند.
+ */
+export interface UploadHooks {
+  onObjectStored?: (storageKey: string) => void;
+}
+
 /** سقف حجم (پیش‌فرض ۸ مگابایت)، عمر URL دانلود (پیش‌فرض ۵ دقیقه) و انواع مجاز — با env */
 export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 8 * 1024 * 1024);
 export const DOWNLOAD_URL_TTL = Number(process.env.ATTACHMENT_URL_TTL ?? 300);
@@ -45,9 +56,31 @@ const ALLOWED_TYPES = new Set(
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/**
+ * نام فایلِ multipart: multer/busboy در برخی نسخهها `filename*` را latin1
+ * تعبیر میکند، پس «نمای-اصلی.png» به «ÙÙØ§Û-Ø§ØµÙÛ.png» تبدیل میشود
+ * (TASK-PM-02-C1 — UX فارسیمحور). فقط وقتی رفتوبرگشت دقیقاً همان بایتها را
+ * بدهد بازکدگذاری میکنیم؛ نام درستِ یونیکد و نام ASCII دستنخورده میمانند.
+ * محتوای فایل، SHA-256، allowlist و زنجیرهٔ مالکیت هیچ تغییری نمیکنند.
+ */
+export function decodeUploadFileName(name: string): string {
+  const input = name ?? '';
+  if (!/[^\x00-\x7f]/.test(input)) return input;
+  try {
+    const bytes = Buffer.from(input, 'latin1');
+    const decoded = bytes.toString('utf8');
+    if (!decoded.includes('\uFFFD') && Buffer.from(decoded, 'utf8').equals(bytes)) {
+      return decoded;
+    }
+  } catch {
+    /* نام نامعتبر ⇒ همان ورودی، بدون تغییر */
+  }
+  return input;
+}
+
 /** پاک‌سازی نام فایل: حذف control char و جداکنندهٔ مسیر تا key ذخیره‌سازی امن بماند */
 function sanitizeFileName(name: string): string {
-  const cleaned = (name ?? '')
+  const cleaned = decodeUploadFileName(name ?? '')
     // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1f\x7f]/g, '')
     .replace(/[/\\]/g, '_')
@@ -145,6 +178,7 @@ export class AttachmentsService {
     file: UploadedFile | undefined,
     meta: UploadAttachmentDto,
     ctx: UploadContext,
+    hooks?: UploadHooks,
   ): Promise<AttachmentView> {
     if (!file || !file.buffer || file.buffer.length === 0) {
       throw new BadRequestException({
@@ -185,6 +219,8 @@ export class AttachmentsService {
     const key = `${ctx.companyId}/${meta.owner_type}/${meta.owner_id}/${sha256}-${randomUUID()}-${fileName}`;
 
     await this.storage.put(key, file.buffer, contentType);
+    // لایهٔ C3 از این کلید برای پاکسازی اورفان هنگام شکست ممیزی/URL استفاده میکند.
+    hooks?.onObjectStored?.(key);
 
     let row: AttachmentRow;
     try {

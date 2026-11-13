@@ -1,0 +1,203 @@
+{
+  "task": "TASK-PM-02-C12",
+  "baseline_commit": "205e914930f203f620576cfbdd47755559e4849a",
+  "contract_version": "c11.1",
+  "synthetic_only": true,
+  "contains_organizational_data": false,
+  "purpose": "Shadow Identity Index — proposed canonical keys kept alongside original values",
+  "schema": {
+    "entry_fields": [
+      "entity_id",
+      "company_id",
+      "field",
+      "profile",
+      "profile_version",
+      "display_value",
+      "stored_normalized",
+      "proposed_key",
+      "invalid_reason",
+      "key_differs_from_stored",
+      "source_ref"
+    ],
+    "fields_mapped": {
+      "name": "ProductName",
+      "name_latin": "ProductNameLatin",
+      "alias": "ProductAlias",
+      "code": "ProductCode",
+      "barcode": "Barcode"
+    },
+    "search_only_profile": "SearchKey (never used for uniqueness)"
+  },
+  "statistics": {
+    "rows_in": 24,
+    "entries": 24,
+    "invalid": 1,
+    "keys_changed": 9,
+    "by_field": {
+      "name": 5,
+      "alias": 8,
+      "code": 5,
+      "barcode": 4,
+      "name_latin": 2
+    }
+  },
+  "built_at_iso": "2026-11-13T00:00:00.000Z",
+  "sample_entries": [
+    {
+      "entity_id": "A-p1",
+      "company_id": "company-fixture-A",
+      "field": "name",
+      "profile": "ProductName",
+      "profile_version": "c11.1",
+      "display_value": "علی رضایی",
+      "stored_normalized": "علي رضايي",
+      "proposed_key": "علی رضایی",
+      "invalid_reason": null,
+      "key_differs_from_stored": true,
+      "source_ref": "A-p1-name"
+    },
+    {
+      "entity_id": "A-p2",
+      "company_id": "company-fixture-A",
+      "field": "name",
+      "profile": "ProductName",
+      "profile_version": "c11.1",
+      "display_value": "علي رضایی",
+      "stored_normalized": "علي رضايي",
+      "proposed_key": "علی رضایی",
+      "invalid_reason": null,
+      "key_differs_from_stored": true,
+      "source_ref": "A-p2-name"
+    },
+    {
+      "entity_id": "A-p1",
+      "company_id": "company-fixture-A",
+      "field": "alias",
+      "profile": "ProductAlias",
+      "profile_version": "c11.1",
+      "display_value": "كوكا",
+      "stored_normalized": "كوكا",
+      "proposed_key": "کوکا",
+      "invalid_reason": null,
+      "key_differs_from_stored": true,
+      "source_ref": "A-p1-alias"
+    },
+    {
+      "entity_id": "A-p2",
+      "company_id": "company-fixture-A",
+      "field": "alias",
+      "profile": "ProductAlias",
+      "profile_version": "c11.1",
+      "display_value": "کوکا",
+      "stored_normalized": "کوکا",
+      "proposed_key": "کوکا",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p2-alias"
+    },
+    {
+      "entity_id": "A-p3",
+      "company_id": "company-fixture-A",
+      "field": "alias",
+      "profile": "ProductAlias",
+      "profile_version": "c11.1",
+      "display_value": "نوشابه مشکی",
+      "stored_normalized": "نوشابه مشکی",
+      "proposed_key": "نوشابه مشکی",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p3-alias1"
+    },
+    {
+      "entity_id": "A-p3",
+      "company_id": "company-fixture-A",
+      "field": "alias",
+      "profile": "ProductAlias",
+      "profile_version": "c11.1",
+      "display_value": "نوشابه   مشکی",
+      "stored_normalized": "نوشابه مشکی",
+      "proposed_key": "نوشابه مشکی",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p3-alias2"
+    },
+    {
+      "entity_id": "A-p4",
+      "company_id": "company-fixture-A",
+      "field": "code",
+      "profile": "ProductCode",
+      "profile_version": "c11.1",
+      "display_value": "AB-12",
+      "stored_normalized": "AB-12",
+      "proposed_key": "ab-12",
+      "invalid_reason": null,
+      "key_differs_from_stored": true,
+      "source_ref": "A-p4-code"
+    },
+    {
+      "entity_id": "A-p5",
+      "company_id": "company-fixture-A",
+      "field": "alias",
+      "profile": "ProductAlias",
+      "profile_version": "c11.1",
+      "display_value": "ab-12",
+      "stored_normalized": "ab-12",
+      "proposed_key": "ab-12",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p5-alias"
+    },
+    {
+      "entity_id": "A-p6",
+      "company_id": "company-fixture-A",
+      "field": "barcode",
+      "profile": "Barcode",
+      "profile_version": "c11.1",
+      "display_value": "123 456",
+      "stored_normalized": "123456",
+      "proposed_key": "123456",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p6-barcode"
+    },
+    {
+      "entity_id": "A-p7",
+      "company_id": "company-fixture-A",
+      "field": "alias",
+      "profile": "ProductAlias",
+      "profile_version": "c11.1",
+      "display_value": "123 456",
+      "stored_normalized": "123 456",
+      "proposed_key": "123 456",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p7-alias"
+    },
+    {
+      "entity_id": "A-p8",
+      "company_id": "company-fixture-A",
+      "field": "barcode",
+      "profile": "Barcode",
+      "profile_version": "c11.1",
+      "display_value": "007",
+      "stored_normalized": "007",
+      "proposed_key": "007",
+      "invalid_reason": null,
+      "key_differs_from_stored": false,
+      "source_ref": "A-p8-barcode"
+    },
+    {
+      "entity_id": "A-p9",
+      "company_id": "company-fixture-A",
+      "field": "barcode",
+      "profile": "Barcode",
+      "profile_version": "c11.1",
+      "display_value": "0-0-7",
+      "stored_normalized": "0-0-7",
+      "proposed_key": "007",
+      "invalid_reason": null,
+      "key_differs_from_stored": true,
+      "source_ref": "A-p9-barcode"
+    }
+  ]
+}
