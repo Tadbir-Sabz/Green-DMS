@@ -1,0 +1,81 @@
+C9 EVIDENCE — executed read-only queries (verbatim) and results
+executed_at_utc=2026-11-13T10:43:43Z
+server=PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit
+server_addr=127.0.0.1 port=55432
+database=postgresql://postgres@127.0.0.1:55432/greendms_c1_preview
+
+## Q1 volumes
+              t               | n 
+------------------------------+---
+ company                      | 1
+ product_live                 | 4
+ product_alias                | 0
+ product_barcode              | 0
+ product_attribute_def        | 0
+ product_attribute_value      | 0
+ product_attribute_enum_value | 0
+ product_category             | 7
+ product_family               | 0
+(9 rows)
+
+## Q2 D1 conflicts (product-scope, company-scope, code, barcode)
+           k           | n 
+-----------------------+---
+ A_product_scope_dups  | 0
+ B_company_scope_dups  | 0
+ alias_eq_product_code | 0
+ alias_eq_barcode      | 0
+ code_eq_barcode       | 0
+(5 rows)
+
+## Q3 D4 required defs / missing values
+             k             | n 
+---------------------------+---
+ required_defs             | 0
+ all_defs                  | 0
+ live_products             | 4
+ products_missing_required | 0
+ products_no_category      | 0
+ defs_on_dead_products     | 0
+(6 rows)
+
+## Q4 schema applicability evidence (empty = no category/family scoping exists)
+ table_name | column_name 
+------------+-------------
+(0 rows)
+
+## Q5 C8 residue preservation (must equal C8 published: audit 13 / def 34 / value+enum 58 / product DELETE 29; totals 112 / 138)
+          k          |  n  
+---------------------+-----
+ audit_def_create    |  13
+ hist_def            |  34
+ hist_value_enum     |  58
+ hist_product_delete |  29
+ audit_total         | 112
+ history_total       | 138
+(6 rows)
+
+
+## Q6 normalization behaviour (real functions, no DB)
+C9NORM|digits-fa|۱۲۴۵|1245
+C9NORM|digits-ar|١٢٤٥|1245
+C9NORM|case|AB-12|ab-12
+C9NORM|spaces-collapse|a   b|a b
+C9NORM|arabic-kaf|كوكا|كوكا  (NOT folded to کوکا)
+C9NORM|persian-kaf|کوکا|کوکا
+C9NORM|arabic-yeh|علي|علي  (NOT folded to علی)
+C9NORM|persian-yeh|علی|علی
+C9NORM|kaf_equal|false
+C9NORM|yeh_equal|false
+C9NORM|barcode-spaces|123 456|123456
+C9NORM|alias-spaces|123 456|123 456
+C9NORM|space_asymmetry|true
+
+## Q7 append-only grant on history table (read-only catalog inspection)
+   grantee    |                          privs                          
+--------------+---------------------------------------------------------
+ dms_app      | SELECT
+ dms_readonly | SELECT
+ postgres     | DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+(3 rows)
+

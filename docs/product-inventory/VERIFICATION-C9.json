@@ -1,0 +1,183 @@
+{
+  "task": "TASK-PM-02-C9",
+  "title": "Read-only Product Identity Impact Assessment",
+  "role": "Agent-1 — Windows Development Agent / Technical Architect",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "baseline_commit": "1c709da84efc25510150018a090567c2383b0540",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "base": "main",
+    "merge_approve_release_deploy": "NOT PERFORMED"
+  },
+  "baseline_verification": {
+    "six_views_agree": true,
+    "working_tree_clean": true,
+    "checkpoint_tar": "/home/user/pm02-c9-checkpoint.tar.gz",
+    "checkpoint_bytes": 3206545,
+    "checkpoint_sha256": "0c35f0e3e37dfb4b4b203581a0d868e2b348dd6866fb55c91d7bde11d72035ca",
+    "checkpoint_integrity": "sha256sum -c: OK",
+    "checkpoint_bundle_bytes": 3360263,
+    "checkpoint_bundle_verify": "The bundle records a complete history",
+    "reset_rebase_amend_force_push": "NONE"
+  },
+  "read_only_discipline": {
+    "insert_update_delete_truncate": 0,
+    "ddl_or_migrations": 0,
+    "grants_roles_rls_seed_changes": 0,
+    "api_ui_changes": 0,
+    "alias_behaviour_changes": 0,
+    "attribute_scope_changes": 0,
+    "data_cleanup": 0,
+    "new_probe_residue": 0,
+    "production_access": false,
+    "statements_executed": "SELECT only"
+  },
+  "database_isolation": {
+    "status": "PASS",
+    "host": "127.0.0.1",
+    "port": 55432,
+    "loopback_only": true,
+    "data_directory": "/tmp/pm01dm2-pgdata",
+    "version": "PostgreSQL 16.2",
+    "install": "pginstall from pgserver test harness",
+    "limitation": "ephemeral local cluster with no real customer data",
+    "executed_at_utc": "2026-11-13T10:43:43Z",
+    "database": "greendms_c1_preview"
+  },
+  "data_volumes": {
+    "company": 1,
+    "product_live": 4,
+    "product_alias": 0,
+    "product_barcode": 0,
+    "product_attribute_def": 0,
+    "product_attribute_value": 0,
+    "product_attribute_enum_value": 0,
+    "product_category": 7,
+    "product_family": 0
+  },
+  "d1_alias_uniqueness": {
+    "duplicates_product_scope": 0,
+    "duplicates_company_scope": 0,
+    "alias_equals_product_code": 0,
+    "alias_equals_barcode": 0,
+    "code_equals_barcode": 0,
+    "affected_companies": 0,
+    "affected_products": 0,
+    "interpretation": "structural zero — the denominator is zero; NOT evidence of a conflict-free system",
+    "code_finding": "the add-alias write path already rejects cross-product aliases with 409 alias_collision (product-identity.service.ts:447-452); DB constraint remains (product_id, alias_norm)",
+    "scan_dependency": "scanResolve order barcode -> product.code -> alias kind=code; ambiguity raises 409 ambiguous_scan (product-master.service.ts:509-557)",
+    "import_dependency": "product CSV import touches neither aliases nor attributes",
+    "normalization_findings": {
+      "kaf_folded": false,
+      "yeh_folded": false,
+      "space_asymmetry": true,
+      "detail": "normalizeText preserves a single internal space; normalizeBarcode strips all spaces; digits and case ARE folded",
+      "consequence": "cross-product collision checks can miss space-separated and Persian-digit variants"
+    }
+  },
+  "d4_required_attributes": {
+    "required_defs": 0,
+    "all_defs": 0,
+    "live_products": 4,
+    "products_missing_required": 0,
+    "products_no_category": 0,
+    "defs_on_companies_without_live_products": 0,
+    "category_attribute_link_table": "does not exist",
+    "family_attribute_link_table": "does not exist",
+    "interpretation": "structural zero — no required attribute is defined, so no product can be incomplete",
+    "code_finding": "requiredness is enforced only when attribute values are written (400 required_attribute_missing); product creation performs no attribute validation; CSV import ignores attributes",
+    "scope_comparison": {
+      "A": "company-wide, zero schema cost",
+      "B": "category-scoped, needs a link table plus three companion rules",
+      "C": "family-scoped, NOT evaluable — product_family is empty and unrelated to attributes",
+      "D": "optional, lowest cost, weakest data quality"
+    }
+  },
+  "schema_cannot_answer": [
+    "real number of alias duplicates in the organization",
+    "real alias-vs-barcode/code collisions",
+    "real count of incomplete products",
+    "which category needs which attribute",
+    "role of product family in requiredness",
+    "impact of options B/C on historical data",
+    "browser RTL/a11y behaviour"
+  ],
+  "c8_residue_preservation": {
+    "status": "PRESERVED — nothing deleted or altered",
+    "audit_def_create": 13,
+    "history_def": 34,
+    "history_value_enum": 58,
+    "history_product_delete": 29,
+    "audit_log_total": 112,
+    "history_total": 138,
+    "matches_c8_published": {
+      "13": true,
+      "34": true,
+      "58": false,
+      "29": true,
+      "112": true,
+      "138": true
+    },
+    "c8_self_correction": {
+      "c8_published_value_enum": 70,
+      "c9_measured": 58,
+      "c8_total_published": 126,
+      "corrected_total": 114,
+      "cause": "counting error in C8 (row attribution was correct; only the count was wrong)",
+      "note": "the 126 figure was never deleted, only corrected here"
+    },
+    "cleanup_performed": false,
+    "environment_claimed_clean": false,
+    "why_not_cleaned": "product_catalog_history is append-only (dms_app granted SELECT only)",
+    "c7_superuser_deviation_recorded": true,
+    "attribution_vs_cleanup_distinction": "attribution confidence is high; cleanup completion is NOT achieved and must not be"
+  },
+  "status": {
+    "PASS": [
+      "database isolation",
+      "all D1 and D4 queries executed",
+      "C8 residue fully preserved",
+      "real measurement of normalization functions",
+      "write/scan/import path determination from code"
+    ],
+    "FAIL": [
+      "Persian/Arabic yeh and kaf are not normalized to a single form",
+      "space asymmetry between alias_norm and stored barcode hides some collisions"
+    ],
+    "UNVERIFIED": [
+      "real conflict/incompleteness counts in organizational data",
+      "category/family attribute applicability",
+      "product family role",
+      "browser RTL/a11y"
+    ],
+    "BLOCKED": [
+      "running these queries on a read-only copy of real data (needs owner/security approval)",
+      "any implementation of C7-D1/D2/D4 before owner approval"
+    ],
+    "NOT_DONE": [
+      "any code/schema/data/permission change",
+      "merge",
+      "approve",
+      "release",
+      "deploy",
+      "artificial CI commit"
+    ]
+  },
+  "documents": [
+    "docs/product-inventory/TASK-PM-02-C9_IDENTITY_IMPACT_ASSESSMENT.md",
+    "docs/product-inventory/VERIFICATION-C9.txt",
+    "docs/product-inventory/VERIFICATION-C9.json",
+    "docs/product-inventory/evidence/task-pm-02/EVIDENCE-C9-IMPACT-QUERIES.txt",
+    "docs/product-inventory/EVIDENCE_INDEX.md (append)",
+    "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §14"
+  ],
+  "artifact_hashes": {
+    "assessment_bytes": 24250,
+    "assessment_sha256": "f847066a3fbab5fe75f370b522f1b1ecea002699c746d07fe8cac6a121cc2808",
+    "evidence_bytes": 2640,
+    "evidence_sha256": "bcc4e6d7583fc80b01d90f2d9087fbcc73bddb3a66b58d17e1bc0f8edf672703"
+  },
+  "owner_summary_fa": "دادهٔ کافی برای تصمیم در این محیط نیست؛ صفرهای گزارش «صفرِ ساختاری»‌اند. دو یافتهٔ کد مستقل از داده معتبرند: (۱) مسیرِ ثبت از امروز هم‌نامی بین کالاها را رد می‌کند، پس گزینهٔ B بیشتر تضمینِ داده است تا قابلیت؛ (۲) نرمال‌سازی ی/ک و فاصله ناقص است و باید پیش از سخت‌ترکردنِ قاعده رفع شود. برای D4، الزام فعلی عملاً «الزامِ ویرایش» است نه الزامِ ساخت."
+}
