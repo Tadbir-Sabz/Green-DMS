@@ -44,7 +44,8 @@
         "record_counts": { "type": ["object", "null"], "additionalProperties": { "type": "number", "minimum": 0 } },
         "freshness_seconds": { "type": ["number", "null"], "minimum": 0 },
         "provenance": { "type": ["string", "null"] },
-        "owner_ref": { "type": ["string", "null"] }
+        "owner_ref": { "type": ["string", "null"] },
+        "assessment_mode": { "enum": ["SYNTHETIC_FIXTURE", "ISOLATED_RESTORED", "AUTHORIZED_REPLICA"] }
       },
       "additionalProperties": false
     },

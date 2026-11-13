@@ -37,6 +37,19 @@ export const EXPECTED_IDENTITY_TYPES: readonly string[] = [...IDENTITY_TYPES];
 
 export type ShadowDataClassification = 'SYNTHETIC' | 'REAL_AUTHORIZED_REPLICA';
 
+/**
+ * حالتِ منشأیِ ارزیابی — سه سناریویِ Track B:
+ *  SYNTHETIC_FIXTURE  = دادهٔ کاملاً ساختگی (fixture) — هرگز به‌صورتِ یافتهٔ سازمانی توصیف نمی‌شود
+ *  ISOLATED_RESTORED  = دادهٔ واقعیِ سازمان روی نمونه‌ای منزوی که از backup بازیابی شده
+ *  AUTHORIZED_REPLICA = دادهٔ واقعیِ سازمان روی replicaِ مجاز (read-only اثبات‌شده)
+ */
+export type ShadowAssessmentMode = 'SYNTHETIC_FIXTURE' | 'ISOLATED_RESTORED' | 'AUTHORIZED_REPLICA';
+export const ASSESSMENT_MODES: readonly ShadowAssessmentMode[] = [
+  'SYNTHETIC_FIXTURE',
+  'ISOLATED_RESTORED',
+  'AUTHORIZED_REPLICA',
+];
+
 export interface ShadowSourceSpec {
   /** برچسبِ ماتِ ردیف (هرگز اتصال‌رشته/رمزِ عبور/میزبانِ خام؛ فقط یک نامِ نمایشیِ مصوب) */
   readonly identity: string;
@@ -49,6 +62,8 @@ export interface ShadowSourceSpec {
   readonly freshnessSeconds?: number;
   readonly provenance?: string;
   readonly ownerRef?: string;
+  /** حالتِ منشأ — اگر ندهید، builder از روی طبقه‌بندی حدس می‌زند (REAL ⇒ AUTHORIZED_REPLICA، SYNTHETIC ⇒ SYNTHETIC_FIXTURE) */
+  readonly assessmentMode?: ShadowAssessmentMode;
 }
 
 export interface ShadowAuthorization {
@@ -121,6 +136,8 @@ export interface ShadowEvidenceReport {
     readonly freshness_seconds: number | null;
     readonly provenance: string | null;
     readonly owner_ref: string | null;
+    /** حالتِ ارزیابی — همیشه در گزارش‌هایِ ساخته‌شدهٔ امروز حاضر است */
+    readonly assessment_mode: ShadowAssessmentMode;
   };
   /** فقط در حالتِ real پر می‌شود؛ در synthetic مقدارِ null دارد (ادعای مجوز ساختگی نیست) */
   readonly authorization: Readonly<Record<keyof ShadowAuthorization, string>> | null;
@@ -476,6 +493,7 @@ export function buildShadowEvidence(
       freshness_seconds: params.source.freshnessSeconds ?? null,
       provenance: params.source.provenance ?? null,
       owner_ref: params.source.ownerRef ?? null,
+      assessment_mode: params.source.assessmentMode ?? (isReal ? 'AUTHORIZED_REPLICA' : 'SYNTHETIC_FIXTURE'),
     },
     authorization: authorization
       ? {
@@ -613,6 +631,27 @@ export function validateShadowEvidence(report: ShadowEvidenceReport): string[] {
   need(report.synthetic === !isReal, 'synthetic باید دقیقاً معکوسِ طبقه‌بندیِ real باشد');
   need(report.contains_organizational_data === isReal, 'contains_organizational_data با طبقه‌بندی همخوانی ندارد');
   need(report.redaction_enforced === true, 'redaction_enforced باید true باشد (هیچ ترکیبی آن را خاموش نمی‌کند)');
+
+  // assessment_mode — اگر حاضر بود، با طبقه‌بندی هماهنگ باشد؛ غیاب مجاز نیست (سازنده‌های امروز همیشه می‌نویسند؛ نمونه‌های قدیمی باید با c13b.1 کامل شوند)
+  const mode = (report.source as { assessment_mode?: unknown } | undefined)?.assessment_mode;
+  need(mode !== undefined, 'assessment_mode در source غایب است؛ گزارش ناقصِ c13b.1 است');
+  if (mode !== undefined) {
+    need(
+      mode === 'SYNTHETIC_FIXTURE' || mode === 'ISOLATED_RESTORED' || mode === 'AUTHORIZED_REPLICA',
+      `assessment_mode ناشناخته: ${String(mode)}`,
+    );
+    if (isReal) {
+      need(
+        mode === 'ISOLATED_RESTORED' || mode === 'AUTHORIZED_REPLICA',
+        'گزارشِ REAL_AUTHORIZED_REPLICA نمی‌تواند assessment_mode=SYNTHETIC_FIXTURE داشته باشد (REAL هرگز از synthetic ساخته نمی‌شود)',
+      );
+    } else {
+      need(
+        mode === 'SYNTHETIC_FIXTURE',
+        'گزارشِ SYNTHETIC نمی‌تواند assessment_mode غیر از SYNTHETIC_FIXTURE داشته باشد (برچسبِ مصنوعی‌سازی باید صادق باشد)',
+      );
+    }
+  }
 
   // real ⇒ مجوزِ کامل الزامی است؛ synthetic ⇒ مجوز نباید جعل شود
   if (isReal) {

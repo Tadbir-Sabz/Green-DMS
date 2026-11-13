@@ -385,7 +385,12 @@ describe('C13XT / POL-۱۰ — گاردِ ایزولاسیون (کدِ آزما�
       .split('\n')
       .map((f) => f.trim())
       .filter(Boolean)
-      .filter((f) => !/(cross-type-collision|decision-matrix|shadow-evidence|shadow-evidence-cli)\.candidate\.ts$/.test(f));
+      .filter(
+        (f) =>
+          !/(cross-type-collision|decision-matrix|shadow-evidence|shadow-evidence-cli|shadow-db|shadow-assessment-pipeline|shadow-db-cli)\.candidate\.ts$/.test(
+            f,
+          ),
+      );
     const forbidden = files.filter(
       (f) => !/^test\/(c13-.*\.test\.ts|fixtures\/c13-.*\.ts)$/.test(f),
     );
