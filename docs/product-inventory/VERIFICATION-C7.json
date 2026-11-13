@@ -1,0 +1,268 @@
+{
+  "task": "TASK-PM-02-C7",
+  "title": "Product identity — aliases and attribute values (existing model only)",
+  "role": "Agent-1 (Arena.ai) — Lead Developer / Architect / Full-Stack Executor",
+  "repository": "Tadbir-Sabz/Green-DMS",
+  "branch": "arena/be5eaff3-green-dms",
+  "branch_base_commit": "6b4429ba7e55f7e02f407e63f2b2b2e197fad1fa",
+  "baseline_commit": "a894246fe3fc8ee33fbb792bd074b7df56f2c49c",
+  "pull_request": {
+    "number": 14,
+    "state": "OPEN / DRAFT",
+    "base": "main",
+    "body_before_c7": {
+      "characters": 138252,
+      "bytes": 156543,
+      "sha256": "cf48385848e055385061cd7ac53722b10e8c841d176cb83c1d83cdaaa5a41fef"
+    },
+    "body_preservation_rule": "138252-char / 156543-byte prefix with sha256 cf483858… must remain byte-for-byte; C7 only appends",
+    "merge_approve_release_deploy": "NOT AUTHORIZED / NOT PERFORMED"
+  },
+  "baseline_recovery": {
+    "six_sha_views_all_agree": true,
+    "working_tree_clean_at_baseline": true,
+    "checkpoint_tar": "/home/user/pm02-c7-checkpoint.tar.gz",
+    "checkpoint_bytes": 3151217,
+    "checkpoint_sha256": "a5cbd0b2f58aca088419886a241788ae749ee3168933f57e6df93d038160dc96",
+    "checkpoint_integrity": "sha256sum -c: OK",
+    "checkpoint_bundle": "/home/user/pm02-c7-checkpoint.bundle",
+    "checkpoint_bundle_bytes": 3265051,
+    "checkpoint_bundle_verify": "complete history",
+    "reset_rebase_amend_force_push": "NONE"
+  },
+  "discovery": {
+    "alias_kinds": [
+      "brand_slang",
+      "latin",
+      "code"
+    ],
+    "alias_uniqueness_actual": "unique(company_id, product_id, alias_norm) only; no company/global uniqueness",
+    "alias_collision_rule": "H-1 service checks: product.code, other product alias, any product_barcode → 409 alias_collision",
+    "alias_normalization": "normalizeText: NFC, Persian/Arabic digits→Latin, control strip, trim/collapse, lowercase",
+    "alias_scan_usage": "scan fallback #3 only for kind=code (barcode → product.code → alias_code)",
+    "alias_consumers": [
+      "GET /products?q=",
+      "GET /products/export?q=",
+      "GET /products/scan/{key}"
+    ],
+    "attribute_model": "company-scoped catalog product_attribute_def (text|number|enum, is_variant_axis, is_required, sort_order) + per-SKU product_attribute_value with exactly-one-of value_text/value_num numeric(19,4)/value_enum; enum values in product_attribute_enum_value unique(def_id,value_norm)",
+    "attribute_applicability": "none per category/domain; is_required is company-wide",
+    "variant_signature": "sha256 of variant-axis values sorted by def_id; unique per family; M-3 immutability after operational references",
+    "history": "0060 trigger on product_alias and product_attribute_value"
+  },
+  "defects_found_and_fixed": [
+    {
+      "id": "C7-BUG-1",
+      "surface": "PUT /products/{id}/attributes",
+      "before": "500 internal_error on null/empty attribute value (DB constraint violation)",
+      "after": "200 with row deleted and cleared:[def_id] or explicit clear:true"
+    },
+    {
+      "id": "C7-BUG-2",
+      "surface": "POST /product-attributes (duplicate code)",
+      "before": "500",
+      "after": "409 duplicate_attribute_code (contract already documented 409)"
+    },
+    {
+      "id": "C7-BUG-3",
+      "surface": "POST /product-attributes/{defId}/enum-values (duplicate value)",
+      "before": "500",
+      "after": "409 duplicate_enum_value"
+    }
+  ],
+  "operations": {
+    "alias": [
+      "GET /products/{id}/aliases",
+      "POST /products/{id}/aliases",
+      "DELETE /products/{id}/aliases/{aliasId}"
+    ],
+    "attribute": [
+      "GET /products/{id}/attributes",
+      "PUT /products/{id}/attributes"
+    ],
+    "history": [
+      "GET /products/{id}/identity/history"
+    ],
+    "permissions": {
+      "read": "master.product.view",
+      "write": "master.product.update"
+    },
+    "removed_undocumented_route": "DELETE /product-aliases/{aliasId} (never in contract; superseded by product-scoped path)"
+  },
+  "contract": {
+    "openapi_check": {
+      "paths": 229,
+      "operations": 324,
+      "schemas": 233,
+      "webhooks": 3
+    },
+    "contract_drift": {
+      "contract_ops": 324,
+      "code_ops": 324,
+      "shared": 324,
+      "drift": 0
+    },
+    "generated_client_regenerated": true
+  },
+  "tests": {
+    "c7_api": {
+      "files": 1,
+      "tests": 27,
+      "status": "PASS"
+    },
+    "c7_web": {
+      "files": 2,
+      "tests": 15,
+      "status": "PASS"
+    },
+    "focused_api": {
+      "files": 10,
+      "tests": 170,
+      "status": "PASS"
+    },
+    "api_unit_db_free": {
+      "files": 37,
+      "tests": 425,
+      "status": "PASS"
+    },
+    "web_full": {
+      "files": 29,
+      "tests": 165,
+      "status": "PASS"
+    },
+    "api_full_db": {
+      "files_passed": 96,
+      "files_total": 100,
+      "tests_passed": 1615,
+      "tests_total": 1632,
+      "failed_titles": 17,
+      "failed_files": {
+        "customers.api.test.ts": 2,
+        "geofences.api.test.ts": 8,
+        "postgres-init-role.api.test.ts": 1,
+        "tours.api.test.ts": 6
+      },
+      "baseline_identical": true,
+      "new_failures_vs_baseline": 0,
+      "note": "Full DB PASS NOT claimed; residual failures are pre-existing/environmental"
+    },
+    "migrations": {
+      "objects": 1033,
+      "up_down_up_identical": true
+    },
+    "test_partition": {
+      "total_files": 100,
+      "declared_equals_computed": true
+    },
+    "typecheck": {
+      "errors": 0,
+      "status": "PASS"
+    },
+    "build": {
+      "api": "PASS",
+      "web": "PASS",
+      "packages": "PASS"
+    }
+  },
+  "live_verification": {
+    "script": "/tmp/pm02c7-live.py",
+    "base_url": "http://127.0.0.1:4000/api/v1",
+    "database": "greendms_c1_preview (PostgreSQL, port 55432)",
+    "result": {
+      "passed": 48,
+      "total": 48,
+      "failed": 0
+    },
+    "evidence_file": "docs/product-inventory/evidence/task-pm-02/VERIFICATION-C7-LIVE.txt",
+    "evidence_bytes": 13346,
+    "evidence_sha256": "e3779313c5e67f991cdeca7620764e6d181abd1ba4573574aef9d44d941672bc",
+    "cleanup": "C7LIVE-* products, c7live_* defs, alias/value/audit/history rows deleted; counts back to baseline (product=4, alias=0, def=0, value=0)"
+  },
+  "manual_browser": "UNVERIFIED — Playwright present but no browser binary in this environment; SSR shell checked (GET /products 200, GET /products/{id} 200, html lang=fa dir=rtl)",
+  "status": {
+    "PASS": [
+      "build",
+      "typecheck",
+      "contract drift 0",
+      "migrations 1033 identical",
+      "test partition",
+      "C7 tests 42/42",
+      "focused API 170/170",
+      "API unit 425/425",
+      "web full 165/165",
+      "live 48/48",
+      "baseline regression parity",
+      "PR body prefix preserved (append only)"
+    ],
+    "UNVERIFIED": [
+      "manual browser review (RTL/a11y/console/interaction)",
+      "production-equivalent infrastructure",
+      "CI on the exact final SHA",
+      "final Product Master acceptance"
+    ],
+    "BLOCKED": [
+      "C7-D1 company/global alias uniqueness",
+      "C7-D2 alias update",
+      "C7-D4 required scope",
+      "C7-D5 category/domain attributes",
+      "C7-D7 backfill",
+      "product_bundle",
+      "PM-B1..PM-B8",
+      "Q1..Q5",
+      "G-03",
+      "G-13",
+      "new migrations/roles/grants/RLS/seeds",
+      "historical document identifier rewrite",
+      "any pricing/inventory/order/invoice/waybill change"
+    ],
+    "UNRESOLVED": [
+      "C7-D3 alias-based product lookup in sales",
+      "C7-D6 attribute value lifecycle/restore"
+    ]
+  },
+  "owner_decisions": [
+    {
+      "id": "C7-D1",
+      "title_fa": "یکتایی شرکتی/جهانی نام جایگزین",
+      "status": "UNRESOLVED"
+    },
+    {
+      "id": "C7-D2",
+      "title_fa": "ویرایش نام جایگزین موجود",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "C7-D3",
+      "title_fa": "جست‌وجو/انتخاب کالا با نام جایگزین در فروش",
+      "status": "UNRESOLVED"
+    },
+    {
+      "id": "C7-D4",
+      "title_fa": "دامنهٔ الزام صفات",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "C7-D5",
+      "title_fa": "صفات دسته/دامنه و وراثت",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "C7-D6",
+      "title_fa": "چرخهٔ حیات مقدار صفت",
+      "status": "UNRESOLVED"
+    },
+    {
+      "id": "C7-D7",
+      "title_fa": "backfill نام‌های جایگزین تاریخی",
+      "status": "BLOCKED"
+    }
+  ],
+  "documents": [
+    "docs/product-inventory/TASK-PM-02-C7_IMPLEMENTATION.md",
+    "docs/product-inventory/VERIFICATION-C7.txt",
+    "docs/product-inventory/VERIFICATION-C7.json",
+    "docs/product-inventory/PRODUCT_MASTER_OPERATOR_GUIDE_FA.md §12",
+    "docs/product-inventory/EVIDENCE_INDEX.md (append)"
+  ],
+  "implementation_doc_bytes": 17024
+}

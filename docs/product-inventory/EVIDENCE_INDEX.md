@@ -630,3 +630,45 @@
 - اسناد: `TASK-PM-02-C6_IMPLEMENTATION.md`، `VERIFICATION-C6.{txt,json}`، پیوست §۱۱
   راهنمای اپراتور. PR #14 `OPEN / DRAFT`؛ مرورگر دستی RTL/a11y/console و زیرساخت معادل
   تولید `UNVERIFIED`؛ CI دقیق‌SHA و شش نمای نهایی **بدون commit پساCI** ثبت می‌شود.
+
+## TASK-PM-02-C7 — هویت کالا: نام‌های جایگزین و مقادیر صفات (شواهد تازه)
+
+- مبنا/چک‌پوینت: `a894246fe3fc8ee33fbb792bd074b7df56f2c49c` (پایان C6)؛ شش نمای SHA هم‌خوان
+  پیش از نخستین نوشتن؛ checkpoint `pm02-c7-checkpoint.tar.gz` (۳٬۱۵۱٬۲۱۷ بایت، sha256
+  `a5cbd0b2f58aca088419886a241788ae749ee3168933f57e6df93d038160dc96`) + bundle با
+  `git bundle verify` = complete history.
+- کشفِ مستند: سه نوع alias (`brand_slang|latin|code`، قید `0046`)، یکتایی واقعی فقط
+  `unique(product_id, alias_norm)`، کنترل برخورد H-1 (بarcode/کد کالا/alias کالای دیگر)،
+  نرمال‌سازی `normalizeText`، مصرف در `GET /products?q`، `/products/export?q` و `scan`
+  (فقط `kind=code`)؛ مدل صفات: کاتالوگ شرکت (`product_attribute_def`) + مقدار SKU
+  (`product_attribute_value`، قید یک‌ستونی، `numeric(19,4)`), enum در
+  `product_attribute_enum_value`، الزام شرکت‌محور، امضای variant و M-3، تاریخچهٔ ۰۰۶۰.
+- تغییرات: سرویس/کنترلر `product-identity.{service,controller,rules}.ts`؛ حذف مسیرهای
+  تکراری alias/مقادیر از `product-catalog.controller.ts`/`product-master.service.ts`؛
+  حذف `DELETE /product-aliases/{aliasId}` (خارج از قرارداد)؛ رفع ۵۰۰ واقعی مقدار خالی صفت
+  (اکنون پاک‌کردن با `clear`/خالی → ۲۰۰) و رفع ۵۰۰ کد/مقدار enum تکراری (اکنون ۴۰۹)؛
+  قرارداد **۲۲۹ مسیر / ۳۲۴ عملیات / ۲۳۳ اسکیما / ۳ وب‌هوک** با drift **۳۲۴/۳۲۴ = ۰**؛
+  کلاینت تولیدشده بازتولید شد؛ UI فارسی RTL: `product-aliases.tsx` و `product-attributes.tsx`.
+- تست‌ها: `product-identity.test.ts` **۲۷/۲۷ PASS** (PostgreSQL واقعی)،
+  `product-aliases.test.tsx` + `product-attributes.test.tsx` **۱۵/۱۵ PASS**،
+  focused API (۱۰ فایل محصول/C7) **۱۷۰/۱۷۰**، unittest بی‌داده **۳۷ فایل/۴۲۵**،
+  وب کامل **۲۹ فایل/۱۶۵ تست**، API کامل **۹۶/۱۰۰ فایل و ۱٬۶۱۵/۱٬۶۳۲ تست** با
+  **همان فایل‌های شکستِ مبنا** (`customers` ۲، `geofences` ۸، `postgres-init-role` ۱،
+  `tours` ۶) و **بدون هیچ عنوانِ تازه** (`comm` روی فهرست FAILها خالی)؛ «Full DB PASS» اعلام نشد.
+- مهاجرت‌ها: بدون مهاجرت تازه؛ up/down/up **۱٬۰۳۳ شیء یکسان**.
+- شاهد زندهٔ همین‌مبدأ: `evidence/task-pm-02/VERIFICATION-C7-LIVE.txt` — **۴۸/۴۸ PASS**
+  (نمای alias با سه نوع و شمارش، نرمال‌سازی، `duplicate_alias`/`alias_collision`، فیلتر
+  `kind`/`limit`، حذف ۲۰۰/۴۰۴ و ممیزی `create,delete`، تاریخچهٔ `INSERT,DELETE`،
+  ۴۰۱/۴۰۴/۴۰۰، شش ۴۰۰ صریح تزریق/دامنه، `invalid_attribute_value`/`invalid_attribute`/
+  `required_attribute_missing`، `variant_signature_immutable`، پاک‌کردن با `null`/`clear`،
+  `duplicate_attribute_code`/`duplicate_enum_value`، جست‌وجو/CSV/scan، و بازگشت شمارش‌ها به
+  مبنا: **product=4 · alias=0 · def=0 · value=0**).
+- **BLOCKED:** یکتایی شرکتی/جهانی alias (C7-D1)، ویرایش alias موجود (C7-D2)، دامنهٔ الزام
+  صفات (C7-D4)، صفات دسته/دامنه و وراثت (C7-D5)، backfill نام‌های تاریخی (C7-D7)،
+  `product_bundle`، PM-B1..PM-B8 / Q1..Q5 / G-03 / G-13، هر مهاجرت/نقش/grant/RLS/seed تازه،
+  تغییر رفتار قیمت/موجودی/سفارش/فاکتور/بارنامه، و بازنویسی شناسهٔ اسناد تاریخی.
+- **UNRESOLVED (پیاده نشد):** جست‌وجو/انتخاب کالا با نام جایگزین در فروش (C7-D3)،
+  چرخهٔ حیات/بازگردانی مقدار صفت (C7-D6).
+- اسناد: `TASK-PM-02-C7_IMPLEMENTATION.md`، `VERIFICATION-C7.{txt,json}`، پیوست §۱۲
+  راهنمای اپراتور. **UNVERIFIED:** بازبینی دستی مرورگر (RTL/konsol/تعامل واقعی؛ Playwright
+  در این محیط نصب نیست)، زیرساخت معادل تولید، و CI روی SHA دقیقِ نهایی.

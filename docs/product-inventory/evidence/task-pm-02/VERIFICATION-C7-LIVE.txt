@@ -8,13 +8,13 @@ VERIFICATION-C7-LIVE — شاهد زندهٔ TASK-PM-02-C7 (هویت کالا: a
 
 [PASS] fixtures ready (2 products + 3 attribute defs)
 [PASS] A1 GET aliases → 200 نمای کامل (سه نوع، شمارش، actor)
-    detail: 200 
+    detail: 200
 [PASS] B1 POST alias → 201 نرمال‌سازی (ارقام فارسی/لاتین + فاصله)
-    detail: 201 
+    detail: 201
 [PASS] B2 تکرارِ همان کالا → 409 duplicate_alias
     detail: 409 {'code': 'duplicate_alias', 'message_fa': 'این نام جایگزین برای همین کالا قبلاً ثبت شده است.', 'request_id': 'fb2e700c-06f4-4be3-bc4c-7c78ab63d721'}
 [PASS] B3 POST alias kind=code → used_in_scan=true
-    detail: 201 
+    detail: 201
 [PASS] B4 نام جایگزین هم‌ارز کدِ کالای دیگر → 409 alias_collision
     detail: 409 {'code': 'alias_collision', 'message_fa': 'این نام جایگزین با کد/نام جایگزینِ کالای دیگری برخورد دارد.', 'details': {'product_id': 'fba13807-5fdb-4b56-9bc5-2c86ea8971f8'}, 'request_id': '075d1a64-d86b-4d09-83e6-ff87ca357267'}
 [PASS] B5 همان نام در کالای دیگر با kind=code → 409 (قاعدهٔ موجود H-1)
@@ -30,7 +30,7 @@ VERIFICATION-C7-LIVE — شاهد زندهٔ TASK-PM-02-C7 (هویت کالا: a
 [PASS] B10 هدر دامنه → 400 domain_context_not_supported
     detail: 400 {'code': 'domain_context_not_supported', 'message_fa': 'زمینهٔ دامنه روی عملیات کاتالوگ مرکزی پذیرفته نیست. وضعیت فعال مرکزی بهمعنای عرضه در دامنه نیست و شناسهٔ ارسالی مشتری اثبات هویت دامنه محسوب نمیشود.', 'details': {'surface': 'POST /api/v1/products/c3fca1f3-c4da-48b4-b196-f7408b96b63d/aliases', 'source': 'x-domain-id', 'fields': [], 'decision_document': 'docs/product-inventory/TASK-PM-01B_DOMAIN_OWNER_DECISIONS.md', 'owner_decisions': ['PM-B1', 'PM-B2', 'PM-B4', 'PM-B5']}, 'request_id':  …
 [PASS] B11 فیلتر kind=code (شمارش total مستقل از فیلتر)
-    detail: 200 
+    detail: 200
 [PASS] B12 فیلتر نامعتبر → 400
     detail: 400 {'code': 'validation_failed', 'message_fa': 'درخواست نامعتبر است؛ فیلدهای مشخص\u200cشده را بررسی کنید.', 'details': {'fields': {'kind': ['نوع نام جایگزین نامعتبر است.']}}, 'request_id': '605bbd92-8a37-4b89-b1c1-7531629576c3'}
 [PASS] B13 limit=1 → truncated=true
@@ -58,7 +58,7 @@ VERIFICATION-C7-LIVE — شاهد زندهٔ TASK-PM-02-C7 (هویت کالا: a
 [PASS] C10 بدون توکن → 401
     detail: 401
 [PASS] D1 GET attributes → 200 نمای کاتالوگ + مقدار + امضا
-    detail: 200 
+    detail: 200
 [PASS] D2 PUT value_text → 200
     detail: 200 {'values': [{'id': '2d423513-ca36-4fc9-a269-7af93a9bdf2d', 'product_id': 'c3fca1f3-c4da-48b4-b196-f7408b96b63d', 'def_id': '570cdd91-29f0-4eff-b8e7-f220d565d9a8', 'value_text': 'قرمز', 'value_num': None, 'value_enum': None}], 'variant_signature': None, 'cleared': []}
 [PASS] D3 مقدار null → 200 با پاک‌شدن ردیف (رفعِ ۵۰۰ واقعی)
