@@ -387,7 +387,7 @@ describe('C13XT / POL-۱۰ — گاردِ ایزولاسیون (کدِ آزما�
       .filter(Boolean)
       .filter(
         (f) =>
-          !/(cross-type-collision|decision-matrix|shadow-evidence|shadow-evidence-cli|shadow-db|shadow-assessment-pipeline|shadow-db-cli)\.candidate\.ts$/.test(
+          !/(cross-type-collision|decision-matrix|shadow-evidence|shadow-evidence-cli|shadow-db|shadow-assessment-pipeline|shadow-db-cli|identity-integrity-diagnostics|multilingual-normalize)\.candidate\.ts$/.test(
             f,
           ),
       );

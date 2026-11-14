@@ -1,4 +1,5 @@
 import { catalogTransaction } from './catalog-access.service';
+import { buildImportCodeIndex, type ImportCodeIndex } from './import-code-index';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
@@ -792,37 +793,37 @@ export class ProductMasterRepository {
 
   async productCodeExists(companyId: string, code: string): Promise<boolean> {
     const { rows } = await this.pool.query(
-      'select 1 from product where company_id = $1 and deleted_at is null and code = $2',
+      'select 1 from product where company_id = $1 and deleted_at is null and lower(code) = lower($2)',
       [companyId, code],
     );
     return rows.length > 0;
   }
 
-  /** Pre-transaction lookup; no row lock is claimed here. */
-  async getProductsForImport(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
-    const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
-    if (codes.length === 0) return map;
+  /**
+   * Pre-transaction lookup; no row lock is claimed here.
+   * TASK-PM-02-C14-IDENTITY-INTEGRITY-02: کلیدهای شاخص `lower(code)` هستند تا
+   * با resolve همهٔ لایهٔ اپلیکیشن (و اسکن) هم‌خوان باشد؛ قید DB دست‌نخورده می‌ماند.
+   */
+  async getProductsForImport(companyId: string, codes: string[]): Promise<ImportCodeIndex> {
+    if (codes.length === 0) return buildImportCodeIndex([]);
     const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
-      'select id, code, status, base_uom_id, tax_code_id from product where company_id = $1 and deleted_at is null and code = any($2::text[])',
-      [companyId, codes],
+      'select id, code, status, base_uom_id, tax_code_id from product where company_id = $1 and deleted_at is null and lower(code) = any($2::text[]) order by code',
+      [companyId, codes.map((c) => c.toLowerCase())],
     );
-    for (const r of rows) map.set(r.code, r);
-    return map;
+    return buildImportCodeIndex(rows);
   }
 
   /** Transaction-local recheck with deterministic row locks for conflicting imports. */
-  async getProductsForImportTx(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
-    const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
-    if (codes.length === 0) return map;
+  async getProductsForImportTx(companyId: string, codes: string[]): Promise<ImportCodeIndex> {
+    if (codes.length === 0) return buildImportCodeIndex([]);
     const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
       `select id, code, status, base_uom_id, tax_code_id
          from product
-        where company_id = $1 and deleted_at is null and code = any($2::text[])
+        where company_id = $1 and deleted_at is null and lower(code) = any($2::text[])
         order by code
         for update`,
-      [companyId, codes],
+      [companyId, codes.map((c) => c.toLowerCase())],
     );
-    for (const r of rows) map.set(r.code, r);
-    return map;
+    return buildImportCodeIndex(rows);
   }
 }

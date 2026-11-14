@@ -36,6 +36,7 @@ import {
   findMissingRequiredAttributes,
   readLifecycleEnforcementMode,
 } from './product-attribute-requirements';
+import { lookupImportCode } from './import-code-index';
 import type { RequestMeta } from '../../common/request-meta';
 import { OrderCreationLock } from '../sales/order-creation-lock';
 import {
@@ -440,6 +441,14 @@ export class ProductMasterService {
     if (!value) {
       throw new BadRequestException({ code: 'invalid_barcode', message_fa: 'مقدارِ بارکد خالی است.' });
     }
+    // D-C14-I02: بارکد شناسهٔ ماشینی است — نویسه‌های کنترلی/نامرئی (ZWNJ/BOM/BIDI)
+    // غیرمجازند (وگرنه در اسکن هرگز resolve نمی‌شود و به‌سختی دیده می‌شود).
+    if (/[\p{Cc}\p{Cf}]/u.test(value)) {
+      throw new BadRequestException({
+        code: 'invalid_barcode',
+        message_fa: 'بارکد نباید شاملِ نویسه‌های کنترلی یا نامرئی (مانند نیم‌فاصله/BOM) باشد.',
+      });
+    }
     if (dto.kind.startsWith('gs1_') && !/^\d+$/.test(value)) {
       throw new BadRequestException({
         code: 'invalid_barcode',
@@ -620,12 +629,18 @@ export class ProductMasterService {
         row_errors.push({ row: rowNo, code: 'missing_identity', message_fa: 'ردیف نه «کد» دارد نه «نام».' });
         continue;
       }
+      if (row.code && /[\p{Cc}\p{Cf}]/u.test(row.code)) {
+        row_errors.push({ row: rowNo, code: 'invalid_code', message_fa: 'کد کالا نباید شاملِ نویسه‌های کنترلی یا نامرئی باشد.' });
+      }
       if (row.code) {
-        const prev = seenCodes.get(row.code);
+        // D-C14-I02: کلیدِ مقایسهٔ درون‌فایلی نیز lower() است — «SKU-9» و «sku-9»
+        // یک هویت محسوب می‌شوند (همان قراردادِ لایهٔ اپلیکیشن).
+        const key = row.code.toLowerCase();
+        const prev = seenCodes.get(key);
         if (prev) {
           row_errors.push({ row: rowNo, code: 'duplicate_in_file', message_fa: `کدِ «${row.code}» در ردیفِ ${prev} هم آمده است.` });
         }
-        seenCodes.set(row.code, rowNo);
+        seenCodes.set(key, rowNo);
       }
       if (row.min_order_qty && Number.isNaN(Number(foldDigits(row.min_order_qty)))) {
         row_errors.push({ row: rowNo, code: 'invalid_number', message_fa: 'حداقلِ سفارش باید عدد باشد.' });
@@ -757,7 +772,7 @@ export class ProductMasterService {
               const rowNo = i + 2;
               if (validationErrorsByRow.has(rowNo)) continue;
               const row = validated.rows[i];
-              const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
+              const existingId = lookupImportCode(existingByCode, row.code)?.id ?? null;
               if (existingId) continue; // کالای موجود: مقادیرش دست‌نخورده می‌ماند (grandfather)
               const list = validationErrorsByRow.get(rowNo) ?? [];
               list.push({
@@ -899,11 +914,13 @@ export class ProductMasterService {
     } = args;
     const batchRows = new Map<number, Record<string, string>>();
     for (let i = 0; i < batch.length; i += 1) batchRows.set(start + i + 2, batch[i]);
-    const productContext = (row: Record<string, string>): { product_code?: string; product_id?: string } => ({
-      ...(row.code ? { product_code: row.code } : {}),
-      ...(existingByCode.get(row.code ?? '')?.id
-        ? { product_id: existingByCode.get(row.code ?? '')!.id } : {}),
-    });
+    const productContext = (row: Record<string, string>): { product_code?: string; product_id?: string } => {
+      const found = lookupImportCode(existingByCode, row.code);
+      return {
+        ...(row.code ? { product_code: row.code } : {}),
+        ...(found ? { product_id: found.id } : {}),
+      };
+    };
 
     const validationIssues: ImportIssue[] = [];
     const validationFailedRows = new Set<number>();
@@ -945,7 +962,7 @@ export class ProductMasterService {
         batchError = { row: rowNo, code: 'unknown_tax_code', message_fa: `کدِ مالیاتیِ «${row.tax_code}» یافت نشد.` };
         break;
       }
-      const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
+      const existingId = lookupImportCode(existingByCode, row.code)?.id ?? null;
       if (dto.mode === 'create' && existingId) {
         batchError = { row: rowNo, code: 'duplicate_code', message_fa: `کدِ «${row.code}» قبلاً ثبت شده است (mode=create).` };
         break;
@@ -1040,7 +1057,7 @@ export class ProductMasterService {
             productCode: string;
           }[] = [];
           for (const p of prepared) {
-            const before = current.get(p.row.code);
+            const before = lookupImportCode(current, p.row.code);
             if (dto.mode === 'create' && before) {
               throw new ConflictException({
                 code: 'duplicate_code',

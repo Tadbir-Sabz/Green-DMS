@@ -426,7 +426,7 @@ export class ProductIdentityService {
            union all
            select 'barcode', b.product_id, p.code, p.name
              from product_barcode b join product p on p.id = b.product_id
-            where b.company_id = $1 and b.barcode = $2 and p.deleted_at is null`,
+            where b.company_id = $1 and lower(b.barcode) = lower($2) and p.deleted_at is null`,
           [user.companyId, aliasNorm],
         );
         for (const c of collisions.rows) {

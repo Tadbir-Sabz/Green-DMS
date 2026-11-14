@@ -78,6 +78,31 @@ export class ProductService {
         );
       }
     }
+    // D-C14-I02 — کدِ دستی یک شناسهٔ ماشینی است: نویسه‌های کنترلی/نامرئی و فاصلهٔ
+    // ابتدا/انتها مجاز نیست (وگرنه کالا ساخته می‌شود ولی اسکن/جست‌وجو هرگز نمی‌یابندش).
+    if (dto.code !== undefined) {
+      if (/[\p{Cc}\p{Cf}]/u.test(dto.code)) {
+        throw new BadRequestException({
+          code: 'invalid_code',
+          message_fa: 'کد کالا نباید شاملِ نویسه‌های کنترلی یا نامرئی (مانند نیم‌فاصله/BOM) باشد.',
+        });
+      }
+      if (dto.code !== dto.code.trim()) {
+        throw new BadRequestException({
+          code: 'invalid_code',
+          message_fa: 'کد کالا نباید فاصلهٔ ابتدا/انتها داشته باشد.',
+        });
+      }
+      // D-C14-I02 — قراردادِ لایهٔ اپلیکیشن case-insensitive است (اسکن، جست‌وجو،
+      // تداخلِ alias، import). بررسی پیش از درج با همان قرارداد؛ قیدِ case-sensitive
+      // DB دست‌نخورده می‌ماند و D-C11-3 همچنان تصمیمِ مالک است.
+      if (dto.code.trim() !== '' && (await this.masterRepo.productCodeExists(companyId, dto.code))) {
+        throw new ConflictException({
+          code: 'duplicate_code',
+          message_fa: 'کد کالا قبلاً ثبت شده است؛ کد دیگری انتخاب کنید.',
+        });
+      }
+    }
     // D1: کدِ دستی یا تولیدِ خودکار
     let code = dto.code;
     if (!code) {
