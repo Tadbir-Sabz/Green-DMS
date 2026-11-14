@@ -17,6 +17,11 @@ import { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from './prod
 import { PRODUCT_REPOSITORY } from './tokens';
 import { ProductMasterRepository } from './product-master.repository';
 import { detectSensitiveProductChanges, assertSensitiveConfirmed } from './product-sensitivity';
+import {
+  findMissingRequiredAttributes,
+  readLifecycleEnforcementMode,
+  requiredAttributeMissingExceptionBody,
+} from './product-attribute-requirements';
 import { permissionMatches } from '../identity-rbac/permissions';
 
 @Injectable()
@@ -59,6 +64,20 @@ export class ProductService {
 
 
     await this.assertReferences(companyId, dto);
+    // D4 — الزامِ صفات الزامی در ساخت (فقط با PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce؛
+    // پیش‌فرض off = بدون تغییر: کالأ ناقص ساخته می‌شود و تکمیل پس از ثبت انجام می‌گیرد.
+    // معنا‌شناسیِ draft/تکمیلِ اجباری تصمیمِ مالک است (§4.4 سند آمادگی)؛ اینجا فقط مرزِ شرطی است.
+    if (readLifecycleEnforcementMode() === 'enforce') {
+      const requiredDefs = await this.masterRepo.listRequiredAttributeDefs(companyId);
+      if (requiredDefs.length > 0) {
+        throw new BadRequestException(
+          requiredAttributeMissingExceptionBody(
+            findMissingRequiredAttributes(requiredDefs, new Set<string>()),
+            'create',
+          ),
+        );
+      }
+    }
     // D1: کدِ دستی یا تولیدِ خودکار
     let code = dto.code;
     if (!code) {
@@ -122,6 +141,24 @@ export class ProductService {
         message_fa:
           'پس از نخستین ارجاعِ عملیاتی (سند/موجودی/قیمت)، خانواده/محورهای variant تغییرناپذیرند؛ SKU جدید بسازید.',
       });
+    }
+
+    // D4 — تغییرِ دسته/خانوادهٔ کالایِ ناقص (فقط با PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce؛
+    // پیش‌فرض off = بدون تغییر). مقادیر صفات در این مسیر دست‌نخورده می‌مانند؛ ویرایش‌های
+    // نامرتبط قفل نمی‌شوند. کالای موجودِ ناقص تا تکمیلِ یک‌جای صفات نمی‌تواند دسته/خانواده عوض کند.
+    const categoryChanging =
+      'category_id' in dto && dto.category_id !== undefined && dto.category_id !== existing.category_id;
+    if (readLifecycleEnforcementMode() === 'enforce' && (categoryChanging || familyChanging)) {
+      const requiredDefs = await this.masterRepo.listRequiredAttributeDefs(companyId);
+      if (requiredDefs.length > 0) {
+        const present = await this.masterRepo.listPresentAttributeDefIds(companyId, id);
+        const missing = findMissingRequiredAttributes(requiredDefs, present);
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            requiredAttributeMissingExceptionBody(missing, categoryChanging ? 'category_change' : 'update'),
+          );
+        }
+      }
     }
 
     const row = await this.repo.update(companyId, id, dto, dto.row_version);

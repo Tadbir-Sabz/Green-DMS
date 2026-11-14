@@ -31,6 +31,11 @@ import type {
   FamilyRow,
 } from './product-master.repository';
 import { ProductMasterRepository } from './product-master.repository';
+import {
+  REQUIRED_ATTRIBUTE_MISSING_CODE,
+  findMissingRequiredAttributes,
+  readLifecycleEnforcementMode,
+} from './product-attribute-requirements';
 import type { RequestMeta } from '../../common/request-meta';
 import { OrderCreationLock } from '../sales/order-creation-lock';
 import {
@@ -738,6 +743,33 @@ export class ProductMasterService {
           this.repo.getProductsForImport(companyId, codes),
           this.repo.listImportBatches(companyId, importId),
         ]);
+        // D4 — صفات الزامی در ردیف‌های سازنده (فقط با PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce؛
+        // پیش‌فرض off). CSV مقادیر صفات را حمل نمی‌کند؛ بنابراین در حالت enforce ردیف‌های
+        // سازندهٔ کالای جدید row-addressable رد می‌شوند (همان قراردادِ row_errors)؛
+        // all-or-nothing هر دسته، continue-after-error (§E) و idempotency دست‌نخورده می‌مانند.
+        if (readLifecycleEnforcementMode() === 'enforce' && dto.mode !== 'update') {
+          const requiredDefs = await this.repo.listRequiredAttributeDefs(companyId);
+          if (requiredDefs.length > 0) {
+            const missing = findMissingRequiredAttributes(requiredDefs, new Set<string>());
+            const first = missing[0];
+            const extra = missing.length > 1 ? ` (+${missing.length - 1} صفتِ الزامیِ دیگر)` : '';
+            for (let i = 0; i < validated.rows.length; i += 1) {
+              const rowNo = i + 2;
+              if (validationErrorsByRow.has(rowNo)) continue;
+              const row = validated.rows[i];
+              const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
+              if (existingId) continue; // کالای موجود: مقادیرش دست‌نخورده می‌ماند (grandfather)
+              const list = validationErrorsByRow.get(rowNo) ?? [];
+              list.push({
+                row: rowNo,
+                code: REQUIRED_ATTRIBUTE_MISSING_CODE,
+                message_fa: `کالای جدید بدون صفات الزامی ساخته نمی‌شود؛ صفتِ الزامی: «${first.title}»${extra} (PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce).`,
+              });
+              validationErrorsByRow.set(rowNo, list);
+            }
+          }
+        }
+
         const storedBatches = Array.isArray(storedBatchesRaw)
           ? storedBatchesRaw
             .map((raw) => normalizeBatchOutcome(raw, importId))

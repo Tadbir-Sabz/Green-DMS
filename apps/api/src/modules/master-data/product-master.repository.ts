@@ -235,6 +235,33 @@ export class ProductMasterRepository {
     return rows;
   }
 
+  /**
+   * TASK-PM-02-C14 (D4 lifecycle validator) — فقط خواندنی.
+   * تعریف‌های الزامیِ شرکت با ترتیبِ قطعی (code، id).
+   */
+  async listRequiredAttributeDefs(companyId: string): Promise<AttributeDefRow[]> {
+    const { rows } = await this.pool.query<AttributeDefRow>(
+      `select id, code, title, kind, is_variant_axis, is_required, sort_order
+         from product_attribute_def
+        where company_id = $1 and is_required = true
+        order by code, id`,
+      [companyId],
+    );
+    return rows;
+  }
+
+  /** def_idهای دارای مقدار برای یک کالا در همین شرکت (وضعیتِ نهاییِ مقادیر). */
+  async listPresentAttributeDefIds(companyId: string, productId: string): Promise<string[]> {
+    const { rows } = await this.pool.query<{ def_id: string }>(
+      `select distinct v.def_id
+         from product_attribute_value v
+         join product p on p.id = v.product_id and p.company_id = $1 and p.deleted_at is null
+        where v.product_id = $2`,
+      [companyId, productId],
+    );
+    return rows.map((r) => r.def_id);
+  }
+
   async upsertAttributeValue(v: {
     productId: string;
     defId: string;

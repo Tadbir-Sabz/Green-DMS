@@ -17,6 +17,7 @@ import type { AuthContext } from '../identity-rbac/auth-context.decorator';
 import { permissionMatches } from '../identity-rbac/permissions';
 import { CatalogAccess, catalogTransaction } from './catalog-access.service';
 import { normalizeAttributeValue, normalizeText, variantSignature as computeVariantSignature } from './product-normalize';
+import { findMissingRequiredAttributes, requiredAttributeMissingExceptionBody } from './product-attribute-requirements';
 import {
   ALIAS_CREATE_FIELDS,
   ALIAS_KIND_LABELS_FA,
@@ -909,14 +910,16 @@ export class ProductIdentityService {
           ...[...existingMap.keys()].filter((id) => !toClear.includes(id) && defMap.has(id)),
           ...toUpsert.map((u) => u.def_id),
         ]);
-        for (const def of defs.rows) {
-          if (def.is_required && !finalIds.has(def.id)) {
-            throw new BadRequestException({
-              code: 'required_attribute_missing',
-              message_fa: `صفتِ «${def.title}» برای این کالا الزامی است.`,
-              details: { def_id: def.id },
-            });
-          }
+        // TASK-PM-02-C14: همان قراردادِ مشترک (ترتیبِ قطعیِ code/id)؛ details.def_id
+        // قراردادِ قبلی را حفظ می‌کند و details.missing فهرستِ کاملِ field-addressable است.
+        const missing = findMissingRequiredAttributes(
+          defs.rows.filter((d) => d.is_required),
+          finalIds,
+        );
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            requiredAttributeMissingExceptionBody(missing, 'attribute_values'),
+          );
         }
 
         // ---- M-3: تغییرِ محورهای variant پس از ارجاعِ عملیاتی ممنوع
