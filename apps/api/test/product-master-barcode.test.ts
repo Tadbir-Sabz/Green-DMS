@@ -232,11 +232,14 @@ describe('M1-B — جلوگیریِ case-insensitive از تکرار (internal/o
   });
 
   it('cross-kind رسمی (GS1 ↔ internal) دست‌نخورده: همچنان مجاز', async () => {
-    const p = await createProduct(fx, { name: 'M1B ز', code: 'M1B-7' });
-    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+    const gs1Owner = await createProduct(fx, { name: 'M1B ز', code: 'M1B-7' });
+    await fx.api().post(`/api/v1/products/${gs1Owner.id}/barcodes`)
       .send({ barcode: '4006381333931', kind: 'gs1_ean13' }).expect(201);
-    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+    // internal با همان مقدار روی کالای دیگر در همان شرکت — آزاد (GS1 دامنهٔ سراسریِ خودش را دارد)
+    const internalOwner = await createProduct(fx, { name: 'M1B ز-۲', code: 'M1B-7B' });
+    await fx.api().post(`/api/v1/products/${internalOwner.id}/barcodes`)
       .send({ barcode: '4006381333931', kind: 'internal' }).expect(201);
+    // نکته: دو ردیف روی یک کالا با مقدار یکسان توسط uq_product_barcode_product_value (product_id, barcode) مسدود است (رفتارِ موجود، دست‌نخورده)
   });
 
   it('دامنهٔ شرکتی: همان CI در شرکتِ دیگر آزاد است', async () => {
@@ -305,10 +308,15 @@ describe('اسکن — رگرسیونِ ردیف‌های legacy (M1)', () => {
 
   it('legacy same-product cross-kind (internal + other): resolve به همان محصول', async () => {
     const p = await createProduct(fx, { name: 'Legacy CrossKind', code: 'SCAN-LEG3' });
-    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
-      .send({ barcode: 'CrossKind-Scan-1', kind: 'internal' }).expect(201);
-    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
-      .send({ barcode: 'crosskind-scan-1', kind: 'other' }).expect(201);
+    // ردیف‌های legacy را مستقیماً می‌سازیم (API دیگر CI-variant میان internal/other را رد می‌کند).
+    // مقدارها از نظر exact متفاوت‌اند؛ پس uq_product_barcode_product_value نقض نمی‌شود.
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, 'CrossKind-Scan-1', 'internal'),
+              ($1, $2, 'crosskind-scan-1', 'other')`,
+      [fx.companyId, p.id],
+    );
+    // هر دو ردیف با کوئریِ case-insensitiveِ اسکن مطابقت می‌کنند — اما هر دو به همین محصول اشاره دارند
     const res = await fx.api().get('/api/v1/products/scan/crosskind-scan-1').expect(200);
     expect(res.body.product.id).toBe(p.id);
     expect(res.body.matched_by).toBe('barcode');
