@@ -459,6 +459,15 @@ export class ProductMasterRepository {
    * مقدارِ ذخیره‌شده دست‌نخورده می‌ماند (بدون مهاجرت). ایندکسِ تابعی برای یکتاییِ
    * case-insensitive (مانندِ lower(barcode)/lower(code)) تصمیمِ مالک است و این کامیت
    * هیچ مهاجرتی ندارد (همان جنسِ گیتِ D-C11-3/F-06 برای product.code).
+   *
+   * نکتهٔ کارایی (REVIEW-01/LOW-4): `lower(b.barcode)` با `ix_product_barcode_lookup`
+   * (ایندکسِ ستونِ خام) و با `uq_product_barcode_*` (هم‌سنجیِ exact) سازگار نیست و
+   * در حجم بالا seq scan می‌سازد. ایندکسِ تابعیِ `lower(barcode)` یک بهینه‌سازیِ
+   * آتی است و **فقط با تأییدِ مالک (migration)** ممکن است — این کامیت آن را
+   * نمی‌سازد و هیچ D*‑ای را تأییدشده تلقی نمی‌کند. تفکیکِ صریحِ سه مفهوم:
+   *   (الف) درستیِ lookup نامحسوس به case — رفتارِ فعلی، بدون تغییر؛
+   *   (ب) الزامِ یکتاییِ نامحسوس به case — نیازمند migration (تصمیمِ مالک؛ انجام‌نشده)؛
+   *   (ج) کاراییِ query — فقط ایندکسِ تابعی، که همان migration است (تصمیمِ مالک).
    */
   async findBarcodeMatches(barcodeNorm: string): Promise<BarcodeRow[]> {
     const { rows } = await this.pool.query<BarcodeRow>(

@@ -190,16 +190,20 @@ describe('C14-IDENTITY-03 — PATCH /products/:id و کلید code', () => {
       .patch(`/api/v1/products/${p.id}`)
       .send({ name: 'نامِ نباید اعمال شود', code: 'SKU-AUDIT-2' });
     expect(res.status).toBe(400);
-    const audit = await fx.pool.query<{ after_data: unknown; actor_user_id: string }>(
-      `select after_data, actor_user_id::text from audit_log
+    const audit = await fx.pool.query<{ after_data: unknown; actor_user_id: string; entity_id: string | null }>(
+      `select after_data, actor_user_id::text, entity_id from audit_log
         where action = 'sku_change_rejected' order by at desc limit 5`,
     );
     expect(audit.rows.length).toBeGreaterThan(0);
     const entry = audit.rows[0];
     expect(entry.actor_user_id).toBeTruthy();
-    const after = entry.after_data as { code?: string; fields?: string[] };
+    expect(entry.entity_id).toBeNull(); // هیچ شناسهٔ موجودیت در ممیزیِ رد نمی‌نشیند
+    const after = entry.after_data as { code?: string; fields?: string[]; surface?: string };
     expect(after.code).toBe('code_immutable');
     expect(after.fields).toEqual(['code']);
+    expect(after.surface).toBe('PATCH /products/:id'); // قالبِ ثابت — هرگز req.path
+    expect(JSON.stringify(after)).not.toContain(p.id); // UUIDِ کالا در ممیزی نیست
+    expect(after).not.toHaveProperty('owner_decisions'); // ادعای تصمیم‌ی مالک وجود ندارد
     expect(await getProductCode(p.id)).toBe('SKU-AUDIT-1');
     expect(await getProductName(p.id)).toBe('کالای ممیزی');
   });

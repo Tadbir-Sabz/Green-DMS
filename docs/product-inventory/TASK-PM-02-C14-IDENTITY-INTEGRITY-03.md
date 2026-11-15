@@ -185,3 +185,38 @@ D-C11-1 · D-C11-3 · D-C12-1 · D-C13-1 · POL-ALIAS-COMPANY-01 · POL-BARCODE-
 - **نتیجهٔ اجرایِ CI روی SHA نهایی:** در PR #16 و Actions ثبت می‌شود؛ هرگز PASS ساختگی نیست. اگر هر job غیر از موردِ بالا باز هم fail شد ⇒ NOT READY.
 - **F-02 همچنان باز** — هیچ مهاجرتِ unique index / CITEXT / canonicalization اعمال نشد؛ D-C11-3 بدونِ تصمیم مالک بسته نمی‌شود.
 - **merge: NOT AUTHORIZED. deploy: NOT AUTHORIZED.** این سند Draft بودن PR را تأیید می‌کند؛ تصمیم‌گیری نهایی با مالک است.
+
+---
+
+## ۱۰) REVIEW-01 — اصلاحِ یافته‌های بازبینیِ مستقل (۲۰۲۶-۱۱-۱۳ / ۱۱-۱۵)
+
+یافته‌های LOW-1 تا LOW-4 از گزارشِ بازبینیِ مستقل روی PR #16 در این بخش بسته شد:
+
+- **LOW-1 (ممیزی):** `sku-immutable.guard.ts` دیگر `req.path`/`url`/`method` را در payloadِ
+  `sku_change_rejected` ذخیره نمی‌کند — سطحِ ممیزی همیشه قالبِ ثابتِ `PATCH /products/:id` است.
+  تست‌های واحد جدید `apps/api/test/sku-immutable.guard.test.ts` (۷ تست؛ بدون DB؛ ممیزی و UUID
+  با فیک‌ها راستی‌آزمایی شد) + تقویتِ تستِ DB-backed `product-sku-immutability.api.test.ts`
+  (اکنون: `entity_id IS NULL`، `surface == 'PATCH /products/:id'`، عدم وجود UUIDِ کالا و عدم وجود
+  `owner_decisions` در `after_data`).
+- **LOW-2 (شناسهٔ تصمیم‌ی نامشخص):** `owner_decisions: ['D-C14-I03-F01']` کامل حذف شد؛ اسکیمای
+  `AuditEntry` هیچ فیلدِ تصمیم‌ی مالکی ندارد و این ردّ فنی هرگز نمایندهٔ تأییدِ مالک نیست.
+  تستِ واحد و تستِ DB-backed نبودِ آن را قفل می‌کنند؛ دلیل‌کد فنی `code_immutable` دست‌نخورده ماند.
+- **LOW-3 (کشف‌پذیریِ قرارداد):** پاسخِ reusable جدید `components.responses.SkuImmutableError`
+  (envelope استانداردِ `Error` + نمونهٔ `code_immutable` با `details.field='code'` و
+  `details.surface='PATCH /products/:id'`)؛ عملیاتِ `PATCH /products/{id}` حالا به آن ارجاع می‌دهد؛
+  فهرستِ دلیل‌کدهای `Error.code` سندِ `code_immutable` را فهرست می‌کند؛ کلاینتِ TypeScript
+  بازتولید شد (`SKU PATCH 400` → `SkuImmutableError`). تستِ ایستا
+  `apps/api/test/sku-immutable-contract.test.ts` (۵ تست) این زنجیره را می‌سنجد.
+  **توجه:** کلاینتِ Kotlin با `npm run clients:generate` بازتولید **نشد** — jar/jre از hostهای
+  غیرمجاز (maven/adoptium) دانلود می‌شوند؛ «بازتولید کلاینتِ Android» همچنان تصمیم‌ی باز مالک است.
+- **LOW-4 (کاراییِ بارکد):** تفکیکِ صریح در کامنتِ کوئریِ `findBarcodeMatches` مستند شد —
+  (الف) درستیِ lookup نامحسوس به case (این کد، بدون تغییر) ≠ (ب) الزامِ یکتاییِ نامحسوس
+  (migration؛ تصمیمِ مالک؛ انجام‌نشده) ≠ (ج) کاراییِ query (ایندکسِ تابعیِ `lower(barcode)`،
+  همان migration؛ فقط با تأییدِ مالک). هیچ migration/ایندکس/تغییرِ ذخیره‌سازی اعمال نشد.
+
+**رگرسیونِ این درخت (پس از REVIEW-01):**
+- Unit (پارتیشنِ CI): **۵۸ فایل · ۹۵۶ passed / ۱ skipped** (شامل ۱۲ تست جدید؛ EXIT 0).
+- API `tsc --noEmit` PASS · `npm run build` PASS (packages+api+web) · `openapi:check` PASS
+  (229/324/233) · `contract-drift` PASS · partition PASS · DB-backed: فقط در CI.
+
+merge/deploy همچنان **غیرمجاز** است؛ PR #16 در Draft می‌ماند؛ PR #15 دست‌نخورده است.

@@ -975,7 +975,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Product' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400': { $ref: '#/components/responses/SkuImmutableError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -6785,6 +6785,23 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    SkuImmutableError:
+      description: >-
+        بدنهٔ درخواست حاوی کلیدِ نامجازِ `code` است — کدِ SKU پس از ساخت تغییرناپذیر
+        است و هیچ تغییری اعمال نمی‌شود. بدنه همیشه envelope استانداردِ `Error` است؛
+        برای این رد، `code` همیشه `code_immutable` و `details.field = 'code'` و
+        `details.surface = 'PATCH /products/:id'` است. (سایر خطاهای 400 اعتبارسنجی
+        نیز همین envelope را دارند؛ فهرستِ دلیل‌کدها در توضیحِ `Error.code`.)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            code_immutable:
+              summary: کلیدِ نامجازِ code در بدنهٔ PATCH
+              value:
+                code: code_immutable
+                message_fa: 'کدِ SKU پس از ساختِ کالا قابلِ تغییر نیست؛ برای کالایِ جدید کدِ جدید بسازید. هیچ‌یک از تغییراتِ این درخواست اعمال نشد.'
+                details: { field: code, surface: 'PATCH /products/:id' }
     Unauthorized:
       description: نشست نامعتبر یا منقضی — نیازمند ورود مجدد/تازه‌سازی
       content:
@@ -6887,7 +6904,11 @@ components:
             درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
             «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
             عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
-          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported']
+            **تغییرناپذیریِ SKU (TASK-PM-02-C14)** — `400`
+            - `code_immutable`: بدنهٔ PATCH شامل کلیدِ `code` بود؛ SKU پس از ساخت
+              تغییرناپذیر است و هیچ تغییری اعمال نشد. `details.field = 'code'`،
+              `details.surface = 'PATCH /products/:id'`.
+          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported', 'code_immutable']
         message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
         details:
           type: object

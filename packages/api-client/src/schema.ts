@@ -1708,7 +1708,7 @@ export interface paths {
                         "application/json": components["schemas"]["Product"];
                     };
                 };
-                400: components["responses"]["BadRequest"];
+                400: components["responses"]["SkuImmutableError"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -13112,6 +13112,10 @@ export interface components {
              *     درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
              *     «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
              *     عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
+             *     **تغییرناپذیریِ SKU (TASK-PM-02-C14)** — `400`
+             *     - `code_immutable`: بدنهٔ PATCH شامل کلیدِ `code` بود؛ SKU پس از ساخت
+             *       تغییرناپذیر است و هیچ تغییری اعمال نشد. `details.field = 'code'`،
+             *       `details.surface = 'PATCH /products/:id'`.
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict
@@ -13119,6 +13123,7 @@ export interface components {
              * @example approval_chain_required
              * @example domain_property_rejected
              * @example domain_context_not_supported
+             * @example code_immutable
              */
             code: string;
             /** @description پیام فارسی آماده نمایش به کاربر */
@@ -16972,6 +16977,15 @@ export interface components {
     responses: {
         /** @description درخواست نامعتبر (خطای اعتبارسنجی) */
         BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description بدنهٔ درخواست حاوی کلیدِ نامجازِ `code` است — کدِ SKU پس از ساخت تغییرناپذیر است و هیچ تغییری اعمال نمی‌شود. بدنه همیشه envelope استانداردِ `Error` است؛ برای این رد، `code` همیشه `code_immutable` و `details.field = 'code'` و `details.surface = 'PATCH /products/:id'` است. (سایر خطاهای 400 اعتبارسنجی نیز همین envelope را دارند؛ فهرستِ دلیل‌کدها در توضیحِ `Error.code`.) */
+        SkuImmutableError: {
             headers: {
                 [name: string]: unknown;
             };

@@ -22,11 +22,11 @@ export const skuImmutableError = (surface: string): BadRequestException =>
     details: { field: 'code', surface },
   });
 
+/** مسیرِ قالبِ ثابت — هرگز req.path (حاوی UUIDِ کالا) داخل ممیزی ذخیره نمی‌شود. */
+const SKU_IMMUTABLE_SURFACE = 'PATCH /products/:id';
+
 interface SkuImmutableRequest {
   body?: unknown;
-  method?: string;
-  path?: string;
-  url?: string;
   ip?: string;
   headers?: Record<string, string | string[] | undefined>;
   auth?: AuthContext;
@@ -53,7 +53,8 @@ interface SkuImmutableRequest {
  *
  * ترتیب: پس از AuthGuard/PermissionsGuard/DomainBoundaryGuard — ممیزیِ ردشدن‌ها
  * هویت سروریشده دارد و هرزه‌نوشتن با درخواستِ بی‌توکن ممکن نیست.
- * هیچ مقدار/شناسه‌ای در ممیزی ذخیره نمی‌شود؛ فقط نام فیلد و مسیر.
+ * هیچ مقدار/شناسه‌ای در ممیزی ذخیره نمی‌شود؛ فقط نام فیلد و قالبِ ثابتِ مسیر
+ * (`PATCH /products/:id`؛ هرگز req.path با UUIDِ کالا).
  */
 @Injectable()
 export class SkuImmutableGuard implements CanActivate {
@@ -73,7 +74,9 @@ export class SkuImmutableGuard implements CanActivate {
 
     if (!present) return true;
 
-    const surface = `${req.method ?? 'REQUEST'} ${req.path ?? req.url ?? ''}`;
+    // LOW-1 (REVIEW-01): سطحِ ردِ ممیزی همیشه قالبِ ثابتِ مسیر است — req.path هرگز
+    // (چون حاوی UUIDِ کالا است) ذخیره نمی‌شود.
+    const surface = SKU_IMMUTABLE_SURFACE;
     try {
       await withTransaction(this.pool, async (client) => {
         await client.query(
@@ -90,7 +93,6 @@ export class SkuImmutableGuard implements CanActivate {
               code: SKU_IMMUTABLE,
               surface,
               fields: ['code'],
-              owner_decisions: ['D-C14-I03-F01'],
             },
             ip: req.ip ?? null,
             userAgent:
