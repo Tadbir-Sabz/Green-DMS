@@ -160,3 +160,211 @@ describe('alias — H-1 جلوگیری از برخورد', () => {
     expect(collision.body.code).toBe('alias_collision');
   });
 });
+
+/** ایجادِ شرکت/کالای کمکیِ دوم/سوم برای سناریوهای cross-tenant (فقط همین فایل) */
+async function createSecondCompanyWithProduct(
+  fx: Fixture,
+  companyCode: string,
+  productCode: string,
+): Promise<{ companyId: string; productId: string }> {
+  const company = await fx.pool.query<{ id: string }>(
+    `insert into company (code, legal_name) values ($1, $2) returning id`,
+    [companyCode, `شرکتِ تستِ ${companyCode}`],
+  );
+  const c2 = company.rows[0].id;
+  const cat = await fx.pool.query<{ id: string }>(
+    `insert into product_category (company_id, code, name) values ($1, 'XCAT', 'گروهِ دوم') returning id`,
+    [c2],
+  );
+  const p = await fx.pool.query<{ id: string }>(
+    `insert into product (company_id, code, name, category_id, base_uom_id)
+     values ($1, $2, $3, $4, $5) returning id`,
+    [c2, productCode, `کالایِ شرکتِ ${companyCode}`, cat.rows[0].id, fx.uomId],
+  );
+  return { companyId: c2, productId: p.rows[0].id };
+}
+
+describe('M1-B — جلوگیریِ case-insensitive از تکرار (internal/other، دامنهٔ شرکت)', () => {
+  it('internal با صرفِ بزرگی/کوچکیِ حروف در همان شرکت → 409 duplicate_barcode', async () => {
+    const p = await createProduct(fx, { name: 'M1B الف', code: 'M1B-1' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'MiXeD-Case-1', kind: 'internal' }).expect(201);
+    const p2 = await createProduct(fx, { name: 'M1B ب', code: 'M1B-2' });
+    const dup = await fx.api().post(`/api/v1/products/${p2.id}/barcodes`)
+      .send({ barcode: 'mixed-case-1', kind: 'internal' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+  });
+
+  it('internal همان SKU هم مسدود است', async () => {
+    const p = await createProduct(fx, { name: 'M1B ج', code: 'M1B-3' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'SameSku-CI-1', kind: 'internal' }).expect(201);
+    const dup = await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'samesku-ci-1', kind: 'internal' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+  });
+
+  it('other با variant صرفِ حروف → 409 duplicate_barcode', async () => {
+    const p = await createProduct(fx, { name: 'M1B د', code: 'M1B-4' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'Other-Kind-CI-1', kind: 'other' }).expect(201);
+    const dup = await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'other-kind-ci-1', kind: 'other' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+  });
+
+  it('دامنهٔ internal↔other: ثبتِ variant صرفِ حروف میان internal و other مسدود است', async () => {
+    const p = await createProduct(fx, { name: 'M1B ه', code: 'M1B-5' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'Cross-Letter-CI-1', kind: 'internal' }).expect(201);
+    const dup = await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'cross-letter-ci-1', kind: 'other' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+  });
+
+  it('تکرارِ exact internal همچنان 409 (رگرسیون)', async () => {
+    const p = await createProduct(fx, { name: 'M1B و', code: 'M1B-6' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'Exact-Dup-1', kind: 'internal' }).expect(201);
+    const dup = await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'Exact-Dup-1', kind: 'internal' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+  });
+
+  it('cross-kind رسمی (GS1 ↔ internal) دست‌نخورده: همچنان مجاز', async () => {
+    const p = await createProduct(fx, { name: 'M1B ز', code: 'M1B-7' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: '4006381333931', kind: 'gs1_ean13' }).expect(201);
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: '4006381333931', kind: 'internal' }).expect(201);
+  });
+
+  it('دامنهٔ شرکتی: همان CI در شرکتِ دیگر آزاد است', async () => {
+    const p = await createProduct(fx, { name: 'M1B ح', code: 'M1B-8' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'Tenant-Shared-CI-1', kind: 'internal' }).expect(201);
+    const other = await createSecondCompanyWithProduct(fx, 'PMCOB1', 'M1B-EXT-1');
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, 'tenant-shared-ci-1', 'internal')`,
+      [other.companyId, other.productId],
+    );
+    // ثبتِ همان CI در شرکتِ خودمان همچنان باید 409 باشد (تضمینِ دامنهٔ شرکتی، نه سراسری)
+    const dup = await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'tenant-shared-ci-1', kind: 'internal' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+  });
+
+  it('نرمال‌سازی پیش از تطبیق: ارقامِ فارسی و فاصله‌ها', async () => {
+    const p = await createProduct(fx, { name: 'M1B ط', code: 'M1B-9' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: '۱۲۳ ۴۵۶ ۷۸۹۰', kind: 'internal' }).expect(201);
+    const dup = await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: '1234567890', kind: 'internal' }).expect(409);
+    expect(dup.body.code).toBe('duplicate_barcode');
+    const p2 = await createProduct(fx, { name: 'M1B ی', code: 'M1B-10' });
+    const ws = await fx.api().post(`/api/v1/products/${p2.id}/barcodes`)
+      .send({ barcode: '  Padded-CI-1  ', kind: 'internal' }).expect(201);
+    const dup2 = await fx.api().post(`/api/v1/products/${p2.id}/barcodes`)
+      .send({ barcode: 'padded-ci-1', kind: 'internal' }).expect(409);
+    expect(dup2.body.code).toBe('duplicate_barcode');
+    expect(ws.body.barcode).toBe('Padded-CI-1');
+  });
+});
+
+describe('اسکن — رگرسیونِ ردیف‌های legacy (M1)', () => {
+  it('legacy same-product case-variants: اسکن به همان محصول resolve می‌شود', async () => {
+    const p = await createProduct(fx, { name: 'Legacy Same', code: 'SCAN-LEG1' });
+    // ردیف‌های legacy را مستقیماً می‌سازیم چون API دیگر اجازهٔ CI duplicate نمی‌دهد
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, 'Legacy-Scan-1', 'internal'),
+              ($1, $2, 'legacy-scan-1', 'internal'),
+              ($1, $2, 'LEGACY-SCAN-1', 'other')`,
+      [fx.companyId, p.id],
+    );
+    const res = await fx.api().get('/api/v1/products/scan/legacy-scan-1').expect(200);
+    expect(res.body.product.id).toBe(p.id);
+    expect(res.body.matched_by).toBe('barcode');
+    // packaging_id عمداً assert نمی‌شود: برای ردیف‌های معادل، سیاستِ انتخاب وجود ندارد
+  });
+
+  it('legacy different-product same-company: 409 ambiguous_scan قطعی', async () => {
+    const a = await createProduct(fx, { name: 'Legacy Diff الف', code: 'SCAN-LEG2A' });
+    const b = await createProduct(fx, { name: 'Legacy Diff ب', code: 'SCAN-LEG2B' });
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, 'Legacy-Scan-2', 'internal'),
+              ($1, $3, 'legacy-scan-2', 'other')`,
+      [fx.companyId, a.id, b.id],
+    );
+    const res = await fx.api().get('/api/v1/products/scan/legacy-scan-2').expect(409);
+    expect(res.body.code).toBe('ambiguous_scan');
+    expect(res.body.details.product_ids).toEqual(expect.arrayContaining([a.id, b.id]));
+  });
+
+  it('legacy same-product cross-kind (internal + other): resolve به همان محصول', async () => {
+    const p = await createProduct(fx, { name: 'Legacy CrossKind', code: 'SCAN-LEG3' });
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'CrossKind-Scan-1', kind: 'internal' }).expect(201);
+    await fx.api().post(`/api/v1/products/${p.id}/barcodes`)
+      .send({ barcode: 'crosskind-scan-1', kind: 'other' }).expect(201);
+    const res = await fx.api().get('/api/v1/products/scan/crosskind-scan-1').expect(200);
+    expect(res.body.product.id).toBe(p.id);
+    expect(res.body.matched_by).toBe('barcode');
+  });
+
+  it('بدونِ افشای cross-company برای internal: اسکن از شرکتِ نامالکی → 404 not_found', async () => {
+    const other = await createSecondCompanyWithProduct(fx, 'PMCOB2', 'SCAN-EXT-1');
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, 'CrossTenant-Secret-1', 'internal')`,
+      [other.companyId, other.productId],
+    );
+    const res = await fx.api().get('/api/v1/products/scan/crosstenant-secret-1').expect(404);
+    expect(res.body.code).toBe('not_found');
+  });
+
+  it('GS1 cross-company fallback همچنان فعال است (رفتارِ مستند، دست‌نخورده)', async () => {
+    const other = await createSecondCompanyWithProduct(fx, 'PMCOB3', 'SCAN-EXT-2');
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, '9998887776665', 'gs1_ean13')`,
+      [other.companyId, other.productId],
+    );
+    const res = await fx.api().get('/api/v1/products/scan/9998887776665').expect(200);
+    expect(res.body.product.id).toBe(other.productId);
+    expect(res.body.matched_by).toBe('barcode');
+  });
+
+  it('F-M1b: duplicate-check هیچ شناسه/نامِ شرکتِ دیگر را افشا نمی‌کند (حتی با query صرفِ حروف)', async () => {
+    const other = await createSecondCompanyWithProduct(fx, 'PMCOB4', 'FMB-FOREIGN-CODE');
+    await fx.pool.query(
+      `update product set name = 'FMB-FOREIGN-SECRET-NAME' where id = $1`,
+      [other.productId],
+    );
+    await fx.pool.query(
+      `insert into product_barcode (company_id, product_id, barcode, kind)
+       values ($1, $2, 'DupCheck-Foreign-1', 'internal')`,
+      [other.companyId, other.productId],
+    );
+    for (const q of ['DupCheck-Foreign-1', 'dupcheck-foreign-1', 'DUPCHECK-FOREIGN-1']) {
+      const res = await fx.api()
+        .get(`/api/v1/products/duplicate-check?barcode=${encodeURIComponent(q)}`)
+        .expect(200);
+      expect(res.body.blocking).toEqual([]);
+      const payload = JSON.stringify(res.body);
+      expect(payload).not.toContain('FMB-FOREIGN-SECRET-NAME');
+      expect(payload).not.toContain('FMB-FOREIGN-CODE');
+      expect(payload).not.toContain(other.productId);
+    }
+    // و نتایجِ دامنهٔ شرکتِ خودمان همچنان در دسترس است
+    const own = await createProduct(fx, { name: 'DupCheck Own', code: 'DUP-CHECK-OWN-1' });
+    await fx.api().post(`/api/v1/products/${own.id}/barcodes`)
+      .send({ barcode: 'DupCheck-Own-1', kind: 'internal' }).expect(201);
+    const ownRes = await fx.api()
+      .get('/api/v1/products/duplicate-check?barcode=dupcheck-own-1')
+      .expect(200);
+    expect(ownRes.body.blocking.some((b: { product_id: string }) => b.product_id === own.id)).toBe(true);
+  });
+});

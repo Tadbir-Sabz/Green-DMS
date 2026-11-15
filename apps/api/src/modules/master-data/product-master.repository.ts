@@ -454,6 +454,27 @@ export class ProductMasterRepository {
   }
 
   /**
+   * M1-B: تطبیقِ case-insensitive برای بارکدهای internal/other در دامنهٔ شرکتِ فراخوانده.
+   * عمداً روی `product_barcode` بدون join به `product` اجرا می‌شود تا با معناشناسیِ
+   * یکتاییِ exact (uq_product_barcode_internal/uq_product_barcode_product_value —
+   * که deleted_at را در نظر نمی‌گیرند) هم‌تراز بماند.
+   * توجه: این بررسیِ application-level است و شکافِ TOCTOU/همزمانی را نمی‌بندد؛
+   * تضمینِ سخت فقط با ایندکسِ تابعیِ lower(barcode) (M1-C، نیازمند مجوزِ مهاجرت) ممکن است.
+   */
+  async findInternalOtherBarcodeCi(
+    companyId: string,
+    barcodeNorm: string,
+  ): Promise<{ id: string; product_id: string; kind: string; barcode: string }[]> {
+    const { rows } = await this.pool.query<{ id: string; product_id: string; kind: string; barcode: string }>(
+      `select id, product_id, kind, barcode
+         from product_barcode
+        where company_id = $1 and kind in ('internal', 'other') and lower(barcode) = lower($2)`,
+      [companyId, barcodeNorm],
+    );
+    return rows;
+  }
+
+  /**
    * نام‌های دیگرِ همین مقدارِ بارکد (برای resolution چندپاسخی و برخورد)
    * C14-I03: مقایسه case-insensitive (lower/lower) — همان الگوی findProductByCode.
    * مقدارِ ذخیره‌شده دست‌نخورده می‌ماند (بدون مهاجرت). ایندکسِ تابعی برای یکتاییِ

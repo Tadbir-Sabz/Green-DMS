@@ -151,6 +151,10 @@ export class ProductMasterService {
       const matches = await this.repo.findBarcodeMatches(normalizeBarcode(q.barcode));
       for (const m of matches) {
         if (m.product_id === q.product_id) continue;
+        // F-M1b: نتایجِ duplicate-check فقط دامنهٔ شرکتِ فراخوانده است.
+        // هیچ شناسه/نامِ کالا یا بارکدِ شرکتِ دیگر هرگز برگردانده نمی‌شود.
+        // (یکتاییِ GS1 همچنان در لایهٔ دیتابیس سراسری پابرجاست؛ اسکنِ gs1 رفتارِ خود را حفظ می‌کند.)
+        if (m.company_id !== companyId) continue;
         blocking.push({ kind: 'barcode', product_id: m.product_id, code: m.product_code ?? '', name: m.product_name ?? '' });
       }
     }
@@ -466,6 +470,21 @@ export class ProductMasterService {
     }
     if (dto.kind === 'gs1_itf14' && value.length !== 14) {
       throw new BadRequestException({ code: 'invalid_barcode', message_fa: 'ITF-14 باید ۱۴ رقم باشد.' });
+    }
+
+    // M1-B: برای internal/other، جلوگیریِ case-insensitive از تکرار در دامنهٔ شرکت.
+    // رفتارِ GS1 (digits-only + یکتاییِ سراسریِ exact) و cross-kind عمدی دست‌نخورده می‌ماند.
+    // محدودیتِ صریح: این بررسیِ application-level شکافِ TOCTOU/همزمانی را نمی‌بندد؛
+    // تضمینِ سخت فقط با ایندکسِ تابعیِ lower(barcode) (M1-C — نیازمند مجوزِ مهاجرت) حاصل می‌شود.
+    if (dto.kind === 'internal' || dto.kind === 'other') {
+      const existing = await this.repo.findInternalOtherBarcodeCi(companyId, value);
+      if (existing.length > 0) {
+        throw new ConflictException({
+          code: 'duplicate_barcode',
+          message_fa: 'این بارکد قبلاً ثبت شده است (یکتاییِ نوع‌محور: GS1 سراسری، داخلی در هر شرکت).',
+          details: { match: 'case_insensitive', kind: existing[0].kind },
+        });
+      }
     }
 
     // جلوگیری از برخوردِ سراسریِ look-up: بارکد نباید با کد/aliasِ نوعِ code هم‌ارز باشد (H-1)
