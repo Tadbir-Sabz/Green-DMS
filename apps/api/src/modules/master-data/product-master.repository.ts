@@ -154,7 +154,7 @@ export class ProductMasterRepository {
        union all
        select 'barcode', b.product_id, p.code, p.name
          from product_barcode b join product p on p.id = b.product_id
-        where b.company_id = $1 and b.barcode = $2 and p.deleted_at is null`,
+        where b.company_id = $1 and lower(b.barcode) = $2 and p.deleted_at is null`,
       [companyId, aliasNorm],
     );
     return rows;
@@ -453,13 +453,19 @@ export class ProductMasterRepository {
     );
   }
 
-  /** نام‌های دیگرِ همین مقدارِ بارکد (برای resolution چندپاسخی و برخورد) */
+  /**
+   * نام‌های دیگرِ همین مقدارِ بارکد (برای resolution چندپاسخی و برخورد)
+   * C14-I03: مقایسه case-insensitive (lower/lower) — همان الگوی findProductByCode.
+   * مقدارِ ذخیره‌شده دست‌نخورده می‌ماند (بدون مهاجرت). ایندکسِ تابعی برای یکتاییِ
+   * case-insensitive (مانندِ lower(barcode)/lower(code)) تصمیمِ مالک است و این کامیت
+   * هیچ مهاجرتی ندارد (همان جنسِ گیتِ D-C11-3/F-06 برای product.code).
+   */
   async findBarcodeMatches(barcodeNorm: string): Promise<BarcodeRow[]> {
     const { rows } = await this.pool.query<BarcodeRow>(
       `select b.id, b.company_id, b.product_id, b.packaging_id, b.barcode, b.kind, b.is_primary,
               p.code as product_code, p.name as product_name
          from product_barcode b join product p on p.id = b.product_id
-        where b.barcode = $1 and p.deleted_at is null`,
+        where lower(b.barcode) = lower($1) and p.deleted_at is null`,
       [barcodeNorm],
     );
     return rows;

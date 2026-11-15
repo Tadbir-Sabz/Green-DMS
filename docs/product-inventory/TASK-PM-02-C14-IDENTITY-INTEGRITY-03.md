@@ -171,3 +171,17 @@ D‑C11‑3 باز؛ هیچ migration/سیاست uniqueness تغییر نکرد�
 
 ## ۸) تصمیم‌های باز مالک (دست‌نخورده)
 D-C11-1 · D-C11-3 · D-C12-1 · D-C13-1 · POL-ALIAS-COMPANY-01 · POL-BARCODE-XKIND-01 · POL-PACKAGING-CANON-01 · مهاجرت legacy packaging · semantics preview/commit CSV (F-04) · index migration (F-06) · بازتولید Android client.
+
+---
+
+## ۹) تحویل (DELIVERY-01) — ۲۰۲۶-۱۱-۱۳ — این بخش §۷ را به‌روز می‌کند
+
+- **مجوز صریح مالک** برای: branch تحویلی + commit + push + یک Draft PR + بررسی CI (integration-db). merge/deploy همچنان **غیرمجاز** است؛ PR او #15 دست‌نخورده ماند.
+- **Branch تحویلی:** `task/pm-02-c14-identity-integrity-03` → **PR #16 (Draft، base `main`)** — https://github.com/Tadbir-Sabz/Green-DMS/pull/16
+- **خط C14 کامل است:** `5c16902` (IDENTITY-INTEGRITY-02) + `be5d0d8` (این remediation) + commitِ همین بخش (C14-I03 CI fix). base = `5c16902` که سرِ `task/pm-02-c14-identity-integrity-02` است (دست‌نخورده، force/push نشده).
+- **Gateهای این درخت:** unit ۵۶ فایل / ۹۴۴ pass / ۱ skipped · `tsc --noEmit` PASS · `npm run build` PASS · `openapi:check` PASS (229/324/233) · `contract-drift` ۰ · partition PASS.
+- **integration-db در CI روی `be5d0d8` اجرا شد و ۱ تست fail شد** (`product-master-identity-integrity.api.test.ts > اسکنِ بارکدِ internal با case متفاوت`): ریشهٔ نقص در `findBarcodeMatches` بود که مقایسهٔ barcode را exact (بدون `lower`) انجام می‌داد — درحالی‌که ذخیرهٔ مقدار حفظِ case است و resolve در کدِ کالا (`findProductByCode`) و diagnostics هردو lower/lower هستند. این با هدفِ IDENTITY-INTEGRITY-02 ناسازگار بود.
+- **fix باریک (C14-I03):** `findBarcodeMatches` → `lower(b.barcode) = lower($1)`؛ شاخهٔ barcode در `findAliasConflicts` → `lower(b.barcode) = $2` (طرفِ alias_norm از قبل lower است). هیچ migration، هیچ ایندکسِ تابعی، هیچ تغییرِ معناییِ ذخیره‌سازی اضافه نشد (همان گیتِ تصمیمِ مالک در جنسِ D-C11-3/F-06 برای product.code).
+- **نتیجهٔ اجرایِ CI روی SHA نهایی:** در PR #16 و Actions ثبت می‌شود؛ هرگز PASS ساختگی نیست. اگر هر job غیر از موردِ بالا باز هم fail شد ⇒ NOT READY.
+- **F-02 همچنان باز** — هیچ مهاجرتِ unique index / CITEXT / canonicalization اعمال نشد؛ D-C11-3 بدونِ تصمیم مالک بسته نمی‌شود.
+- **merge: NOT AUTHORIZED. deploy: NOT AUTHORIZED.** این سند Draft بودن PR را تأیید می‌کند؛ تصمیم‌گیری نهایی با مالک است.
