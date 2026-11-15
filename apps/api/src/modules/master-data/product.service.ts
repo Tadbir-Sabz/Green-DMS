@@ -130,7 +130,7 @@ export class ProductService {
       });
       return row;
     } catch (err) {
-      throw this.mapDbError(err, 'ساخت کالا');
+      throw this.mapDbError(err, { fa: 'ساخت کالا', slug: 'create' });
     }
 
  });
@@ -186,7 +186,13 @@ export class ProductService {
       }
     }
 
-    const row = await this.repo.update(companyId, id, dto, dto.row_version);
+    // نگاشت خطای DB مانند مسیرِ ساخت: هرگز 23505/23514/23503 خام به کلاینت نرسد.
+    let row: ProductRow | null;
+    try {
+      row = await this.repo.update(companyId, id, dto, dto.row_version);
+    } catch (err) {
+      throw this.mapDbError(err, { fa: 'ویرایش کالا', slug: 'update' });
+    }
     if (!row) {
       // فقط وقتی row_version فرستاده شده به اینجا می‌رسیم
       throw new ConflictException({
@@ -280,7 +286,7 @@ export class ProductService {
     }
   }
 
-  private mapDbError(err: unknown, action: string): Error {
+  private mapDbError(err: unknown, action: { fa: string; slug: string }): Error {
     const pgErr = err as { code?: string; constraint?: string };
     if (pgErr?.code === '23505' && pgErr.constraint === 'uq_product_code') {
       return new ConflictException({
@@ -307,8 +313,8 @@ export class ProductService {
       });
     }
     return new BadRequestException({
-      code: `${action}_failed`,
-      message_fa: 'خطای غیرمنتظره در ذخیره کالا.',
+      code: `${action.slug}_failed`,
+      message_fa: `خطای غیرمنتظره در ${action.fa}.`,
       details: { db_code: pgErr?.code },
     });
   }

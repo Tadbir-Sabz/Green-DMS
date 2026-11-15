@@ -7257,9 +7257,11 @@ components:
       type: object
       description: >
         فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال
-        می‌شوند (مغایرت = 409 version_conflict)
+        می‌شوند (مغایرت = 409 version_conflict).
+        کدِ SKU پس از ساخت تغییرناپذیر است: این قرارداد `code` را **تعریف
+        نمی‌کند** و هر درصدی از کلید `code` در بدنهٔ PATCH پیش از اعتبارسنجی
+        با 400 `code_immutable` رد می‌شود (هیچ تغییری اعمال نمی‌شود).
       properties:
-        code: { type: string }
         name: { type: string }
         name_latin: { type: [string, 'null'] }
         family_id: { type: [string, 'null'], format: uuid }

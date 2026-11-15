@@ -624,6 +624,15 @@ export class ProductMasterService {
       });
       rows.push(row);
       const rowNo = r + 1;
+      // D-C14-I03 — هم‌تراز با قراردادِ هویت (ساخت دستی رد می‌کند، CSV بی‌صدا trim
+      // نکند): اگر سلولِ خامِ کد فاصلهٔ ابتدا/انتها داشت، ردیف خطای invalid_code می‌گیرد.
+      const codeIdx = idx('code');
+      if (codeIdx >= 0) {
+        const rawCode = cells[codeIdx] ?? '';
+        if (rawCode !== rawCode.trim()) {
+          row_errors.push({ row: rowNo, code: 'invalid_code', message_fa: 'کد کالا نباید فاصلهٔ ابتدا/انتها داشته باشد.' });
+        }
+      }
 
       if (!row.name && !row.code) {
         row_errors.push({ row: rowNo, code: 'missing_identity', message_fa: 'ردیف نه «کد» دارد نه «نام».' });

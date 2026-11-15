@@ -3084,6 +3084,7 @@ export interface paths {
                 400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                /** @description کدِ صفت تکراری در شرکت → duplicate_attribute_code */
                 409: components["responses"]["Conflict"];
             };
         };
@@ -13471,9 +13472,8 @@ export interface components {
             weight_gr?: number | null;
             volume_cm3?: number | null;
         };
-        /** @description فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال می‌شوند (مغایرت = 409 version_conflict) */
+        /** @description فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال می‌شوند (مغایرت = 409 version_conflict). کدِ SKU پس از ساخت تغییرناپذیر است: این قرارداد `code` را **تعریف نمی‌کند** و هر درصدی از کلید `code` در بدنهٔ PATCH پیش از اعتبارسنجی با 400 `code_immutable` رد می‌شود (هیچ تغییری اعمال نمی‌شود). */
         ProductUpdate: {
-            code?: string;
             name?: string;
             name_latin?: string | null;
             /** Format: uuid */

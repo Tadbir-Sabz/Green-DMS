@@ -30,6 +30,7 @@ import {
   assessCrossType,
   gs1CheckDigitOk,
   foldUpcToEan,
+  foldDigitsKeepZeros,
   CROSS_TYPE_CONTRACT_VERSION,
   type CrossTypeRow,
   type CrossTypeFinding,
@@ -60,7 +61,7 @@ export type DiagnosticClassification =
   | 'packaging_canonical_drift' // ناهماهنگی مخزن legacy ↔ کانونی برای همان کالا/بسته‌بندی
   | 'invalid_barcode' // gs1 با طول/رقم کنترلی نامعتبر — تشخیص، نه ردِ داده
   | 'misclassified_gs1_like' // ارقامِ معتبرِ GTIN زیرِ kind غیر gs1 (internal/other)
-  | 'cross_company_allowed' // همان شناسه در شرکتِ دیگر — طبق مرز شرکت مجاز (پوشانده‌شده)
+  | 'cross_company_allowed' // فقط برچسبِ خودکارِ ALLOWED موتور برای «همان شناسه در شرکتِ دیگر» — **نه تأیید و نه تصمیم D-C12-1**؛ مقادیر پوشانده می‌مانند و داوری نهایی با مالک است
   | 'manual_review' // MANUAL_REVIEW/SOFT_CONFLICT موتور — تصمیمِ انسان
   | 'not_comparable'; // NOT_COMPARABLE موتور
 
@@ -163,7 +164,10 @@ function limitationsFor(f: CrossTypeFinding | null, synthetic: boolean, crossesD
   const out = ['diagnostics_only_no_enforcement'];
   if (synthetic) out.push('contains_synthetic_fixture_rows');
   if (crossesDomain) out.push('cross_domain_undecided_no_domain_registry_yet');
-  if (f?.scope.crosses_company) out.push('cross_company_values_redacted');
+  if (f?.scope.crosses_company) {
+    out.push('cross_company_values_redacted');
+    if (f.decision === 'ALLOWED') out.push('cross_company_allowed_is_label_not_owner_approval_d_c12_1_open');
+  }
   if (f) {
     if (!f.visible_under_current_constraints || f.visible_under_current_constraints === 'no') {
       out.push('not_visible_under_current_constraints');
@@ -193,6 +197,9 @@ export function classifyCrossTypeFinding(
 
   if (f.decision === 'NOT_COMPARABLE') return 'not_comparable';
   if (f.decision === 'ALLOWED') {
+    // برچسبِ «مجاز» فقط یعنی موتور(با قرارداد جاری) آن را مجاز دیده؛ هیچ تأییدی از
+    // طرفِ مالک نیست — D-C12-1 باز است. این برچسب هیچ مجوزی برای ادغام/افشای
+    // بین‌شرکتی نیست؛ صرفاً دسته‌بندیِ یافته برای بازبینی است.
     return crossesCompany ? 'cross_company_allowed' : 'exact_duplicate';
   }
   if (f.decision === 'MANUAL_REVIEW' || f.decision === 'SOFT_CONFLICT') return 'manual_review';
@@ -242,8 +249,14 @@ export function detectPackagingCanonicalDrift(
   const out: DiagnosticFinding[] = [];
   for (const [key, g] of [...groups.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
     if (g.legacy.length === 0) continue; // نبودنِ ردیف legacy مشکلی نیست (کانونی مسیرِ روبه‌جلو است)
+    // مانندِ gsSpace: ارقامِ فارسی/عربی اول به لاتین fold می‌شوند؛ وگرنه
+    // «۰۱۲۳…» و «0123…» کاندیدایِ driftِ کاذب می‌ساختند (F-03).
     const norm = (r: DiagnosticRow): string =>
-      foldUpcToEan(String(r.display_value).normalize('NFKC').replace(/[\s\u200B_.\-]+/g, '').toLowerCase());
+      foldUpcToEan(
+        foldDigitsKeepZeros(String(r.display_value).normalize('NFKC'))
+          .replace(/[\s\u200B_.\-]+/g, '')
+          .toLowerCase(),
+      );
     const legacySet = new Set(g.legacy.map(norm));
     const canonicalSet = new Set(g.canonical.map(norm));
     const same = legacySet.size === canonicalSet.size && [...legacySet].every((v) => canonicalSet.has(v));

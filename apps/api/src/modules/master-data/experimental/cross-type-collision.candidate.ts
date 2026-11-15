@@ -291,7 +291,7 @@ export function effectiveScope(row: Pick<CrossTypeRow, 'identity_type' | 'subtyp
 const SPACE_FAIL = (reason: string): SpaceResult => ({ ok: false, key: null, reason });
 
 /** ارقامِ فارسی/عربی → لاتین، با حفظِ صفرِ ابتدایی */
-function foldDigitsKeepZeros(s: string): string {
+export function foldDigitsKeepZeros(s: string): string {
   return s
     .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
     .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
@@ -300,11 +300,16 @@ function foldDigitsKeepZeros(s: string): string {
 /**
  * برگرداندنِ کلیدِ GS1 با تاکردنِ UPC-A → EAN-13.
  * «۰» ابتدایی به UPC اضافه می‌شود تا «012345678901» و «0012345678901» یکی شوند.
- * طولِ ۸/۱۲/۱۳/۱۴ به ترتیب EAN-8، UPC-A، EAN-13، ITF-14 (GTIN-14) است.
+ *
+ * رفتارِ واقعی (و نه چیزی بیشتر): فقط ورودیِ ۱۲ رقمی (پیشوند «0») و ۱۱ رقمی
+ * (پیشوند «00») تا می‌شود؛ هر طولِ دیگری عیناً برگردانده می‌شود. هیچ
+ * اعتبارسنجیِ طول (۸/۱۲/۱۳/۱۴) و هیچ بررسیِ رقم کنترلی در این تابع انجام
+ * نمی‌شود؛ آن کارِ لایهٔ data-quality و سیاستِ آینده (POL-GS1-CHECKDIGIT-01) است.
  */
 export function foldUpcToEan(digits: string): string {
   if (/^\d{12}$/.test(digits)) return `0${digits}`;
-  if (/^\d{11}$/.test(digits)) return `00${digits}`; // UPC-E فشرده‌شده نیست؛ فقط ۱۲ رقمی تا می‌شود
+  // ورودیِ ۱۱ رقمی هم به ۱۳ رقمی تا می‌شود؛ هیچ فشرده‌سازیِ UPC-E تفسیر نمی‌شود
+  if (/^\d{11}$/.test(digits)) return `00${digits}`;
   return digits;
 }
 

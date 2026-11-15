@@ -135,6 +135,30 @@ describe('CIDENT — انحرافِ legacy ↔ کنجالهٔ کانونی (pack
     expect(report.findings.filter((f) => f.rule_id === 'CIDENT-R-packaging-canonical-drift')).toHaveLength(0);
   });
 
+  it('ارقامِ فارسی/عربی در legacy در برابر لاتین در canonical ⇒ بدون یافتهٔ driftِ کاذب (F-03)', () => {
+    const report = diagnoseIdentityIntegrity([
+      row('p-fa', A, 'packaging_barcode', '۴۰۰۶۳۸۱۳۳۳۹۳۱', 'pp-fa', { packaging_id: 'pack-fa' }),
+      row('p-fa', A, 'barcode', '4006381333931', 'pb-fa', { subtype: 'other', packaging_id: 'pack-fa' }),
+    ]);
+    expect(report.findings.filter((f) => f.rule_id === 'CIDENT-R-packaging-canonical-drift')).toHaveLength(0);
+  });
+
+  it('ارقامِ عربیِ گسترده در legacy در برابر لاتین در canonical ⇒ بدون یافتهٔ driftِ کاذب (F-03)', () => {
+    const report = diagnoseIdentityIntegrity([
+      row('p-ar', A, 'packaging_barcode', '٤٠٠٦٣٨١٣٣٣٩٣١', 'pp-ar', { packaging_id: 'pack-ar' }),
+      row('p-ar', A, 'barcode', '4006381333931', 'pb-ar', { subtype: 'other', packaging_id: 'pack-ar' }),
+    ]);
+    expect(report.findings.filter((f) => f.rule_id === 'CIDENT-R-packaging-canonical-drift')).toHaveLength(0);
+  });
+
+  it('تفاوتِ واقعیِ ارقام همچنان drift اعلام می‌شود حتی با ارقامِ فارسی (F-03)', () => {
+    const report = diagnoseIdentityIntegrity([
+      row('p-real', A, 'packaging_barcode', '۴۰۰۶۳۸۱۳۳۳۹۳۲', 'pp-real', { packaging_id: 'pack-real' }),
+      row('p-real', A, 'barcode', '4006381333931', 'pb-real', { subtype: 'other', packaging_id: 'pack-real' }),
+    ]);
+    expect(report.findings.filter((f) => f.rule_id === 'CIDENT-R-packaging-canonical-drift')).toHaveLength(1);
+  });
+
   it('بارکدهای سطحِ کالا (packaging_id=null) برای drift جفت نمی‌شوند', () => {
     const report = diagnoseIdentityIntegrity([
       row('p-13', A, 'barcode', GTIN_VALID, 'pb-4', { subtype: 'internal', packaging_id: null }),
