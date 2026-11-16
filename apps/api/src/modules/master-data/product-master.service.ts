@@ -31,6 +31,12 @@ import type {
   FamilyRow,
 } from './product-master.repository';
 import { ProductMasterRepository } from './product-master.repository';
+import {
+  REQUIRED_ATTRIBUTE_MISSING_CODE,
+  findMissingRequiredAttributes,
+  readLifecycleEnforcementMode,
+} from './product-attribute-requirements';
+import { lookupImportCode } from './import-code-index';
 import type { RequestMeta } from '../../common/request-meta';
 import { OrderCreationLock } from '../sales/order-creation-lock';
 import {
@@ -145,6 +151,10 @@ export class ProductMasterService {
       const matches = await this.repo.findBarcodeMatches(normalizeBarcode(q.barcode));
       for (const m of matches) {
         if (m.product_id === q.product_id) continue;
+        // F-M1b: نتایجِ duplicate-check فقط دامنهٔ شرکتِ فراخوانده است.
+        // هیچ شناسه/نامِ کالا یا بارکدِ شرکتِ دیگر هرگز برگردانده نمی‌شود.
+        // (یکتاییِ GS1 همچنان در لایهٔ دیتابیس سراسری پابرجاست؛ اسکنِ gs1 رفتارِ خود را حفظ می‌کند.)
+        if (m.company_id !== companyId) continue;
         blocking.push({ kind: 'barcode', product_id: m.product_id, code: m.product_code ?? '', name: m.product_name ?? '' });
       }
     }
@@ -435,6 +445,14 @@ export class ProductMasterService {
     if (!value) {
       throw new BadRequestException({ code: 'invalid_barcode', message_fa: 'مقدارِ بارکد خالی است.' });
     }
+    // D-C14-I02: بارکد شناسهٔ ماشینی است — نویسه‌های کنترلی/نامرئی (ZWNJ/BOM/BIDI)
+    // غیرمجازند (وگرنه در اسکن هرگز resolve نمی‌شود و به‌سختی دیده می‌شود).
+    if (/[\p{Cc}\p{Cf}]/u.test(value)) {
+      throw new BadRequestException({
+        code: 'invalid_barcode',
+        message_fa: 'بارکد نباید شاملِ نویسه‌های کنترلی یا نامرئی (مانند نیم‌فاصله/BOM) باشد.',
+      });
+    }
     if (dto.kind.startsWith('gs1_') && !/^\d+$/.test(value)) {
       throw new BadRequestException({
         code: 'invalid_barcode',
@@ -452,6 +470,21 @@ export class ProductMasterService {
     }
     if (dto.kind === 'gs1_itf14' && value.length !== 14) {
       throw new BadRequestException({ code: 'invalid_barcode', message_fa: 'ITF-14 باید ۱۴ رقم باشد.' });
+    }
+
+    // M1-B: برای internal/other، جلوگیریِ case-insensitive از تکرار در دامنهٔ شرکت.
+    // رفتارِ GS1 (digits-only + یکتاییِ سراسریِ exact) و cross-kind عمدی دست‌نخورده می‌ماند.
+    // محدودیتِ صریح: این بررسیِ application-level شکافِ TOCTOU/همزمانی را نمی‌بندد؛
+    // تضمینِ سخت فقط با ایندکسِ تابعیِ lower(barcode) (M1-C — نیازمند مجوزِ مهاجرت) حاصل می‌شود.
+    if (dto.kind === 'internal' || dto.kind === 'other') {
+      const existing = await this.repo.findInternalOtherBarcodeCi(companyId, value);
+      if (existing.length > 0) {
+        throw new ConflictException({
+          code: 'duplicate_barcode',
+          message_fa: 'این بارکد قبلاً ثبت شده است (یکتاییِ نوع‌محور: GS1 سراسری، داخلی در هر شرکت).',
+          details: { match: 'case_insensitive', kind: existing[0].kind },
+        });
+      }
     }
 
     // جلوگیری از برخوردِ سراسریِ look-up: بارکد نباید با کد/aliasِ نوعِ code هم‌ارز باشد (H-1)
@@ -610,17 +643,32 @@ export class ProductMasterService {
       });
       rows.push(row);
       const rowNo = r + 1;
+      // D-C14-I03 — هم‌تراز با قراردادِ هویت (ساخت دستی رد می‌کند، CSV بی‌صدا trim
+      // نکند): اگر سلولِ خامِ کد فاصلهٔ ابتدا/انتها داشت، ردیف خطای invalid_code می‌گیرد.
+      const codeIdx = idx('code');
+      if (codeIdx >= 0) {
+        const rawCode = cells[codeIdx] ?? '';
+        if (rawCode !== rawCode.trim()) {
+          row_errors.push({ row: rowNo, code: 'invalid_code', message_fa: 'کد کالا نباید فاصلهٔ ابتدا/انتها داشته باشد.' });
+        }
+      }
 
       if (!row.name && !row.code) {
         row_errors.push({ row: rowNo, code: 'missing_identity', message_fa: 'ردیف نه «کد» دارد نه «نام».' });
         continue;
       }
+      if (row.code && /[\p{Cc}\p{Cf}]/u.test(row.code)) {
+        row_errors.push({ row: rowNo, code: 'invalid_code', message_fa: 'کد کالا نباید شاملِ نویسه‌های کنترلی یا نامرئی باشد.' });
+      }
       if (row.code) {
-        const prev = seenCodes.get(row.code);
+        // D-C14-I02: کلیدِ مقایسهٔ درون‌فایلی نیز lower() است — «SKU-9» و «sku-9»
+        // یک هویت محسوب می‌شوند (همان قراردادِ لایهٔ اپلیکیشن).
+        const key = row.code.toLowerCase();
+        const prev = seenCodes.get(key);
         if (prev) {
           row_errors.push({ row: rowNo, code: 'duplicate_in_file', message_fa: `کدِ «${row.code}» در ردیفِ ${prev} هم آمده است.` });
         }
-        seenCodes.set(row.code, rowNo);
+        seenCodes.set(key, rowNo);
       }
       if (row.min_order_qty && Number.isNaN(Number(foldDigits(row.min_order_qty)))) {
         row_errors.push({ row: rowNo, code: 'invalid_number', message_fa: 'حداقلِ سفارش باید عدد باشد.' });
@@ -738,6 +786,33 @@ export class ProductMasterService {
           this.repo.getProductsForImport(companyId, codes),
           this.repo.listImportBatches(companyId, importId),
         ]);
+        // D4 — صفات الزامی در ردیف‌های سازنده (فقط با PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce؛
+        // پیش‌فرض off). CSV مقادیر صفات را حمل نمی‌کند؛ بنابراین در حالت enforce ردیف‌های
+        // سازندهٔ کالای جدید row-addressable رد می‌شوند (همان قراردادِ row_errors)؛
+        // all-or-nothing هر دسته، continue-after-error (§E) و idempotency دست‌نخورده می‌مانند.
+        if (readLifecycleEnforcementMode() === 'enforce' && dto.mode !== 'update') {
+          const requiredDefs = await this.repo.listRequiredAttributeDefs(companyId);
+          if (requiredDefs.length > 0) {
+            const missing = findMissingRequiredAttributes(requiredDefs, new Set<string>());
+            const first = missing[0];
+            const extra = missing.length > 1 ? ` (+${missing.length - 1} صفتِ الزامیِ دیگر)` : '';
+            for (let i = 0; i < validated.rows.length; i += 1) {
+              const rowNo = i + 2;
+              if (validationErrorsByRow.has(rowNo)) continue;
+              const row = validated.rows[i];
+              const existingId = lookupImportCode(existingByCode, row.code)?.id ?? null;
+              if (existingId) continue; // کالای موجود: مقادیرش دست‌نخورده می‌ماند (grandfather)
+              const list = validationErrorsByRow.get(rowNo) ?? [];
+              list.push({
+                row: rowNo,
+                code: REQUIRED_ATTRIBUTE_MISSING_CODE,
+                message_fa: `کالای جدید بدون صفات الزامی ساخته نمی‌شود؛ صفتِ الزامی: «${first.title}»${extra} (PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce).`,
+              });
+              validationErrorsByRow.set(rowNo, list);
+            }
+          }
+        }
+
         const storedBatches = Array.isArray(storedBatchesRaw)
           ? storedBatchesRaw
             .map((raw) => normalizeBatchOutcome(raw, importId))
@@ -867,11 +942,13 @@ export class ProductMasterService {
     } = args;
     const batchRows = new Map<number, Record<string, string>>();
     for (let i = 0; i < batch.length; i += 1) batchRows.set(start + i + 2, batch[i]);
-    const productContext = (row: Record<string, string>): { product_code?: string; product_id?: string } => ({
-      ...(row.code ? { product_code: row.code } : {}),
-      ...(existingByCode.get(row.code ?? '')?.id
-        ? { product_id: existingByCode.get(row.code ?? '')!.id } : {}),
-    });
+    const productContext = (row: Record<string, string>): { product_code?: string; product_id?: string } => {
+      const found = lookupImportCode(existingByCode, row.code);
+      return {
+        ...(row.code ? { product_code: row.code } : {}),
+        ...(found ? { product_id: found.id } : {}),
+      };
+    };
 
     const validationIssues: ImportIssue[] = [];
     const validationFailedRows = new Set<number>();
@@ -913,7 +990,7 @@ export class ProductMasterService {
         batchError = { row: rowNo, code: 'unknown_tax_code', message_fa: `کدِ مالیاتیِ «${row.tax_code}» یافت نشد.` };
         break;
       }
-      const existingId = row.code ? existingByCode.get(row.code)?.id ?? null : null;
+      const existingId = lookupImportCode(existingByCode, row.code)?.id ?? null;
       if (dto.mode === 'create' && existingId) {
         batchError = { row: rowNo, code: 'duplicate_code', message_fa: `کدِ «${row.code}» قبلاً ثبت شده است (mode=create).` };
         break;
@@ -1008,7 +1085,7 @@ export class ProductMasterService {
             productCode: string;
           }[] = [];
           for (const p of prepared) {
-            const before = current.get(p.row.code);
+            const before = lookupImportCode(current, p.row.code);
             if (dto.mode === 'create' && before) {
               throw new ConflictException({
                 code: 'duplicate_code',

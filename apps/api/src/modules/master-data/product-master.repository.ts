@@ -1,4 +1,5 @@
 import { catalogTransaction } from './catalog-access.service';
+import { buildImportCodeIndex, type ImportCodeIndex } from './import-code-index';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
@@ -153,7 +154,7 @@ export class ProductMasterRepository {
        union all
        select 'barcode', b.product_id, p.code, p.name
          from product_barcode b join product p on p.id = b.product_id
-        where b.company_id = $1 and b.barcode = $2 and p.deleted_at is null`,
+        where b.company_id = $1 and lower(b.barcode) = $2 and p.deleted_at is null`,
       [companyId, aliasNorm],
     );
     return rows;
@@ -233,6 +234,33 @@ export class ProductMasterRepository {
       [productId],
     );
     return rows;
+  }
+
+  /**
+   * TASK-PM-02-C14 (D4 lifecycle validator) — فقط خواندنی.
+   * تعریف‌های الزامیِ شرکت با ترتیبِ قطعی (code، id).
+   */
+  async listRequiredAttributeDefs(companyId: string): Promise<AttributeDefRow[]> {
+    const { rows } = await this.pool.query<AttributeDefRow>(
+      `select id, code, title, kind, is_variant_axis, is_required, sort_order
+         from product_attribute_def
+        where company_id = $1 and is_required = true
+        order by code, id`,
+      [companyId],
+    );
+    return rows;
+  }
+
+  /** def_idهای دارای مقدار برای یک کالا در همین شرکت (وضعیتِ نهاییِ مقادیر). */
+  async listPresentAttributeDefIds(companyId: string, productId: string): Promise<string[]> {
+    const { rows } = await this.pool.query<{ def_id: string }>(
+      `select distinct v.def_id
+         from product_attribute_value v
+         join product p on p.id = v.product_id and p.company_id = $1 and p.deleted_at is null
+        where v.product_id = $2`,
+      [companyId, productId],
+    );
+    return rows.map((r) => r.def_id);
   }
 
   async upsertAttributeValue(v: {
@@ -425,13 +453,49 @@ export class ProductMasterRepository {
     );
   }
 
-  /** نام‌های دیگرِ همین مقدارِ بارکد (برای resolution چندپاسخی و برخورد) */
+  /**
+   * M1-B: تطبیقِ case-insensitive برای بارکدهای internal/other در دامنهٔ شرکتِ فراخوانده.
+   * عمداً روی `product_barcode` بدون join به `product` اجرا می‌شود تا با معناشناسیِ
+   * یکتاییِ exact (uq_product_barcode_internal/uq_product_barcode_product_value —
+   * که deleted_at را در نظر نمی‌گیرند) هم‌تراز بماند.
+   * توجه: این بررسیِ application-level است و شکافِ TOCTOU/همزمانی را نمی‌بندد؛
+   * تضمینِ سخت فقط با ایندکسِ تابعیِ lower(barcode) (M1-C، نیازمند مجوزِ مهاجرت) ممکن است.
+   */
+  async findInternalOtherBarcodeCi(
+    companyId: string,
+    barcodeNorm: string,
+  ): Promise<{ id: string; product_id: string; kind: string; barcode: string }[]> {
+    const { rows } = await this.pool.query<{ id: string; product_id: string; kind: string; barcode: string }>(
+      `select id, product_id, kind, barcode
+         from product_barcode
+        where company_id = $1 and kind in ('internal', 'other') and lower(barcode) = lower($2)`,
+      [companyId, barcodeNorm],
+    );
+    return rows;
+  }
+
+  /**
+   * نام‌های دیگرِ همین مقدارِ بارکد (برای resolution چندپاسخی و برخورد)
+   * C14-I03: مقایسه case-insensitive (lower/lower) — همان الگوی findProductByCode.
+   * مقدارِ ذخیره‌شده دست‌نخورده می‌ماند (بدون مهاجرت). ایندکسِ تابعی برای یکتاییِ
+   * case-insensitive (مانندِ lower(barcode)/lower(code)) تصمیمِ مالک است و این کامیت
+   * هیچ مهاجرتی ندارد (همان جنسِ گیتِ D-C11-3/F-06 برای product.code).
+   *
+   * نکتهٔ کارایی (REVIEW-01/LOW-4): `lower(b.barcode)` با `ix_product_barcode_lookup`
+   * (ایندکسِ ستونِ خام) و با `uq_product_barcode_*` (هم‌سنجیِ exact) سازگار نیست و
+   * در حجم بالا seq scan می‌سازد. ایندکسِ تابعیِ `lower(barcode)` یک بهینه‌سازیِ
+   * آتی است و **فقط با تأییدِ مالک (migration)** ممکن است — این کامیت آن را
+   * نمی‌سازد و هیچ D*‑ای را تأییدشده تلقی نمی‌کند. تفکیکِ صریحِ سه مفهوم:
+   *   (الف) درستیِ lookup نامحسوس به case — رفتارِ فعلی، بدون تغییر؛
+   *   (ب) الزامِ یکتاییِ نامحسوس به case — نیازمند migration (تصمیمِ مالک؛ انجام‌نشده)؛
+   *   (ج) کاراییِ query — فقط ایندکسِ تابعی، که همان migration است (تصمیمِ مالک).
+   */
   async findBarcodeMatches(barcodeNorm: string): Promise<BarcodeRow[]> {
     const { rows } = await this.pool.query<BarcodeRow>(
       `select b.id, b.company_id, b.product_id, b.packaging_id, b.barcode, b.kind, b.is_primary,
               p.code as product_code, p.name as product_name
          from product_barcode b join product p on p.id = b.product_id
-        where b.barcode = $1 and p.deleted_at is null`,
+        where lower(b.barcode) = lower($1) and p.deleted_at is null`,
       [barcodeNorm],
     );
     return rows;
@@ -765,37 +829,37 @@ export class ProductMasterRepository {
 
   async productCodeExists(companyId: string, code: string): Promise<boolean> {
     const { rows } = await this.pool.query(
-      'select 1 from product where company_id = $1 and deleted_at is null and code = $2',
+      'select 1 from product where company_id = $1 and deleted_at is null and lower(code) = lower($2)',
       [companyId, code],
     );
     return rows.length > 0;
   }
 
-  /** Pre-transaction lookup; no row lock is claimed here. */
-  async getProductsForImport(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
-    const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
-    if (codes.length === 0) return map;
+  /**
+   * Pre-transaction lookup; no row lock is claimed here.
+   * TASK-PM-02-C14-IDENTITY-INTEGRITY-02: کلیدهای شاخص `lower(code)` هستند تا
+   * با resolve همهٔ لایهٔ اپلیکیشن (و اسکن) هم‌خوان باشد؛ قید DB دست‌نخورده می‌ماند.
+   */
+  async getProductsForImport(companyId: string, codes: string[]): Promise<ImportCodeIndex> {
+    if (codes.length === 0) return buildImportCodeIndex([]);
     const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
-      'select id, code, status, base_uom_id, tax_code_id from product where company_id = $1 and deleted_at is null and code = any($2::text[])',
-      [companyId, codes],
+      'select id, code, status, base_uom_id, tax_code_id from product where company_id = $1 and deleted_at is null and lower(code) = any($2::text[]) order by code',
+      [companyId, codes.map((c) => c.toLowerCase())],
     );
-    for (const r of rows) map.set(r.code, r);
-    return map;
+    return buildImportCodeIndex(rows);
   }
 
   /** Transaction-local recheck with deterministic row locks for conflicting imports. */
-  async getProductsForImportTx(companyId: string, codes: string[]): Promise<Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>> {
-    const map = new Map<string, { id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>();
-    if (codes.length === 0) return map;
+  async getProductsForImportTx(companyId: string, codes: string[]): Promise<ImportCodeIndex> {
+    if (codes.length === 0) return buildImportCodeIndex([]);
     const { rows } = await this.pool.query<{ id: string; code: string; status: string; base_uom_id: string; tax_code_id: string | null }>(
       `select id, code, status, base_uom_id, tax_code_id
          from product
-        where company_id = $1 and deleted_at is null and code = any($2::text[])
+        where company_id = $1 and deleted_at is null and lower(code) = any($2::text[])
         order by code
         for update`,
-      [companyId, codes],
+      [companyId, codes.map((c) => c.toLowerCase())],
     );
-    for (const r of rows) map.set(r.code, r);
-    return map;
+    return buildImportCodeIndex(rows);
   }
 }

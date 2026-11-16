@@ -23,6 +23,7 @@ import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 import { DomainBoundaryGuard } from './domain-boundary.guard';
+import { SkuImmutableGuard } from './sku-immutable.guard';
 
 /**
  * CRUD کالا — GET/POST /products و GET/PATCH/DELETE /products/{id}
@@ -79,7 +80,7 @@ export class ProductController {
 
   @Patch(':id')
   @RequirePermissions('master.product.update')
-  @UseGuards(DomainBoundaryGuard)
+  @UseGuards(DomainBoundaryGuard, SkuImmutableGuard)
   update(
     @Param('id') id: string,
     @Body() dto: UpdateProductDto,

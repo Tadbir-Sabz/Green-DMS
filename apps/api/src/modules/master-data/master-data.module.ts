@@ -3,6 +3,7 @@ import { ProductPackagingService } from './product-packaging.service';
 import { CatalogAccess } from './catalog-access.service';
 import { DomainCatalogGate } from './domain-catalog.contract';
 import { DomainBoundaryGuard } from './domain-boundary.guard';
+import { SkuImmutableGuard } from './sku-immutable.guard';
 import { ProductDomainScopeController } from './product-domain-scope.controller';
 import { ProductDomainScopeService } from './product-domain-scope.service';
 // TASK-PM-02-C5: centralized, read/transition-only central product lifecycle.
@@ -106,6 +107,7 @@ import {
     OrderCreationLock,
     DomainCatalogGate,
     DomainBoundaryGuard,
+    SkuImmutableGuard,
     ProductDomainScopeService,
     ProductLifecycleService,
     ProductRelationsService,

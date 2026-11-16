@@ -1,0 +1,205 @@
+{
+  "schema_version": "c13b.1",
+  "task": "TASK-PM-02-C13B",
+  "evidence_kind": "shadow_assessment",
+  "data_classification": "SYNTHETIC",
+  "synthetic": true,
+  "contains_organizational_data": false,
+  "redaction_enforced": true,
+  "assessment_id": "C13B-781e7bb5",
+  "generated_at_iso": "2026-11-13T20:13:44.493Z",
+  "source": {
+    "kind": "synthetic",
+    "identity": "disposable-synthetic-ee01",
+    "snapshot_ts_iso": "2026-11-13T20:00:00.000Z",
+    "engine_version": "unknown",
+    "schema_migration": "0065",
+    "migration_source": "fixture",
+    "record_counts": {
+      "company": 2,
+      "product": 7,
+      "product_category": 2,
+      "product_family": 2,
+      "product_alias": 4,
+      "product_barcode": 10,
+      "product_packaging": 6
+    },
+    "freshness_seconds": null,
+    "provenance": "disposable-synthetic-fixture:c13-ee01 (synthetic data; not organizational)",
+    "owner_ref": null,
+    "assessment_mode": "SYNTHETIC_FIXTURE"
+  },
+  "authorization": null,
+  "completeness": {
+    "rows_in": 43,
+    "rows_valid": 43,
+    "rows_invalid": 0,
+    "duplicates_suppressed": 0,
+    "by_type": {
+      "product_code": 7,
+      "product_name": 7,
+      "product_name_latin": 3,
+      "variant_signature": 2,
+      "family_code": 2,
+      "category_code": 2,
+      "alias": 4,
+      "barcode": 10,
+      "packaging_barcode": 6
+    },
+    "expected_identity_types": [
+      "product_code",
+      "product_name",
+      "product_name_latin",
+      "family_code",
+      "category_code",
+      "variant_signature",
+      "alias",
+      "barcode",
+      "packaging_barcode"
+    ],
+    "present_identity_types": [
+      "product_code",
+      "product_name",
+      "product_name_latin",
+      "family_code",
+      "category_code",
+      "variant_signature",
+      "alias",
+      "barcode",
+      "packaging_barcode"
+    ],
+    "missing_identity_types": [],
+    "complete": true,
+    "warnings_fa": []
+  },
+  "observed": {
+    "contract_version": "c13xt.1",
+    "findings_total": 50,
+    "by_decision": {
+      "MANUAL_REVIEW": 15,
+      "SOFT_CONFLICT": 2,
+      "HARD_CONFLICT": 23,
+      "NOT_COMPARABLE": 10
+    },
+    "by_rule": {
+      "C13X-R-pc-fc": 1,
+      "C13X-R-pn-al": 1,
+      "C13X-R-fc-pb": 1,
+      "C13X-R-fc-al": 1,
+      "C13X-R-bc-pb": 5,
+      "C13X-R-pn-bc": 3,
+      "C13X-R-pnl-bc": 3,
+      "C13X-R-al-bc": 4,
+      "C13X-R-vs-bc": 2,
+      "C13X-R-cc-bc": 3,
+      "C13X-R-cc-al": 1,
+      "C13X-R-bc-bc": 3,
+      "C13X-R-pc-pn": 1,
+      "C13X-R-pc-pc": 1,
+      "C13X-R-pc-pb": 2,
+      "C13X-R-al-pb": 2,
+      "C13X-R-pc-bc": 4,
+      "C13X-R-pn-pb": 1,
+      "C13X-R-pc-al": 2,
+      "C13X-R-pc-cc": 1,
+      "C13X-R-cc-pb": 1,
+      "C13X-R-fc-bc": 3,
+      "C13X-R-pnl-pb": 1,
+      "C13X-R-pb-pb": 1,
+      "C13X-R-pc-pnl": 1,
+      "C13X-R-pnl-al": 1
+    },
+    "by_space": {
+      "alnum": 8,
+      "text": 2,
+      "scan_pad": 37,
+      "exact": 2,
+      "field": 1
+    },
+    "by_type_pair": {
+      "product_code": 8,
+      "alias": 7,
+      "packaging_barcode": 7,
+      "barcode": 25,
+      "barcode~packaging_barcode": 3
+    },
+    "by_company": {
+      "synth-company-1": 40,
+      "*": 10
+    },
+    "cross_company_findings": 10,
+    "data_quality_findings": 7,
+    "content_fingerprint": "fp-4005d7ec97081091"
+  },
+  "simulated_policies": {
+    "note_fa": "این بخش **فرضی** است: هیچ قیدی اعمال نمی‌شود و هر «نقض» نیازمندِ تصمیمِ صریحِ مالک (D-C13X-1..3) است. «would_violate» به‌معنایِ خطای سیستم نیست.",
+    "would_block_on_today_data": true,
+    "policies": [
+      {
+        "policy_id": "POL-CODE-CI-01",
+        "decision_ref": "D-C11-3",
+        "findings": 1,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-ALIAS-COMPANY-01",
+        "decision_ref": "D-C12-3",
+        "findings": 0,
+        "would_violate": false
+      },
+      {
+        "policy_id": "POL-BARCODE-XKIND-01",
+        "decision_ref": "D-C13X-1",
+        "findings": 4,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-UPC-EAN-PAD-01",
+        "decision_ref": "D-C13X-2",
+        "findings": 1,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-GS1-CHECKDIGIT-01",
+        "decision_ref": "D-C11-1",
+        "findings": 1,
+        "would_violate": true
+      },
+      {
+        "policy_id": "POL-PACKAGING-CANON-01",
+        "decision_ref": "D-C13X-3",
+        "findings": 8,
+        "would_violate": true
+      }
+    ],
+    "findings_total": 15,
+    "content_fingerprint": "fp-76322bed"
+  },
+  "scan_resolution_shadow": {
+    "shadow_findings": 2,
+    "shadowed_parties": 3,
+    "content_fingerprint": "955dccb41d3d4181a9277cd2375cb2c7bff31d6c71102af36b7fc7d971cae2f0"
+  },
+  "verdict": {
+    "outcome": "FINDINGS_PRESENT",
+    "zero_findings_is_not_proof_of_absence": true,
+    "real_data_status": "UNVERIFIED — SYNTHETIC ONLY",
+    "explanation_fa": "یافته‌هایی تولید شد؛ هرکدام فقط بر پایهٔ همین snapshot است و هیچ اقدامِ خودکاری روی داده اعمال نمی‌شود."
+  },
+  "execution": {
+    "duration_ms": null,
+    "runtime": {
+      "node": "v22.22.3",
+      "platform": "linux"
+    }
+  },
+  "reproducibility": {
+    "contract_versions": {
+      "cross_type": "c13xt.1",
+      "underlying_comparison": "c13.1",
+      "underlying_normalization": "c11.1"
+    },
+    "input_fingerprint": "781e7bb56a9e7a96b63c72c4cd51dc763a20bff6ff2636540fdbc92c5565b274",
+    "evidence_fingerprint": "324c6f33bbde32f972c2c6311b1642ddba64834edd2ee784298132163a52240d"
+  }
+}

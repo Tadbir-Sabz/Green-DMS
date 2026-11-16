@@ -51,8 +51,9 @@ export interface ListProductsResult {
 }
 
 /** ستون‌های قابل نوشتن در UPDATE — هرگز نام ستون از بیرون نمی‌آید (مصون از injection) */
+// TASK-PM-02-C14-IDENTITY-INTEGRITY-03: «code» عمداً از فیلدهای نوشتنی حذف شد —
+// SKU پس از ساخت تغییرناپذیر است (SkuImmutableGuard + OmitType).
 const UPDATABLE: (keyof ProductRow)[] = [
-  'code',
   'name',
   'name_latin',
   'family_id',
