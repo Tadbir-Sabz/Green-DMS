@@ -511,8 +511,8 @@ describe('RT — جریان کامل /returns', () => {
   });
 });
 
-describe('RT — 422 rule_rejected (TASK-P4-R)', () => {
-  it('دریافت با qty بیش از مقدار درخواستی 422 و هیچ چیزی پُست نمی‌شود', async () => {
+describe('RT — 400 qty_exceeds_requested (TASK-P4-R-HARDEN)', () => {
+  it('دریافت با qty بیش از مقدار درخواستی 400 و هیچ چیزی پُست نمی‌شود', async () => {
     const created = await api()
       .post('/api/v1/returns')
       .send({
@@ -526,9 +526,11 @@ describe('RT — 422 rule_rejected (TASK-P4-R)', () => {
     const res = await api()
       .post(`/api/v1/returns/${created.body.id}/receive`)
       .send({ lines: [{ product_id: productId, qty: 999, disposition: 'restock' }] })
-      .expect(422);
-    expectBodyMatchesSchema('post', '/returns/{id}/receive', 422, res.body);
-    expect(res.body.code).toBe('rule_rejected');
+      .expect(400);
+    expectBodyMatchesSchema('post', '/returns/{id}/receive', 400, res.body);
+    expect(res.body.code).toBe('qty_exceeds_requested');
+    expect(res.body.details?.requested).toBe(1);
+    expect(res.body.details?.submitted).toBe(999);
 
     // اتمیک است: وضعیت همچنان approved و هیچ حرکت موجودی‌ای ثبت نشده
     const after = await api().get(`/api/v1/returns/${created.body.id}`).expect(200);

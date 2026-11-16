@@ -4,7 +4,12 @@ import type { Pool, QueryResultRow } from 'pg';
 import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import type { CreateReturnDto, ReceiveReturnDto } from './return.dto';
-import { planReturnPostings, type BranchWarehouseRow } from './return-resolution';
+import {
+  assertReceiveEligibility,
+  planReturnPostings,
+  type BranchWarehouseRow,
+  type StoredReceiveLine,
+} from './return-resolution';
 
 export interface ReturnRow extends QueryResultRow {
   id: string;
@@ -207,11 +212,19 @@ export class ReturnRepository {
         `select id, kind, is_active, code from warehouse where branch_id = $1`,
         [branchId],
       );
-      const storedLines = await client.query<{ product_id: string; batch_id: string | null } & QueryResultRow>(
-        `select product_id, batch_id from return_request_line where return_request_id = $1`,
+      const storedLines = await client.query<
+        (StoredReceiveLine & { batch_id: string | null }) & QueryResultRow
+      >(
+        `select product_id, qty::float8 as qty, qty_approved::float8 as qty_approved, batch_id
+           from return_request_line
+          where return_request_id = $1`,
         [id],
       );
       const batchByProduct = new Map(storedLines.rows.map((r) => [r.product_id, r.batch_id]));
+
+      // اعتبارسنجیِ کاملِ پوشش خطوط داخلِ همان تراکنش و پیش از هر نوشتنِ خط —
+      // رد ⇒ rollback کامل (سرخط، خطوط و دفتر موجودی). هیچ «نصفه» posted نمی‌شود.
+      assertReceiveEligibility(storedLines.rows, dto.lines);
 
       // تکلیف هر قلم قبل از هر نوشتنِ واگردنی برنامه‌ریزی می‌شود (خطا ⇒ rollback)
       const postings = planReturnPostings({
@@ -227,14 +240,15 @@ export class ReturnRepository {
 
       const lineIds = new Map<string, string>();
       for (const line of dto.lines) {
+        // هر خط دقیقاً یک‌بار: qty_approved هنوز NULL است (eligibility بالا تضمین می‌کند)
         const updated = await client.query<{ id: string } & QueryResultRow>(
           `update return_request_line
              set qty_approved = $3, disposition = $4
-            where return_request_id = $1 and product_id = $2
+            where return_request_id = $1 and product_id = $2 and qty_approved is null
             returning id`,
           [id, line.product_id, line.qty, line.disposition],
         );
-        if (updated.rowCount === 0) {
+        if (updated.rowCount !== 1) {
           await client.query('rollback');
           return false;
         }

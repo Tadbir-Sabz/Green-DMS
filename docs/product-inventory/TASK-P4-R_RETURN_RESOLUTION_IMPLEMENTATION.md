@@ -71,3 +71,90 @@
 ## ۶) تصمیماتِ مالک لازم
 
 هیچ‌کدام برای این برش. (G-05 و اتصالِ credit_note در صورت انتخاب، نیازمندِ تصمیمِ مالک خواهند بود.)
+
+---
+
+# ضمیمه TASK-P4-R-HARDEN — سخت‌سازیِ برشِ receive (قبل از بازبینیِ مالک)
+
+> این ضمیمه نتیجهٔ بررسیِ پیش‌از-بازبینی است؛ جایگزینِ متن‌های «422» در بالا می‌شود.
+> هیچ بازطراحیِ جریانِ مرجوعی انجام نشد؛ فقط یافته‌های verified اصلاح شدند.
+
+## H-1) ریشه‌علت‌ها و اصلاحات
+
+1. **قلم تکراری در ورودی ⇒ دو posting برای یک خط.** `planReturnPostings` روی آرایهٔ
+   خطوط می‌چرخید و هر ردیف را پُست می‌کرد؛ سرویس هم `lines` را بدونِ چکِ تکرار رد می‌کرد.
+   **اصلاح:** `findDuplicateIds` در هر دو لایه — سرویس (create ⇒ `400 duplicate_line`)
+   و برنامه‌ریز خالص (دفاعی پنل: هرگز دو posting برای یک `product_id`).
+   `assertReceiveEligibility` هم در مخزن (داخلِ تراکنش، پیش از هر نوشتن) تکراری بودنِ
+   ورودی را `400 duplicate_line` رد می‌کند. دادهٔ ذخیره‌شدهٔ تکراری (دو ردیف یک کالا در
+   `return_request_line`) ⇒ `409 duplicate_stored_lines` (fail-closed؛ مشکلِ داده است، نه کاربر).
+2. **پوشش ناقصِ خطوط / «نصفهٔ» posted.** هیچ بررسی‌ای نبود که همهٔ خطوط قابلِ resolve در
+   receive پوشش داده شوند؛ خط معتبر + خط جاافتاده ⇒ فقط خط معتبر پُست و سند posted می‌شد.
+   **اصلاح:** «فعّال» = `qty_approved IS NULL` (چرخهٔ `partially_approved`). receive باید
+   **همهٔ** خطوط فعّال را پوشش دهد؛ در غیرِ این صورت `400 incomplete_lines` با
+   `details.missing_product_ids`. دریافتِ جزئی (partial shipment) **عمداً پشتیبانی نمی‌شود**
+   — نه در مدل فعلی و نه در رودمپ؛ وضعیتِ جدیدی اختراع نشد.
+   - قلم ارسالی ناموجود ⇒ `400 line_not_found`
+   - قلم قبلاً حل‌شده در ورودی ⇒ `400 line_already_resolved`
+   - همهٔ خطوط قبلاً حل شده ⇒ `409 nothing_to_receive`
+   - ورودی خالی ⇒ `400 lines_required`
+   - `qty <= 0` ⇒ `400 invalid_qty`؛ `qty > qty ثبت‌شده` ⇒ `400 qty_exceeds_requested`
+     (با `details.requested`/`details.submitted`؛ قیدِ `ck_return_line_approved` فقط بکاپ است
+     و `23514` اکنون `400 check_violation` نگاشت می‌شود — **نه** `422 rule_rejected`).
+   - «یک خط ذخیره‌شده ⇒ حداکثر یک posting»: خط‌ها با `qty_approved is null` در UPDATE
+     شرط می‌شوند؛ `rowCount ≠ 1` ⇒ کل تراکنش rollback می‌شود.
+3. **اتمیک بودن حفظ شد و تقویت شد:** همهٔ بررسی‌ها داخلِ همان تراکنشند که سرخط را به
+   `posted` می‌برد؛ هر رد ⇒ rollbackِ سرخط + خطوط + دفتر. double-receive همچنان
+   `409 invalid_transition`. ردیف خط دقیقاً یک‌بار به‌روز می‌شود.
+4. **قرارداد:** پاسخ `422` از receive حذف شد؛ receive فقط `400/401/403/404/409` دارد.
+   کدهای جدید در توضیحاتِ Error مستند شدند (`details` اختیاری است؛ schema تغییری نکرد).
+   کلاینت TS بازتولید شد؛ کلاینت Kotlin دستگاه/وضعیت‌کد نمی‌خواند (خطای ۴xx از راه exception
+   با بدنهٔ `Error` مدیریت می‌شود) و از این تغییر اثرش صفر است.
+
+## H-2) معنای `approved` و `partially_approved`
+
+`approved` = همهٔ خطوط تأیید شده و هیچ‌کدام تعیین تکلیف (qty_approved) نشده‌اند.
+`partially_approved` = وضعیتِ چرخهٔ نیمه‌حل‌شده در مدل وضعیت (از `0010`)؛ **هیچ مسیرِ
+برنامه‌ای‌ای آن را تولید نمی‌کند** (receive همیشه posted و approve همیشه approved می‌سازد)؛
+وجودش legacy/ground-model است و receive باید آن را درست بخواند: خطوط با
+`qty_approved IS NULL` فعّال‌اند و باید همه پوشش داده شوند؛ خطوط حل‌شده دیگر قابلِ لمس نیستند.
+رکوردِ receive روی partially_approved فقط باقیمانده‌ها را می‌بندد و سند را posted می‌کند.
+
+## H-3) ارزش‌گذاری (unit_cost = 0) — یافتهٔ دقیق
+
+- `fn_apply_stock_txn` فقط `qty_on_hand` را نگه می‌دارد؛ `qty_on_hand_value` و
+  `product_cost (moving_avg)` و `cost_layer` **جداگانه و فقط در مسیرِ رسید خرید** به‌روز
+  می‌شوند (`goods-receipt.repository.ts`). مسیر فروش (`sale_out`) هم value را به‌روز
+  نمی‌کند؛ یعنی «کمیتِ موجودی» و «ارزش دفتری» از ابتدا دو مسیرِ جدا هستند و عارضهٔ
+  فازی در این مخزن فقط برای purchase_in سیم‌کشی شده است.
+- `sale_return_in` با `unit_cost=0` هیچ ارزش دفتری‌ای اضافه نمی‌کند ⇒ برای کالایی که
+  `product_cost.method='moving_avg'` و `avg_cost>0` دارد، نمایِ `v_stock_valuation_variance
+  (0016)` ردیف را **پرچم می‌زند** (همهٔ این ردیف‌ها حرکتِ هزینه‌نداشته را نشان می‌دهند) —
+  این گزارش دارد همان کاری را می‌کند که باید: انحرافِ نامعلوم را نشان دهد.
+- **این اصلاح، بهای جعلی اختراع نکرد.** واحدِ درستِ بها (بهای خطِ فاکتور مرجوعی؟ moving_avg
+  لحظه؟ استاندارد؟) تصمیمِ سیاستِ حسابداری است؛ فرضِ آن بدونِ تصمیمِ مالک یعنی جعلِ سند.
+  `unit_cost=0` بماند تا اتصالِ Phase-5 لایهٔ هزینه.
+- **آنچه ۱۰۰٪ لازم است قبل از بستنِ دوره/گزارش سود-زیان:** یک مسیرِ ارزش برای
+  `sale_return_in` (احتمالاً `value_document` با kind جدید مثلاً `return_value` + لایهٔ هزینه
+  از روی خط فاکتور اصلی) — نیازمندِ تصمیمِ مالک و مهاجرت. تا آن زمان گزارش ارزش باز است.
+- `scrap` و `return_to_supplier` اصلاً حرکتی نمی‌سازند ⇒ اثر ارزشی صفر دارند.
+
+## H-4) متغیرهای تست (API/DB) — به CI وابسته است
+
+بدونِ PostgreSQL محلی اجرا نشدند؛ داورِ نهایی jobِ `integration-db` است. محلی: typecheck،
+unit (شامل suit جدید `assertReceiveEligibility`)، openapi:check، contract-drift همگی سبز.
+
+## H-5) خطاهای موردِ انتظار پس از سخت‌سازی (برای تست‌ها)
+
+| ورودی | کد | HTTP |
+|---|---|---|
+| lines خالی | `lines_required` | 400 |
+| product_id تکراری در body | `duplicate_line` | 400 |
+| product_id ناموجود در مرجوعی | `line_not_found` | 400 |
+| پوشش ناقصِ خطوط فعّال | `incomplete_lines` (+missing_product_ids) | 400 |
+| قلم قبلاً حل‌شده | `line_already_resolved` | 400 |
+| هیچ خط فعّالی باقی نمانده | `nothing_to_receive` | 409 |
+| تکرारी در دادهٔ ذخیره‌شده | `duplicate_stored_lines` | 409 |
+| qty ≤ 0 | `invalid_qty` | 400 |
+| qty > qty ثبت‌شده | `qty_exceeds_requested` | 400 |
+| double-receive | `invalid_transition` | 409 |

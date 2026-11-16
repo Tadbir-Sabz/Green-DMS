@@ -73,6 +73,7 @@ let approverC = '';
 let companyA = '';
 let customerA = '';
 let productA = '';
+let productA2 = '';
 let batchA = '';
 let whMain = '';
 let whMainSide = '';
@@ -127,8 +128,14 @@ const receive = (token: string, id: string, body: unknown) =>
   api(token).post(`/api/v1/returns/${id}/receive`).send(body);
 
 const txnsFor = async (returnId: string) => {
-  const { rows } = await pool.query<{ warehouse_id: string; txn_kind: string; qty: string; batch_id: string | null }>(
-    `select warehouse_id, txn_kind, qty::text, batch_id from inventory_txn
+  const { rows } = await pool.query<{
+    warehouse_id: string;
+    txn_kind: string;
+    qty: string;
+    batch_id: string | null;
+    product_id: string;
+  }>(
+    `select warehouse_id, txn_kind, qty::text, batch_id, product_id from inventory_txn
       where source_type = 'return_request' and source_id = $1`,
     [returnId],
   );
@@ -262,6 +269,7 @@ beforeAll(async () => {
   whMainSide = await makeWarehouse(branchA2, 'SIDEW', 'main');
   customerA = await makeCustomer(companyA, branchA, 'C-A');
   productA = await makeProduct(companyA, 'P-A');
+  productA2 = await makeProduct(companyA, 'P-A2');
   batchA = (
     await pool.query<{ id: string }>(
       `insert into batch (product_id, batch_no) values ($1, 'B-A-1') returning id`,
@@ -515,7 +523,7 @@ describe('RR — اتمیک بودن و جلوگیری از تکرار', () => {
     );
   });
 
-  it('qty بیشتر از درخواستی ⇒ 422 rule_rejected؛ status و دفتر دست‌نخورده می‌مانند', async () => {
+  it('qty بیشتر از درخواستی ⇒ 400 qty_exceeds_requested؛ status و دفتر دست‌نخورده می‌مانند', async () => {
     const { id } = await createReturn(
       adminA,
       [{ product_id: productA, qty: 1 }],
@@ -524,8 +532,10 @@ describe('RR — اتمیک بودن و جلوگیری از تکرار', () => {
     await approveReturn(approverA, id);
     const res = await receive(adminA, id, {
       lines: [{ product_id: productA, qty: 999, disposition: 'restock' }],
-    }).expect(422);
-    expect(res.body.code).toBe('rule_rejected');
+    }).expect(400);
+    expect(res.body.code).toBe('qty_exceeds_requested');
+    expect(res.body.details?.requested).toBe(1);
+    expect(res.body.details?.submitted).toBe(999);
     expect(await statusOf(id)).toBe('approved');
     expect(await txnsFor(id)).toHaveLength(0);
   });
@@ -552,5 +562,254 @@ describe('RR — مرزهای دسترسی', () => {
     await approveReturn(approverB, id);
     await receive(adminA, id, { lines: [{ product_id: productB, qty: 1, disposition: 'restock' }] }).expect(404);
     expect(await statusOf(id)).toBe('approved');
+  });
+});
+
+describe('RR-HARDEN — duplicate (duplicate_line)', () => {
+  it('receive با همان کالا دو بار ⇒ 400 duplicate_line؛ هیچ posting‌ای ثبت نمی‌شود', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [{ product_id: productA, qty: 2 }],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    const res = await receive(adminA, id, {
+      lines: [
+        { product_id: productA, qty: 1, disposition: 'restock' },
+        { product_id: productA, qty: 1, disposition: 'restock' },
+      ],
+    }).expect(400);
+    expect(res.body.code).toBe('duplicate_line');
+    expect(res.body.details?.product_ids).toContain(productA);
+    expect(await statusOf(id)).toBe('approved');
+    expect(await txnsFor(id)).toHaveLength(0);
+    const line = await pool.query(
+      `select qty_approved from return_request_line where return_request_id = $1`,
+      [id],
+    );
+    expect(line.rows[0].qty_approved).toBeNull();
+  });
+
+  it('create با همان کالا دو بار ⇒ 400 duplicate_line', async () => {
+    const res = await api(adminA)
+      .post('/api/v1/returns')
+      .send({
+        customer_id: customerA,
+        reason_code: 'damaged',
+        lines: [
+          { product_id: productA, qty: 1 },
+          { product_id: productA, qty: 1 },
+        ],
+      })
+      .expect(400);
+    expect(res.body.code).toBe('duplicate_line');
+  });
+});
+
+describe('RR-HARDEN — پوشش خطوط (coverage)', () => {
+  it('ارسال فقط یک خط از دو خط ⇒ 400 incomplete_lines با missing_product_ids', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [
+        { product_id: productA, qty: 1 },
+        { product_id: productA2, qty: 1 },
+      ],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    const res = await receive(adminA, id, {
+      lines: [{ product_id: productA, qty: 1, disposition: 'restock' }],
+    }).expect(400);
+    expect(res.body.code).toBe('incomplete_lines');
+    expect(res.body.details?.missing_product_ids).toContain(productA2);
+    expect(await statusOf(id)).toBe('approved');
+    expect(await txnsFor(id)).toHaveLength(0);
+  });
+
+  it('خط معتبر + خط ناشناخته ⇒ 400 line_not_found؛ هیچ‌چیز پُست نمی‌شود', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [{ product_id: productA, qty: 1 }],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    const res = await receive(adminA, id, {
+      lines: [
+        { product_id: productA, qty: 1, disposition: 'restock' },
+        { product_id: MISSING, qty: 1, disposition: 'restock' },
+      ],
+    }).expect(400);
+    expect(res.body.code).toBe('line_not_found');
+    expect(await statusOf(id)).toBe('approved');
+    expect(await txnsFor(id)).toHaveLength(0);
+  });
+
+  it('ارسال خالی ⇒ 400 lines_required', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [{ product_id: productA, qty: 1 }],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    const res = await receive(adminA, id, { lines: [] }).expect(400);
+    expect(res.body.code).toBe('lines_required');
+  });
+
+  it('پوشش کاملِ چندخطی ⇒ دقیقاً یک posting به ازای هر خط و one-to-one با خطوط', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [
+        { product_id: productA, qty: 1 },
+        { product_id: productA2, qty: 2 },
+      ],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    await receive(adminA, id, {
+      lines: [
+        { product_id: productA, qty: 1, disposition: 'restock' },
+        { product_id: productA2, qty: 2, disposition: 'damaged' },
+      ],
+    }).expect(200);
+    const txns = await txnsFor(id);
+    expect(txns).toHaveLength(2);
+    expect(txns.map((t) => t.product_id).sort()).toEqual([productA, productA2].sort());
+  });
+});
+
+describe('RR-HARDEN — چرخهٔ partially_approved', () => {
+  it('فقط خطوط حل‌نشده پوشش داده می‌شوند؛ خطِ حل‌شده دوباره ارسالی ⇒ 400 line_already_resolved', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [
+        { product_id: productA, qty: 1 },
+        { product_id: productA2, qty: 1 },
+      ],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    // شبیه‌سازی حلِ یک خط — چرخهٔ ذخیره‌شده برای partially_approved (هیچ مسیر API‌ای
+    // این وضعیت را تولید نمی‌کند؛ receive باید آن را درست مدیریت کند)
+    await pool.query(
+      `update return_request_line set qty_approved = qty, disposition = 'restock'
+        where return_request_id = $1 and product_id = $2`,
+      [id, productA],
+    );
+    await pool.query(`update return_request set status = 'partially_approved' where id = $1`, [id]);
+
+    const dup = await receive(adminA, id, {
+      lines: [
+        { product_id: productA, qty: 1, disposition: 'restock' },
+        { product_id: productA2, qty: 1, disposition: 'restock' },
+      ],
+    }).expect(400);
+    expect(dup.body.code).toBe('line_already_resolved');
+    expect(await txnsFor(id)).toHaveLength(0);
+
+    const ok = await receive(adminA, id, {
+      lines: [{ product_id: productA2, qty: 1, disposition: 'restock' }],
+    }).expect(200);
+    expect(ok.body.status).toBe('posted');
+    const txns = await txnsFor(id);
+    expect(txns).toHaveLength(1);
+    expect(txns[0].product_id).toBe(productA2);
+  });
+
+  it('partially_approved و پوشش ناقصِ خطوط فعّال ⇒ 400 incomplete_lines', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [
+        { product_id: productA, qty: 1 },
+        { product_id: productA2, qty: 1 },
+      ],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    await pool.query(
+      `update return_request_line set qty_approved = qty, disposition = 'restock'
+        where return_request_id = $1 and product_id = $2`,
+      [id, productA],
+    );
+    await pool.query(`update return_request set status = 'partially_approved' where id = $1`, [id]);
+
+    const res = await receive(adminA, id, { lines: [] }).expect(400);
+    expect(res.body.code).toBe('lines_required');
+    const res2 = await receive(adminA, id, {
+      lines: [{ product_id: productA, qty: 1, disposition: 'restock' }],
+    }).expect(400);
+    expect(res2.body.code).toBe('line_already_resolved');
+    expect(await statusOf(id)).toBe('partially_approved');
+  });
+
+  it('partially_approved با همهٔ خطوط حل‌شده ⇒ 409 nothing_to_receive', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [{ product_id: productA, qty: 1 }],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    await pool.query(
+      `update return_request_line set qty_approved = qty, disposition = 'restock' where return_request_id = $1`,
+      [id],
+    );
+    await pool.query(`update return_request set status = 'partially_approved' where id = $1`, [id]);
+    const res = await receive(adminA, id, {
+      lines: [{ product_id: productA, qty: 1, disposition: 'restock' }],
+    }).expect(409);
+    expect(res.body.code).toBe('nothing_to_receive');
+    expect(await statusOf(id)).toBe('partially_approved');
+  });
+});
+
+describe('RR-HARDEN — دادهٔ ذخیره‌شدهٔ خراب (fail-closed)', () => {
+  it('دو خط ذخیره‌شده با یک product_id ⇒ 409 duplicate_stored_lines؛ rollback کامل', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [
+        { product_id: productA, qty: 1 },
+        { product_id: productA2, qty: 1 },
+      ],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    // تزریق خط تکراری در دادهٔ ذخیره‌شده (مثلاً مسیر مهاجرت/رفع دستیِ داده)
+    await pool.query(
+      `insert into return_request_line (return_request_id, product_id, batch_id, qty, unit_price, disposition)
+       values ($1, $2, null, 1, 0, 'restock')`,
+      [id, productA],
+    );
+    const res = await receive(adminA, id, {
+      lines: [
+        { product_id: productA, qty: 2, disposition: 'restock' },
+        { product_id: productA2, qty: 1, disposition: 'restock' },
+      ],
+    }).expect(409);
+    expect(res.body.code).toBe('duplicate_stored_lines');
+    expect(res.body.details?.product_ids).toContain(productA);
+    expect(await statusOf(id)).toBe('approved');
+    expect(await txnsFor(id)).toHaveLength(0);
+  });
+});
+
+describe('RR-HARDEN — qty جزئی', () => {
+  it('دریافت کمتر از مقدار درخواستی مجاز است (تکلیف نهایی با qty کمتر)', async () => {
+    const { id } = await createReturn(
+      adminA,
+      [{ product_id: productA, qty: 2 }],
+      { customer_id: customerA },
+    );
+    await approveReturn(approverA, id);
+    const res = await receive(adminA, id, {
+      lines: [{ product_id: productA, qty: 0.5, disposition: 'restock' }],
+    }).expect(200);
+    expect(res.body.status).toBe('posted');
+    const txns = await txnsFor(id);
+    expect(txns).toHaveLength(1);
+    expect(Number(txns[0].qty)).toBe(0.5);
+    const line = await pool.query(
+      `select qty_approved::text from return_request_line where return_request_id = $1`,
+      [id],
+    );
+    expect(Number(line.rows[0].qty_approved)).toBe(0.5);
   });
 });

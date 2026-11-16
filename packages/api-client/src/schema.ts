@@ -7674,7 +7674,6 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 409: components["responses"]["Conflict"];
-                422: components["responses"]["RuleRejected"];
             };
         };
         delete?: never;
@@ -13653,6 +13652,25 @@ export interface components {
              *     - `code_immutable`: بدنهٔ PATCH شامل کلیدِ `code` بود؛ SKU پس از ساخت
              *       تغییرناپذیر است و هیچ تغییری اعمال نشد. `details.field = 'code'`،
              *       `details.surface = 'PATCH /products/:id'`.
+             *
+             *     **resolution مرجوعی (TASK-P4-R / TASK-P4-R-HARDEN)** — receive
+             *     - `400 duplicate_line`: کالای تکراری در بدنهٔ receive یا در خطوط ساخت؛
+             *       هیچ نوشتنی انجام نشد. `details.product_ids` فهرست است.
+             *     - `400 incomplete_lines`: پوشش خطوط فعّال کامل نبود؛ دریافت نصفه
+             *       ثبت نمی‌شود. `details.missing_product_ids` فهرستِ کالاهای پوشش‌داده‌نشده است.
+             *     - `400 line_not_found`: کالای ارسالی جزو خطوط این مرجوعی نیست.
+             *     - `400 line_already_resolved`: این قلم پیشتر (در partially_approved)
+             *       تعیین تکلیف شده؛ دریافت دوبارهٔ آن مجاز نیست.
+             *     - `400 invalid_qty`: مقدار دریافت صفر یا منفی است.
+             *     - `400 qty_exceeds_requested`: مقدار دریافت از مقدار ثبت‌شدهٔ خط بیشتر؛
+             *       `details.requested` و `details.submitted` ارقام را می‌دهند.
+             *     - `400 warehouse_not_found` / `400 warehouse_inactive`: انبار صریح
+             *       ناموجود/مالِ شعبهٔ دیگر/غیرفعال (فقط برای restock؛ damaged همیشه به قرنطینه می‌رود).
+             *     - `409 nothing_to_receive`: همهٔ خطوط پیشتر حل شده‌اند.
+             *     - `409 duplicate_stored_lines`: دادهٔ ذخیره‌شدهٔ مرجوعی برای یک کالا
+             *       بیش از یک خط دارد (fail-closed؛ داده باید اصلاح شود).
+             *     - `409 restock_warehouse_missing` / `409 quarantine_warehouse_missing`:
+             *       انبار پیش‌فرضِ لازم برای شعبه تعریف نشده (fail-closed).
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict
