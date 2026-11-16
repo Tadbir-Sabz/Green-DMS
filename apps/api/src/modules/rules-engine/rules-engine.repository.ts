@@ -148,6 +148,17 @@ const ENTITY_STATE_SQL: Record<string, string> = {
                              join branch b on b.id = r.branch_id
                             where r.id = $1 and b.company_id = $2
                             group by r.id, r.customer_id, r.branch_id, r.invoice_id`,
+  // P3: استثنای اعتبار — همان سطرِ سفارشِ فروش است (موجودیت مشترک)، تعبیرِ متفاوتی دارد.
+  'ar.credit.exception': `select o.created_by as creator_id, o.customer_id, o.branch_id, o.grand_total::text as grand_total,
+                                  o.order_date::text as order_date,
+                                  (select coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.packaging_id,
+                                    l.qty::text, l.qty_base::text, l.unit_price::text, l.discount_pct::text,
+                                    l.discount_amount::text, l.tax_rate_pct::text, l.tax_amount::text,
+                                    l.line_total::text, l.promotion_id) order by l.line_no), '[]'::jsonb)
+                                   from sales_order_line l where l.sales_order_id = o.id) as items
+                             from sales_order o
+                             join branch b on b.id = o.branch_id
+                            where o.id = $1 and b.company_id = $2`,
   'ap.purchase.approve': `select p.created_by as creator_id, p.supplier_id, p.branch_id, p.grand_total::text as grand_total,
                             (select coalesce(jsonb_agg(jsonb_build_array(l.product_id, l.qty::text,
                               l.unit_price::text, l.discount_amount::text, l.tax_amount::text,
@@ -956,6 +967,7 @@ export class RulesEngineRepository {
         'sales.order.approve': 'sales_order',
         'sales.return.approve': 'return_request',
         'ap.purchase.approve': 'purchase_order',
+        'ar.credit.exception': 'sales_order',
       } as Record<string, string>)[operation];
       await client.query(`select e.id from ${table} e join branch b on b.id = e.branch_id
         where e.id = $1 and b.company_id = $2 for update of e`, [entityId, companyId]);

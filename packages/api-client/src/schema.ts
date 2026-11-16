@@ -1261,6 +1261,582 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/customer-segments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** فهرست بخش‌های تجاری مشتری */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    is_active?: boolean;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description فهرست بخش‌ها */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["CustomerSegment"][];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /** تعریف بخش تجاری جدید (کد در شرکت یکتاست) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description ۲ تا ۳۲ کاراکتر؛ حروف، رقم، . و - و _ */
+                        code: string;
+                        title: string;
+                        description?: string | null;
+                        /** @default true */
+                        is_active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description بخش ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerSegment"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description کد تکراری (duplicate_code) */
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customer-segments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** جزئیات بخش تجاری (با شمار مشتریان فعال آن) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description بخش تجاری */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerSegment"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** به‌روزرسانی بخش (کد تغییرناپذیر؛ غیرفعال‌سازی جاگزین حذف است) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title?: string;
+                        description?: string | null;
+                        is_active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description بخش به‌روزرسانی شد */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerSegment"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
+    "/territory/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** گزارش پوششِ قلمرو — مشتریان بدون مسیر و تعارض‌ها */
+        get: {
+            parameters: {
+                query?: {
+                    branch_id?: string;
+                    area_id?: string;
+                    route_id?: string;
+                    segment_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description نمای پوشش */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TerritoryCoverage"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/territory/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * انتسابِ گروهیِ مشتریان به یک مسیر (همه-یا-هیچ)
+         * @description مشتریان در یک تراکنش به مسیر مقصد منتسب می‌شوند؛ منطقهٔ مشتری با منطقهٔ
+         *     مسیر هم‌راستا می‌شود. `target_route_id` خالی یعنی جداسازی از مسیر فعلی.
+         *     هر تغییر با `reason` در audit_log ثبت می‌شود.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        customer_ids: string[];
+                        /**
+                         * Format: uuid
+                         * @description null یا حذف = جداسازی از مسیر
+                         */
+                        target_route_id?: string | null;
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description تعداد مشتریانِ منتسب‌شده */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            updated: number;
+                            /** Format: uuid */
+                            target_route_id: string | null;
+                            unassigned: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{id}/credit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        /** وضعیت اعتبار و مسدودی مشتری (مانده، سقف، معوقی، چک‌های باز) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description وضعیت اعتبار */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerCredit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{id}/credit/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * مسدودی دستیِ اعتبار مشتری (نیازمند مجوز ar.credit.hold)
+         * @description دلیل الزامی است (ممیزی). با این مسدودی، ثبت/تأییدِ سفارشِ آن مشتری با
+         *     `409 credit_hold` رد می‌شود (مسیر تأیید هم دور نمی‌زند).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description مسدودی ثبت شد (یا مسدودیِ فعال از قبل بود) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerCredit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{id}/credit/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** رفعِ مسدودی دستیِ اعتبار مشتری (نیازمند مجوز ar.credit.hold) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        note?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description مسدودی رفع شد (یا مسدودیِ فعالی نبود) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerCredit"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/credit-exception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ثبت سفارش پیش‌نویس فراتر از سقف/شرایطِ اعتبار + گردش استثنای اعتبار
+         * @description P3 — اگر سفارش هیچ مانعِ قابلِ عبوری نداشته باشد با `409 no_credit_exception_needed`
+         *     رد می‌شود و گردشی ساخته نمی‌شود. مانعِ سخت (مشتری مسدود/status≠active یا مسدودی
+         *     اعتبار) هرگز استثنا نمی‌خورد. در صورت موفقیت، سفارش در `pending_approval` و
+         *     یک گردش `ar.credit.exception` با `approval_request_id` ساخته می‌شود.
+         *     اگر راه‌اندازیِ گردش شکست بخورد (مثلاً `approval_policy_missing`)، سفارش به‌صورتِ
+         *     پیش‌نویس باقی می‌ماند و می‌توان پس از رفع مشکل با `POST /orders/{id}/credit-exception`
+         *     دوباره اقدام کرد (fail-closed — تأییدِ بدونِ گردش هرگز صادر نمی‌شود).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SalesOrder"] & {
+                        /** @description دلیل درخواست استثنا (ممیزی) */
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description سفارش پیش‌نویسِ استثنا ثبت شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SalesOrder"] & {
+                            /** Format: uuid */
+                            approval_request_id: string;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description no_credit_exception_needed | customer_blocked | credit_hold | approval_policy_missing */
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/credit-exception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** درخواست استثنای اعتبار برای سفارش پیش‌نویس/در انتظار تأیید موجود */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description گردش استثنا ساخته شد */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalSubmission"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description no_credit_exception_needed | customer_blocked | credit_hold | not_submittable | approval_policy_missing */
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * تأیید سفارش (در صورت نیاز از طریق صف approvals)
+         * @description P3 — دروازهٔ اعتبار روی همان تراکنشِ تأیید اعمال می‌شود: مانعِ سخت ⇒ 409؛
+         *     فراتر از سقف/معوقی ⇒ مصرفِ اتصالِ تأییدشدهٔ «استثنای اعتبار» همراه با گذار؛
+         *     در غیر این صورت `409 credit_exception_required` و هیچ تأییدی مصرف نمی‌شود.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description سفارش تأیید شد (فقط از پیش‌نویس/در انتظار تأیید) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SalesOrder"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description credit_exception_required | customer_blocked | credit_hold | not_approvable | approval_required */
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products": {
         parameters: {
             query?: never;
@@ -1708,7 +2284,7 @@ export interface paths {
                         "application/json": components["schemas"]["Product"];
                     };
                 };
-                400: components["responses"]["BadRequest"];
+                400: components["responses"]["SkuImmutableError"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -3084,6 +3660,7 @@ export interface paths {
                 400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
+                /** @description کدِ صفت تکراری در شرکت → duplicate_attribute_code */
                 409: components["responses"]["Conflict"];
             };
         };
@@ -6634,51 +7211,6 @@ export interface paths {
                         "application/json": components["schemas"]["ApprovalSubmission"];
                     };
                 };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-                409: components["responses"]["Conflict"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/orders/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["idPath"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** تأیید سفارش (در صورت نیاز از طریق صف approvals) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["idPath"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description سفارش تأیید شد (فقط از پیش‌نویس/در انتظار تأیید) */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SalesOrder"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
@@ -13111,6 +13643,10 @@ export interface components {
              *     درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
              *     «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
              *     عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
+             *     **تغییرناپذیریِ SKU (TASK-PM-02-C14)** — `400`
+             *     - `code_immutable`: بدنهٔ PATCH شامل کلیدِ `code` بود؛ SKU پس از ساخت
+             *       تغییرناپذیر است و هیچ تغییری اعمال نشد. `details.field = 'code'`،
+             *       `details.surface = 'PATCH /products/:id'`.
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict
@@ -13118,6 +13654,7 @@ export interface components {
              * @example approval_chain_required
              * @example domain_property_rejected
              * @example domain_context_not_supported
+             * @example code_immutable
              */
             code: string;
             /** @description پیام فارسی آماده نمایش به کاربر */
@@ -13376,6 +13913,11 @@ export interface components {
             price_list_id?: string | null;
             /** Format: uuid */
             settlement_term_id?: string | null;
+            /**
+             * Format: uuid
+             * @description بخش تجاری (مرجع /customer-segments)
+             */
+            segment_id?: string | null;
             /** @description ترتیب در مسیر */
             visit_sequence?: number;
             geo?: components["schemas"]["GeoPoint"] | null;
@@ -13471,9 +14013,8 @@ export interface components {
             weight_gr?: number | null;
             volume_cm3?: number | null;
         };
-        /** @description فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال می‌شوند (مغایرت = 409 version_conflict) */
+        /** @description فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال می‌شوند (مغایرت = 409 version_conflict). کدِ SKU پس از ساخت تغییرناپذیر است: این قرارداد `code` را **تعریف نمی‌کند** و هر درصدی از کلید `code` در بدنهٔ PATCH پیش از اعتبارسنجی با 400 `code_immutable` رد می‌شود (هیچ تغییری اعمال نمی‌شود). */
         ProductUpdate: {
-            code?: string;
             name?: string;
             name_latin?: string | null;
             /** Format: uuid */
@@ -16968,10 +17509,136 @@ export interface components {
             status: "cancelled";
             note_fa: string;
         };
+        /** @description بخشِ تجاری مشتری — دسته‌بندی قابلِ تنظیم برای گزارش و اعتبار */
+        CustomerSegment: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description ۲ تا ۳۲ کاراکتر؛ در شرکت یکتا و تغییرناپذیر */
+            code: string;
+            title: string;
+            description?: string | null;
+            /** @description حذف مجاز نیست؛ غیرفعال‌سازی جاگزین است */
+            is_active: boolean;
+            /** @description شمار مشتریان فعالِ متصل (فقط خروجی) */
+            customer_count: number;
+            row_version: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description وضعیت اعتبار و مسدودی مشتری — همهٔ ارقام رشته/عدد را در JSON برمی‌گرداند؛
+         *     محاسبه روی همان داده‌ای است که دروازهٔ ثبتِ سفارش استفاده می‌کند.
+         */
+        CustomerCredit: {
+            /** Format: uuid */
+            customer_id: string;
+            /** Format: uuid */
+            branch_id: string;
+            /**
+             * @description وضعیت مشتری (blocked ⇒ رد سفارش)
+             * @enum {string}
+             */
+            status: "active" | "suspended" | "blocked" | "closed";
+            /** Format: uuid */
+            segment_id: string | null;
+            /** @description سقفِ پایه؛ ۰ یعنی «سقف پیکربندی نشده» */
+            credit_limit: number;
+            /** @description اضافه‌اعتبارِ معتبر (منقضی‌شده‌ها حذف می‌شوند) */
+            extra_limit: number;
+            /** Format: date */
+            extra_limit_expires_on: string | null;
+            /** @description credit_limit + extra_limit */
+            nominal_limit: number;
+            /** @description nominal_limit منهای ماندهٔ فاکتورهای باز (پس از کسر credit_note) */
+            available_credit: number;
+            /** @description available_credit منهای سفارش‌های تعهدشدهٔ باز */
+            available_for_order: number;
+            /** @description ماندهٔ فاکتورهای باز پس از کسرِ credit_note */
+            total_due: number;
+            /** @description جمعِ سفارش‌های تأییدشده/تحویل‌نشدهٔ باز */
+            committed_open_orders: number;
+            cheque_allowed: boolean;
+            /** @description null یعنی بدون سقفِ تعداد چکِ باز */
+            max_open_cheques?: number | null;
+            open_cheques_count: number;
+            open_cheques_amount: number;
+            block_on_overdue: boolean;
+            max_overdue_days: number;
+            oldest_overdue_days: number;
+            overdue_invoice_count: number;
+            /** @description مسدودی دستیِ اعتبار (هیچ‌وقت با استثنا دور نمی‌خورد) */
+            credit_hold: boolean;
+            hold_reason?: string | null;
+            /** Format: date-time */
+            hold_set_at?: string | null;
+        };
+        RouteCoverageRow: {
+            /** Format: uuid */
+            route_id: string;
+            code: string;
+            name: string;
+            /** Format: uuid */
+            area_id: string;
+            area_name: string;
+            area_is_active: boolean;
+            visit_weekday: number | null;
+            is_active: boolean;
+            /** @description مشتریان فعال منتسب به مسیر */
+            assigned_count: number;
+            /** @description فروشندگانِ متصل به مسیر */
+            salesperson_count: number;
+        };
+        UnassignedCustomerRow: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            /** Format: uuid */
+            branch_id: string;
+            branch_code: string;
+            /** Format: uuid */
+            area_id?: string | null;
+            area_name?: string | null;
+            /** Format: uuid */
+            segment_id?: string | null;
+            segment_title?: string | null;
+        };
+        TerritoryConflictRow: {
+            /** Format: uuid */
+            customer_id: string;
+            customer_code: string;
+            /** @enum {string} */
+            kind: "area_route_mismatch" | "inactive_route" | "inactive_area" | "duplicate_sequence";
+            detail_fa: string;
+        };
+        TerritoryCoverage: {
+            totals: {
+                areas: number;
+                routes: number;
+                customers_total: number;
+                customers_assigned: number;
+                customers_unassigned: number;
+                customers_conflicting: number;
+            };
+            routes: components["schemas"]["RouteCoverageRow"][];
+            unassigned_customers: components["schemas"]["UnassignedCustomerRow"][];
+            conflicts: components["schemas"]["TerritoryConflictRow"][];
+            conflicts_total: number;
+        };
     };
     responses: {
         /** @description درخواست نامعتبر (خطای اعتبارسنجی) */
         BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description بدنهٔ درخواست حاوی کلیدِ نامجازِ `code` است — کدِ SKU پس از ساخت تغییرناپذیر است و هیچ تغییری اعمال نمی‌شود. بدنه همیشه envelope استانداردِ `Error` است؛ برای این رد، `code` همیشه `code_immutable` و `details.field = 'code'` و `details.surface = 'PATCH /products/:id'` است. (سایر خطاهای 400 اعتبارسنجی نیز همین envelope را دارند؛ فهرستِ دلیل‌کدها در توضیحِ `Error.code`.) */
+        SkuImmutableError: {
             headers: {
                 [name: string]: unknown;
             };

@@ -28,3 +28,4 @@ product-catalog-foundation.test.ts
 migration-rollback-race.test.ts
 # TASK-PM-01D-M4-I: bounded expired-preview cleanup operator tool (F-R-03).
 product-bulk-preview-cleanup.test.ts
+segment-credit-rls.test.ts

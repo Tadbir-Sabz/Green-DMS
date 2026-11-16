@@ -78,6 +78,8 @@ tags:
     description: حوزه فروش
   - name: routes
     description: مسیر (پیمایشی) فروشندگان
+  - name: territory
+    description: پوشش و انتسابِ قلمرو/مسیر (بخش تجاری، مشتری بدون مسیر، تعارض‌ها)
   - name: tours
     description: تورهای فروش و توزیع + تسویه
   - name: visits
@@ -740,6 +742,305 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ---------------- قلمرو، بخش و اعتبار ----------------
+  /customer-segments:
+    get:
+      tags: [customers]
+      summary: فهرست بخش‌های تجاری مشتری
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 128 } }
+        - { name: is_active, in: query, schema: { type: boolean } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 200 } }
+      responses:
+        '200':
+          description: فهرست بخش‌ها
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CustomerSegment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [customers]
+      summary: تعریف بخش تجاری جدید (کد در شرکت یکتاست)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, title]
+              properties:
+                code: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$', description: '۲ تا ۳۲ کاراکتر؛ حروف، رقم، . و - و _' }
+                title: { type: string, minLength: 2, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 500 }
+                is_active: { type: boolean, default: true }
+      responses:
+        '201':
+          description: بخش ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerSegment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: 'کد تکراری (duplicate_code)' }
+  /customer-segments/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [customers]
+      summary: جزئیات بخش تجاری (با شمار مشتریان فعال آن)
+      responses:
+        '200':
+          description: بخش تجاری
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerSegment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [customers]
+      summary: به‌روزرسانی بخش (کد تغییرناپذیر؛ غیرفعال‌سازی جاگزین حذف است)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, minLength: 2, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 500 }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: بخش به‌روزرسانی شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerSegment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /territory/coverage:
+    get:
+      tags: [territory]
+      summary: گزارش پوششِ قلمرو — مشتریان بدون مسیر و تعارض‌ها
+      parameters:
+        - { name: branch_id, in: query, schema: { type: string, format: uuid } }
+        - { name: area_id, in: query, schema: { type: string, format: uuid } }
+        - { name: route_id, in: query, schema: { type: string, format: uuid } }
+        - { name: segment_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: نمای پوشش
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TerritoryCoverage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /territory/reassign:
+    post:
+      tags: [territory]
+      summary: انتسابِ گروهیِ مشتریان به یک مسیر (همه-یا-هیچ)
+      description: |
+        مشتریان در یک تراکنش به مسیر مقصد منتسب می‌شوند؛ منطقهٔ مشتری با منطقهٔ
+        مسیر هم‌راستا می‌شود. `target_route_id` خالی یعنی جداسازی از مسیر فعلی.
+        هر تغییر با `reason` در audit_log ثبت می‌شود.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_ids, reason]
+              properties:
+                customer_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { type: string, format: uuid }
+                target_route_id: { type: [string, 'null'], format: uuid, description: 'null یا حذف = جداسازی از مسیر' }
+                reason: { type: string, minLength: 8, maxLength: 500 }
+      responses:
+        '200':
+          description: تعداد مشتریانِ منتسب‌شده
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated, target_route_id, unassigned]
+                properties:
+                  updated: { type: integer, minimum: 0 }
+                  target_route_id: { type: [string, 'null'], format: uuid }
+                  unassigned: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /customers/{id}/credit:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    get:
+      tags: [customers]
+      summary: وضعیت اعتبار و مسدودی مشتری (مانده، سقف، معوقی، چک‌های باز)
+      responses:
+        '200':
+          description: وضعیت اعتبار
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerCredit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /customers/{id}/credit/hold:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [customers]
+      summary: مسدودی دستیِ اعتبار مشتری (نیازمند مجوز ar.credit.hold)
+      description: |
+        دلیل الزامی است (ممیزی). با این مسدودی، ثبت/تأییدِ سفارشِ آن مشتری با
+        `409 credit_hold` رد می‌شود (مسیر تأیید هم دور نمی‌زند).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '200':
+          description: مسدودی ثبت شد (یا مسدودیِ فعال از قبل بود)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerCredit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /customers/{id}/credit/release:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [customers]
+      summary: رفعِ مسدودی دستیِ اعتبار مشتری (نیازمند مجوز ar.credit.hold)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '200':
+          description: مسدودی رفع شد (یا مسدودیِ فعالی نبود)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerCredit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /orders/credit-exception:
+    post:
+      tags: [orders]
+      summary: ثبت سفارش پیش‌نویس فراتر از سقف/شرایطِ اعتبار + گردش استثنای اعتبار
+      description: |
+        P3 — اگر سفارش هیچ مانعِ قابلِ عبوری نداشته باشد با `409 no_credit_exception_needed`
+        رد می‌شود و گردشی ساخته نمی‌شود. مانعِ سخت (مشتری مسدود/status≠active یا مسدودی
+        اعتبار) هرگز استثنا نمی‌خورد. در صورت موفقیت، سفارش در `pending_approval` و
+        یک گردش `ar.credit.exception` با `approval_request_id` ساخته می‌شود.
+        اگر راه‌اندازیِ گردش شکست بخورد (مثلاً `approval_policy_missing`)، سفارش به‌صورتِ
+        پیش‌نویس باقی می‌ماند و می‌توان پس از رفع مشکل با `POST /orders/{id}/credit-exception`
+        دوباره اقدام کرد (fail-closed — تأییدِ بدونِ گردش هرگز صادر نمی‌شود).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: '#/components/schemas/SalesOrder' }
+                - type: object
+                  required: [reason]
+                  properties:
+                    reason: { type: string, minLength: 8, maxLength: 500, description: دلیل درخواست استثنا (ممیزی) }
+      responses:
+        '201':
+          description: سفارش پیش‌نویسِ استثنا ثبت شد
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/SalesOrder' }
+                  - type: object
+                    required: [approval_request_id]
+                    properties:
+                      approval_request_id: { type: string, format: uuid }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: 'no_credit_exception_needed | customer_blocked | credit_hold | approval_policy_missing' }
+  /orders/{id}/credit-exception:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [orders]
+      summary: درخواست استثنای اعتبار برای سفارش پیش‌نویس/در انتظار تأیید موجود
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 8, maxLength: 500 }
+      responses:
+        '201':
+          description: گردش استثنا ساخته شد
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalSubmission' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: 'no_credit_exception_needed | customer_blocked | credit_hold | not_submittable | approval_policy_missing' }
+  /orders/{id}/approve:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [orders]
+      summary: تأیید سفارش (در صورت نیاز از طریق صف approvals)
+      description: |
+        P3 — دروازهٔ اعتبار روی همان تراکنشِ تأیید اعمال می‌شود: مانعِ سخت ⇒ 409؛
+        فراتر از سقف/معوقی ⇒ مصرفِ اتصالِ تأییدشدهٔ «استثنای اعتبار» همراه با گذار؛
+        در غیر این صورت `409 credit_exception_required` و هیچ تأییدی مصرف نمی‌شود.
+      responses:
+        '200':
+          description: سفارش تأیید شد (فقط از پیش‌نویس/در انتظار تأیید)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesOrder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: 'credit_exception_required | customer_blocked | credit_hold | not_approvable | approval_required' }
+
   # ---------------- کالا، قیمت، تشویق ----------------
   /products:
     get:
@@ -975,7 +1276,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Product' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400': { $ref: '#/components/responses/SkuImmutableError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -3528,23 +3829,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApprovalSubmission' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-  /orders/{id}/approve:
-    parameters:
-      - { $ref: '#/components/parameters/idPath' }
-    post:
-      tags: [orders]
-      summary: تأیید سفارش (در صورت نیاز از طریق صف approvals)
-      responses:
-        '200':
-          description: سفارش تأیید شد (فقط از پیش‌نویس/در انتظار تأیید)
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SalesOrder' }
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -6785,6 +7069,23 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    SkuImmutableError:
+      description: >-
+        بدنهٔ درخواست حاوی کلیدِ نامجازِ `code` است — کدِ SKU پس از ساخت تغییرناپذیر
+        است و هیچ تغییری اعمال نمی‌شود. بدنه همیشه envelope استانداردِ `Error` است؛
+        برای این رد، `code` همیشه `code_immutable` و `details.field = 'code'` و
+        `details.surface = 'PATCH /products/:id'` است. (سایر خطاهای 400 اعتبارسنجی
+        نیز همین envelope را دارند؛ فهرستِ دلیل‌کدها در توضیحِ `Error.code`.)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            code_immutable:
+              summary: کلیدِ نامجازِ code در بدنهٔ PATCH
+              value:
+                code: code_immutable
+                message_fa: 'کدِ SKU پس از ساختِ کالا قابلِ تغییر نیست؛ برای کالایِ جدید کدِ جدید بسازید. هیچ‌یک از تغییراتِ این درخواست اعمال نشد.'
+                details: { field: code, surface: 'PATCH /products/:id' }
     Unauthorized:
       description: نشست نامعتبر یا منقضی — نیازمند ورود مجدد/تازه‌سازی
       content:
@@ -6887,7 +7188,11 @@ components:
             درخواست `?available=true` هرگز یک نمای مرکزی کامل را بهعنوان پاسخ
             «دامنهای» برنمیگرداند. این فقط یک دفاع fail-closed است؛ هیچ هویت،
             عضویت، وضعیت یا اختیار دامنهای ایجاد نمیکند.
-          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported']
+            **تغییرناپذیریِ SKU (TASK-PM-02-C14)** — `400`
+            - `code_immutable`: بدنهٔ PATCH شامل کلیدِ `code` بود؛ SKU پس از ساخت
+              تغییرناپذیر است و هیچ تغییری اعمال نشد. `details.field = 'code'`،
+              `details.surface = 'PATCH /products/:id'`.
+          examples: ['validation_failed', 'rule_rejected', 'version_conflict', 'request_already_converted', 'approval_chain_required', 'domain_property_rejected', 'domain_context_not_supported', 'code_immutable']
         message_fa: { type: string, description: پیام فارسی آماده نمایش به کاربر }
         details:
           type: object
@@ -7169,6 +7474,7 @@ components:
         channel: { type: string, description: کانال فروش (سرد/گرم/پورتال) }
         price_list_id: { type: [string, 'null'], format: uuid }
         settlement_term_id: { type: [string, 'null'], format: uuid }
+        segment_id: { type: [string, 'null'], format: uuid, description: بخش تجاری (مرجع /customer-segments) }
         visit_sequence: { type: integer, description: ترتیب در مسیر }
         geo: { oneOf: [{ $ref: '#/components/schemas/GeoPoint' }, { type: 'null' }] }
         geo_accuracy_m: { type: number }
@@ -7257,9 +7563,11 @@ components:
       type: object
       description: >
         فیلدهای قابل تغییر PATCH — همه اختیاری؛ تغییرها با row_version اعمال
-        می‌شوند (مغایرت = 409 version_conflict)
+        می‌شوند (مغایرت = 409 version_conflict).
+        کدِ SKU پس از ساخت تغییرناپذیر است: این قرارداد `code` را **تعریف
+        نمی‌کند** و هر درصدی از کلید `code` در بدنهٔ PATCH پیش از اعتبارسنجی
+        با 400 `code_immutable` رد می‌شود (هیچ تغییری اعمال نمی‌شود).
       properties:
-        code: { type: string }
         name: { type: string }
         name_latin: { type: [string, 'null'] }
         family_id: { type: [string, 'null'], format: uuid }
@@ -10763,3 +11071,127 @@ components:
         operation_id: { type: string, format: uuid }
         status: { type: string, enum: [cancelled] }
         note_fa: { type: string }
+    CustomerSegment:
+      type: object
+      required: [id, code, title, is_active, customer_count, row_version, created_at, updated_at]
+      description: بخشِ تجاری مشتری — دسته‌بندی قابلِ تنظیم برای گزارش و اعتبار
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        code: { type: string, description: '۲ تا ۳۲ کاراکتر؛ در شرکت یکتا و تغییرناپذیر' }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        is_active: { type: boolean, description: 'حذف مجاز نیست؛ غیرفعال‌سازی جاگزین است' }
+        customer_count: { type: integer, minimum: 0, description: شمار مشتریان فعالِ متصل (فقط خروجی) }
+        row_version: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+    CustomerCredit:
+      type: object
+      required:
+        - customer_id
+        - branch_id
+        - status
+        - segment_id
+        - credit_limit
+        - extra_limit
+        - extra_limit_expires_on
+        - nominal_limit
+        - available_credit
+        - available_for_order
+        - total_due
+        - committed_open_orders
+        - cheque_allowed
+        - open_cheques_count
+        - open_cheques_amount
+        - block_on_overdue
+        - max_overdue_days
+        - oldest_overdue_days
+        - overdue_invoice_count
+        - credit_hold
+      description: |
+        وضعیت اعتبار و مسدودی مشتری — همهٔ ارقام رشته/عدد را در JSON برمی‌گرداند؛
+        محاسبه روی همان داده‌ای است که دروازهٔ ثبتِ سفارش استفاده می‌کند.
+      properties:
+        customer_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        status: { type: string, enum: [active, suspended, blocked, closed], description: وضعیت مشتری (blocked ⇒ رد سفارش) }
+        segment_id: { type: [string, 'null'], format: uuid }
+        credit_limit: { type: number, description: سقفِ پایه؛ ۰ یعنی «سقف پیکربندی نشده» }
+        extra_limit: { type: number, description: اضافه‌اعتبارِ معتبر (منقضی‌شده‌ها حذف می‌شوند) }
+        extra_limit_expires_on: { type: [string, 'null'], format: date }
+        nominal_limit: { type: number, description: 'credit_limit + extra_limit' }
+        available_credit: { type: number, description: nominal_limit منهای ماندهٔ فاکتورهای باز (پس از کسر credit_note) }
+        available_for_order: { type: number, description: available_credit منهای سفارش‌های تعهدشدهٔ باز }
+        total_due: { type: number, description: ماندهٔ فاکتورهای باز پس از کسرِ credit_note }
+        committed_open_orders: { type: number, description: جمعِ سفارش‌های تأییدشده/تحویل‌نشدهٔ باز }
+        cheque_allowed: { type: boolean }
+        max_open_cheques: { type: [integer, 'null'], minimum: 0, description: 'null یعنی بدون سقفِ تعداد چکِ باز' }
+        open_cheques_count: { type: integer, minimum: 0 }
+        open_cheques_amount: { type: number }
+        block_on_overdue: { type: boolean }
+        max_overdue_days: { type: integer, minimum: 0 }
+        oldest_overdue_days: { type: integer, minimum: 0 }
+        overdue_invoice_count: { type: integer, minimum: 0 }
+        credit_hold: { type: boolean, description: مسدودی دستیِ اعتبار (هیچ‌وقت با استثنا دور نمی‌خورد) }
+        hold_reason: { type: [string, 'null'] }
+        hold_set_at: { type: [string, 'null'], format: date-time }
+    RouteCoverageRow:
+      type: object
+      required: [route_id, code, name, area_id, area_name, area_is_active, visit_weekday, is_active, assigned_count, salesperson_count]
+      properties:
+        route_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        area_id: { type: string, format: uuid }
+        area_name: { type: string }
+        area_is_active: { type: boolean }
+        visit_weekday: { type: [integer, 'null'], minimum: 0, maximum: 6 }
+        is_active: { type: boolean }
+        assigned_count: { type: integer, minimum: 0, description: مشتریان فعال منتسب به مسیر }
+        salesperson_count: { type: integer, minimum: 0, description: فروشندگانِ متصل به مسیر }
+    UnassignedCustomerRow:
+      type: object
+      required: [id, code, branch_id, branch_code]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        branch_id: { type: string, format: uuid }
+        branch_code: { type: string }
+        area_id: { type: [string, 'null'], format: uuid }
+        area_name: { type: [string, 'null'] }
+        segment_id: { type: [string, 'null'], format: uuid }
+        segment_title: { type: [string, 'null'] }
+    TerritoryConflictRow:
+      type: object
+      required: [customer_id, customer_code, kind, detail_fa]
+      properties:
+        customer_id: { type: string, format: uuid }
+        customer_code: { type: string }
+        kind:
+          type: string
+          enum: [area_route_mismatch, inactive_route, inactive_area, duplicate_sequence]
+        detail_fa: { type: string }
+    TerritoryCoverage:
+      type: object
+      required: [totals, routes, unassigned_customers, conflicts, conflicts_total]
+      properties:
+        totals:
+          type: object
+          required: [areas, routes, customers_total, customers_assigned, customers_unassigned, customers_conflicting]
+          properties:
+            areas: { type: integer, minimum: 0 }
+            routes: { type: integer, minimum: 0 }
+            customers_total: { type: integer, minimum: 0 }
+            customers_assigned: { type: integer, minimum: 0 }
+            customers_unassigned: { type: integer, minimum: 0 }
+            customers_conflicting: { type: integer, minimum: 0 }
+        routes:
+          type: array
+          items: { $ref: '#/components/schemas/RouteCoverageRow' }
+        unassigned_customers:
+          type: array
+          items: { $ref: '#/components/schemas/UnassignedCustomerRow' }
+        conflicts:
+          type: array
+          items: { $ref: '#/components/schemas/TerritoryConflictRow' }
+        conflicts_total: { type: integer, minimum: 0 }

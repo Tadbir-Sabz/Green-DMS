@@ -19,7 +19,7 @@ import type {
  */
 const COLUMNS = `
   c.id, c.person_id, c.branch_id, c.code, c.area_id, c.route_id, c.salesperson_id,
-  c.channel, c.price_list_id, c.settlement_term_id, c.visit_sequence,
+  c.channel, c.price_list_id, c.settlement_term_id, c.segment_id, c.visit_sequence,
   case when c.geo is null then null else json_build_object(
            'type', 'Point',
            'coordinates', array[st_x(c.geo::geometry), st_y(c.geo::geometry)]
@@ -47,6 +47,7 @@ export interface CustomerRow extends QueryResultRow {
   channel: string;
   price_list_id: string | null;
   settlement_term_id: string | null;
+  segment_id: string | null;
   visit_sequence: number | null;
   geo: { type: 'Point'; coordinates: [number, number] } | null;
   geo_accuracy_m: number | null;
@@ -245,16 +246,16 @@ export class CustomerRepository {
     const hasGeo = Boolean(dto.geo);
     const { rows } = await this.pool.query<{ id: string }>(
       `insert into customer (person_id, branch_id, code, area_id, route_id, salesperson_id,
-                             channel, price_list_id, settlement_term_id, visit_sequence,
+                             channel, price_list_id, settlement_term_id, segment_id, visit_sequence,
                              geo, geo_accuracy_m, geo_source, geo_captured_at, geo_captured_by,
                              status)
        values ($1, $2, $3, $4, $5, $6,
-               coalesce($7, 'retail'), $8, $9, $10,
+               coalesce($7, 'retail'), $8, $9, $10, $11,
                ${hasGeo ? point(dto.geo!.coordinates[0], dto.geo!.coordinates[1]) : 'null'},
-               $11, $12,
+               $12, $13,
                ${hasGeo ? 'now()' : 'null'},
-               $13,
-               coalesce($14, 'active'))
+               $14,
+               coalesce($15, 'active'))
        returning id`,
       [
         dto.person_id,
@@ -266,6 +267,7 @@ export class CustomerRepository {
         dto.channel ?? null,
         dto.price_list_id ?? null,
         dto.settlement_term_id ?? null,
+        dto.segment_id ?? null,
         dto.visit_sequence ?? null,
         dto.geo_accuracy_m ?? null,
         hasGeo ? dto.geo_source ?? 'gps' : null,
@@ -295,6 +297,7 @@ export class CustomerRepository {
     if (dto.channel !== undefined) add('channel = $?', dto.channel);
     if (dto.price_list_id !== undefined) add('price_list_id = $?', dto.price_list_id);
     if (dto.settlement_term_id !== undefined) add('settlement_term_id = $?', dto.settlement_term_id);
+    if (dto.segment_id !== undefined) add('segment_id = $?', dto.segment_id);
     if (dto.visit_sequence !== undefined) add('visit_sequence = $?', dto.visit_sequence);
     if (dto.status !== undefined) add('status = $?', dto.status);
     if (dto.geo_accuracy_m !== undefined) add('geo_accuracy_m = $?', dto.geo_accuracy_m);

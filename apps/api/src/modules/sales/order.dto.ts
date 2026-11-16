@@ -16,6 +16,7 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -157,6 +158,28 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderLineDto)
   lines?: OrderLineDto[];
+}
+
+/**
+ * POST /orders/credit-exception — ثبتِ سفارشِ پیش‌نویسِ فراتر از سقف/محدودیتِ اعتبار
+ * همراه با راه‌اندازیِ گردشِ استثنای اعتبار (ar.credit.exception).
+ * `reason` دلیلِ درخواستِ استثنا است و در ممیزی ثبت می‌شود.
+ */
+export class CreateOrderCreditExceptionDto extends CreateOrderDto {
+  @IsDefined()
+  @IsString()
+  @MinLength(8, { message: 'دلیل استثنا باید دست‌کم ۸ کاراکتر باشد.' })
+  @MaxLength(500)
+  reason!: string;
+}
+
+/** POST /orders/{id}/credit-exception — درخواستِ استثنای اعتبار برای سفارشِ پیش‌نویسِ موجود */
+export class RequestCreditExceptionDto {
+  @IsDefined()
+  @IsString()
+  @MinLength(8, { message: 'دلیل استثنا باید دست‌کم ۸ کاراکتر باشد.' })
+  @MaxLength(500)
+  reason!: string;
 }
 
 /** PATCH /orders/{id} — فقط پیش از تأیید (draft) مجاز است؛ اقلام جایگزین می‌شوند */
