@@ -221,7 +221,7 @@ beforeAll(async () => {
   const makeUser = async (cid: string, code: string, roleCode: 'admin_full' | 'rr_approver' | 'rr_viewer'): Promise<void> => {
     const roleId = (
       await pool.query<{ id: string }>(
-        `insert into role (company_id, code, name) values ($1, $2, $2) returning id`,
+        `insert into role (company_id, code, name) values ($1, $2, $3) returning id`,
         [cid, `${roleCode}_${code}`, `${roleCode}_${code}`],
       )
     ).rows[0].id;
