@@ -10,7 +10,15 @@ import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
 import type { CreateOrderDto, ListOrdersQueryDto, UpdateOrderDto } from './order.dto';
 import type { OrderRepository, OrderRow } from './order.repository';
-import { ORDER_REPOSITORY } from './tokens';
+import { ORDER_REPOSITORY, CUSTOMER_CREDIT_REPOSITORY } from './tokens';
+import type { CreateOrderCreditExceptionDto } from './order.dto';
+import {
+  evaluateCreditGate,
+  type CreditGateResult,
+  type CreditRestriction,
+} from './credit-policy';
+import type { CustomerCreditRepository } from './customer-credit.repository';
+import { AUDIT_SERVICE, type AuditService } from '../../common/audit.service';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
 import type { RulesEngineService } from '../rules-engine/rules-engine.service';
 import type { RuleContext, RuleEvaluation } from '../rules-engine/rules-engine.service';
@@ -38,9 +46,6 @@ const badRequest = (code: string, message_fa: string): BadRequestException =>
 
 const notFound = (): NotFoundException =>
   new NotFoundException({ code: 'not_found', message_fa: 'سفارش یافت نشد' });
-
-// منبعِ واحدِ گرد‌کردنِ مالی (TASK-24) — رفتارِ پیشین عیناً حفظ شده است
-import { money } from '../../common/financial';
 
 export interface OrderView extends OrderRow {
   lines?: {
@@ -91,6 +96,8 @@ export class OrderService {
      * سازوکار عبور کند تا «یک درخواست ⇒ یک سفارش» در همهٔ مسیرها تضمین شود.
      */
     private readonly creationLock: OrderCreationLock,
+    @Inject(CUSTOMER_CREDIT_REPOSITORY) private readonly creditRepo: CustomerCreditRepository,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
   ) {}
 
   private assertId(id: string): void {
@@ -116,15 +123,118 @@ export class OrderService {
     actorUserId: string | null = null,
     permissions: OrderPricingPermissions = DENY_ALL_PRICING,
   ): Promise<OrderView> {
+    return this.createInternal(companyId, dto, actorUserId, permissions, null);
+  }
+
+  /**
+   * P3 — ثبتِ پیش‌نویسِ سفارشِ فراتر از سقف/شرایطِ اعتبار + راه‌اندازیِ گردشِ
+   * «استثنای اعتبار» (ar.credit.exception). محدودیتِ سخت (مشتریِ مسدود/مسدودیِ
+   * اعتبار) هرگز دور نمی‌شود؛ نبودنِ محدودیتِ قابلِ عبور ⇒ 409 no_credit_exception_needed.
+   */
+  async createCreditException(
+    companyId: string,
+    dto: CreateOrderCreditExceptionDto,
+    actorUserId: string | null = null,
+    permissions: OrderPricingPermissions = DENY_ALL_PRICING,
+  ): Promise<OrderView & { approval_request_id: string }> {
+    const reason = dto.reason.trim();
+    const created = await this.createInternal(companyId, dto, actorUserId, permissions, {
+      reason,
+    });
+    const approval = await this.startCreditExceptionApproval(companyId, created.id, reason, actorUserId);
+    const view = await this.get(companyId, created.id);
+    return { ...view, approval_request_id: approval.approvalRequestId };
+  }
+
+  /**
+   * P3 — درخواستِ استثنا برای سفارشِ پیش‌نویسِ موجود. گردشِ تازه‌ای راه می‌اندازد؛
+   * اگر سفارش هیچ محدودیتِ قابلِ عبوری نداشته باشد ⇒ 409 no_credit_exception_needed،
+   * و اگر محدودیتِ سخت باشد ⇒ 409 همان کد (استثنا هرگز مسدودیِ اداری را دور نمی‌زند).
+   */
+  async requestCreditException(
+    companyId: string,
+    id: string,
+    reasonRaw: string,
+    actorUserId: string,
+  ): Promise<{ approval_request_id: string; current_step: number; expires_at: string | null; stages: number }> {
+    this.assertId(id);
+    const reason = reasonRaw.trim();
+    const existing = await this.repo.findById(companyId, id);
+    if (!existing) throw notFound();
+    const status = (existing as { status?: string }).status;
+    if (status !== 'draft' && status !== 'pending_approval') {
+      throw new ConflictException({
+        code: 'not_submittable',
+        message_fa: 'فقط سفارشِ پیش‌نویس یا در انتظارِ تأیید قابلِ درخواستِ استثنای اعتبار است.',
+        details: { status },
+      });
+    }
+    // محدودیت‌ها از خودِ سفارشِ ذخیره‌شده خوانده می‌شوند (نه از بدنهٔ کلاینت)
+    const gate = await this.checkCreditGate(
+      companyId,
+      existing.customer_id,
+      Number(existing.grand_total),
+      { allowApprovable: true },
+    );
+    const approvable = (gate?.restrictions ?? []).filter((r) => r.approvable);
+    if (approvable.length === 0) {
+      throw new ConflictException({
+        code: 'no_credit_exception_needed',
+        message_fa: 'این سفارش از نظرِ اعتبار بدونِ مانع است؛ استثنای اعتبار لازم نیست.',
+      });
+    }
+    const started = await this.startCreditExceptionApproval(companyId, id, reason, actorUserId);
+    return {
+      approval_request_id: started.approvalRequestId,
+      current_step: started.currentStep,
+      expires_at: started.expiresAt,
+      stages: started.stages,
+    };
+  }
+
+  private async startCreditExceptionApproval(
+    companyId: string,
+    orderId: string,
+    reason: string,
+    actorUserId: string | null,
+  ) {
+    const started = await this.rules.submitForApproval(companyId, {
+      operation: 'ar.credit.exception',
+      entityType: 'sales_order',
+      entityId: orderId,
+      requestedBy: actorUserId,
+    });
+    await this.audit.record({
+      companyId,
+      actorUserId,
+      action: 'credit_exception_requested',
+      entityType: 'sales_order',
+      entityId: orderId,
+      before: null,
+      after: { reason, operation: 'ar.credit.exception', approval_request_id: started.approvalRequestId },
+    });
+    await this.repo.markPendingApproval(companyId, orderId);
+    return started;
+  }
+
+  private createInternal(
+    companyId: string,
+    dto: CreateOrderDto,
+    actorUserId: string | null,
+    permissions: OrderPricingPermissions,
+    creditException: { reason: string } | null,
+  ): Promise<OrderView> {
     // TASK-24X · A-1 — شرطیِ‌سازیِ ساختِ سفارشِ متصل به درخواست.
     //
     // اگر `request_id` دارد، کلِ توالیِ ساخت (اعتبارسنجی، قیمت‌گذاری، شمارهٔ سند،
     // درج، مصرفِ تشویق، ممیزی) زیرِ قفلِ همان درخواست اجرا می‌شود. پیش از این،
     // این مسیر اصلاً قفل نداشت و می‌توانست در موازاتِ `convert()` سفارشِ دومی برای
     // همان درخواست بسازد. بدونِ `request_id` قفل لازم نیست (هیچ هویتِ مشترکی نیست).
-    if (!dto.request_id) return this.createLocked(companyId, dto, actorUserId, permissions);
+    if (!dto.request_id) {
+      return this.createLocked(companyId, dto, actorUserId, permissions, creditException);
+    }
     return this.creationLock.withRequestLock(dto.request_id, () =>
-      this.createLocked(companyId, dto, actorUserId, permissions),
+      this.createLocked(companyId, dto, actorUserId, permissions, creditException),
     );
   }
 
@@ -133,6 +243,7 @@ export class OrderService {
     dto: CreateOrderDto,
     actorUserId: string | null,
     permissions: OrderPricingPermissions,
+    creditException: { reason: string } | null = null,
   ): Promise<OrderView> {
     // TASK-24X · A-1 — نگهبانِ idempotency: اگر این درخواست **پیش‌تر** به سفارش
     // تبدیل شده باشد، ساختِ سفارشِ دوم مجاز نیست. این بررسی داخلِ قفل انجام
@@ -158,8 +269,22 @@ export class OrderService {
 
     // ارزیابی واقعی موتور قوانین (before_save) روی زمینهٔ سفارش
     await this.evaluateOrderRules(companyId, dto, lines, totals);
-    // بررسی سقف اعتبار و کفایت موجودی هنگام ثبت سفارش
-    await this.enforceCreditLimit(companyId, dto.customer_id, Number(totals.grand_total));
+    // P3 — دروازهٔ اعتبار (سروری): مسدودیِ سخت ⇒ 409؛ قابلِ عبور ⇒ 409 مگر در مسیرِ استثنا
+    const creditGate = await this.checkCreditGate(
+      companyId,
+      dto.customer_id,
+      Number(totals.grand_total),
+      { allowApprovable: Boolean(creditException) },
+    );
+    if (creditException) {
+      const approvable = (creditGate?.restrictions ?? []).filter((r) => r.approvable);
+      if (approvable.length === 0) {
+        throw new ConflictException({
+          code: 'no_credit_exception_needed',
+          message_fa: 'این سفارش از نظرِ اعتبار بدونِ مانع است؛ استثنای اعتبار لازم نیست.',
+        });
+      }
+    }
     await this.enforceStock(companyId, lines);
 
     const fiscalYear = persianYear();
@@ -177,8 +302,31 @@ export class OrderService {
         lines,
         // TASK-24Y: ثبتِ سازنده — پیش‌نیازِ اجراپذیرِ جداسازیِ وظایف
         createdBy: actorUserId ?? null,
+        // P3 — بررسیِ اعتبار روی خودِ تراکنشِ درج (قفلِ مشورتی + خواندنِ تازهٔ وضعیت).
+        // اگر محدودیت تازه پدید آمده باشد، درج rollback می‌شود؛ یعنی تأییدِ اعتبار
+        // نمی‌تواند «بین پیش‌بررسی و ثبت» دور زده شود.
+        beforeCommit: async (client) => {
+          await this.creditRepo.lockCreditTx(client, companyId, dto.customer_id);
+          const fresh = await this.creditRepo.gateRow(companyId, dto.customer_id, null, client);
+          if (!fresh) {
+            throw new ConflictException({
+              code: 'customer_not_found',
+              message_fa: 'مشتری انتخاب‌شده در این شرکت یافت نشد.',
+            });
+          }
+          const ev = evaluateCreditGate(fresh, Number(totals.grand_total));
+          this.assertCreditAllowed(ev.restrictions, Boolean(creditException));
+        },
       });
     } catch (err) {
+      if (
+        err instanceof ConflictException ||
+        err instanceof BadRequestException ||
+        err instanceof NotFoundException ||
+        err instanceof ForbiddenException
+      ) {
+        throw err;
+      }
       throw this.mapOrderError(err, dto.request_id ?? null);
     }
     // مصرفِ تشویق‌ها idempotent است: تکرارِ همان کلید ردیفِ تکراری نمی‌سازد.
@@ -361,30 +509,41 @@ export class OrderService {
   }
 
   /**
-   * بررسی سقف اعتبار: فقط وقتی customer_credit با credit_limit>0 پیکربندی شده باشد.
-   * اگر مبلغ سفارش از اعتبار در دسترس بیشتر شود → 409 credit_limit_exceeded
-   * (نیازمند تأیید اعتبار با مجوز ar.credit.approve).
+   * P3 — دروازهٔ اعتبارِ سروری برای ثبتِ سفارش.
+   *
+   * قواعد (منبعِ تعبیر: credit-policy.ts):
+   *   مشتریِ غیرفعال/مسدودشده یا مسدودیِ اعتبار ⇒ 409 (هرگز قابلِ عبور نیست)
+   *   فراتر از سقف/معوقیِ مجاز ⇒ 409 (فقط با گردشِ «استثنای اعتبار» قابلِ عبور)
+   * نبودنِ ردیفِ customer_credit یا credit_limit=0 یعنی «سقف پیکربندی نشده» و
+   * رفتارِ تاریخی (بدونِ سقف) حفظ می‌شود.
    */
-  private async enforceCreditLimit(
+  private async checkCreditGate(
     companyId: string,
     customerId: string,
     orderTotal: number,
-  ): Promise<void> {
-    const exposure = await this.repo.customerExposure(companyId, customerId);
-    // نبودِ ردیف یا credit_limit=0 → سقف اعتباری پیکربندی نشده؛ سخت‌گیری نمی‌کنیم
-    if (!exposure || exposure.credit_limit <= 0) return;
-    if (orderTotal > exposure.available_credit) {
-      throw new ConflictException({
-        code: 'credit_limit_exceeded',
-        message_fa: 'مبلغ سفارش از اعتبار در دسترس مشتری بیشتر است؛ نیازمند تأیید اعتبار است.',
-        details: {
-          order_total: money(orderTotal),
-          available_credit: money(exposure.available_credit),
-          credit_limit: money(exposure.credit_limit),
-          total_due: money(exposure.total_due),
-        },
-      });
-    }
+    opts: { excludeOrderId?: string | null; allowApprovable?: boolean } = {},
+  ): Promise<CreditGateResult | null> {
+    const row = await this.creditRepo.gateRow(companyId, customerId, opts.excludeOrderId ?? null);
+    if (!row) return null; // مشتری نیست — فراخوان‌های زودتر ۴۰۰ customer_not_found داده‌اند
+    const result = evaluateCreditGate(row, orderTotal);
+    this.assertCreditAllowed(result.restrictions, Boolean(opts.allowApprovable));
+    return result;
+  }
+
+  private assertCreditAllowed(restrictions: CreditRestriction[], allowApprovable: boolean): void {
+    const hard = restrictions.find((r) => !r.approvable);
+    if (hard) throw this.creditConflict(hard);
+    if (allowApprovable) return;
+    const approvable = restrictions.find((r) => r.approvable);
+    if (approvable) throw this.creditConflict(approvable);
+  }
+
+  private creditConflict(restriction: CreditRestriction): ConflictException {
+    return new ConflictException({
+      code: restriction.code,
+      message_fa: restriction.message_fa,
+      details: restriction.details,
+    });
   }
 
   /**
@@ -458,7 +617,9 @@ export class OrderService {
       totals = computed.totals;
       // اقلام تغییر کرده‌اند → ارزیابی قاعده و بررسی اعتبار/موجودی دوباره انجام می‌شود
       await this.evaluateOrderRules(companyId, effective, lines, totals);
-      await this.enforceCreditLimit(companyId, customerId, Number(totals.grand_total));
+      await this.checkCreditGate(companyId, customerId, Number(totals.grand_total), {
+        excludeOrderId: id,
+      });
       await this.enforceStock(companyId, lines);
     } else {
       totals = {
@@ -596,36 +757,58 @@ export class OrderService {
     }
 
     const policies = await this.rules.listPoliciesForOperation(companyId, 'sales.order.approve');
-    if (policies.length === 0) {
-      // بدونِ سیاست ⇒ رفتارِ عقب‌رو (سازگاری). خودتأییدی بالا مسدود است و تصمیم
-      // در ممیزی ثبت می‌شود؛ هیچ تأییدی بی‌ردِ پایمال نمی‌شود.
-      const approved = await this.repo.approve(companyId, id);
-      if (!approved) {
+    const hasOrderPolicy = policies.length > 0;
+    const orderTotal = Number(existing.grand_total ?? 0);
+
+    // P3 — دروازهٔ اعتبار در **همان تراکنشِ** تأیید: مسدودیِ سخت ⇒ رد؛ فراتر از
+    // سقف/معوقی ⇒ مصرفِ تکیِ اتصالِ «استثنای اعتبار» (ar.credit.exception) همراه
+    // با گذارِ وضعیت. اگر استثنایی ثبت/تأیید نشده باشد ⇒ 409 credit_exception_required
+    // و هیچ اتصالی (نه استثنا، نه خودِ تأیید) مصرف نمی‌شود (اصلِ D-1).
+    await this.rules.runInApprovalTransaction(companyId, async (consume, client) => {
+      await this.creditRepo.lockCreditTx(client, companyId, existing.customer_id);
+      const fresh = await this.creditRepo.gateRow(companyId, existing.customer_id, null, client);
+      if (fresh) {
+        const ev = evaluateCreditGate(fresh, orderTotal);
+        const hard = ev.restrictions.find((r) => !r.approvable);
+        if (hard) {
+          throw new ConflictException({
+            code: hard.code,
+            message_fa: hard.message_fa,
+            details: hard.details,
+          });
+        }
+        if (ev.restrictions.length > 0) {
+          await consume({
+            operation: 'ar.credit.exception',
+            entityType: 'sales_order',
+            entityId: id,
+            onMissing: {
+              code: 'credit_exception_required',
+              message_fa:
+                'این سفارش فراتر از سقف یا شرایطِ اعتبار مشتری است؛ ابتدا «استثنای اعتبار» ثبت و تأیید شود.',
+              details: {
+                restrictions: ev.restrictions.map((r) => r.code),
+                approval_operation: 'ar.credit.exception',
+              },
+            },
+          });
+        }
+      }
+      if (hasOrderPolicy) {
+        // TASK-24Z · Phase B — مصرفِ اتصالِ تأییدِ سفارش در همان تراکنش.
+        await consume({ operation: 'sales.order.approve', entityType: 'sales_order', entityId: id });
+      }
+      // TASK-24Z · Phase B — گذارِ وضعیت با همان client؛ اگر شکست بخورد همهٔ
+      // اتصال‌های مصرف‌شده (استثنا/تأیید) rollback می‌شوند (اصلِ D-1).
+      const done = await this.repo.approve(companyId, id, client);
+      if (!done) {
         throw new ConflictException({
           code: 'not_approvable',
           message_fa: 'فقط سفارش پیش‌نویس یا در انتظار تأیید قابل تأیید است.',
         });
       }
-      return this.get(companyId, id);
-    }
-
-    // TASK-24Z · Phase B — مصرفِ اتصال و گذارِ وضعیت در **یک** تراکنش.
-    // اگر گذار شکست بخورد، اتصال مصرف‌نشده می‌ماند و تأییدِ معتبر از دست نمی‌رود (D-1).
-    const approvedId = await this.rules.consumeApprovedBinding(
-      companyId,
-      { operation: 'sales.order.approve', entityType: 'sales_order', entityId: id },
-      async (client) => {
-        const done = await this.repo.approve(companyId, id, client);
-        if (!done) {
-          throw new ConflictException({
-            code: 'not_approvable',
-            message_fa: 'فقط سفارش پیش‌نویس یا در انتظار تأیید قابل تأیید است.',
-          });
-        }
-        return done;
-      },
-    );
-    void approvedId;
+      return done;
+    });
     return this.get(companyId, id);
   }
 

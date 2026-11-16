@@ -27,6 +27,9 @@ export const FINGERPRINT_FIELDS: Record<string, readonly string[]> = {
   // مبلغ، مشتری، شعبه و اقلام، وضعیتِ تأییدشده را می‌سازند.
   // `status` عمداً نیست: تأیید خودش وضعیت را عوض می‌کند.
   'sales.order.approve': ['customer_id', 'branch_id', 'grand_total', 'order_date', 'items'],
+  // P3: استثنای اعتبار همان موجودیت (سفارش فروشِ پیش‌نویس) و همان فیلدهای تصمیم‌ساز را دارد؛
+  // فقط معنای «چرا تأیید شده» فرق می‌کند. تغییرِ قلم/مبلغ/تاریخ، تأییدِ استثنا را باطل می‌کند.
+  'ar.credit.exception': ['customer_id', 'branch_id', 'grand_total', 'order_date', 'items'],
   // مرجوعی ستونِ مبلغِ کل ندارد؛ مبلغ از اقلام می‌آید (جمعِ qty*unit_price) و
   // در همان کوئریِ واکشی محاسبه می‌شود تا تغییرِ اقلام هم اثرانگشت را عوض کند.
   'sales.return.approve': ['customer_id', 'branch_id', 'invoice_id', 'line_count', 'qty_total', 'items'],

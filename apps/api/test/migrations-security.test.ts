@@ -193,10 +193,10 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-PM-02-C2: 0065 (مدیریت دادههای مرجع کالا) آخرین مهاجرت است؛
-    // ۰۰۶۴ پیشتر آخرین بود. با افزودنِ مهاجرتِ تازه این خط عمداً باید
+    // TASK-P3: 0066 (بخش‌بندی مشتری/اعتبار) آخرین مهاجرت است؛
+    // ۰۰۶۵ پیشتر آخرین بود. با افزودنِ مهاجرتِ تازه این خط عمداً باید
     // بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0065_reference_data_admin.up.sql');
+    expect(files[files.length - 1]).toBe('0066_customer_segmentation_credit.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {

@@ -18,6 +18,15 @@ import { WaybillService } from './waybill.service';
 import { OrderRepository } from './order.repository';
 import { OrderCreationLock } from './order-creation-lock';
 import { OrderService } from './order.service';
+import { CustomerCreditController } from './customer-credit.controller';
+import { CustomerCreditRepository } from './customer-credit.repository';
+import { CustomerCreditService } from './customer-credit.service';
+import { CustomerSegmentsController } from './segment.controller';
+import { CustomerSegmentRepository } from './segment.repository';
+import { CustomerSegmentService } from './segment.service';
+import { TerritoryController } from './territory.controller';
+import { TerritoryRepository } from './territory.repository';
+import { TerritoryService } from './territory.service';
 import { RouteController } from './route.controller';
 import { StructureRepository } from './structure.repository';
 import { StructureService } from './structure.service';
@@ -29,10 +38,16 @@ import {
   RequestController,
 } from './sales-chain.controller';
 import {
+  CUSTOMER_CREDIT_REPOSITORY,
+  CUSTOMER_CREDIT_SERVICE,
   CUSTOMER_REPOSITORY,
+  CUSTOMER_SEGMENT_REPOSITORY,
+  CUSTOMER_SEGMENT_SERVICE,
   CUSTOMER_SERVICE,
   DELIVERY_REPOSITORY,
   DELIVERY_SERVICE,
+  TERRITORY_REPOSITORY,
+  TERRITORY_SERVICE,
   INVOICE_REPOSITORY,
   INVOICE_SERVICE,
   ORDER_REPOSITORY,
@@ -86,6 +101,9 @@ export class SalesController {
     CustomerController,
     RouteController,
     OrderController,
+    CustomerSegmentsController,
+    TerritoryController,
+    CustomerCreditController,
     WaybillController,
     ReturnController,
     RequestController,
@@ -106,6 +124,18 @@ export class SalesController {
     OrderService,
     OrderCreationLock,
     { provide: ORDER_SERVICE, useExisting: OrderService },
+    CustomerCreditRepository,
+    { provide: CUSTOMER_CREDIT_REPOSITORY, useExisting: CustomerCreditRepository },
+    CustomerCreditService,
+    { provide: CUSTOMER_CREDIT_SERVICE, useExisting: CustomerCreditService },
+    CustomerSegmentRepository,
+    { provide: CUSTOMER_SEGMENT_REPOSITORY, useExisting: CustomerSegmentRepository },
+    CustomerSegmentService,
+    { provide: CUSTOMER_SEGMENT_SERVICE, useExisting: CustomerSegmentService },
+    TerritoryRepository,
+    { provide: TERRITORY_REPOSITORY, useExisting: TerritoryRepository },
+    TerritoryService,
+    { provide: TERRITORY_SERVICE, useExisting: TerritoryService },
     WaybillRepository,
     { provide: WAYBILL_REPOSITORY, useExisting: WaybillRepository },
     WaybillService,

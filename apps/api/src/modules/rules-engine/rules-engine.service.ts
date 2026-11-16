@@ -1215,58 +1215,108 @@ export class RulesEngineService {
     execute: (client: PoolClient, binding: { id: string; approval_request_id: string }) => Promise<T>,
   ): Promise<T> {
     return withTransaction(this.pool, async (client) => {
-      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))',
-        [`${companyId}:${input.operation}:${input.entityId}`]);
-      // قفلِ ردیفِ اتصال (`for update of b`) تا دو عملیاتِ هم‌زمان سریال شوند.
-      const binding = await this.repo.findConsumedBinding(
-        companyId,
-        input.operation,
-        input.entityType,
-        input.entityId,
-        client,
-      );
-      if (!binding) {
-        throw new ConflictException({
-          code: 'approval_required',
-          message_fa:
-            'این عملیات نیازمندِ تأیید است و هیچ گردشِ تأییدِ معتبری برای آن ثبت نشده؛ ابتدا درخواستِ تأیید ثبت کنید.',
-          details: { operation: input.operation, entity_type: input.entityType },
-        });
-      }
-
-      // Phase H — اثرانگشتِ فعلی باید با اثرانگشتِ تأییدشده یکی باشد.
-      const currentState = await this.repo.loadEntityState(
-        companyId,
-        input.operation,
-        input.entityId,
-        client,
-      );
-      const currentFingerprint = fingerprintOf(input.operation, currentState);
-      if (!fingerprintMatches(binding.entity_fingerprint, currentFingerprint)) {
-        throw new ConflictException({
-          code: 'entity_changed_since_approval',
-          message_fa:
-            'موجودیت پس از تأیید تغییر کرده است؛ این تأیید برای وضعیتِ فعلی معتبر نیست. درخواستِ تأییدِ تازه ثبت کنید.',
-          details: {
-            operation: input.operation,
-            approval_request_id: binding.approval_request_id,
-            changed_fields: fingerprintFieldsFor(input.operation),
-          },
-        });
-      }
-
-      // مصرف + گذارِ کسب‌وکار، هر دو روی همان `client` و همان تراکنش.
-      const consumed = await this.repo.consumeBinding(companyId, binding.id, client);
-      if (!consumed) {
-        throw new ConflictException({
-          code: 'approval_not_granted',
-          message_fa: 'این تأیید هم‌زمان توسط عملیاتِ دیگری مصرف شده است.',
-          details: { approval_request_id: binding.approval_request_id, operation: input.operation },
-        });
-      }
-
+      const binding = await this.consumeApprovedBindingTx(client, companyId, input);
       return execute(client, binding);
     });
+  }
+
+  /**
+   * مصرفِ یک اتصال در **تراکنشِ بیرونی** (بدون `withTransaction` داخلی).
+   * همان کنترل‌های `consumeApprovedBinding` را دارد ولی به‌صورتِ ترکیبی:
+   * قفلِ مشورتی، قفلِ ردیفِ اتصال، بررسیِ اثرانگشت و مصرفِ اتمیک — همگی روی
+   * `client`ِ فراخوان‌دهنده اجرا می‌شود.
+   *
+   * `onMissing` اجازه می‌دهد فراخوان (مثلِ دروازهٔ اعتبار) کد/پیامِ فارسیِ پایدار
+   * خودش را بدهد؛ رفتارِ پیش‌فرض `409 approval_required` است.
+   */
+  private async consumeApprovedBindingTx(
+    client: PoolClient,
+    companyId: string,
+    input: {
+      operation: string;
+      entityType: string;
+      entityId: string;
+      onMissing?: { code: string; message_fa: string; details?: Record<string, unknown> };
+    },
+  ): Promise<{ id: string; approval_request_id: string }> {
+    await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`${companyId}:${input.operation}:${input.entityId}`]);
+    // قفلِ ردیفِ اتصال (`for update of b`) تا دو عملیاتِ هم‌زمان سریال شوند.
+    const binding = await this.repo.findConsumedBinding(
+      companyId,
+      input.operation,
+      input.entityType,
+      input.entityId,
+      client,
+    );
+    if (!binding) {
+      throw new ConflictException({
+        code: input.onMissing?.code ?? 'approval_required',
+        message_fa:
+          input.onMissing?.message_fa ??
+          'این عملیات نیازمندِ تأیید است و هیچ گردشِ تأییدِ معتبری برای آن ثبت نشده؛ ابتدا درخواستِ تأیید ثبت کنید.',
+        details: input.onMissing?.details ?? { operation: input.operation, entity_type: input.entityType },
+      });
+    }
+
+    // Phase H — اثرانگشتِ فعلی باید با اثرانگشتِ تأییدشده یکی باشد.
+    const currentState = await this.repo.loadEntityState(
+      companyId,
+      input.operation,
+      input.entityId,
+      client,
+    );
+    const currentFingerprint = fingerprintOf(input.operation, currentState);
+    if (!fingerprintMatches(binding.entity_fingerprint, currentFingerprint)) {
+      throw new ConflictException({
+        code: 'entity_changed_since_approval',
+        message_fa:
+          'موجودیت پس از تأیید تغییر کرده است؛ این تأیید برای وضعیتِ فعلی معتبر نیست. درخواستِ تأییدِ تازه ثبت کنید.',
+        details: {
+          operation: input.operation,
+          approval_request_id: binding.approval_request_id,
+          changed_fields: fingerprintFieldsFor(input.operation),
+        },
+      });
+    }
+
+    // مصرف + گذارِ کسب‌وکار، هر دو روی همان `client` و همان تراکنش.
+    const consumed = await this.repo.consumeBinding(companyId, binding.id, client);
+    if (!consumed) {
+      throw new ConflictException({
+        code: 'approval_not_granted',
+        message_fa: 'این تأیید هم‌زمان توسط عملیاتِ دیگری مصرف شده است.',
+        details: { approval_request_id: binding.approval_request_id, operation: input.operation },
+      });
+    }
+    return { id: binding.id, approval_request_id: binding.approval_request_id };
+  }
+
+  /**
+   * P3 — ترکیبِ چند مصرفِ اتصال + گذارِ کسب‌وکار در **یک** تراکنش.
+   *
+   * مثال: تأییدِ سفارشِ فروش که هم سیاستِ `sales.order.approve` دارد و هم استثنای
+   * اعتبارِ `ar.credit.exception` لازم دارد. اگر هرکدام مصرف نشود (یا گذار شکست
+   * بخورد) کلِ تراکنش برمی‌گردد؛ هیچ تأییدی سوخته نمی‌ماند (همان اصلِ D-1).
+   *
+   * فراخوان‌دهنده `consume` را یک یا چند بار صدا می‌زند و سپس گذارِ کسب‌وکار را
+   * با همان `client` اجرا می‌کند. هر خطا ⇒ rollback کامل.
+   */
+  async runInApprovalTransaction<T>(
+    companyId: string,
+    fn: (
+      consume: (input: {
+        operation: string;
+        entityType: string;
+        entityId: string;
+        onMissing?: { code: string; message_fa: string; details?: Record<string, unknown> };
+      }) => Promise<{ id: string; approval_request_id: string }>,
+      client: PoolClient,
+    ) => Promise<T>,
+  ): Promise<T> {
+    return withTransaction(this.pool, (client) =>
+      fn((input) => this.consumeApprovedBindingTx(client, companyId, input), client),
+    );
   }
 
   /**

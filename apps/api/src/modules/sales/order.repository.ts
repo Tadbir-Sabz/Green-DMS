@@ -358,38 +358,6 @@ export class OrderRepository {
   }
 
   /**
-   * اعتبار در دسترس مشتری از v_customer_exposure (سقف + اعتبار موقت − بدهی).
-   * اگر ردیف customer_credit نباشد، credit_limit=0 و available_credit منفی/صفر است؛
-   * در آن صورت «بدون سقف» تلقی نمی‌شود — تصمیم با سرویس است.
-   */
-  async customerExposure(
-    companyId: string,
-    customerId: string,
-  ): Promise<{ credit_limit: number; available_credit: number; total_due: number } | null> {
-    const { rows } = await this.pool.query<{
-      credit_limit: string;
-      available_credit: string;
-      total_due: string;
-    }>(
-      `select e.credit_limit::text as credit_limit,
-              e.available_credit::text as available_credit,
-              e.total_due::text as total_due
-         from v_customer_exposure e
-         join customer c on c.id = e.customer_id
-         join branch b on b.id = c.branch_id
-        where e.customer_id = $1 and b.company_id = $2`,
-      [customerId, companyId],
-    );
-    const r = rows[0];
-    if (!r) return null;
-    return {
-      credit_limit: Number(r.credit_limit),
-      available_credit: Number(r.available_credit),
-      total_due: Number(r.total_due),
-    };
-  }
-
-  /**
    * موجودی در دسترس هر کالا (qty_on_hand − qty_reserved) جمع همه انبارهای شعبه‌های
    * شرکت، منهای رزروهای فعالِ منقضی‌نشده. برای بررسی کفایت موجودی هنگام ثبت سفارش.
    */
@@ -430,11 +398,18 @@ export class OrderRepository {
        * نبود چون سازنده قابلِ شناسایی نبود. ستونِ بی‌مقدار = کنترلِ ناموجود.
        */
       createdBy: string | null;
+      /**
+       * P3 — دروازهٔ اعتبار روی **همان** تراکنشِ درج اجرا می‌شود (نه یک پیش‌بررسیِ
+       * جدا). فراخوان (OrderService) قفلِ مشورتی + ارزیابی را می‌بندد و در صورتِ
+       * محدودیت خطا می‌اندازد؛ هر خطا ⇒ rollback کامل، یعنی سفارش درج نمی‌شود.
+       */
+      beforeCommit?: (client: Runner) => Promise<void>;
     },
   ): Promise<string> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
+      if (opts.beforeCommit) await opts.beforeCommit(client);
       const id = randomUUID();
       const docNumber = opts.docNumber;
       await client.query(

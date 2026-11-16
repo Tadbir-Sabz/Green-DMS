@@ -14,7 +14,8 @@ import type {
   UpdateLocationDto,
 } from './customer.dto';
 import type { CustomerRepository, CustomerRow } from './customer.repository';
-import { CUSTOMER_REPOSITORY } from './tokens';
+import { CUSTOMER_REPOSITORY, CUSTOMER_SEGMENT_REPOSITORY } from './tokens';
+import type { CustomerSegmentRepository } from './segment.repository';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -33,7 +34,10 @@ const notFound = (): NotFoundException =>
  */
 @Injectable()
 export class CustomerService {
-  constructor(@Inject(CUSTOMER_REPOSITORY) private readonly repo: CustomerRepository) {}
+  constructor(
+    @Inject(CUSTOMER_REPOSITORY) private readonly repo: CustomerRepository,
+    @Inject(CUSTOMER_SEGMENT_REPOSITORY) private readonly segments: CustomerSegmentRepository,
+  ) {}
 
   private assertId(id: string): void {
     if (!isUUID(id, '4')) {
@@ -167,6 +171,15 @@ export class CustomerService {
     }
     if (dto.branch_id && !(await this.repo.branchExists(companyId, dto.branch_id))) {
       throw badRequest('branch_not_found', 'شعبه انتخاب‌شده در این شرکت یافت نشد.');
+    }
+    if (dto.segment_id) {
+      const segment = await this.segments.assignable(companyId, dto.segment_id);
+      if (segment === 'not_found') {
+        throw badRequest('segment_not_found', 'بخشِ تجاری انتخاب‌شده در این شرکت یافت نشد.');
+      }
+      if (segment === 'inactive') {
+        throw badRequest('segment_inactive', 'بخشِ تجاری انتخاب‌شده غیرفعال است؛ انتساب مشتری جدید مجاز نیست.');
+      }
     }
   }
 

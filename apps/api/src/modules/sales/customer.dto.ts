@@ -96,6 +96,11 @@ export class CreateCustomerDto {
   @IsUUID('4')
   price_list_id?: string | null;
 
+  /** بخشِ تجاریِ مشتری (اختیاری) — باید وجود داشته و فعال باشد */
+  @IsOptional()
+  @IsUUID('4')
+  segment_id?: string | null;
+
   @IsOptional()
   @IsUUID('4')
   settlement_term_id?: string | null;
