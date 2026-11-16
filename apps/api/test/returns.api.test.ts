@@ -164,6 +164,15 @@ beforeAll(async () => {
     `insert into branch (company_id, code, name) values ($1, 'MAIN', 'شعبه مرکزی')`,
     [companyId],
   );
+  // TASK-P4-R — انبارها برای receive: main برای restock و quarantine برای معیوب
+  await pool.query(
+    `insert into warehouse (branch_id, code, name, kind) select id, 'MAIN', 'انبار اصلی', 'main' from branch where company_id = $1`,
+    [companyId],
+  );
+  await pool.query(
+    `insert into warehouse (branch_id, code, name, kind) select id, 'QUAR', 'انبار قرنطینه', 'quarantine' from branch where company_id = $1`,
+    [companyId],
+  );
 
   const person = await pool.query<{ id: string }>(
     `insert into person (company_id, code, legal_type, first_name, last_name)
@@ -499,6 +508,35 @@ describe('RT — جریان کامل /returns', () => {
 
     const posted = await api().get('/api/v1/returns').query({ status: 'posted' }).expect(200);
     expect(posted.body.items.every((r: { status: string }) => r.status === 'posted')).toBe(true);
+  });
+});
+
+describe('RT — 422 rule_rejected (TASK-P4-R)', () => {
+  it('دریافت با qty بیش از مقدار درخواستی 422 و هیچ چیزی پُست نمی‌شود', async () => {
+    const created = await api()
+      .post('/api/v1/returns')
+      .send({
+        customer_id: customerId,
+        reason_code: 'damaged',
+        lines: [{ product_id: productId, qty: 1 }],
+      })
+      .expect(201);
+    await api(returnApproverToken).post(`/api/v1/returns/${created.body.id}/approve`).expect(200);
+
+    const res = await api()
+      .post(`/api/v1/returns/${created.body.id}/receive`)
+      .send({ lines: [{ product_id: productId, qty: 999, disposition: 'restock' }] })
+      .expect(422);
+    expectBodyMatchesSchema('post', '/returns/{id}/receive', 422, res.body);
+    expect(res.body.code).toBe('rule_rejected');
+
+    // اتمیک است: وضعیت همچنان approved و هیچ حرکت موجودی‌ای ثبت نشده
+    const after = await api().get(`/api/v1/returns/${created.body.id}`).expect(200);
+    expect(after.body.status).toBe('approved');
+    const txns = await pool.query(`select count(*)::int as n from inventory_txn where source_type = 'return_request' and source_id = $1`, [
+      created.body.id,
+    ]);
+    expect(txns.rows[0].n).toBe(0);
   });
 });
 

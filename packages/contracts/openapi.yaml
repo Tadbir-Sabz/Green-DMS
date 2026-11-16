@@ -4044,9 +4044,13 @@ paths:
                         type: string
                         enum: [restock, damaged, scrap, return_to_supplier]
                         description: تعیین تکلیف کالا (ماژول ۴ §۴.۷)
+                warehouse_id:
+                  type: string
+                  format: uuid
+                  description: "انبارِ مقصدِ قلم‌های restock (اختیاری). پیش‌فرض: انبار فعال kind='main' همان شعبهٔ سند. قلم‌های damaged همیشه به انبار قرنطینه/ناقصِ فعال شعبه (kind='quarantine' یا 'damaged') پُست می‌شوند؛ scrap و return_to_supplier بدونِ حرکتِ موجودی ثبت می‌شوند. انبار صریح باید مالِ همان شعبه و فعال باشد، وگرنه 400 برمی‌گردد و هیچ چیزی پُست نمی‌شود. اگر انبارِ پیش‌فرض لازم پیدا نشود 409 برمی‌گردد (fail-closed — هیچ fallback خاموشی نیست)."
       responses:
         '200':
-          description: مرجوعی نهایی شد (بستانکاری مشتری ثبت شد)
+          description: مرجوعی نهایی شد (تحویل کالا به انبار و تعیین تکلیف قلم‌ها در یک تراکنش ثبت شد)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReturnRequest' }
@@ -4055,6 +4059,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/RuleRejected' }
 
   # ---------------- پیگیری توزیع و تحویل ----------------
   /deliveries:

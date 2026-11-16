@@ -127,4 +127,15 @@ export class ReceiveReturnDto {
   @ValidateNested({ each: true })
   @Type(() => ReceiveLineDto)
   lines: ReceiveLineDto[];
+
+  /**
+   * انبارِ مقصدِ قلم‌های restock (اختیاری).
+   * - نبودنش: انبارِ فعالِ kind='main' همان شعبهٔ سند.
+   * - قلم‌های damaged همیشه به انبار quarantine/damaged شعبه می‌روند و این فیلد
+   *   روی آن‌ها اثر ندارد؛ scrap/return_to_supplier حرکتی ایجاد نمی‌کنند.
+   * - باید مالِ همان شعبه و فعال باشد؛ وگرنه 400 و هیچ چیزی پُست نمی‌شود.
+   */
+  @IsOptional()
+  @IsUUID('4')
+  warehouse_id?: string;
 }

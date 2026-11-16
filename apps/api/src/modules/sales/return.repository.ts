@@ -4,6 +4,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
 import type { CreateReturnDto, ReceiveReturnDto } from './return.dto';
+import { planReturnPostings, type BranchWarehouseRow } from './return-resolution';
 
 export interface ReturnRow extends QueryResultRow {
   id: string;
@@ -174,7 +175,15 @@ export class ReturnRepository {
     return (rowCount ?? 0) > 0;
   }
 
-  /** دریافت: approved → posted با تعیین تکلیف هر قلم (qty_approved + disposition) */
+  /**
+   * دریافت: approved → posted با تعیین تکلیف هر قلم (qty_approved + disposition)
+   * و — TASK-P4-R — پُستِ اتمیکِ آثارِ موجودی در همان تراکنش:
+   *   restock ⇒ `sale_return_in` به انبارِ restock (مقصد صریح یا انبار اصلی شعبه)؛
+   *   damaged ⇒ `sale_return_in` به انبار قرنطینه/ناقصِ شعبه (fail-closed)؛
+   *   scrap / return_to_supplier ⇒ بدونِ حرکتِ موجودی.
+   * هر خطا (از جمله ردّ plan) همه‌چیز را rollback می‌کند — کالا هرگز
+   * «نصفه» پُست نمی‌شود. double-receive همچنان با شرط وضعیت null می‌شود.
+   */
   async receive(companyId: string, id: string, dto: ReceiveReturnDto): Promise<boolean> {
     const client = await this.pool.connect();
     try {
@@ -184,24 +193,77 @@ export class ReturnRepository {
           where id = $1
             and status in ('approved', 'partially_approved')
             and branch_id in (select id from branch where company_id = $2)
-          returning id`,
+          returning id, branch_id`,
         [id, companyId],
       );
       if (header.rowCount === 0) {
         await client.query('rollback');
         return false;
       }
+      const branchId = header.rows[0].branch_id as string;
+
+      // انبارهای شعبه داخلِ تراکنش — plan روی snapshot هم‌تراز با همین tx است
+      const whRows = await client.query<BranchWarehouseRow & QueryResultRow>(
+        `select id, kind, is_active, code from warehouse where branch_id = $1`,
+        [branchId],
+      );
+      const storedLines = await client.query<{ product_id: string; batch_id: string | null } & QueryResultRow>(
+        `select product_id, batch_id from return_request_line where return_request_id = $1`,
+        [id],
+      );
+      const batchByProduct = new Map(storedLines.rows.map((r) => [r.product_id, r.batch_id]));
+
+      // تکلیف هر قلم قبل از هر نوشتنِ واگردنی برنامه‌ریزی می‌شود (خطا ⇒ rollback)
+      const postings = planReturnPostings({
+        lines: dto.lines.map((l) => ({
+          product_id: l.product_id,
+          batch_id: batchByProduct.get(l.product_id) ?? null,
+          qty: l.qty,
+          disposition: l.disposition,
+        })),
+        explicitWarehouseId: dto.warehouse_id ?? null,
+        branchWarehouses: whRows.rows,
+      });
+
+      const lineIds = new Map<string, string>();
       for (const line of dto.lines) {
-        const updated = await client.query(
+        const updated = await client.query<{ id: string } & QueryResultRow>(
           `update return_request_line
              set qty_approved = $3, disposition = $4
-            where return_request_id = $1 and product_id = $2`,
+            where return_request_id = $1 and product_id = $2
+            returning id`,
           [id, line.product_id, line.qty, line.disposition],
         );
         if (updated.rowCount === 0) {
           await client.query('rollback');
           return false;
         }
+        lineIds.set(line.product_id, updated.rows[0].id);
+      }
+
+      for (const posting of postings) {
+        // unit_cost=0: بهای خرید مرجوعی در این فاز ثبت نمی‌شود (ثبت به‌عنوان «داده باز»
+        // تصمیم حسابداری است، نه اصلاحیه)؛ کمبودِ هزینهٔ ناموجود را بهتر از بهای جعلی است.
+        await client.query(
+          `with ins as (
+             insert into inventory_txn
+               (branch_id, warehouse_id, product_id, batch_id, txn_kind, qty, unit_cost,
+                source_type, source_id, source_line_id, occurred_at, client_uuid)
+             values ($1, $2, $3, $4, $5, $6, 0, 'return_request', $7, $8, now(), null)
+             returning *
+           )
+           select fn_apply_stock_txn(ins) from ins`,
+          [
+            branchId,
+            posting.warehouse_id,
+            posting.product_id,
+            posting.batch_id,
+            posting.txn_kind,
+            posting.qty,
+            id,
+            lineIds.get(posting.product_id) ?? null,
+          ],
+        );
       }
       await client.query('commit');
       return true;

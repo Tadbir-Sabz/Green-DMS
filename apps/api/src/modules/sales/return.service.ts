@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
@@ -13,6 +14,7 @@ import type { ReturnLineRow, ReturnRepository, ReturnRow } from './return.reposi
 import { RETURN_REPOSITORY } from './tokens';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
 import type { RulesEngineService } from '../rules-engine/rules-engine.service';
+import { ResolutionPlanError } from './return-resolution';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -193,7 +195,22 @@ export class ReturnService {
     if (dto.lines.some((l) => !known.has(l.product_id))) {
       throw badRequest('line_not_found', 'یکی از کالاهای ارسالی در این مرجوعی ثبت نشده است.');
     }
-    const ok = await this.repo.receive(companyId, id, dto);
+    const ok = await this.repo.receive(companyId, id, dto).catch((err: unknown) => {
+      // خطایِ plan (انبار صریح نامعتبر/غیرفعال یا انبارِ پیش‌فرض ناموجود) — همان code پایدار
+      if (err instanceof ResolutionPlanError) {
+        if (err.httpStatus === 400) throw badRequest(err.code, err.message);
+        throw new ConflictException({ code: err.code, message_fa: err.message });
+      }
+      // qty دریافتی بیش از qty ثبت‌شده ⇒ قیدِ ck_return_line_approved (23514) ⇒ 422 rule_rejected
+      const e = err as { code?: string } | null;
+      if (e?.code === '23514') {
+        throw new UnprocessableEntityException({
+          code: 'rule_rejected',
+          message_fa: 'مقدار دریافت‌شده از مقدار ثبت‌شده در درخواست مرجوعی بیشتر است.',
+        });
+      }
+      throw this.mapDbError(err);
+    });
     if (!ok) {
       throw new ConflictException({ code: 'invalid_transition', message_fa: 'وضعیت درخواست هم‌زمان تغییر کرده است.' });
     }

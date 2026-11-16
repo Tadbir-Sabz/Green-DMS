@@ -7651,11 +7651,16 @@ export interface paths {
                              */
                             disposition: "restock" | "damaged" | "scrap" | "return_to_supplier";
                         }[];
+                        /**
+                         * Format: uuid
+                         * @description انبارِ مقصدِ قلم‌های restock (اختیاری). پیش‌فرض: انبار فعال kind='main' همان شعبهٔ سند. قلم‌های damaged همیشه به انبار قرنطینه/ناقصِ فعال شعبه (kind='quarantine' یا 'damaged') پُست می‌شوند؛ scrap و return_to_supplier بدونِ حرکتِ موجودی ثبت می‌شوند. انبار صریح باید مالِ همان شعبه و فعال باشد، وگرنه 400 برمی‌گردد و هیچ چیزی پُست نمی‌شود. اگر انبارِ پیش‌فرض لازم پیدا نشود 409 برمی‌گردد (fail-closed — هیچ fallback خاموشی نیست).
+                         */
+                        warehouse_id?: string;
                     };
                 };
             };
             responses: {
-                /** @description مرجوعی نهایی شد (بستانکاری مشتری ثبت شد) */
+                /** @description مرجوعی نهایی شد (تحویل کالا به انبار و تعیین تکلیف قلم‌ها در یک تراکنش ثبت شد) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -7669,6 +7674,7 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
                 409: components["responses"]["Conflict"];
+                422: components["responses"]["RuleRejected"];
             };
         };
         delete?: never;
