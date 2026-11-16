@@ -335,3 +335,66 @@ describe('D4/atomicity — import service boundary (native PostgreSQL)', () => {
     expect(saved.rows[0].name).toBe('نام قدیم');
   });
 });
+
+describe('M1-B — تداخلِ بارکدِ import با variant صرفِ حروف (create/update)', () => {
+  it('import create با barcode صرفِ حروفِ دیگری از کالای موجود → duplicate_barcode و بازگشتِ دسته', async () => {
+    const holder = await createProduct(fx, { code: 'IMP-CI-HOLDER-1', name: 'نگهدارنده' });
+    await fx
+      .api()
+      .post(`/api/v1/products/${holder.id}/barcodes`)
+      .send({ barcode: 'IMP-CI-Create-1', kind: 'other' })
+      .expect(201);
+    const res = await fx
+      .api()
+      .post('/api/v1/products/import/commit')
+      .send({
+        csv: [
+          'code,name,barcode,category_code,base_uom_code',
+          'IMP-CI-NEW-1,کالایِ جدید,imp-ci-create-1,PMCAT,pm_piece',
+        ].join('\n'),
+        mode: 'create',
+        idempotency_key: 'k-import-ci-dup-create',
+      })
+      .expect(200);
+    expect(res.body.created_rows).toBe(0);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'duplicate_barcode' })]),
+    );
+    const saved = await fx.pool.query(
+      `select id from product where company_id = $1 and code = 'IMP-CI-NEW-1'`,
+      [fx.companyId],
+    );
+    expect(saved.rows.length).toBe(0);
+  });
+
+  it('import update با barcode صرفِ حروفِ دیگری از کالای دیگر → duplicate_barcode و بازگشتِ دسته', async () => {
+    const target = await createProduct(fx, { code: 'IMP-CI-UPD-TARGET', name: 'نامِ قدیم' });
+    const holder = await createProduct(fx, { code: 'IMP-CI-UPD-HOLDER', name: 'نگهدارندهٔ دو' });
+    await fx
+      .api()
+      .post(`/api/v1/products/${holder.id}/barcodes`)
+      .send({ barcode: 'IMP-CI-Update-1', kind: 'internal' })
+      .expect(201);
+    const res = await fx
+      .api()
+      .post('/api/v1/products/import/commit')
+      .send({
+        csv: [
+          'code,name,barcode,category_code,base_uom_code',
+          'IMP-CI-UPD-TARGET,نامِ جدید,imp-ci-update-1,PMCAT,pm_piece',
+        ].join('\n'),
+        mode: 'update',
+        idempotency_key: 'k-import-ci-dup-update',
+      })
+      .expect(200);
+    expect(res.body.updated_rows).toBe(0);
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'duplicate_barcode' })]),
+    );
+    const saved = await fx.pool.query<{ name: string }>(
+      `select name from product where company_id = $1 and code = $2`,
+      [fx.companyId, target.code],
+    );
+    expect(saved.rows[0].name).toBe('نامِ قدیم');
+  });
+});

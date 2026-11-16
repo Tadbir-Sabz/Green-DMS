@@ -436,6 +436,141 @@ export const OPEN_DECISIONS: readonly OpenDecision[] = [
     evidence_test: 'c13-decisions.test.ts → D-C13-1',
     affected_decision_class: ['NOT_COMPARABLE', 'SOFT_CONFLICT', 'MANUAL_REVIEW'],
   },
+  {
+    id: 'D-C13X-1',
+    topic_fa: 'رزروِ دوطرفهٔ دامنهٔ بارکد بینِ kindهای gs1 و internal/other (و مخزنِ قدیمی)',
+    current_behavior_fa:
+      'gs1_ean13/ean8/upc/itf14 یکتای جهانی‌اند (uq_product_barcode_gs1)؛ internal/other یکتای شرکتی‌اند (uq_product_barcode_internal)؛ packaging_barcode یکتای جهانی روی جدولِ خودش (uq_product_barcode). هیچ قیدی یک مقدار را هم‌زمان در دو دامنه نمی‌گیرد — جفتِ (gs1، internal) امروز آزاد است.',
+    options: [
+      {
+        id: 'A',
+        label_fa: 'رزروِ دوطرفه: gs1 → جهانی، internal/other → شرکتی، و هیچ مقداری در هر دو دامنه مجاز نیست',
+        technical_consequence_fa:
+          'یک جدولِ رزرو یا یک تابعِ بررسی در لایهٔ سرویس + گزارشِ شبیه‌سازیِ POL-BARCODE-XKIND-01 برای دادهٔ موجود؛ قیدِ جدید فقط پس از صفر شدنِ یافته‌ها و با تصمیمِ مالک.',
+        business_consequence_fa:
+          'پایانهٔ اسکن و جست‌وجوی کد هرگز بینِ «بارکدِ جهانی» و «کدِ داخلی» سردرگم نمی‌شود؛ دادهٔ متناقضِ امروز شفاف و قابلِ حل می‌شود.',
+        compatibility_risk: 'medium',
+        migration_impact_fa: 'نیازمندِ گزارشِ کاملِ گروه‌های متناقض و حلِ دستیِ آن‌ها پیش از هر قید؛ مشابهِ مسیرِ D-C12-3.',
+      },
+      {
+        id: 'B',
+        label_fa: 'حفظِ وضعیتِ امروز (قیدهای نوع‌محورِ فعلی)',
+        technical_consequence_fa:
+          'هیچ تغییری در قیدها یا کد؛ گروه‌های (gs1, internal) همچنان نامرئی می‌مانند مگر این ابزار اجرا شود.',
+        business_consequence_fa:
+          'ابهامِ عملیاتیِ امروز باقی می‌ماند: یک مقدار می‌تواند برای دو کالای متفاوت معنا بدهد.',
+        compatibility_risk: 'low',
+        migration_impact_fa: 'هیچ تغییری لازم نیست.',
+      },
+      {
+        id: 'C',
+        label_fa: 'یکتاییِ کاملِ جهانی برای همهٔ بارکدها',
+        technical_consequence_fa:
+          'قوی‌ترین گزینه: uq سراسری روی همهٔ kindها + مهاجرت؛ بیشترین برخورد در دادهٔ موجود.',
+        business_consequence_fa:
+          'ساده‌ترین قاعده برای اپراتور ولی بیشترین ریسکِ ردِ دادهٔ تاریخی و بیشترین بارِ حلِ دستی.',
+        compatibility_risk: 'high',
+        migration_impact_fa: 'نیازمندِ ارزیابیِ کاملِ دادهٔ موجود و پنجرهٔ مهاجرت؛ برای دامنهٔ شرکتیِ داخلی نامناسب است.',
+      },
+    ],
+    recommended_default: 'A',
+    recommendation_rationale_fa:
+      'A دامنه‌های امروز را حفظ می‌کند و فقط حفرهٔ بینِ آن‌ها را می‌بندد؛ C دادهٔ تاریخی را غیرضروری بی‌اعتبار می‌کند و B حفره را باز نگه می‌دارد.',
+    requires_owner_approval: true,
+    depends_on: ['D-C12-3'],
+    evidence_test: 'c13-cross-type-policies.test.ts → POL-BARCODE-XKIND-01',
+    affected_decision_class: ['HARD_CONFLICT'],
+  },
+  {
+    id: 'D-C13X-2',
+    topic_fa: 'هم‌ارزیِ UPC-A (۱۲ رقم) و EAN-13 با صفرِ پیشوند در مقایسه و یکتایی',
+    current_behavior_fa:
+      'هیچ فضایی در قراردادها UPC را به EAN-13 تا نمی‌کند؛ «036000291452» (gs1_upc) و «0036000291452» (gs1_ean13) دو کلیدِ متفاوت‌اند و همان بارکدِ فیزیکی می‌تواند دو بار ثبت شود.',
+    options: [
+      {
+        id: 'A',
+        label_fa: 'تاکردنِ UPC→EAN فقط در لایهٔ مقایسه/شبیه‌سازی (همین قرارداد c13xt.1)',
+        technical_consequence_fa:
+          'سیاستِ POL-UPC-EAN-PAD-01 گروه‌های هم‌ارز را گزارش می‌کند؛ هیچ قید و هیچ داده‌ای تغییر نمی‌کند.',
+        business_consequence_fa:
+          'مالک تصویرِ واقعی از «یک بارکدِ فیزیکی با دو kind» می‌بیند و تصمیم می‌گیرد؛ ریسکِ عملیاتیِ اسکن امروز ثبت می‌شود.',
+        compatibility_risk: 'low',
+        migration_impact_fa: 'هیچ تغییری در داده یا قید لازم نیست؛ حلِ موارد فقط با تصمیمِ انسان.',
+      },
+      {
+        id: 'B',
+        label_fa: 'تاکردن در ذخیرهٔ داده (normalize-on-write به EAN-13)',
+        technical_consequence_fa:
+          '«036000291452» هنگامِ ذخیره به «0036000291452» تبدیل می‌شود؛ نیازمندِ مهاجرت و بازنویسیِ دادهٔ تاریخی.',
+        business_consequence_fa:
+          'یکدست‌سازیِ کامل ولی با ریسکِ تغییرِ مقادیرِ چاپ‌شده روی بسته‌بندیِ فیزیکی.',
+        compatibility_risk: 'high',
+        migration_impact_fa: 'نیازمندِ مهاجرتِ غیربرگشت‌پذیر و تطبیق با چاپِ بسته‌ها؛ نیازمندِ تأییدِ صریحِ مالک.',
+      },
+      {
+        id: 'C',
+        label_fa: 'حفظِ وضعیتِ امروز بدونِ هیچ هم‌ارزی',
+        technical_consequence_fa:
+          'هیچ تغییری؛ جفت‌های هم‌ارز همچنان نامرئی می‌مانند.',
+        business_consequence_fa:
+          'دو ردیف برای همان بارکدِ فیزیکی ممکن است بماند؛ اسکن بسته به kind ثبت‌شده جواب می‌دهد.',
+        compatibility_risk: 'low',
+        migration_impact_fa: 'هیچ تغییری لازم نیست.',
+      },
+    ],
+    recommended_default: 'A',
+    recommendation_rationale_fa:
+      'A بدونِ هیچ تغییرِ داده‌ای، ابهام را مرئی می‌کند؛ B بدونِ بازبینی بسته‌بندی‌های چاپی خطرناک است و C مسئله را نادیده می‌گیرد.',
+    requires_owner_approval: true,
+    depends_on: ['D-C11-1'],
+    evidence_test: 'c13-cross-type-policies.test.ts → POL-UPC-EAN-PAD-01',
+    affected_decision_class: ['HARD_CONFLICT'],
+  },
+  {
+    id: 'D-C13X-3',
+    topic_fa: 'سازگاریِ بارکدِ بسته‌بندی (مخزنِ قدیمی) با مخزنِ کانونی product_barcode',
+    current_behavior_fa:
+      'مهاجرتِ ۰۰۴۶ بارکدهای product_packaging را با «on conflict do nothing» به product_barcode کپی کرد؛ ردیف‌هایی که با ردیفِ موجود برخورد کردند بی‌صدا جا افتادند. هیچ گزارش/مانیتوری drift بینِ دو مخزن را نشان نمی‌دهد.',
+    options: [
+      {
+        id: 'A',
+        label_fa: 'گزارشِ drift و حلِ دستی، سپس خاتمهٔ مخزنِ قدیمی (طبق گزینهٔ A از C12-3)',
+        technical_consequence_fa:
+          'POL-PACKAGING-CANON-01 سه کلاس می‌یابد: نسخهٔ کانونیِ مفقود، نسخهٔ متناقض، و drift بین‌بازنمایی؛ حلِ دستی + سپس توقفِ نوشتن در مخزنِ قدیمی.',
+        business_consequence_fa:
+          'تک‌منبعِ حقیقت برای بارکد؛ اسکن روی بسته‌بندی بسته به یک مخزن می‌شود.',
+        compatibility_risk: 'medium',
+        migration_impact_fa: 'نیازمندِ گزارشِ کاملِ drift و حلِ دستی؛ توقفِ مخزنِ قدیمی فقط با تصمیمِ مالک.',
+      },
+      {
+        id: 'B',
+        label_fa: 'همگام‌سازیِ خودکار دو مخزن (dual-write با reconciliation)',
+        technical_consequence_fa:
+          'لایهٔ سرویس هر دو مخزن را در تراکنش می‌نویسد + jobِ مغایرت‌گیر؛ بیشترین تغییر در مسیرِ نوشتن.',
+        business_consequence_fa:
+          'هیچ drift جدیدی نمی‌ماند ولی ریسکِ باگ در مسیرِ خودکار و نیاز به تستِ عمیق‌تر.',
+        compatibility_risk: 'medium',
+        migration_impact_fa: 'نیازمندِ تغییرات در سرویس/تراکنش و مانیتورینگ؛ پیچیده‌تر از A.',
+      },
+      {
+        id: 'C',
+        label_fa: 'حفظِ دو مخزن بدونِ هیچ همگام‌سازی',
+        technical_consequence_fa:
+          'هیچ تغییری؛ drift موجود و آتی باقی می‌ماند و هیچ‌کس نمی‌فهمد کدام نمایش درست است.',
+        business_consequence_fa:
+          'پاسخِ اسکن می‌تواند بسته به مسیر متفاوت باشد؛ ریسکِ عملیاتی ادامه دارد.',
+        compatibility_risk: 'low',
+        migration_impact_fa: 'هیچ تغییری لازم نیست.',
+      },
+    ],
+    recommended_default: 'A',
+    recommendation_rationale_fa:
+      'A ساده‌ترین مسیرِ «گزارش ← حلِ دستی ← خاتمه» است و با درسِ C12 (هیچ اقدامِ خودکار بدونِ تصمیمِ مالک) سازگار است؛ B مسیرِ خودکار با ریسکِ بالاتر است و C مسئله را نگه می‌دارد.',
+    requires_owner_approval: true,
+    depends_on: ['D-C12-3'],
+    evidence_test: 'c13-cross-type-policies.test.ts → POL-PACKAGING-CANON-01',
+    affected_decision_class: ['HARD_CONFLICT', 'MANUAL_REVIEW'],
+  },
 ];
 
 /** تصمیمِ یک شناسه */

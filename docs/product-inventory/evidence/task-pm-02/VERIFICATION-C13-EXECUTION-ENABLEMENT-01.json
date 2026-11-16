@@ -1,0 +1,80 @@
+{
+  "schema": "c13-verify.1",
+  "ok": true,
+  "assessment_mode": "SYNTHETIC_FIXTURE",
+  "data_classification": "SYNTHETIC",
+  "input_fingerprint": "781e7bb56a9e7a96b63c72c4cd51dc763a20bff6ff2636540fdbc92c5565b274",
+  "evidence_fingerprint": "324c6f33bbde32f972c2c6311b1642ddba64834edd2ee784298132163a52240d",
+  "reproducible": true,
+  "exported_counts": {
+    "product": 7,
+    "product_family": 2,
+    "product_category": 2,
+    "product_alias": 4,
+    "product_barcode": 10,
+    "product_packaging": 6
+  },
+  "rows_in": 43,
+  "checks": [
+    {
+      "id": "input-all-valid",
+      "ok": true,
+      "detail": "همهٔ ردیف‌ها معتبر بودند"
+    },
+    {
+      "id": "export-counts-present",
+      "ok": true,
+      "detail": "export از 6 منشأ ثبت شد"
+    },
+    {
+      "id": "exported-sources-vs-rows",
+      "ok": true,
+      "detail": "rows_in=43 در برابرِ منشأهایِ ناصفر=6 (هر منشأ ≥۱ ردیف)"
+    },
+    {
+      "id": "exported-sum-consistent",
+      "ok": true,
+      "detail": "مجموعِ شمارش‌ها=31"
+    },
+    {
+      "id": "export-within-source:product",
+      "ok": true,
+      "detail": "export=7 در برابرِ source=7 (بازهٔ مجاز)"
+    },
+    {
+      "id": "export-within-source:product_family",
+      "ok": true,
+      "detail": "export=2 در برابرِ source=2 (بازهٔ مجاز)"
+    },
+    {
+      "id": "export-within-source:product_category",
+      "ok": true,
+      "detail": "export=2 در برابرِ source=2 (بازهٔ مجاز)"
+    },
+    {
+      "id": "export-within-source:product_alias",
+      "ok": true,
+      "detail": "export=4 در برابرِ source=4 (بازهٔ مجاز)"
+    },
+    {
+      "id": "export-within-source:product_barcode",
+      "ok": true,
+      "detail": "export=10 در برابرِ source=10 (بازهٔ مجاز)"
+    },
+    {
+      "id": "export-within-source:product_packaging",
+      "ok": true,
+      "detail": "export=6 در برابرِ source=6 (بازهٔ مجاز)"
+    },
+    {
+      "id": "report-validator",
+      "ok": true,
+      "detail": "validateShadowEvidence: OK"
+    },
+    {
+      "id": "fingerprint-reproducible",
+      "ok": true,
+      "detail": "ساختِ مجدد با ورودیِ یکسان ⇒ fingerprintهای یکسان"
+    }
+  ]
+}

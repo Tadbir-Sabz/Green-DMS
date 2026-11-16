@@ -904,3 +904,45 @@
   ⚠️ اعداد **درون‌حافظه‌ای و مصنوعی**اند، **نه** بنچمارکِ تولید.
 - **UNVERIFIED:** بازبینیِ مستقلِ Agent-2 (در دسترس نیست، **جعل نشد**) · مقیاس‌پذیریِ واقعیِ PostgreSQL.
 - **NOT DONE:** فعال‌سازیِ قید/قرارداد · تغییرِ داده/اسکیما/RLS/مهاجرت/D1/ورودِ داده · merge یا approve PR #14.
+
+## TASK-PM-02-C13-B — آمادگیِ ارزیابیِ سایه روی دادهٔ واقعی (Track B؛ شواهد تازه)
+
+- مبنا `0a06445` (Track A، بدونِ تغییر)؛ شاخه `arena/3fdef0e8-green-dms`؛ **بدونِ DB** (محیطِ sandbox هیچ PostgreSQL/Docker ندارد) — هیچ دادهٔ واقعی خوانده نشد؛ هیچ اتصالِ DB برقرار نشد.
+- **۱۰ آیتمِ صریحِ بلاک‌شده (B-1..B-10)** با مالک و شرطِ رفع (§۸ سندِ Track B)؛ وضعیتِ سه‌حالته:
+  **PASS** (مستندات + اعتبارسنجیِ synthetic) · **BLOCKED** (replicaٔ مجاز) · **UNVERIFIED** (رفتارِ دادهٔ واقعی).
+- **شماتیکِ شواهد `c13b.1`** (`EVIDENCE-C13B-EVIDENCE.schema.json`) + سازنده و اعتبارسنجِ inert
+  (`experimental/shadow-evidence.candidate.ts`) + CLI فایل‌به‌فایل بدونِ اتصالِ DB (`shadow-evidence-cli.candidate.ts`).
+- **قاعدهٔ مرکزی در کد اجرا شد:** صفرِ یافته ≠ دادهٔ سالم — چهار outcome متمایز (`ZERO_INPUT` /
+  `INCOMPLETE_DATA` / `ZERO_FINDINGS_COMPLETE` / `FINDINGS_PRESENT`)؛ validator هر گزارشِ متناقض را رد می‌کند.
+- **دروازهٔ REAL:** طبقه‌بندیِ `REAL_AUTHORIZED_REPLICA` بدونِ شش attestation کامل **گزارش نمی‌سازد**
+  (`ShadowEvidenceAuthorizationError`)؛ پوشانش اجباری؛ مجوزِ synthetic عمداً جا نمی‌شود.
+- **نمونهٔ SYNTHETIC:** `EVIDENCE-C13B-SYNTHETIC-SAMPLE.json` — از fixture مصنوعی؛ `FINDINGS_PRESENT`،
+  115 یافته، اثرِ انگشت `cb72310a1671e0267d87b739914eee8415f0563e636dec894f81240891858509`.
+  اعدادِ آن **به دادهٔ واقعی تعمیم‌پذیر نیستند**.
+- **تست‌ها:** `c13-shadow-evidence.test.ts` **۳۹/۳۹**؛ کلِ پارتیشنِ unit **۷۹۶/۷۹۶** (۴۸ فایل)؛
+  گاردهایِ C11/C12/C13 به‌روز و سبز؛ `partition OK`؛ typecheck **۰ خطا**.
+- **NOT DONE:** هیچ پرس‌وجو/اتصال به هیچ منبعی · هیچ قید/RLS/مهاجرت/داده تغییر نکرد · Track A دست‌نخورده ·
+  merge/approve/PR انجام نشد · Agent-2 جعل نشد · ادعایِ اعتبارسنجیِ Windows یا دادهٔ واقعی نشد.
+
+## TASK-PM-02-PR16 — ثبتِ تصمیماتِ مالک و ماتریسِ آمادگیِ ادغام (۲۰۲۶-۱۱-۱۳)
+
+- مبنا: PR #16 head `a6ee1e8cb5bf79c8293cca411996e9e19fc78e97` (شاخه `task/pm-02-c14-identity-integrity-03`،
+  OPEN/Draft) · اجراییِ مربوطه با CI سبز (CI run `43766096556`؛ migrations `43766096585`؛ e2e `43766096546`؛ release-image `43766096549`).
+- تسکِ صرفاً مستنداتی: هیچ کد/مهاجرت/ایندکس/قید/سیاستی تغییر نکرد؛ تاریخچهٔ PR دست‌نخورده.
+- **تصمیماتِ مالک (منبع: دستورِ مالک در تسک):** (الف) H1 / D-C11-3 → **H1-RA** برای این PR — **ریسکِ
+  باقی‌ماندهٔ درجِ همزمانِ دو نوشتار از یک کد صراحتاً پذیرفته شد — H1-RA**؛ حفاظت‌های application-level حفظ؛ مانیتورینگِ
+  کشفِ جفت‌های CI الزامی (هفتگی + پیش از release)؛ ایندکسِ `lower(code)` تأجیل شد و تصویب نشده است.
+  (ب) **M1-B پذیرفته شد** (پیش‌بررسیِ CI برای internal/other در `a6ee1e8` + regression دستی/import)؛ **محدودیتِ
+  TOCTOU حفظ می‌شود؛ معادلِ یکتاییِ دیتابیسی نیست.** (ج) **M1-C تأجیل** (ایندکسِ تابعی؛ Track B + صفر برخورد + مجوزِ مهاجرت).
+  (د) **hint سراسریِ GS1 در duplicate-check تأجیل** — رفتارِ فعلی (self-company only) پذیرفته است؛ هیچ شناسه/نام/بارکدِ
+  شرکتِ دیگر افشا نمی‌شود. (هـ) **Kotlin/Android نیازمندیِ تحویل است، نه مانعِ mergeِ backend-only** (backend contract/TS client معتبر؛
+  Kotlin UNVERIFIED باقی می‌ماند).
+- **ترمینولوژی:** برچسب‌های توصیفی **H1-RA** (ریسک‌پذیریِ پذیرفته‌شدهٔ PR16) و **H1-DBI** (ایندکسِ `lower(code)` — تصویب‌نشده)؛
+  H1-DBI / «گزینهٔ A»ِ بستهٔ C13 برای D-C11-3 **تصویب نشده و حفظ می‌شود**. `isApproved()` در کد همچنان عمداً `false` است
+  (تعریف `decision-matrix.candidate.ts:581`؛ فراخوان فقط در تست‌ها؛ بدونِ کال‌سایتِ تولیدی — راستی‌آزمایی: `EVIDENCE-PR16-OWNER-DECISIONS-2026-11-13.md` §۷).
+- **مانعِ واقعیِ ادغام باقی‌مانده: فقط فرمانِ صریحِ مالک** — هیچ مانعِ فنی/ثبت‌نشدهٔ دیگری یافت نشد؛ سایر تصمیمات باز/
+  deployment-only/deferrable باقی‌اند. **PR #16 همچنان OPEN/Draft؛ ادغام انجام نشد و این سند مجوز نیست.**
+- مرجع: `evidence/task-pm-02/EVIDENCE-PR16-OWNER-DECISIONS-2026-11-13.md` (تصمیمات + طرحِ مانیتورینگ + ماتریس + فرمان‌های راستی‌آزمایی)؛
+  به‌روزرسانیِ `OWNER-DECISION-REGISTER.md` (D-C11-3 + سربرگ) و `C13-OWNER-DECISION-PACK.md` (ضمیمهٔ §۹) و
+  `EVIDENCE-C13-DECISIONS.md` (ضمیمه).
+- **NOT DONE:** هیچ مهاجرت/ایندکس/قید/تغییرِ کد · PR #16 ادغام/Ready نشد · PR #15 و `main` دست‌نخورده · Agent-2 جعل نشد.

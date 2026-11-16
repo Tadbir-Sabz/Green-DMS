@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -99,8 +99,19 @@ export class CreateProductDto {
   volume_cm3?: number;
 }
 
-/** PATCH /api/v1/products/{id} — همه فیلدها اختیاری + وضعیت + قفل خوش‌بینانه */
-export class UpdateProductDto extends PartialType(CreateProductDto) {
+/**
+ * PATCH /api/v1/products/{id} — همه فیلدها اختیاری + وضعیت + قفل خوش‌بینانه.
+ *
+ * TASK-PM-02-C14-IDENTITY-INTEGRITY-03 — تغییرِ SKU یک عملیاتِ کسب‌وکاریِ
+ * پشتیبانی‌شده نیست (فرمِ ویرایشِ وب کد را disabled می‌کند؛ Bulk Maintenance
+ * آن را در PROTECTED_BULK_FIELDS دارد؛ هیچ اعتبارسنجی برای تغییرِ SKU نبود).
+ * به‌همراهِ `SkuImmutableGuard`، هر درصدی از کلیدِ `code` در بدنهٔ PATCH با
+ * 400 `code_immutable` رد می‌شود — وگرنه `whitelist`ِ سراسری آن را بی‌صدا
+ * حذف می‌کرد و کلاینت هرگز نمی‌فهمید SKU تغییر نکرده است.
+ */
+export class UpdateProductDto extends PartialType(
+  OmitType(CreateProductDto, ['code'] as const),
+) {
   @IsOptional()
   @IsIn(PRODUCT_STATUSES)
   status?: (typeof PRODUCT_STATUSES)[number];

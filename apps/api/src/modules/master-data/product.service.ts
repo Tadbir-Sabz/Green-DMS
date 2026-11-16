@@ -17,6 +17,11 @@ import { CreateProductDto, ListProductsQueryDto, UpdateProductDto } from './prod
 import { PRODUCT_REPOSITORY } from './tokens';
 import { ProductMasterRepository } from './product-master.repository';
 import { detectSensitiveProductChanges, assertSensitiveConfirmed } from './product-sensitivity';
+import {
+  findMissingRequiredAttributes,
+  readLifecycleEnforcementMode,
+  requiredAttributeMissingExceptionBody,
+} from './product-attribute-requirements';
 import { permissionMatches } from '../identity-rbac/permissions';
 
 @Injectable()
@@ -59,6 +64,45 @@ export class ProductService {
 
 
     await this.assertReferences(companyId, dto);
+    // D4 — الزامِ صفات الزامی در ساخت (فقط با PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce؛
+    // پیش‌فرض off = بدون تغییر: کالأ ناقص ساخته می‌شود و تکمیل پس از ثبت انجام می‌گیرد.
+    // معنا‌شناسیِ draft/تکمیلِ اجباری تصمیمِ مالک است (§4.4 سند آمادگی)؛ اینجا فقط مرزِ شرطی است.
+    if (readLifecycleEnforcementMode() === 'enforce') {
+      const requiredDefs = await this.masterRepo.listRequiredAttributeDefs(companyId);
+      if (requiredDefs.length > 0) {
+        throw new BadRequestException(
+          requiredAttributeMissingExceptionBody(
+            findMissingRequiredAttributes(requiredDefs, new Set<string>()),
+            'create',
+          ),
+        );
+      }
+    }
+    // D-C14-I02 — کدِ دستی یک شناسهٔ ماشینی است: نویسه‌های کنترلی/نامرئی و فاصلهٔ
+    // ابتدا/انتها مجاز نیست (وگرنه کالا ساخته می‌شود ولی اسکن/جست‌وجو هرگز نمی‌یابندش).
+    if (dto.code !== undefined) {
+      if (/[\p{Cc}\p{Cf}]/u.test(dto.code)) {
+        throw new BadRequestException({
+          code: 'invalid_code',
+          message_fa: 'کد کالا نباید شاملِ نویسه‌های کنترلی یا نامرئی (مانند نیم‌فاصله/BOM) باشد.',
+        });
+      }
+      if (dto.code !== dto.code.trim()) {
+        throw new BadRequestException({
+          code: 'invalid_code',
+          message_fa: 'کد کالا نباید فاصلهٔ ابتدا/انتها داشته باشد.',
+        });
+      }
+      // D-C14-I02 — قراردادِ لایهٔ اپلیکیشن case-insensitive است (اسکن، جست‌وجو،
+      // تداخلِ alias، import). بررسی پیش از درج با همان قرارداد؛ قیدِ case-sensitive
+      // DB دست‌نخورده می‌ماند و D-C11-3 همچنان تصمیمِ مالک است.
+      if (dto.code.trim() !== '' && (await this.masterRepo.productCodeExists(companyId, dto.code))) {
+        throw new ConflictException({
+          code: 'duplicate_code',
+          message_fa: 'کد کالا قبلاً ثبت شده است؛ کد دیگری انتخاب کنید.',
+        });
+      }
+    }
     // D1: کدِ دستی یا تولیدِ خودکار
     let code = dto.code;
     if (!code) {
@@ -86,7 +130,7 @@ export class ProductService {
       });
       return row;
     } catch (err) {
-      throw this.mapDbError(err, 'ساخت کالا');
+      throw this.mapDbError(err, { fa: 'ساخت کالا', slug: 'create' });
     }
 
  });
@@ -124,7 +168,31 @@ export class ProductService {
       });
     }
 
-    const row = await this.repo.update(companyId, id, dto, dto.row_version);
+    // D4 — تغییرِ دسته/خانوادهٔ کالایِ ناقص (فقط با PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce؛
+    // پیش‌فرض off = بدون تغییر). مقادیر صفات در این مسیر دست‌نخورده می‌مانند؛ ویرایش‌های
+    // نامرتبط قفل نمی‌شوند. کالای موجودِ ناقص تا تکمیلِ یک‌جای صفات نمی‌تواند دسته/خانواده عوض کند.
+    const categoryChanging =
+      'category_id' in dto && dto.category_id !== undefined && dto.category_id !== existing.category_id;
+    if (readLifecycleEnforcementMode() === 'enforce' && (categoryChanging || familyChanging)) {
+      const requiredDefs = await this.masterRepo.listRequiredAttributeDefs(companyId);
+      if (requiredDefs.length > 0) {
+        const present = await this.masterRepo.listPresentAttributeDefIds(companyId, id);
+        const missing = findMissingRequiredAttributes(requiredDefs, present);
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            requiredAttributeMissingExceptionBody(missing, categoryChanging ? 'category_change' : 'update'),
+          );
+        }
+      }
+    }
+
+    // نگاشت خطای DB مانند مسیرِ ساخت: هرگز 23505/23514/23503 خام به کلاینت نرسد.
+    let row: ProductRow | null;
+    try {
+      row = await this.repo.update(companyId, id, dto, dto.row_version);
+    } catch (err) {
+      throw this.mapDbError(err, { fa: 'ویرایش کالا', slug: 'update' });
+    }
     if (!row) {
       // فقط وقتی row_version فرستاده شده به اینجا می‌رسیم
       throw new ConflictException({
@@ -218,7 +286,7 @@ export class ProductService {
     }
   }
 
-  private mapDbError(err: unknown, action: string): Error {
+  private mapDbError(err: unknown, action: { fa: string; slug: string }): Error {
     const pgErr = err as { code?: string; constraint?: string };
     if (pgErr?.code === '23505' && pgErr.constraint === 'uq_product_code') {
       return new ConflictException({
@@ -245,8 +313,8 @@ export class ProductService {
       });
     }
     return new BadRequestException({
-      code: `${action}_failed`,
-      message_fa: 'خطای غیرمنتظره در ذخیره کالا.',
+      code: `${action.slug}_failed`,
+      message_fa: `خطای غیرمنتظره در ${action.fa}.`,
       details: { db_code: pgErr?.code },
     });
   }

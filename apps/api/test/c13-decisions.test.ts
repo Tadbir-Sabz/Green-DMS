@@ -53,8 +53,12 @@ describe('C13 / 23 — ساختارِ ماتریسِ تصمیم', () => {
 
   it('هر تصمیم به یک تستِ شاهد ارجاع می‌دهد و وابستگی‌هایش معتبرند', () => {
     const ids = new Set(OPEN_DECISIONS.map((d) => d.id));
+    const KNOWN_EVIDENCE = ['c13-decisions.test.ts', 'c13-cross-type-policies.test.ts'];
     for (const d of OPEN_DECISIONS) {
-      expect(d.evidence_test).toContain('c13-decisions.test.ts');
+      expect(
+        KNOWN_EVIDENCE.some((k) => d.evidence_test.includes(k)),
+        `${d.id}: evidence_test باید به یکی از تست‌های شاهد اشاره کند (${KNOWN_EVIDENCE.join('، ')})`,
+      ).toBe(true);
       for (const dep of d.depends_on) {
         expect(ids.has(dep), `${d.id} به ${dep} وابسته است که وجود ندارد`).toBe(true);
       }
