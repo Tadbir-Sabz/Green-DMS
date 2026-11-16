@@ -568,7 +568,7 @@ describe('P3-E — استثنای اعتبار: چرخهٔ کامل گردش + �
     const decision = await api(approverToken)
       .post(`/api/v1/rules-engine/approvals/${created.body.approval_request_id}/decision`)
       .send({ step_no: 1, decision: 'approved' })
-      .expect(200);
+      .expect(201); // Nest default for @Post — the contract declares 200 (pre-existing mismatch; rules-engine-behavior expects 201 too)
     expect(decision.body.status ?? 'approved').toBeTruthy();
 
     const approved = await api(approverToken)
