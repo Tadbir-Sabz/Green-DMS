@@ -203,3 +203,88 @@ No automatic product merge, delete, alias rewrite, barcode rewrite, or irreversi
 After the owner has reviewed the decision package, the next implementation task should be **C14-B: D4 Lifecycle Validator**, but only if the owner selects the required-attribute scope and supplies representative acceptance examples. It is a bounded, product-facing improvement and does not require activating C11–C13 normalization or uniqueness constraints.
 
 If the D4 scope is not decided, continue with a code-level design and synthetic tests only; do not invent the missing business rule.
+
+---
+
+## 10. Post-PR-16 reconciliation — 2026-11-16
+
+**This section is the current-state addendum and supersedes earlier planning statements wherever they conflict with the post-PR-16 implementation and owner-decision evidence.** Earlier sections are retained as the historical C14 planning snapshot; their original evidence and intent are not silently rewritten.
+
+### 10.1 Verified repository and merge baseline
+
+- PR #16, covering C14 Identity Integrity implementation 02 and remediation 03, was merged by explicit owner authorization.
+- Merge commit: `3fa64a364b760f0b4fc9e05f7365d900f69300fb`.
+- PR #16's approved head was `37aa8a2d6179f64d58ec5f2022427eaa53bbdc0f`.
+- PR #15 remains **OPEN / DRAFT / NOT MERGED** and targets `main`. This addendum does not authorize changing its state or merging it.
+- No deployment, production migration, schema change, or feature activation is authorized by this reconciliation.
+
+### 10.2 C14 implementation now present
+
+The merged work includes an initial shared D4 required-attribute lifecycle validator and guarded integration points:
+
+- A shared, pure validator provides deterministic validation and field-addressable errors.
+- The attribute-value save path uses the shared validation logic.
+- Product create, category/family reassignment paths covered by the implementation, and CSV import create are wired behind `PRODUCT_ATTRIBUTE_LIFECYCLE_ENFORCEMENT=enforce`.
+- The feature flag remains **default OFF** and the enforcement path is fail-closed when explicitly enabled.
+- No category-to-attribute or family-to-attribute requirement mapping was introduced.
+- Bulk Maintenance remains outside the attribute-value write lifecycle; it must not be described as a D4 attribute writer.
+- No schema, migration, database constraint/index, OpenAPI contract, or production behavior activation was included.
+- Database integration validation was not run in the original implementation environment. Do not infer database-backed or production readiness from unit/build evidence.
+
+Accordingly, D4 is no longer merely an unimplemented gap: an initial shared implementation exists. However, complete lifecycle enforcement, business-scope semantics, activation, and real-data validation remain open or gated. Do not mark D4 fully complete.
+
+### 10.3 Identity integrity implementation and remaining boundaries
+
+PR #16 also delivered the documented identity-integrity changes, including:
+
+- SKU immutability through the PATCH path, with corresponding guard/audit behavior and removal of code mutability from the relevant DTO/repository path.
+- CSV whitespace is rejected rather than silently trimmed.
+- Database uniqueness errors are mapped to a conflict response.
+- Company-scoped, case-insensitive application prechecks cover the accepted internal/other barcode behavior.
+
+These application prechecks do **not** eliminate the time-of-check/time-of-use concurrency race. They are not equivalent to a database uniqueness guarantee.
+
+No functional `lower(code)` or `lower(barcode)` unique index/migration was authorized or added. Do not claim database-enforced case-insensitive uniqueness.
+
+### 10.4 Owner decisions and unresolved items
+
+The authoritative PR #16 owner-decision evidence records:
+
+| Item | Current disposition |
+|---|---|
+| H1-RA | Residual concurrency risk accepted for PR #16 only; this is not a uniqueness guarantee and authorizes no schema/index migration |
+| H1-DBI | Functional `lower(code)` unique-index proposal remains **UNAPPROVED** |
+| M1-B | Application-level company-scoped case-insensitive precheck accepted; TOCTOU race remains |
+| M1-C | Functional `lower(barcode)` index deferred; requires Track B evidence showing zero hard collisions, explicit migration approval, and an operations window |
+| Cross-company GS1 existence hint | Deferred; privacy-safe behavior remains |
+| D-C13X-1 / D-C13X-2 / D-C13X-3 | Remain **OPEN**; no owner decision is inferred |
+| `isApproved()` | Intentionally remains false / fail-closed; no code approval is inferred |
+| Kotlin / Android client regeneration | Still required before Android client delivery; not a backend-only merge blocker; status remains **UNVERIFIED** |
+
+The original D-C11/D-C12/D-C13 decision register remains open unless a specific owner-decision record explicitly says otherwise. No recommendation in this document closes a decision.
+
+### 10.5 Current gates and truthful status
+
+| Area | Current status | Boundary |
+|---|---|---|
+| PR #16 backend implementation | **MERGED** | Merge is limited to the approved PR #16 scope |
+| Initial shared D4 validator | **IMPLEMENTED** | Default-off; does not prove complete lifecycle or business-policy readiness |
+| D4 enforcement activation | **NOT AUTHORIZED** | Do not enable the feature flag or change defaults |
+| Category/family requirement mapping | **NOT IMPLEMENTED / NOT DECIDED** | Do not invent mappings or scope semantics |
+| Database uniqueness indexes / migrations | **NOT AUTHORIZED / NOT IMPLEMENTED** | No index or migration work under this document |
+| Real organizational data assessment | **BLOCKED** | Requires separately authorized, isolated, enforceably read-only data |
+| Windows-native verification | **UNVERIFIED** | No PASS claim |
+| Android/Kotlin regeneration | **UNVERIFIED / REQUIRED BEFORE ANDROID DELIVERY** | Backend merge does not satisfy client delivery |
+| Production deployment | **NOT AUTHORIZED** | Requires a separate explicit owner authorization |
+
+### 10.6 Next bounded work
+
+The next useful C14 work is not to repeat the initial validator implementation or to activate it. It is to prepare a focused follow-up that closes the remaining D4 design and verification gaps without changing business policy:
+
+1. Trace every actual product/attribute write path against the shared validator and identify any missing lifecycle entry points, with evidence.
+2. Specify draft/incomplete-product semantics, required-attribute scope, definition activation behavior, and import preview/commit behavior as explicit owner decisions rather than assumptions.
+3. Add isolated tests for the implemented paths and the missing boundaries; clearly separate pure/unit evidence from database integration evidence.
+4. Keep the feature flag default OFF. Do not enable it, add mappings, change schema, add indexes, or perform production/real-data work.
+5. Track Kotlin/Android regeneration as a separate client-delivery item; do not fold it into a backend-only PASS.
+
+The next task may proceed as isolated code/design/test work only within those boundaries. Any feature activation, schema/index migration, real-data access, or deployment remains a separate approval gate.
