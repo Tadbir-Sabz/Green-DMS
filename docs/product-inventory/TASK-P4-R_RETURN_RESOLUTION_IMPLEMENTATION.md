@@ -4,6 +4,22 @@
 
 **مبنای دقیق:** `5e24ababe597a3cefe74071d182c5e2826d0d222` (merge commit PR #17 — تأییدشده: main جاری و P3 هم‌نیا است).
 
+> **قرارداد فعلیِ receive (به‌روزِ 2026-11):** بخش‌های ۲ تا ۴ توصیفِ *تحویل اولیهٔ* TASK-P4-R است؛
+> تمام اشارات «`422 rule_rejected` / `422 RuleRejected`» در آن‌ها **تاریخی و منسوخ**‌اند.
+> قرارداد فعلی همان ضمیمهٔ «TASK-P4-R-HARDEN» در ادامهٔ همین فایل است: receive فقط
+> `200/400/401/403/404/409` دارد؛ `qty` بیش از ثبت‌شده ⇒ `400 qty_exceeds_requested`؛
+> قیدِ DB فقط بکاپ است ⇒ `400 check_violation`؛ قلم تکراری ⇒ `400 duplicate_line`؛
+> پوشش ناقصِ خطوط ⇒ `400 incomplete_lines`؛ سایر کدهای پایدار در H-5.
+>
+> **تفکیک‌های ضروری:**
+> - «دریافتِ جزئی در یک قلم» (مقدارِ دریافتی ≤ مقدارِ qty) مجاز است و سند `posted` می‌شود؛
+>   «پوشش ناقصِ خطوطِ حل‌نشدهٔ مرجوعی» **رد** و هرگز `posted` نمی‌شود (`400 incomplete_lines`) — H-1/H-2.
+> - `unit_cost = 0` در `sale_return_in` هنوز برقرار است: کمیت و ارزش دفتری دو مسیر جدا هستند و
+>   `v_stock_valuation_variance` انحراف را نشان می‌دهد؛ بهای تمام‌شدهٔ مرجوعی **حل‌نشده** است
+>   (Phase-5 cost-layer، تصمیمِ مالک) — H-3. این سند هرگز ادعای تکمیلِ حسابداریِ مرجوعی نمی‌کند.
+> - این برش فقط **F-04 / Return-to-Resolution (receive)** است؛ باقیِ P4 (backorder/F-06، وصولیِ محل،
+>   G-05، E2E مرورگری) و تصمیماتِ بازِ مالک (credit_note/بستانکاری، cost-layer، 200-vs-201) دست‌نخورده‌اند — بخش‌های ۵ و ۶.
+
 ---
 
 ## ۱) چرا این برش (دروازهٔ انتخاب)
@@ -29,7 +45,7 @@
 - انبارِ صریح فقط برای `restock` اعمال می‌شود؛ کالای معیوب هرگز به انبارِ فروش/دپو رد نمی‌شود.
 - انبارِ صریح باید مالِ **همان شعبهٔ سند** و فعال باشد؛ وگرنه `400 warehouse_not_found` یا `400 warehouse_inactive` — هیچ نوشتنی رخ نمی‌دهد.
 - نبودِ انبارِ پیش‌فرض `main` ⇒ `409 restock_warehouse_missing`.
-- هر خطا (از جمله ردِ قیدِ `ck_return_line_approved` وقتی `qty` دریافتی از `qty` ثبت‌شده بیشتر باشد ⇒ `422 rule_rejected`) کل تراکنش را rollback می‌کند؛ وضعیت همچنان `approved` می‌ماند.
+- هر خطا کل تراکنش را rollback می‌کند؛ وضعیت همچنان `approved` می‌ماند. **(تاریخچه — منسوخ:)** در تحویل اولیه، ردِ قیدِ `ck_return_line_approved` (وقتی `qty` دریافتی از `qty` ثبت‌شده بیشتر باشد) به `422 rule_rejected` نگاشت می‌شد؛ از TASK-P4-R-HARDEN به‌بعد، receive اول `400 qty_exceeds_requested` می‌دهد و `23514` فقط بکاپ است که `400 check_violation` نگاشت می‌شود — H-1.
 - ضدِ تکرار: شرط وضعیت در `update` همان قبل است؛ double-receive ⇒ `409 invalid_transition` و فقط یک پُستينگ.
 - `qty_approved <= qty` همچنان با قیدِ جدول اعزام می‌شود.
 - واحد پولِ حرکت: `unit_cost = 0` (بهای خرید مرجوعی در این فاز ثبت نمی‌شود؛ هزینهٔ ناموجود بهتر از بهای جعلی است). هزینهٔ واقعی موضوعِ اتصالِ آینده به لایهٔ هزینه است.
@@ -42,13 +58,13 @@
 |---|---|
 | `apps/api/src/modules/sales/return-resolution.ts` | **جدید** — برنامه‌ریزِ خالص `planReturnPostings` + `ResolutionPlanError` (کدهای پایدار `warehouse_not_found` / `warehouse_inactive` / `restock_warehouse_missing` / `quarantine_warehouse_missing`) |
 | `apps/api/src/modules/sales/return.repository.ts` | `receive`: حلِ انبار داخلِ تراکنش؛ ثبتِ `inventory_txn` با `fn_apply_stock_txn` برای restock/damaged؛ rollback کامل در هر خطا |
-| `apps/api/src/modules/sales/return.service.ts` | نگاشت `ResolutionPlanError` → 400/409؛ `23514` در مسیر receive → `422 rule_rejected` |
+| `apps/api/src/modules/sales/return.service.ts` | نگاشت `ResolutionPlanError` → 400/409 با `details`؛ `23514` در مسیر receive → `400 check_violation` (**تاریخچه — منسوخ:** ابتدا `422 rule_rejected` — H-1) |
 | `apps/api/src/modules/sales/return.dto.ts` | `ReceiveReturnDto.warehouse_id?` (اختیاری، uuid) |
-| `packages/contracts/openapi.yaml` | receive: `warehouse_id` اختیاری + پاسخ `422 RuleRejected`؛ توضیح رفتار قرنطینه |
+| `packages/contracts/openapi.yaml` | receive: `warehouse_id` اختیاری؛ پاسخ `422` حذف شد — receive فقط `400/401/403/404/409` (**تاریخچه — منسوخ:** ابتدا `422 RuleRejected` — H-1)؛ توضیح رفتار قرنطینه |
 | `packages/api-client/src/schema.ts` | بازتولید از قرارداد (drift = 0؛ `npm run generate` دوباره اجرا و بدون diff) |
-| `apps/api/test/return-resolution.unit.test.ts` | **جدید** — ۱۷ سناریوی unit روی برنامه‌ریز خالص |
-| `apps/api/test/returns-resolution.api.test.ts` | **جدید** — ۱۷ تستِ API/DB (restock پیش‌فرض/صریح، damaged→قرنطینه، scrap/supplier، fail-closedهای B و C، batch، double-receive، 422، 403/404 tenant) |
-| `apps/api/test/returns.api.test.ts` | fixture انبار main+quarantine اضافه شد؛ بلاک جدید `422 rule_rejected` (پوشش خطای مستندشدهٔ 422) |
+| `apps/api/test/return-resolution.unit.test.ts` | **جدید** — سناریوهای unit روی برنامه‌ریز خالص؛ با HARDEN افزوده شدند: ۱۴ سناریوی `assertReceiveEligibility` + چک تکراریِ پلننر — اکنون **۳۲ تست** |
+| `apps/api/test/returns-resolution.api.test.ts` | **جدید** — سناریوهای API/DB (restock پیش‌فرض/صریح، damaged→قرنطینه، scrap/supplier، fail-closedهای B و C، batch، double-receive، 403/404 tenant؛ با HARDEN افزوده شدند: `duplicate_line`، پوشش ناقصِ خطوط `incomplete_lines`، `partially_approved`، دادهٔ خراب `duplicate_stored_lines`، `qty` جزئی، `qty_exceeds_requested`) — اکنون **۲۷ تست** |
+| `apps/api/test/returns.api.test.ts` | fixture انبار main+quarantine اضافه شد؛ بلاک **تاریخچه — منسوخ:** ابتدا پوششِ «422 مستندشده» بود؛ اکنون همان رفتار اتمی با کدِ فعلی `400 qty_exceeds_requested` آزمایش می‌شود + `expectBodyMatchesSchema` برای پاسخ 400 (H-1) |
 | `docs/product-inventory/MODULE_INVENTORY.md` | وضعیت F-04 به‌روز |
 | `docs/product-inventory/IMPLEMENTATION_SEQUENCE.md` | یادداشت پیشرفت P4 |
 
@@ -56,8 +72,8 @@
 
 ## ۴) راستی‌آزمایی
 
-- محلی (بدون DB): tsc سبز (contracts/api-client/api) · unit **60 فایل / 984 passed / 1 skipped** (شامل فایل جدید؛ پارتیشن `partition OK`) · spec OK — 238 مسیر / 1348 پاسخ / 1335 schema compile · drift کلاینت صفر.
-- **DB-backed (returns-resolution + returns.api) محلی اجرا نشدند** — بدون PostgreSQL محلی؛ داورِ DB = CI (`integration-db`) است. نتایج CI روی PR ثبت می‌شود.
+- محلی (بدون DB): tsc سبز (contracts/api-client/api) · unit **60 فایل / 984 passed / 1 skipped** (اعداد تحویل اولیه؛ با HARDEN به **999 passed / 1 skipped** رسید — H-4) · spec OK — 238 مسیر / 1348 پاسخ / 1335 schema compile · drift کلاینت صفر.
+- **DB-backed (returns-resolution + returns.api) محلی اجرا نشدند** (اعداد تحویل اولیه) — بدون PostgreSQL محلی؛ داورِ DB = CI (`integration-db`) است. با HARDEN: بازتولید محلی با Postgres اختصاصی (stubِ صرفاً POSTGIS/EXCLUDE) انجام شد — returns-resolution ۲۷/۲۷، returns.api ۱۷/۱۷ — و CI روی headِ PR سبز است (H-4).
 
 ## ۵) شکاف‌های باقی‌مانده (تصمیمِ مالک / برش‌های بعدی)
 
@@ -76,7 +92,7 @@
 
 # ضمیمه TASK-P4-R-HARDEN — سخت‌سازیِ برشِ receive (قبل از بازبینیِ مالک)
 
-> این ضمیمه نتیجهٔ بررسیِ پیش‌از-بازبینی است؛ جایگزینِ متن‌های «422» در بالا می‌شود.
+> این ضمیمه نتیجهٔ بررسیِ پیش‌از-بازبینی است؛ **جایگزین قطعیِ همهٔ اشارات «422» در بخش‌های ۲ تا ۴** است (آن‌ها صراحتاً تاریخی/منسوخ‌اند و فقط برای حفظ تاریخچه نگه‌داری می‌شوند).
 > هیچ بازطراحیِ جریانِ مرجوعی انجام نشد؛ فقط یافته‌های verified اصلاح شدند.
 
 ## H-1) ریشه‌علت‌ها و اصلاحات
