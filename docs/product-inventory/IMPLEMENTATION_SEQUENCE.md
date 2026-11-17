@@ -41,6 +41,7 @@
 ### P4 — Order-to-Cash سخت (تکمیلِ F + H-05) + Return-to-Resolution — **L**
 - **دامنه:** یکپارچگیِ اعتبار/موجودی/تایید در ثبت · جایگزینی/backorder (قابلیتِ F-06) · تکمیلِ وصولیِ محل · resolution مرجوعی (قرنطینه/اسقاط/بازگشت) · **مرکزِ اعلان (شکافِ G-05)** در همین فاز یا انتهای P3 · تستِ E2E مرورگری (مشروط به شکافِ G-01).
 - **پذیرش:** Order-to-Cash در سطحِ API-E2E سبز؛ با رفعِ G-01 در مرورگر.
+- **پیشرفتِ اجرایی (TASK-P4-R):** resolution مرجوعی تکمیل شد — `receive` هم‌اتمیک با گذارِ posted آثارِ موجودی (`sale_return_in` به انبار main/مقصدِ صریح برای restock؛ به انبار quarantine/damaged برای damaged با fail-closed؛ scrap/return_to_supplier بدونِ حرکت) ثبت می‌کند؛ تست‌های unit (اکنون ۳۲ تست در فایل واحد) و API/DB افزوده شد؛ قرارداد receive فقط ۴xx (`400/409`) دارد — TASK-P4-R-HARDEN: قلم تکراری `400 duplicate_line`، پوشش ناقص `400 incomplete_lines`، مقدار بیش‌از‌حد `400 qty_exceeds_requested`، دادهٔ خراب `409 duplicate_stored_lines`. باقیِ P4 (backorder/F-06، وصولیِ محل، G-05 در انتظارِ تصمیمِ مالک، E2E) دست‌نخورده باقی ماند — جزئیات در `TASK-P4-R_RETURN_RESOLUTION_IMPLEMENTATION.md`.
 
 ### P5 — صحتِ موجودی + تکمیلِ تدارکات — **L**
 - **دامنه:** picking/packing + اجرای FEFO (شکافِ G-12) · تستِ تطابقِ stock_balance با inventory_txn (خطرِ §۴-۷ در DEPENDENCY_MAP) · UI خرید/تامین‌کننده + تاییدِ PO (شکافِ G-09) · چرخهٔ Procure-to-Stock کامل.

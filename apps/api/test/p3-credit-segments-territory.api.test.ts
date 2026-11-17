@@ -12,6 +12,7 @@ import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import type { ValidateFunction } from 'ajv';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { businessToday } from '../src/common/business-date';
 import { Test } from '@nestjs/testing';
 
 import { AppModule } from '../src/app.module';
@@ -105,7 +106,8 @@ const login = async (username: string, password: string): Promise<string> => {
   return res.body.access_token as string;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+// تاریخِ کسب‌وکارِ تهران — نه UTC؛ هم‌راستا با businessToday() سمت سرور (وگرنه بعد از ۲۰:۳۰ UTC تست‌ها قرمز می‌شوند)
+const today = () => businessToday();
 
 const resolvePointer = (doc: unknown, ref: string): any =>
   ref

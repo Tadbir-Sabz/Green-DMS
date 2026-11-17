@@ -7651,11 +7651,16 @@ export interface paths {
                              */
                             disposition: "restock" | "damaged" | "scrap" | "return_to_supplier";
                         }[];
+                        /**
+                         * Format: uuid
+                         * @description انبارِ مقصدِ قلم‌های restock (اختیاری). پیش‌فرض: انبار فعال kind='main' همان شعبهٔ سند. قلم‌های damaged همیشه به انبار قرنطینه/ناقصِ فعال شعبه (kind='quarantine' یا 'damaged') پُست می‌شوند؛ scrap و return_to_supplier بدونِ حرکتِ موجودی ثبت می‌شوند. انبار صریح باید مالِ همان شعبه و فعال باشد، وگرنه 400 برمی‌گردد و هیچ چیزی پُست نمی‌شود. اگر انبارِ پیش‌فرض لازم پیدا نشود 409 برمی‌گردد (fail-closed — هیچ fallback خاموشی نیست).
+                         */
+                        warehouse_id?: string;
                     };
                 };
             };
             responses: {
-                /** @description مرجوعی نهایی شد (بستانکاری مشتری ثبت شد) */
+                /** @description مرجوعی نهایی شد (تحویل کالا به انبار و تعیین تکلیف قلم‌ها در یک تراکنش ثبت شد) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -13647,6 +13652,25 @@ export interface components {
              *     - `code_immutable`: بدنهٔ PATCH شامل کلیدِ `code` بود؛ SKU پس از ساخت
              *       تغییرناپذیر است و هیچ تغییری اعمال نشد. `details.field = 'code'`،
              *       `details.surface = 'PATCH /products/:id'`.
+             *
+             *     **resolution مرجوعی (TASK-P4-R / TASK-P4-R-HARDEN)** — receive
+             *     - `400 duplicate_line`: کالای تکراری در بدنهٔ receive یا در خطوط ساخت؛
+             *       هیچ نوشتنی انجام نشد. `details.product_ids` فهرست است.
+             *     - `400 incomplete_lines`: پوشش خطوط فعّال کامل نبود؛ دریافت نصفه
+             *       ثبت نمی‌شود. `details.missing_product_ids` فهرستِ کالاهای پوشش‌داده‌نشده است.
+             *     - `400 line_not_found`: کالای ارسالی جزو خطوط این مرجوعی نیست.
+             *     - `400 line_already_resolved`: این قلم پیشتر (در partially_approved)
+             *       تعیین تکلیف شده؛ دریافت دوبارهٔ آن مجاز نیست.
+             *     - `400 invalid_qty`: مقدار دریافت صفر یا منفی است.
+             *     - `400 qty_exceeds_requested`: مقدار دریافت از مقدار ثبت‌شدهٔ خط بیشتر؛
+             *       `details.requested` و `details.submitted` ارقام را می‌دهند.
+             *     - `400 warehouse_not_found` / `400 warehouse_inactive`: انبار صریح
+             *       ناموجود/مالِ شعبهٔ دیگر/غیرفعال (فقط برای restock؛ damaged همیشه به قرنطینه می‌رود).
+             *     - `409 nothing_to_receive`: همهٔ خطوط پیشتر حل شده‌اند.
+             *     - `409 duplicate_stored_lines`: دادهٔ ذخیره‌شدهٔ مرجوعی برای یک کالا
+             *       بیش از یک خط دارد (fail-closed؛ داده باید اصلاح شود).
+             *     - `409 restock_warehouse_missing` / `409 quarantine_warehouse_missing`:
+             *       انبار پیش‌فرضِ لازم برای شعبه تعریف نشده (fail-closed).
              * @example validation_failed
              * @example rule_rejected
              * @example version_conflict

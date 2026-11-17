@@ -13,6 +13,7 @@ import type { ReturnLineRow, ReturnRepository, ReturnRow } from './return.reposi
 import { RETURN_REPOSITORY } from './tokens';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
 import type { RulesEngineService } from '../rules-engine/rules-engine.service';
+import { ResolutionPlanError, findDuplicateIds } from './return-resolution';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -78,6 +79,15 @@ export class ReturnService {
   ): Promise<ReturnView> {
     if (!dto.lines?.length) {
       throw badRequest('lines_required', 'درخواست مرجوعی باید حداقل یک قلم کالا داشته باشد.');
+    }
+    const dups = findDuplicateIds(dto.lines.map((l) => l.product_id));
+    if (dups.length > 0) {
+      // TASK-P4-R-HARDEN: یک خط ذخیره‌شده هرگز دو posting نمی‌سازد
+      throw new BadRequestException({
+        code: 'duplicate_line',
+        message_fa: 'هر کالا فقط یک‌بار در خطوط درخواست مرجوعی می‌تواند تکرار شود.',
+        details: { product_ids: dups },
+      });
     }
     let id: string;
     try {
@@ -188,12 +198,30 @@ export class ReturnService {
         details: { status: row.status },
       });
     }
-    const lines = await this.repo.findLines(id);
-    const known = new Set(lines.map((l) => l.product_id));
-    if (dto.lines.some((l) => !known.has(l.product_id))) {
-      throw badRequest('line_not_found', 'یکی از کالاهای ارسالی در این مرجوعی ثبت نشده است.');
-    }
-    const ok = await this.repo.receive(companyId, id, dto);
+    // اعتبارسنجی کامل (تکراری، پوشش خط‌به‌خط، qty، چرخهٔ partially_approved)
+    // داخلِ همان تراکنشِ مخزن انجام می‌شود — هیچ «نصفه» پُست نمی‌شود.
+    const ok = await this.repo.receive(companyId, id, dto).catch((err: unknown) => {
+      if (err instanceof ResolutionPlanError) {
+        if (err.httpStatus === 400) {
+          throw new BadRequestException({
+            code: err.code,
+            message_fa: err.message,
+            ...(err.details ? { details: err.details } : {}),
+          });
+        }
+        throw new ConflictException({
+          code: err.code,
+          message_fa: err.message,
+          ...(err.details ? { details: err.details } : {}),
+        });
+      }
+      // بکاپِ قیدِ DB — در حالت عادی با qty_exceeds_requested پیشاپیش گرفته می‌شود
+      const e = err as { code?: string } | null;
+      if (e?.code === '23514') {
+        throw badRequest('check_violation', 'مقدار ارسال‌شده برای یکی از فیلدها مجاز نیست.');
+      }
+      throw this.mapDbError(err);
+    });
     if (!ok) {
       throw new ConflictException({ code: 'invalid_transition', message_fa: 'وضعیت درخواست هم‌زمان تغییر کرده است.' });
     }
