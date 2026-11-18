@@ -143,6 +143,13 @@ const creditNotesForInvoice = async (invId: string) => {
 };
 const journalCount = async () => (await pool.query<{ c: string }>('select count(*)::text as c from journal_entry')).rows[0].c;
 
+let makeInvoice: (
+  cid: string, bid: string, custId: string, docNumber: string,
+  grandTotal: string, subtotal: string, discount: string, tax: string,
+  lines: { product_id: string; qty: number; unit_price: string; discount_amount: string; tax_amount: string; line_total: string; line_no: number }[],
+  status?: string,
+) => Promise<{ invoice_id: string; line_ids: string[] }>;
+
 beforeAll(async () => {
   adminPool = new pg.Pool({ connectionString: adminUrl.toString(), max: 1 });
   await adminPool.query(
@@ -195,7 +202,7 @@ beforeAll(async () => {
       [cid, code, category.rows[0].id],
     )).rows[0].id;
   };
-  const makeInvoice = async (
+  makeInvoice = async (
     cid: string, bid: string, custId: string, docNumber: string,
     grandTotal: string, subtotal: string, discount: string, tax: string,
     lines: { product_id: string; qty: number; unit_price: string; discount_amount: string; tax_amount: string; line_total: string; line_no: number }[],

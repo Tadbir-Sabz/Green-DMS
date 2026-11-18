@@ -81,8 +81,8 @@ export class RolesService {
         ? undefined
         : [...new Set(dto.permission_codes)];
     if (permissionCodes) {
-      await this.assertPermissions(permissionCodes);
       this.assertSysAdminCreditBoundary(before.code, permissionCodes);
+      await this.assertPermissions(permissionCodes);
     }
 
     try {
