@@ -82,6 +82,7 @@ export default function ReturnsPage() {
   const auth = useAuth();
   const canCreditNote = auth.hasPermission("sales.return.credit");
   const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ReturnItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ customer_id: "", invoice_id: "", reason_code: "damaged" as string, note: "" });
@@ -353,22 +354,32 @@ export default function ReturnsPage() {
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={() => setStatus("")}
-          className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${!status ? "border-brand text-brand-soft-ink" : "border-line"}`}
-        >
-          همه
-        </button>
-        {STATUSES.map((s) => (
+      <div className="flex gap-2 flex-wrap items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
           <button
-            key={s}
-            onClick={() => setStatus(s)}
-            className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${status === s ? "border-brand text-brand-soft-ink" : "border-line"}`}
+            onClick={() => setStatus("")}
+            className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${!status ? "border-brand text-brand-soft-ink" : "border-line"}`}
           >
-            {STATUS_FA[s]}
+            همه
           </button>
-        ))}
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatus(s)}
+              className={`focus-ring px-3 py-1.5 rounded-lg text-sm border ${status === s ? "border-brand text-brand-soft-ink" : "border-line"}`}
+            >
+              {STATUS_FA[s]}
+            </button>
+          ))}
+        </div>
+        <input
+          type="search"
+          aria-label="جستجوی مرجوعی"
+          placeholder="جستجو با شماره مرجوعی..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="focus-ring px-3 py-1.5 rounded-lg text-sm border border-line bg-surface min-w-[220px]"
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -385,7 +396,9 @@ export default function ReturnsPage() {
               </tr>
             </thead>
             <tbody>
-              {(list.data?.items ?? []).map((r) => (
+              {(list.data?.items ?? [])
+                .filter((r) => !search.trim() || r.doc_number.toLowerCase().includes(search.trim().toLowerCase()))
+                .map((r) => (
                 <tr
                   key={r.id}
                   onClick={() => setSelected(r)}
