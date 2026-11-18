@@ -10,13 +10,41 @@ import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
 import type { CreateReturnDto, ListReturnsQueryDto, ReceiveReturnDto } from './return.dto';
 import type { ReturnLineRow, ReturnRepository, ReturnRow } from './return.repository';
-import { RETURN_REPOSITORY } from './tokens';
+import { CREDIT_NOTE_REPOSITORY, RETURN_REPOSITORY } from './tokens';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
 import type { RulesEngineService } from '../rules-engine/rules-engine.service';
 import { ResolutionPlanError, findDuplicateIds } from './return-resolution';
+import { CreditNoteReferenceError, type CreditNoteRepository } from './credit-note.repository';
+import { CreditNoteError } from './credit-note';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
+
+/** خلاصهٔ یادداشت بستانکارِ متصل (null اگر هنوز صادر نشده) */
+export interface ReturnCreditNoteSummary {
+  id: string;
+  doc_number: string;
+  amount: string;
+  status: string;
+  issued_at: string;
+}
+
+/**
+ * TASK-P4-FC — وضعیت مالیِ مشتق‌شده (هرگز ذخیره نمی‌شود؛ از روی داده محاسبه می‌شود):
+ *   awaiting_receipt       — پیش از receive (سند posted نشده)
+ *   awaiting_credit_note   — دریافت شده، بستانکار صادر نشده
+ *   credit_note_issued     — یادداشت بستانکار ثبت شده (صرف‌نظر از وضعیت ارزش‌گذاری)
+ * «financial closure» واقعی به valuation_status هم نیاز دارد — OD-01.
+ */
+export type FinancialStatus = 'awaiting_receipt' | 'awaiting_credit_note' | 'credit_note_issued';
+
+export const financialStatusOf = (row: {
+  status: string;
+  credit_note_id: string | null;
+}): FinancialStatus => {
+  if (row.status !== 'posted' && row.status !== 'closed') return 'awaiting_receipt';
+  return row.credit_note_id ? 'credit_note_issued' : 'awaiting_credit_note';
+};
 
 export interface ReturnView {
   id: string;
@@ -30,12 +58,19 @@ export interface ReturnView {
   requested_at: string;
   approved_at: string | null;
   note: string | null;
+  /** TASK-P4-FC — وضعیت صریحِ ارزش‌گذاریِ بهای تمام‌شده (migration 0067) */
+  valuation_status: string;
+  /** TASK-P4-FC — وضعیت مالیِ مشتق‌شده */
+  financial_status: FinancialStatus;
+  /** TASK-P4-FC — خلاصهٔ یادداشت بستانکار (فقط در پاسخ تکی) */
+  credit_note?: ReturnCreditNoteSummary | null;
   lines?: {
     product_id: string;
     batch_id: string | null;
     qty: number;
     qty_approved: number | null;
     disposition: string;
+    invoice_line_id: string | null;
   }[];
 }
 
@@ -45,6 +80,7 @@ const mapLine = (l: ReturnLineRow) => ({
   qty: l.qty,
   qty_approved: l.qty_approved,
   disposition: l.disposition,
+  invoice_line_id: l.invoice_line_id ?? null,
 });
 
 @Injectable()
@@ -53,15 +89,21 @@ export class ReturnService {
     @Inject(RETURN_REPOSITORY) private readonly repo: ReturnRepository,
     /** TASK-24Y — همان دروازهٔ تأییدِ قابلِ استفادهٔ مجدد (بدونِ تکرارِ منطق) */
     @Inject(RULES_ENGINE_SERVICE) private readonly rules: RulesEngineService,
+    /** TASK-P4-FC — صدور یادداشت بستانکار (دفتر مشتری/AR) */
+    @Inject(CREDIT_NOTE_REPOSITORY) private readonly creditNotes: CreditNoteRepository,
   ) {}
 
   private assertId(id: string): void {
     if (!isUUID(id, '4')) throw badRequest('invalid_id', 'شناسه ارسال‌شده معتبر نیست.');
   }
 
-  async list(companyId: string, query: ListReturnsQueryDto): Promise<Page<ReturnRow>> {
+  async list(companyId: string, query: ListReturnsQueryDto): Promise<Page<ReturnRow & { financial_status: FinancialStatus }>> {
     const { items, nextCursor, hasMore } = await this.repo.list(companyId, query);
-    return { items, next_cursor: nextCursor, has_more: hasMore };
+    return {
+      items: items.map((r) => ({ ...r, financial_status: financialStatusOf(r) })),
+      next_cursor: nextCursor,
+      has_more: hasMore,
+    };
   }
 
   async get(companyId: string, id: string): Promise<ReturnView> {
@@ -69,7 +111,13 @@ export class ReturnService {
     const row = await this.repo.findById(companyId, id);
     if (!row) throw new NotFoundException({ code: 'not_found', message_fa: 'درخواست مرجوعی یافت نشد' });
     const lines = await this.repo.findLines(id);
-    return { ...row, lines: lines.map(mapLine) };
+    const creditNote = await this.creditNotes.findSummaryByReturnId(id);
+    return {
+      ...row,
+      financial_status: financialStatusOf(row),
+      credit_note: creditNote,
+      lines: lines.map(mapLine),
+    };
   }
 
   async create(
@@ -228,13 +276,92 @@ export class ReturnService {
     return this.get(companyId, id);
   }
 
+  /**
+   * TASK-P4-FC — صدور یادداشت بستانکار برای یک مرجوعیِ posted.
+   * مستقل از receive است (traceability جدا)؛ در یک تراکنش انجام می‌شود؛
+   * دوبار‌صدور (حتی رقابتی) با 409 رد می‌شود.
+   */
+  async issueCreditNote(companyId: string, id: string): Promise<ReturnView> {
+    this.assertId(id);
+    try {
+      const result = await this.creditNotes.issueCreditNote(companyId, id);
+      if (result.ok !== true) {
+        if (result.reason === 'not_found') {
+          throw new NotFoundException({ code: 'not_found', message_fa: 'درخواست مرجوعی یافت نشد' });
+        }
+        if (result.reason === 'not_posted') {
+          throw new ConflictException({
+            code: 'invalid_transition',
+            message_fa: 'صدور یادداشت بستانکار فقط پس از receive (ثبت نهایی) ممکن است.',
+            details: { status: result.status },
+          });
+        }
+        throw new ConflictException({
+          code: 'already_credited',
+          message_fa: 'برای این مرجوعی یادداشت بستانکار قبلاً صادر شده است.',
+          details: { credit_note_id: result.credit_note_id },
+        });
+      }
+      return this.get(companyId, id);
+    } catch (err) {
+      if (err instanceof CreditNoteReferenceError) {
+        throw new BadRequestException({
+          code: err.code,
+          message_fa: err.message,
+          ...(err.details ? { details: err.details } : {}),
+        });
+      }
+      if (err instanceof CreditNoteError) {
+        throw new ConflictException({
+          code: err.code,
+          message_fa: err.message,
+          ...(err.details ? { details: err.details } : {}),
+        });
+      }
+      if ((err as { code?: string })?.code === '23505') {
+        throw new ConflictException({
+          code: 'duplicate_doc',
+          message_fa: 'شمارهٔ سند بستانکار تکراری است؛ دوباره تلاش کنید.',
+        });
+      }
+      throw err;
+    }
+  }
+
   private mapDbError(err: unknown): Error {
-    const e = err as { code?: string; constraint?: string; message?: string };
+    const e = err as { code?: string; constraint?: string; message?: string; pgCode?: string; details?: Record<string, unknown> };
     if (e?.message === 'customer not found') {
       return badRequest('customer_not_found', 'مشتری ارسال‌شده در این شرکت یافت نشد.');
     }
     if (e?.message === 'invoice not found') {
       return badRequest('invoice_not_found', 'فاکتور ارسال‌شده در این شرکت یافت نشد.');
+    }
+    // TASK-P4-FC — خطاهای پیوندِ فاکتور/قلم و سقفِ eligibility
+    if (e?.pgCode === 'no_data' && e?.message === 'invoice line not found') {
+      return badRequest('invoice_line_not_found', 'یکی از خطوط فاکتورِ متصل یافت نشد.');
+    }
+    if (e?.pgCode === 'mixed_invoice') {
+      return badRequest(
+        'invoice_line_mismatch',
+        'خطوط فاکتورِ متصل متعلق به یک فاکتور نیستند یا با فاکتورِ ارسالی همخوانی ندارند.',
+      );
+    }
+    if (e?.pgCode === 'invoice_customer') {
+      return badRequest('invoice_customer_mismatch', 'فاکتورِ متصل متعلق به این مشتری نیست.');
+    }
+    if (e?.pgCode === 'line_product') {
+      return new BadRequestException({
+        code: 'line_product_mismatch',
+        message_fa: 'کالای یک قلم با خطِ فاکتورِ متصل یکسان نیست.',
+        ...(e.details ? { details: e.details } : {}),
+      });
+    }
+    if (e?.pgCode === 'qty_exceeds_invoiced') {
+      return new BadRequestException({
+        code: 'qty_exceeds_invoiced',
+        message_fa: 'مقدار مرجوعی از باقی‌ماندهٔ قابلِ مرجوعیِ خطِ فاکتور بیشتر است.',
+        ...(e.details ? { details: e.details } : {}),
+      });
     }
     if (e?.code === '23505') {
       return new BadRequestException({

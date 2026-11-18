@@ -12,6 +12,7 @@ import { OrderController } from './order.controller';
 import { ReturnController } from './return.controller';
 import { ReturnRepository } from './return.repository';
 import { ReturnService } from './return.service';
+import { CreditNoteRepository } from './credit-note.repository';
 import { WaybillController } from './waybill.controller';
 import { WaybillRepository } from './waybill.repository';
 import { WaybillService } from './waybill.service';
@@ -54,6 +55,7 @@ import {
   ORDER_SERVICE,
   REQUEST_REPOSITORY,
   REQUEST_SERVICE,
+  CREDIT_NOTE_REPOSITORY,
   RETURN_REPOSITORY,
   RETURN_SERVICE,
   STRUCTURE_REPOSITORY,
@@ -142,6 +144,8 @@ export class SalesController {
     { provide: WAYBILL_SERVICE, useExisting: WaybillService },
     ReturnRepository,
     { provide: RETURN_REPOSITORY, useExisting: ReturnRepository },
+    CreditNoteRepository,
+    { provide: CREDIT_NOTE_REPOSITORY, useExisting: CreditNoteRepository },
     ReturnService,
     { provide: RETURN_SERVICE, useExisting: ReturnService },
     SalesChainRepository,

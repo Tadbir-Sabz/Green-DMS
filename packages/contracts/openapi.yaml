@@ -4060,6 +4060,31 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /returns/{id}/credit-note:
+    parameters:
+      - { $ref: '#/components/parameters/idPath' }
+    post:
+      tags: [returns]
+      summary: صدور یادداشت بستانکار مرجوعی (دفتر مشتری/AR)
+      description: >-
+        پس از receive (وضعیت posted) یادداشت بستانکار را در یک تراکنش صادر می‌کند:
+        سهم هر قلم به‌تناسب از مقادیر ذخیره‌شدهٔ خطِ فاکتورِ متصل (line_total شامل تخفیف و مالیات) محاسبه می‌شود؛
+        سقف سخت = grand_total فاکتور منهای یادداشت‌های بستانکارِ posted قبلی؛
+        سقف مقداری هر خط = qty فروخته‌شده منهای بستانکارهای posted قبلی.
+        سندِ کل (GL) ثبت نمی‌شود (OD-07)؛ بهای تمام‌شده (valuation) جدا و حل‌نشده است (OD-01).
+        صدور مستقل از receive و idempotent است — دوبار‌صدور (حتی رقابتی) 409 برمی‌گردد.
+      responses:
+        '201':
+          description: یادداشت بستانکار صادر شد (فاکتور/مرجوعی/دفتر مشتری اتمیک به‌روز شدند)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   # ---------------- پیگیری توزیع و تحویل ----------------
   /deliveries:
     get:
@@ -8348,6 +8373,26 @@ components:
         requested_at: { type: [string, 'null'], format: date-time, readOnly: true }
         approved_at: { type: [string, 'null'], format: date-time, readOnly: true }
         note: { type: [string, 'null'] }
+        valuation_status:
+          type: string
+          enum: [unresolved, valued, not_applicable, waived]
+          readOnly: true
+          description: "وضعیت صریحِ ارزش‌گذاریِ بهای تمام‌شده. «unresolved» پیش‌فرض است — بهای تمام‌شده ثبت نشده (OD-01)."
+        financial_status:
+          type: string
+          enum: [awaiting_receipt, awaiting_credit_note, credit_note_issued]
+          readOnly: true
+          description: وضعیت مالیِ مشتق‌شده (ذخیره نمی‌شود).
+        credit_note:
+          type: [object, 'null']
+          readOnly: true
+          description: خلاصهٔ یادداشت بستانکارِ متصل (فقط در پاسخ تکی)
+          properties:
+            id: { type: string, format: uuid }
+            doc_number: { type: string }
+            amount: { type: string }
+            status: { type: string, enum: [draft, posted, voided] }
+            issued_at: { type: string, format: date-time }
         lines:
           type: array
           items:
@@ -8357,6 +8402,10 @@ components:
               qty: { type: number }
               qty_approved: { type: [number, 'null'], readOnly: true, description: مقدار تأیید/دریافت‌شده (فقط خواندنی) }
               batch_id: { type: [string, 'null'], format: uuid }
+              invoice_line_id:
+                type: [string, 'null']
+                format: uuid
+                description: پیوند به قلمِ فاکتورِ مبدأ (TASK-P4-FC) — مبنای traceability و سقفِ بستانکار
               disposition:
                 type: [string, 'null']
                 enum: [restock, damaged, scrap, return_to_supplier, null]

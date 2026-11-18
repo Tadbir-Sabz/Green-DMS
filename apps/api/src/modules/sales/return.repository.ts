@@ -25,6 +25,8 @@ export interface ReturnRow extends QueryResultRow {
   note: string | null;
   /** TASK-24Y — درخواست‌دهنده؛ مبنای جلوگیری از خودتأییدی */
   requested_by: string | null;
+  /** TASK-P4-FC — وضعیت صریحِ ارزش‌گذاری (migration 0067) */
+  valuation_status: string;
 }
 
 export interface ReturnLineRow extends QueryResultRow {
@@ -34,13 +36,15 @@ export interface ReturnLineRow extends QueryResultRow {
   qty_approved: number | null;
   unit_price: number;
   disposition: string;
+  /** TASK-P4-FC — پیوند به قلمِ فاکتورِ مبدأ (migration 0067)؛ null = بدون پیوند */
+  invoice_line_id: string | null;
 }
 
 const encodeCursor = (id: string): string => Buffer.from(id, 'utf8').toString('base64url');
 const decodeCursor = (cursor: string): string => Buffer.from(cursor, 'base64url').toString('utf8');
 
 const COLUMNS =
-  'r.id, r.doc_number, r.customer_id, r.invoice_id, r.tour_id, r.reason_code, r.status, r.credit_note_id, r.requested_at, r.approved_at, r.note, r.requested_by';
+  'r.id, r.doc_number, r.customer_id, r.invoice_id, r.tour_id, r.reason_code, r.status, r.credit_note_id, r.requested_at, r.approved_at, r.note, r.requested_by, r.valuation_status';
 
 @Injectable()
 export class ReturnRepository {
@@ -92,7 +96,7 @@ export class ReturnRepository {
   async findLines(returnId: string): Promise<ReturnLineRow[]> {
     const { rows } = await this.pool.query<ReturnLineRow>(
       `select product_id, batch_id, qty::float8 as qty, qty_approved::float8 as qty_approved,
-              unit_price::float8 as unit_price, disposition
+              unit_price::float8 as unit_price, disposition, invoice_line_id
          from return_request_line
         where return_request_id = $1
         order by product_id`,
@@ -123,17 +127,108 @@ export class ReturnRepository {
       );
       if (branch.rowCount === 0) throw Object.assign(new Error('customer not found'), { pgCode: 'no_data' });
 
+      // TASK-P4-FC — پیوند قلم‌ها به خطوط فاکتور + سقفِ eligibility (quantity):
+      // هر قلمی که invoice_line_id دارد باید به همان فاکتور تعلق داشته باشد و
+      // جمعِ مرجوعی‌های ثبت‌شده روی آن خط (به استثنای ردشده‌ها) + این مقدار،
+      // از مقدارِ فروخته‌شده بیشتر نشود. خطوط فاکتور با ترتیبِ id قفل می‌شوند.
+      const linked = (dto.lines ?? []).filter((l) => l.invoice_line_id);
+      let derivedInvoiceId: string | null = null;
+      const eligibility = new Map<string, { sold: number; committed: number }>();
+      if (linked.length > 0) {
+        const lineIds = [...new Set(linked.map((l) => l.invoice_line_id as string))];
+        const ilRows = await client.query<{
+          id: string;
+          invoice_id: string;
+          product_id: string;
+          qty: number;
+          customer_id: string;
+        }>(
+          `select il.id, il.invoice_id, il.product_id, il.qty::float8 as qty, i.customer_id
+             from invoice_line il
+             join invoice i on i.id = il.invoice_id
+             join branch b on b.id = i.branch_id
+            where il.id = any($1::uuid[]) and b.company_id = $2
+            order by il.id
+            for update of il`,
+          [lineIds, companyId],
+        );
+        if (ilRows.rowCount !== lineIds.length) {
+          throw Object.assign(new Error('invoice line not found'), { pgCode: 'no_data' });
+        }
+        const invoiceIds = new Set(ilRows.rows.map((r) => r.invoice_id));
+        if (invoiceIds.size !== 1) {
+          throw Object.assign(new Error('invoice line invoice mismatch'), { pgCode: 'mixed_invoice' });
+        }
+        derivedInvoiceId = ilRows.rows[0].invoice_id;
+        if (dto.invoice_id && dto.invoice_id !== derivedInvoiceId) {
+          throw Object.assign(new Error('invoice line invoice mismatch'), { pgCode: 'mixed_invoice' });
+        }
+        const invoiceCustomer = ilRows.rows[0].customer_id;
+        if (invoiceCustomer !== dto.customer_id) {
+          throw Object.assign(new Error('invoice customer mismatch'), { pgCode: 'invoice_customer' });
+        }
+        const committed = await client.query<{ invoice_line_id: string; qty: number }>(
+          `select rl.invoice_line_id, coalesce(sum(rl.qty), 0)::float8 as qty
+             from return_request_line rl
+             join return_request r on r.id = rl.return_request_id
+            where rl.invoice_line_id = any($1::uuid[])
+              and r.status not in ('draft', 'rejected')
+            group by rl.invoice_line_id`,
+          [lineIds],
+        );
+        const committedById = new Map(committed.rows.map((r) => [r.invoice_line_id, r.qty]));
+        for (const row of ilRows.rows) {
+          eligibility.set(row.id, { sold: row.qty, committed: committedById.get(row.id) ?? 0 });
+        }
+        // تطابق کالا و سقف مقدار — پیش از هر نوشتنی
+        const byId = new Map(ilRows.rows.map((r) => [r.id, r]));
+        // مجموعِ درخواستِ همین سند به‌ازای هر خطِ فاکتور (ایحتیاطاً — dup product قبلاً رد می‌شود)
+        const requestedPerLine = new Map<string, number>();
+        for (const l of linked) {
+          requestedPerLine.set(l.invoice_line_id as string, (requestedPerLine.get(l.invoice_line_id as string) ?? 0) + l.qty);
+        }
+        for (const l of linked) {
+          const il = byId.get(l.invoice_line_id as string)!;
+          if (il.product_id !== l.product_id) {
+            throw Object.assign(new Error('invoice line product mismatch'), {
+              pgCode: 'line_product',
+              details: { invoice_line_id: il.id, invoice_product_id: il.product_id, product_id: l.product_id },
+            });
+          }
+        }
+        for (const [lineId, requested] of requestedPerLine) {
+          const cap = eligibility.get(lineId)!;
+          const next = cap.committed + requested;
+          if (next - cap.sold > 1e-9) {
+            throw Object.assign(new Error('qty exceeds invoiced'), {
+              pgCode: 'qty_exceeds_invoiced',
+              details: {
+                invoice_line_id: lineId,
+                sold_qty: cap.sold,
+                already_returned_qty: cap.committed,
+                requested_qty: requested,
+              },
+            });
+          }
+        }
+      }
+
       if (dto.invoice_id) {
-        const inv = await client.query(
-          `select i.id from invoice i join branch b on b.id = i.branch_id
+        const inv = await client.query<{ customer_id: string }>(
+          `select i.id, i.customer_id from invoice i join branch b on b.id = i.branch_id
             where i.id = $1 and b.company_id = $2`,
           [dto.invoice_id, companyId],
         );
         if (inv.rowCount === 0) throw Object.assign(new Error('invoice not found'), { pgCode: 'no_data' });
+        if (inv.rows[0].customer_id !== dto.customer_id) {
+          throw Object.assign(new Error('invoice customer mismatch'), { pgCode: 'invoice_customer' });
+        }
       }
 
       const id = randomUUID();
       const docNumber = `RT-${id.slice(0, 8).toUpperCase()}`;
+      // اگر فاکتور صریح داده نشده ولی خطوط به فاکتوری متصل‌اند، همان فاکتور ثبت می‌شود
+      const effectiveInvoiceId = dto.invoice_id ?? derivedInvoiceId;
       await client.query(
         `insert into return_request
            (id, branch_id, doc_number, customer_id, invoice_id, tour_id, reason_code, status, note,
@@ -144,7 +239,7 @@ export class ReturnRepository {
           branch.rows[0].branch_id,
           docNumber,
           dto.customer_id,
-          dto.invoice_id ?? null,
+          effectiveInvoiceId,
           dto.tour_id ?? null,
           dto.reason_code,
           dto.note ?? null,
@@ -153,9 +248,9 @@ export class ReturnRepository {
       );
       for (const line of dto.lines ?? []) {
         await client.query(
-          `insert into return_request_line (return_request_id, product_id, batch_id, qty, unit_price, disposition)
-           values ($1, $2, $3, $4, 0, 'restock')`,
-          [id, line.product_id, line.batch_id ?? null, line.qty],
+          `insert into return_request_line (return_request_id, product_id, batch_id, qty, unit_price, disposition, invoice_line_id)
+           values ($1, $2, $3, $4, 0, 'restock', $5)`,
+          [id, line.product_id, line.batch_id ?? null, line.qty, line.invoice_line_id ?? null],
         );
       }
       await client.query('commit');

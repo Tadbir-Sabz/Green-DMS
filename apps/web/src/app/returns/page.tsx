@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, getToken } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { EntityAttachments } from "@/components/EntityAttachments";
 
@@ -37,6 +38,22 @@ const REASON_FA: Record<string, string> = {
   other: "سایر",
 };
 const DISPOSITIONS = ["restock", "damaged", "scrap", "return_to_supplier"] as const;
+const FINANCIAL_FA: Record<string, string> = {
+  awaiting_receipt: "در انتظار ثبت دریافت",
+  awaiting_credit_note: "در انتظار صدور یادداشت بستانکار",
+  credit_note_issued: "یادداشت بستانکار صادر شد",
+};
+const VALUATION_FA: Record<string, string> = {
+  unresolved: "ارزش‌گذاری بهای تمام‌شده حل‌نشده",
+  valued: "ارزش‌گذاری‌شده",
+  not_applicable: "بدون نیاز به ارزش‌گذاری",
+  waived: "ارزش‌گذاری صرف‌نظرشده",
+};
+const CN_STATUS_FA: Record<string, string> = {
+  draft: "پیش‌نویس",
+  posted: "ثبت شده",
+  voided: "ابطال شده",
+};
 const DISPOSITION_FA: Record<string, string> = {
   restock: "بازگشت به موجودی",
   damaged: "خراب",
@@ -50,18 +67,25 @@ type ReturnItem = {
   status: string;
   reason_code: string;
   customer_id: string;
+  invoice_id?: string | null;
   note: string | null;
-  lines?: { product_id: string; qty: number; qty_approved: number | null; disposition: string }[];
+  valuation_status?: string;
+  financial_status?: string;
+  credit_note_id?: string | null;
+  credit_note?: { id: string; doc_number: string; amount: string; status: string; issued_at?: string } | null;
+  lines?: { product_id: string; qty: number; qty_approved: number | null; disposition: string; invoice_line_id?: string | null }[];
 };
 
 export default function ReturnsPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const auth = useAuth();
+  const canCreditNote = auth.hasPermission("sales.return.credit");
   const [status, setStatus] = useState("");
   const [selected, setSelected] = useState<ReturnItem | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ customer_id: "", reason_code: "damaged" as string, note: "" });
-  const [items, setItems] = useState([{ product_id: "", qty: 1 }]);
+  const [form, setForm] = useState({ customer_id: "", invoice_id: "", reason_code: "damaged" as string, note: "" });
+  const [items, setItems] = useState([{ product_id: "", qty: 1, invoice_line_id: "" }]);
   const [formError, setFormError] = useState<string | null>(null);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   // تکلیف نهایی هر قلم هنگام receive
@@ -102,10 +126,15 @@ export default function ReturnsPage() {
       const body = {
         customer_id: form.customer_id.trim(),
         reason_code: form.reason_code as ReturnReason,
+        ...(form.invoice_id.trim() ? { invoice_id: form.invoice_id.trim() } : {}),
         ...(form.note.trim() ? { note: form.note.trim() } : {}),
         lines: items
           .filter((i) => i.product_id.trim() && Number(i.qty) > 0)
-          .map((i) => ({ product_id: i.product_id.trim(), qty: Number(i.qty) })),
+          .map((i) => ({
+            product_id: i.product_id.trim(),
+            qty: Number(i.qty),
+            ...(i.invoice_line_id.trim() ? { invoice_line_id: i.invoice_line_id.trim() } : {}),
+          })),
       };
       const res = await api.POST("/returns", { body });
       if (res.error) throw new Error(errorMessage(res.error));
@@ -114,8 +143,8 @@ export default function ReturnsPage() {
     onSuccess: (data) => {
       setFormError(null);
       setShowForm(false);
-      setForm({ customer_id: "", reason_code: "damaged", note: "" });
-      setItems([{ product_id: "", qty: 1 }]);
+      setForm({ customer_id: "", invoice_id: "", reason_code: "damaged", note: "" });
+      setItems([{ product_id: "", qty: 1, invoice_line_id: "" }]);
       invalidate();
       setSelected(data);
     },
@@ -152,6 +181,25 @@ export default function ReturnsPage() {
     onError: (e: Error) => setDecisionError(e.message),
   });
 
+  const issueCreditNote = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.POST("/returns/{id}/credit-note", { params: { path: { id } } });
+      if (res.error) {
+        const msg = errorMessage(res.error);
+        if (/403|forbidden/i.test(msg)) {
+          throw new Error("شما مجوز صدور یادداشت بستانکار را ندارید.");
+        }
+        throw new Error(msg);
+      }
+      return res.data as ReturnItem;
+    },
+    onSuccess: () => {
+      setDecisionError(null);
+      invalidate();
+    },
+    onError: (e: Error) => setDecisionError(e.message),
+  });
+
   const receive = useMutation({
     mutationFn: async (id: string) => {
       const lines = (detail.data?.lines ?? []).map((l) => ({
@@ -177,7 +225,7 @@ export default function ReturnsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-ink">درخواست‌های مرجوعی</h1>
-          <p className="text-ink-muted text-sm">ثبت، تأیید و تعیین تکلیف نهایی کالای برگشتی</p>
+          <p className="text-ink-muted text-sm">ثبت، تأیید، تعیین تکلیف نهایی کالای برگشتی و بستانکاری مشتری در برابر فاکتور مبدأ</p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
@@ -226,11 +274,21 @@ export default function ReturnsPage() {
               />
             </div>
           </div>
+          <div className="max-w-md">
+            <label className="text-sm text-ink">شناسه فاکتور مبدأ (اختیاری — الزامی برای صدور بستانکار)</label>
+            <input
+              value={form.invoice_id}
+              onChange={(e) => setForm({ ...form, invoice_id: e.target.value })}
+              className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring mt-1"
+              placeholder="uuid"
+              dir="ltr"
+            />
+          </div>
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold text-ink">اقلام</div>
               <button
-                onClick={() => setItems([...items, { product_id: "", qty: 1 }])}
+                onClick={() => setItems([...items, { product_id: "", qty: 1, invoice_line_id: "" }])}
                 className="px-2 py-1 rounded-lg border border-line text-sm focus-ring"
               >
                 افزودن قلم
@@ -238,7 +296,7 @@ export default function ReturnsPage() {
             </div>
             <div className="space-y-2">
               {items.map((it, idx) => (
-                <div key={idx} className="grid md:grid-cols-2 gap-2">
+                <div key={idx} className="grid md:grid-cols-3 gap-2">
                   <input
                     placeholder="شناسه کالا"
                     value={it.product_id}
@@ -261,6 +319,17 @@ export default function ReturnsPage() {
                       setItems(n);
                     }}
                     className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                  <input
+                    placeholder="شناسه قلم فاکتور (اختیاری)"
+                    value={it.invoice_line_id}
+                    onChange={(e) => {
+                      const n = [...items];
+                      n[idx] = { ...it, invoice_line_id: e.target.value };
+                      setItems(n);
+                    }}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-line bg-surface text-ink transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-ink-subtle hover:border-line-strong focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                    dir="ltr"
                   />
                 </div>
               ))}
@@ -311,6 +380,8 @@ export default function ReturnsPage() {
                 <th className="text-start px-4 py-3 font-medium">شماره</th>
                 <th className="text-start px-4 py-3 font-medium">وضعیت</th>
                 <th className="text-start px-4 py-3 font-medium">دلیل</th>
+                <th className="text-start px-4 py-3 font-medium">وضعیت مالی</th>
+                <th className="text-start px-4 py-3 font-medium">ارزش‌گذاری</th>
               </tr>
             </thead>
             <tbody>
@@ -323,11 +394,13 @@ export default function ReturnsPage() {
                   <td className="px-4 py-3 font-mono">{r.doc_number}</td>
                   <td className="px-4 py-3">{STATUS_FA[r.status] ?? r.status}</td>
                   <td className="px-4 py-3">{REASON_FA[r.reason_code] ?? r.reason_code}</td>
+                  <td className="px-4 py-3">{r.financial_status ? (FINANCIAL_FA[r.financial_status] ?? r.financial_status) : "—"}</td>
+                  <td className="px-4 py-3 text-ink-muted">{r.valuation_status ? (VALUATION_FA[r.valuation_status] ?? r.valuation_status) : "—"}</td>
                 </tr>
               ))}
               {!list.isLoading && (list.data?.items?.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-ink-subtle">
+                  <td colSpan={5} className="px-4 py-8 text-center text-ink-subtle">
                     درخواستی ثبت نشده است
                   </td>
                 </tr>
@@ -349,6 +422,20 @@ export default function ReturnsPage() {
                 <span className="text-ink-muted">وضعیت</span>
                 <span>{STATUS_FA[current.status] ?? current.status}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">وضعیت مالی</span>
+                <span>{current.financial_status ? (FINANCIAL_FA[current.financial_status] ?? current.financial_status) : "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">ارزش‌گذاری بهای تمام‌شده</span>
+                <span className="text-ink-muted">{current.valuation_status ? (VALUATION_FA[current.valuation_status] ?? current.valuation_status) : "—"}</span>
+              </div>
+              {current.invoice_id && (
+                <div className="flex justify-between">
+                  <span className="text-ink-muted">فاکتور مبدأ</span>
+                  <span className="font-mono text-xs" dir="ltr">{current.invoice_id}</span>
+                </div>
+              )}
 
               {(current.status === "draft" || current.status === "submitted") && (
                 <button
@@ -423,6 +510,36 @@ export default function ReturnsPage() {
                 </div>
               )}
 
+              {current.status === "posted" && !current.credit_note && (
+                <div className="space-y-1">
+                  <button
+                    disabled={issueCreditNote.isPending || !canCreditNote}
+                    onClick={() => issueCreditNote.mutate(current.id)}
+                    title={!canCreditNote ? "مجوز صدور یادداشت بستانکار (sales.return.credit) را ندارید" : undefined}
+                    className="w-full px-4 py-2 rounded-xl bg-brand text-brand-ink hover:bg-brand-hover disabled:opacity-50 focus-ring"
+                  >
+                    {issueCreditNote.isPending ? "در حال صدور یادداشت بستانکار..." : "صدور یادداشت بستانکار"}
+                  </button>
+                  {!canCreditNote && (
+                    <p className="text-xs text-ink-subtle">مجوز صدور یادداشت بستانکار را ندارید — فقط کاربران مالی می‌توانند صادر کنند.</p>
+                  )}
+                </div>
+              )}
+
+              {current.credit_note && (
+                <div className="border border-line rounded-xl p-3 space-y-1 bg-surface-alt">
+                  <div className="text-ink-muted text-xs">یادداشت بستانکار متصل</div>
+                  <div className="flex justify-between">
+                    <span className="font-mono">#{current.credit_note.doc_number}</span>
+                    <span>{CN_STATUS_FA[current.credit_note.status] ?? current.credit_note.status}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-ink-muted">
+                    <span>مبلغ</span>
+                    <span className="font-mono" dir="ltr">{current.credit_note.amount}</span>
+                  </div>
+                </div>
+              )}
+
               {decisionError && (
                 <div className="text-sm text-danger-ink bg-danger-soft border border-danger-line rounded-lg px-3 py-2">{decisionError}</div>
               )}
@@ -445,6 +562,7 @@ export default function ReturnsPage() {
                       <span>
                         {l.qty}
                         {l.qty_approved != null && ` ← ${l.qty_approved} (${DISPOSITION_FA[l.disposition] ?? l.disposition})`}
+                        {l.invoice_line_id && <span className="text-ink-subtle"> · متصل به قلم فاکتور</span>}
                       </span>
                     </li>
                   ))}
