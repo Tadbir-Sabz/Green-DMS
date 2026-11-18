@@ -71,6 +71,18 @@ export class ReturnController {
     return this.service.approve(companyId, id, userId);
   }
 
+  /** TASK-P4-FC — صدور یادداشت بستانکار برای مرجوعیِ posted (مستقل از receive). */
+  @Post(':id/credit-note')
+  @HttpCode(201)
+  @RequirePermissions('sales.return.credit')
+  issueCreditNote(
+    @Param('id') id: string,
+    @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<ReturnView> {
+    return this.service.issueCreditNote(companyId, id, userId);
+  }
+
   @Post(':id/receive')
   @HttpCode(200)
   @RequirePermissions('sales.return.post')

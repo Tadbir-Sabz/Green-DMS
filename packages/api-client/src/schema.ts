@@ -7682,6 +7682,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/returns/{id}/credit-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * صدور یادداشت بستانکار مرجوعی (دفتر مشتری/AR)
+         * @description پس از receive (وضعیت posted) یادداشت بستانکار را در یک تراکنش صادر می‌کند: سهم هر قلم به‌تناسب از مقادیر ذخیره‌شدهٔ خطِ فاکتورِ متصل (line_total شامل تخفیف و مالیات) محاسبه می‌شود؛ سقف سخت = grand_total فاکتور منهای یادداشت‌های بستانکارِ posted قبلی؛ سقف مقداری هر خط = qty فروخته‌شده منهای بستانکارهای posted قبلی. سندِ کل (GL) ثبت نمی‌شود (OD-07)؛ بهای تمام‌شده (valuation) جدا و حل‌نشده است (OD-01). صدور مستقل از receive و idempotent است — دوبار‌صدور (حتی رقابتی) 409 برمی‌گردد.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description یادداشت بستانکار صادر شد (فاکتور/مرجوعی/دفتر مشتری اتمیک به‌روز شدند) */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReturnRequest"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deliveries": {
         parameters: {
             query?: never;
@@ -14919,6 +14967,27 @@ export interface components {
             /** Format: date-time */
             readonly approved_at?: string | null;
             note?: string | null;
+            /**
+             * @description وضعیت صریحِ ارزش‌گذاریِ بهای تمام‌شده. «unresolved» پیش‌فرض است — بهای تمام‌شده ثبت نشده (OD-01).
+             * @enum {string}
+             */
+            readonly valuation_status?: "unresolved" | "valued" | "not_applicable" | "waived";
+            /**
+             * @description وضعیت مالیِ مشتق‌شده (ذخیره نمی‌شود).
+             * @enum {string}
+             */
+            readonly financial_status?: "awaiting_receipt" | "awaiting_credit_note" | "credit_note_issued";
+            /** @description خلاصهٔ یادداشت بستانکارِ متصل (فقط در پاسخ تکی) */
+            readonly credit_note?: {
+                /** Format: uuid */
+                id?: string;
+                doc_number?: string;
+                amount?: string;
+                /** @enum {string} */
+                status?: "draft" | "posted" | "voided";
+                /** Format: date-time */
+                issued_at?: string;
+            } | null;
             lines?: {
                 /** Format: uuid */
                 product_id?: string;
@@ -14927,6 +14996,11 @@ export interface components {
                 readonly qty_approved?: number | null;
                 /** Format: uuid */
                 batch_id?: string | null;
+                /**
+                 * Format: uuid
+                 * @description پیوند به قلمِ فاکتورِ مبدأ (TASK-P4-FC) — مبنای traceability و سقفِ بستانکار
+                 */
+                invoice_line_id?: string | null;
                 /**
                  * @description تعیین تکلیف نهایی کالا (فقط در receive)
                  * @enum {string|null}

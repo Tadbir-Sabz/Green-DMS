@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import { permissionMatches } from './permissions';
 
 /** دلیل ابطال نشست — با check جدول auth_session (مهاجرت 0023) یکی است */
 export type RevokeReason = 'logout' | 'rotated' | 'reuse_detected' | 'admin' | 'password_reset';
@@ -310,9 +311,30 @@ export class AuthRepository {
       roles.set(row.role_id, row.role_code);
       if (row.permission_code) permissions.add(row.permission_code);
     }
+    let effectivePermissions = [...permissions];
+    if ([...roles.values()].includes('sys_admin')) {
+      // Expand only broad grants which cover the protected permission, into
+      // their explicit permitted codes. This preserves other admin powers while
+      // ensuring neither a direct grant nor a second assigned role can confer it.
+      const broad = effectivePermissions.filter((grant) =>
+        permissionMatches(grant, 'sales.return.credit'),
+      );
+      if (broad.length > 0) {
+        const { rows: catalog } = await this.pool.query<{ code: string }>(
+          'select code from permission order by code',
+        );
+        const permitted = new Set(effectivePermissions.filter((grant) => !broad.includes(grant)));
+        for (const grant of broad) {
+          for (const { code } of catalog) {
+            if (code !== 'sales.return.credit' && permissionMatches(grant, code)) permitted.add(code);
+          }
+        }
+        effectivePermissions = [...permitted];
+      }
+    }
     return {
       roles: [...roles].map(([id, code]) => ({ id, code })),
-      permissions: [...permissions],
+      permissions: effectivePermissions,
     };
   }
 }

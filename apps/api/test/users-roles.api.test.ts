@@ -64,6 +64,7 @@ let foreignUserId = '';
 let adminRoleId = '';
 let viewerRoleId = '';
 let sysRoleId = '';
+let sysAdminRoleId = '';
 let staffId = '';
 let reporterRoleId = '';
 
@@ -226,6 +227,12 @@ beforeAll(async () => {
     [companyId],
   );
   sysRoleId = sysRole.rows[0].id;
+  const sysAdminRole = await pool.query<{ id: string }>(
+    `insert into role (company_id, code, name, is_system)
+     values ($1, 'sys_admin', 'ادمین سیستم آزمایشی', true) returning id`,
+    [companyId],
+  );
+  sysAdminRoleId = sysAdminRole.rows[0].id;
 
   // شناسه ادمین (برای آزمون «غیرفعال‌سازی خود»)
   const adminUser = await pool.query<{ id: string }>(
@@ -586,7 +593,7 @@ describe('GET /roles — لیست', () => {
       res.body.items.map((r: { code: string }) => [r.code, r]),
     );
 
-    expect(Object.keys(byCode).sort()).toEqual(['admin_full', 'sys_frozen', 'viewer']);
+    expect(Object.keys(byCode).sort()).toEqual(['admin_full', 'sys_admin', 'sys_frozen', 'viewer']);
     expect(byCode.admin_full.permission_codes).toContain('admin.user.manage');
     expect(byCode.admin_full.permission_codes).toContain('admin.role.manage');
     expect(byCode.admin_full.is_system).toBe(false);
@@ -696,6 +703,21 @@ describe('PATCH /roles/{id}', () => {
     expect(res.body.code).toBe('system_role');
   });
 
+  it('مجوز مستقیم و wildcard شامل sales.return.credit برای sys_admin رد می‌شود، و مدیریت نام حفظ می‌شود', async () => {
+    for (const permission_codes of [['sales.return.credit'], ['sales.*']]) {
+      const denied = await api()
+        .patch(`/api/v1/roles/${sysAdminRoleId}`)
+        .send({ permission_codes })
+        .expect(400);
+      expect(denied.body.code).toBe('protected_permission');
+    }
+    const rename = await api()
+      .patch(`/api/v1/roles/${sysAdminRoleId}`)
+      .send({ name: 'sys_admin (نام مجاز)' })
+      .expect(200);
+    expect(rename.body.name).toContain('نام مجاز');
+  });
+
   it('ویرایش نام نقش سیستمی مجاز است (فقط کد ثابت می‌ماند)', async () => {
     const res = await api()
       .patch(`/api/v1/roles/${sysRoleId}`)
@@ -741,5 +763,21 @@ describe('DELETE /roles/{id}', () => {
 
   it('شناسه ناموجود → 404', async () => {
     await api().delete(`/api/v1/roles/${randomUuid()}`).expect(404);
+  });
+});
+
+
+describe('مرز امتیازدهی sys_admin', () => {
+  it('نقشِ دیگرِ دارایِ مجوز به sys_admin اعتبار مؤثر نمی‌دهد و سایر دسترسی‌های مدیر باقی می‌ماند', async () => {
+    const delegate = await api()
+      .post('/api/v1/roles')
+      .send({ code: 'return_credit_delegate', name: 'نقش ارجاع بستانکار', permission_codes: ['sales.return.credit'] })
+      .expect(201);
+    await pool.query('insert into role_permission (role_id, permission_code) values ($1, $2)', [sysAdminRoleId, 'admin.role.manage']);
+    await pool.query('insert into user_role (app_user_id, role_id) values ($1, $2), ($1, $3) on conflict do nothing', [adminId, sysAdminRoleId, delegate.body.id]);
+    const me = await api().get('/api/v1/auth/me').expect(200);
+    expect(me.body.roles).toContain('sys_admin');
+    expect(me.body.permissions).not.toContain('sales.return.credit');
+    expect(me.body.permissions).toContain('admin.role.manage');
   });
 });

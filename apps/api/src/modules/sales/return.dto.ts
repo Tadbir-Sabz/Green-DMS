@@ -41,6 +41,11 @@ export class ReturnLineDto {
   @IsOptional()
   @IsUUID('4')
   batch_id?: string;
+
+  /** TASK-P4-FC — پیوند اختیاری به قلمِ فاکتورِ مبدأ (لایهٔ traceability بستانکار) */
+  @IsOptional()
+  @IsUUID('4')
+  invoice_line_id?: string;
 }
 
 /** POST /returns — ثبت درخواست مرجوعی با وضعیت submitted */
