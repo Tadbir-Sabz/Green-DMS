@@ -281,10 +281,10 @@ export class ReturnService {
    * مستقل از receive است (traceability جدا)؛ در یک تراکنش انجام می‌شود؛
    * دوبار‌صدور (حتی رقابتی) با 409 رد می‌شود.
    */
-  async issueCreditNote(companyId: string, id: string): Promise<ReturnView> {
+  async issueCreditNote(companyId: string, id: string, actorUserId: string | null = null): Promise<ReturnView> {
     this.assertId(id);
     try {
-      const result = await this.creditNotes.issueCreditNote(companyId, id);
+      const result = await this.creditNotes.issueCreditNote(companyId, id, actorUserId);
       if (result.ok !== true) {
         if (result.reason === 'not_found') {
           throw new NotFoundException({ code: 'not_found', message_fa: 'درخواست مرجوعی یافت نشد' });
@@ -305,7 +305,10 @@ export class ReturnService {
       return this.get(companyId, id);
     } catch (err) {
       if (err instanceof CreditNoteReferenceError) {
-        throw new BadRequestException({
+        const ErrorType = err.code === 'credit_disposition_unresolved' || err.code === 'invoice_not_eligible'
+          ? ConflictException
+          : BadRequestException;
+        throw new ErrorType({
           code: err.code,
           message_fa: err.message,
           ...(err.details ? { details: err.details } : {}),
@@ -345,6 +348,13 @@ export class ReturnService {
         'invoice_line_mismatch',
         'خطوط فاکتورِ متصل متعلق به یک فاکتور نیستند یا با فاکتورِ ارسالی همخوانی ندارند.',
       );
+    }
+    if (e?.pgCode === 'invoice_not_eligible') {
+      return new BadRequestException({
+        code: 'invoice_not_eligible',
+        message_fa: 'مرجوعی فقط برای فاکتورهای ثبت‌شده و تسویه‌نشده/تسویه‌شده مجاز است؛ پیش‌نویس و ابطال‌شده پذیرفته نیستند.',
+        ...(e.details ? { details: e.details } : {}),
+      });
     }
     if (e?.pgCode === 'invoice_customer') {
       return badRequest('invoice_customer_mismatch', 'فاکتورِ متصل متعلق به این مشتری نیست.');

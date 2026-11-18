@@ -54,6 +54,38 @@ describe('credit-note · allocateRefundLine', () => {
     const r = line({ qty: 4, already_credited_qty: 6 }); // 10 − 6 = 4 ⇒ مجاز
     expect(r.qty).toBe(4);
   });
+
+  it('مقدار ۴ رقمیِ فاکتور حفظ می‌شود و بازگشت کاملِ 1.2345 رد نمی‌شود', () => {
+    const full = line({
+      qty: 1.2345,
+      invoice_line: { id: 'il-1', qty: 1.2345, unit_price: 10, line_total: 12.35, tax_amount: 1.02 },
+    });
+    expect(full.qty).toBe(1.2345);
+    expect(full.line_total).toBe(12.35);
+    expect(() => line({
+      qty: 1.2346,
+      invoice_line: { id: 'il-1', qty: 1.2345, unit_price: 10, line_total: 12.35, tax_amount: 1.02 },
+    })).toThrowError(CreditNoteError);
+  });
+
+  it('سه بازگشت جزئی 1/3 از 100.00 دقیقاً تمام مبلغ را تخصیص می‌دهد', () => {
+    const allocations: number[] = [];
+    let priorQty = 0;
+    let priorAmount = 0;
+    for (let i = 0; i < 3; i += 1) {
+      const allocated = line({
+        qty: 1,
+        already_credited_qty: priorQty,
+        already_credited_amount: priorAmount,
+        invoice_line: { id: 'il-1', qty: 3, unit_price: 33.3333, line_total: 100, tax_amount: 9.99 },
+      });
+      allocations.push(allocated.line_total);
+      priorQty += allocated.qty;
+      priorAmount += allocated.line_total;
+    }
+    expect(allocations).toEqual([33.33, 33.34, 33.33]);
+    expect(allocations.reduce((sum, amount) => sum + amount, 0)).toBe(100);
+  });
 });
 
 describe('credit-note · settleCreditTotal', () => {

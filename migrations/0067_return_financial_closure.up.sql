@@ -75,12 +75,15 @@ select i.id                as invoice_id,
   from invoice i
   join invoice_line il on il.invoice_id = i.id
   left join (
-    select rl.invoice_line_id, rl.qty_approved as q
+    -- Aggregate all eligible returns per invoice line before joining. Joining
+    -- individual return rows inflated sold_qty for invoices with split returns.
+    select rl.invoice_line_id, sum(rl.qty_approved) as q
       from return_request_line rl
       join return_request rr
         on rr.id = rl.return_request_id
        and rr.status in ('posted', 'closed')
      where rl.invoice_line_id is not null
+     group by rl.invoice_line_id
   ) rq on rq.invoice_line_id = il.id
  group by i.id, i.branch_id, i.customer_id, i.doc_number, i.grand_total;
 

@@ -14,6 +14,7 @@
  * گرد‌کردن: قراردادِ موجودِ ریپازیتوری (`roundMoney2` از common/financial) — Math.round به +∞
  * (نه half-away-from-zero)؛ منفی‌ها عمداً حفظ شده‌اند.
  *
+ * مقدار با دقت چهاررقمی (numeric(19,4)) کنترل می‌شود؛ پول جداگانه با دقت دو رقم.
  * سقفِ سخت: مجموعِ بستانکار این سند نباید از ماندهٔ مجازِ فاکتور
  *   eligible = grand_total − Σ(credit_noteهای posted قبلی همان فاکتور)
  * فراتر رود. فراتر رفتن ⇒ CreditNoteError('credit_exceeds_invoice') — fail-closed؛
@@ -22,6 +23,9 @@
  * (تصمیمِ مالک OD-08 در سند TASK-P4-FC).
  */
 import { roundMoney2 } from '../../common/financial';
+
+/** Quantity uses invoice numeric(19,4); keep this distinct from currency rounding. */
+export const roundQuantity4 = (value: number): number => Math.round((value + Number.EPSILON) * 10_000) / 10_000;
 
 export type CreditNoteErrorCode =
   | 'credit_exceeds_invoice'
@@ -54,6 +58,9 @@ export interface CreditLineInput {
   };
   /** مجموع مقدار قبلاً بستانکارشدهٔ این خطِ فاکتور (سندهای posted قبلی) */
   already_credited_qty: number;
+  /** Prior posted monetary allocation on this invoice line. */
+  already_credited_amount?: number;
+  already_credited_tax?: number;
 }
 
 export interface CreditLineResult {
@@ -84,7 +91,7 @@ export const allocateRefundLine = (input: CreditLineInput): CreditLineResult => 
       invoice_line_id: il.id,
     });
   }
-  const remaining = roundMoney2(il.qty - input.already_credited_qty);
+  const remaining = roundQuantity4(il.qty - input.already_credited_qty);
   if (input.qty - remaining > EPS) {
     throw new CreditNoteError(
       'credit_exceeds_invoiced_qty',
@@ -97,9 +104,18 @@ export const allocateRefundLine = (input: CreditLineInput): CreditLineResult => 
       },
     );
   }
-  const share = input.qty / il.qty;
-  const lineTotal = roundMoney2(il.line_total * share);
-  const taxAmount = roundMoney2(il.tax_amount * share);
+  const remainingAmount = roundMoney2(il.line_total - (input.already_credited_amount ?? 0));
+  const remainingTax = roundMoney2(il.tax_amount - (input.already_credited_tax ?? 0));
+  const finalQuantityAllocation = input.qty >= remaining - 0.00005;
+  const shareOfRemainder = input.qty / remaining;
+  // Allocate each partial against the remaining cents, not the original line.
+  // The last eligible quantity consumes the exact unallocated remainder.
+  const lineTotal = finalQuantityAllocation
+    ? remainingAmount
+    : roundMoney2(remainingAmount * shareOfRemainder);
+  const taxAmount = finalQuantityAllocation
+    ? remainingTax
+    : roundMoney2(remainingTax * shareOfRemainder);
   return {
     invoice_line_id: il.id,
     product_id: input.product_id,

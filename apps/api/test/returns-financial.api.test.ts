@@ -199,6 +199,7 @@ beforeAll(async () => {
     cid: string, bid: string, custId: string, docNumber: string,
     grandTotal: string, subtotal: string, discount: string, tax: string,
     lines: { product_id: string; qty: number; unit_price: string; discount_amount: string; tax_amount: string; line_total: string; line_no: number }[],
+    status = 'posted',
   ): Promise<{ invoice_id: string; line_ids: string[] }> => {
     const series = await pool.query<{ id: string }>(
       `insert into document_series (branch_id, doc_kind, fiscal_year, prefix, is_active)
@@ -208,8 +209,8 @@ beforeAll(async () => {
     const inv = await pool.query<{ id: string }>(
       `insert into invoice (branch_id, doc_number, fiscal_year, series_id, customer_id, invoice_date,
                             subtotal, discount_total, tax_total, grand_total, status)
-       values ($1, $2, 1404, $3, $4, current_date, $5, $6, $7, $8, 'posted') returning id`,
-      [bid, docNumber, series.rows[0].id, custId, subtotal, discount, tax, grandTotal]);
+       values ($1, $2, 1404, $3, $4, current_date, $5, $6, $7, $8, $9) returning id`,
+      [bid, docNumber, series.rows[0].id, custId, subtotal, discount, tax, grandTotal, status]);
     const lineIds: string[] = [];
     for (const l of lines) {
       const r = await pool.query<{ id: string }>(
@@ -435,15 +436,25 @@ describe('TASK-P4-FC · مرجوعی ← فاکتور / یادداشت بستا�
     expect(issued.body.details.product_ids).toContain(productA1);
   });
 
-  it('۱۰) بستانکار برای scrap هم ثبت می‌شود (مرجوعی≠بستانکار از نظر پولی مستقل از disposition است)', async () => {
+  it('۱۰) scrap تا تصمیم مالک بستانکار نمی‌شود و تلاشِ مسدودشده ممیزی می‌شود', async () => {
     const res = await createReturn(viewerA, [{ product_id: productA2, qty: 1, invoice_line_id: invLine2 }], { invoice_id: invoiceId }).expect(201);
     const id = res.body.id as string;
     await approve(adminA, id);
     await api(adminA).post(`/api/v1/returns/${id}/receive`)
       .send({ lines: [{ product_id: productA2, qty: 1, disposition: 'scrap' }] })
       .expect(200);
-    const issued = await issue(adminA, id).expect(201);
-    expect(Number(issued.body.credit_note.amount)).toBeGreaterThan(0);
+    const beforeNotes = (await creditNotesForInvoice(invoiceId)).length;
+    const issued = await issue(adminA, id).expect(409);
+    expect(issued.body.code).toBe('credit_disposition_unresolved');
+    expect(issued.body.details).toMatchObject({ dispositions: ['scrap'], owner_decision: 'TASK-P4-FC OD-10' });
+    const returned = await getReturn(adminA, id);
+    expect(returned.credit_note_id).toBeNull();
+    const evidence = await pool.query<{ action: string; after_data: { outcome: string; dispositions: string[] } }>(
+      `select action, after_data from audit_log
+        where company_id = $1 and entity_type = 'return_credit_note' and entity_id = $2
+        order by at desc limit 1`, [companyA, id]);
+    expect(evidence.rows[0]).toMatchObject({ action: 'reject', after_data: { outcome: 'blocked', dispositions: ['scrap'] } });
+    expect(await creditNotesForInvoice(invoiceId)).toHaveLength(beforeNotes);
   });
 
   it('۱۱) مجوز: viewer فقط request دارد ⇒ 403', async () => {
@@ -503,6 +514,79 @@ describe('TASK-P4-FC · مرجوعی ← فاکتور / یادداشت بستا�
     const sum = notes.filter((n) => n.status === 'posted').reduce((s, n) => s + Number(n.amount), 0);
     expect(sum).toBeLessThanOrEqual(21255 + 0.004);
     expect(sum).toBeGreaterThan(0);
+  });
+
+  it('۱۶) ایجاد مرجوعی روی draft/voided فاکتور رد می‌شود', async () => {
+    for (const status of ['draft', 'voided']) {
+      const fresh = await makeInvoice(companyA, branchA, customerA, nextDoc(), '100.00', '100.00', '0.00', '0.00', [
+        { product_id: productA1, qty: 1, unit_price: '100.0000', discount_amount: '0.00', tax_amount: '0.00', line_total: '100.00', line_no: 1 },
+      ], status);
+      const response = await createReturn(viewerA, [{ product_id: productA1, qty: 1, invoice_line_id: fresh.line_ids[0] }], { invoice_id: fresh.invoice_id });
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('invoice_not_eligible');
+      expect(response.body.details.status).toBe(status);
+    }
+  });
+
+  it('صدور بستانکار نیز invoice status را داخل قفل تراکنش دوباره می‌سنجد', async () => {
+    const fresh = await makeInvoice(companyA, branchA, customerA, nextDoc(), '100.00', '100.00', '0.00', '0.00', [
+      { product_id: productA1, qty: 1, unit_price: '100.0000', discount_amount: '0.00', tax_amount: '0.00', line_total: '100.00', line_no: 1 },
+    ], 'draft');
+    const id = (await pool.query<{ id: string }>(
+      `insert into return_request (branch_id, doc_number, customer_id, invoice_id, reason_code, status)
+       values ($1, $2, $3, $4, 'damaged', 'posted') returning id`, [branchA, nextDoc(), customerA, fresh.invoice_id])).rows[0].id;
+    await pool.query(
+      `insert into return_request_line (return_request_id, product_id, qty, qty_approved, unit_price, disposition, invoice_line_id)
+       values ($1, $2, 1, 1, 0, 'restock', $3)`, [id, productA1, fresh.line_ids[0]]);
+    const response = await issue(adminA, id).expect(409);
+    expect(response.body.code).toBe('invoice_not_eligible');
+    expect(response.body.details.status).toBe('draft');
+    expect(await creditNotesForInvoice(fresh.invoice_id)).toHaveLength(0);
+  });
+
+  it('۱۷) مقدار فروخته‌شده با دقت چهاررقمی کامل قابل برگشت است', async () => {
+    const fresh = await freshInvoice(nextDoc(), '12.35', [
+      { product_id: productA1, qty: 1.2345, unit_price: '10.0000', discount_amount: '0.00', tax_amount: '0.00', line_total: '12.35', line_no: 1 },
+    ]);
+    const res = await createReturn(viewerA, [{ product_id: productA1, qty: 1.2345, invoice_line_id: fresh.line_ids[0] }], { invoice_id: fresh.invoice_id }).expect(201);
+    const id = res.body.id as string;
+    await approve(adminA, id);
+    await receiveAll(adminA, id, [{ product_id: productA1, qty: 1.2345 }]);
+    const issued = await issue(adminA, id).expect(201);
+    expect(issued.body.credit_note.amount).toBe('12.35');
+  });
+
+  it('۱۸) reconciliation aggregates two separate 5-unit returns before comparing against sold 10', async () => {
+    const fresh = await freshInvoice(nextDoc(), '100.00', [
+      { product_id: productA1, qty: 10, unit_price: '10.0000', discount_amount: '0.00', tax_amount: '0.00', line_total: '100.00', line_no: 1 },
+    ]);
+    for (let i = 0; i < 2; i += 1) {
+      const res = await createReturn(viewerA, [{ product_id: productA1, qty: 5, invoice_line_id: fresh.line_ids[0] }], { invoice_id: fresh.invoice_id }).expect(201);
+      await approve(adminA, res.body.id as string);
+      await receiveAll(adminA, res.body.id as string, [{ product_id: productA1, qty: 5 }]);
+    }
+    const summary = await pool.query<{ sold_qty: string; returned_qty: string; return_status: string }>(
+      `select sold_qty::text, returned_qty::text, return_status from v_invoice_return_summary where invoice_id = $1`, [fresh.invoice_id]);
+    expect(Number(summary.rows[0].sold_qty)).toBe(10);
+    expect(Number(summary.rows[0].returned_qty)).toBe(10);
+    expect(summary.rows[0].return_status).toBe('full');
+  });
+
+  it('۱۹) سه بستانکار جزئی روی همان خط جمعاً مبلغ اصلی 100.00 را مصرف می‌کنند', async () => {
+    const fresh = await freshInvoice(nextDoc(), '100.00', [
+      { product_id: productA1, qty: 3, unit_price: '33.3333', discount_amount: '0.00', tax_amount: '0.00', line_total: '100.00', line_no: 1 },
+    ]);
+    const issuedAmounts: number[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const res = await createReturn(viewerA, [{ product_id: productA1, qty: 1, invoice_line_id: fresh.line_ids[0] }], { invoice_id: fresh.invoice_id }).expect(201);
+      const id = res.body.id as string;
+      await approve(adminA, id);
+      await receiveAll(adminA, id, [{ product_id: productA1, qty: 1 }]);
+      const issued = await issue(adminA, id).expect(201);
+      issuedAmounts.push(Number(issued.body.credit_note.amount));
+    }
+    expect(issuedAmounts).toEqual([33.33, 33.34, 33.33]);
+    expect(issuedAmounts.reduce((sum, amount) => sum + amount, 0)).toBe(100);
   });
 
   it('۱۶) فهرست مرجوعی‌ها financial_status را برمی‌گرداند', async () => {

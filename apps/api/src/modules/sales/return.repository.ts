@@ -142,14 +142,15 @@ export class ReturnRepository {
           product_id: string;
           qty: number;
           customer_id: string;
+          invoice_status: string;
         }>(
-          `select il.id, il.invoice_id, il.product_id, il.qty::float8 as qty, i.customer_id
+          `select il.id, il.invoice_id, il.product_id, il.qty::float8 as qty, i.customer_id, i.status as invoice_status
              from invoice_line il
              join invoice i on i.id = il.invoice_id
              join branch b on b.id = i.branch_id
             where il.id = any($1::uuid[]) and b.company_id = $2
             order by il.id
-            for update of il`,
+            for update of i, il`,
           [lineIds, companyId],
         );
         if (ilRows.rowCount !== lineIds.length) {
@@ -160,6 +161,13 @@ export class ReturnRepository {
           throw Object.assign(new Error('invoice line invoice mismatch'), { pgCode: 'mixed_invoice' });
         }
         derivedInvoiceId = ilRows.rows[0].invoice_id;
+        const ineligible = ilRows.rows.find((r) => !['posted', 'partially_paid', 'paid'].includes(r.invoice_status));
+        if (ineligible) {
+          throw Object.assign(new Error('invoice is not eligible for returns'), {
+            pgCode: 'invoice_not_eligible',
+            details: { invoice_id: ineligible.invoice_id, status: ineligible.invoice_status },
+          });
+        }
         if (dto.invoice_id && dto.invoice_id !== derivedInvoiceId) {
           throw Object.assign(new Error('invoice line invoice mismatch'), { pgCode: 'mixed_invoice' });
         }
@@ -214,12 +222,19 @@ export class ReturnRepository {
       }
 
       if (dto.invoice_id) {
-        const inv = await client.query<{ customer_id: string }>(
-          `select i.id, i.customer_id from invoice i join branch b on b.id = i.branch_id
-            where i.id = $1 and b.company_id = $2`,
+        const inv = await client.query<{ customer_id: string; status: string }>(
+          `select i.id, i.customer_id, i.status from invoice i join branch b on b.id = i.branch_id
+            where i.id = $1 and b.company_id = $2
+            for update of i`,
           [dto.invoice_id, companyId],
         );
         if (inv.rowCount === 0) throw Object.assign(new Error('invoice not found'), { pgCode: 'no_data' });
+        if (!['posted', 'partially_paid', 'paid'].includes(inv.rows[0].status)) {
+          throw Object.assign(new Error('invoice is not eligible for returns'), {
+            pgCode: 'invoice_not_eligible',
+            details: { invoice_id: dto.invoice_id, status: inv.rows[0].status },
+          });
+        }
         if (inv.rows[0].customer_id !== dto.customer_id) {
           throw Object.assign(new Error('invoice customer mismatch'), { pgCode: 'invoice_customer' });
         }

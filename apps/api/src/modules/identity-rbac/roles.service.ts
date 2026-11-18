@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
+import { permissionMatches } from './permissions';
 import { ROLES_REPOSITORY } from './tokens';
 import type { CreateRoleDto, ListRolesQueryDto, UpdateRoleDto } from './roles.dto';
 import type { RoleRow, RolesRepository } from './roles.repository';
@@ -51,6 +52,7 @@ export class RolesService {
   async create(companyId: string, dto: CreateRoleDto): Promise<RoleRow> {
     const permissionCodes = dto.permission_codes ? [...new Set(dto.permission_codes)] : [];
     await this.assertPermissions(permissionCodes);
+    this.assertSysAdminCreditBoundary(dto.code, permissionCodes);
     try {
       return await this.repo.insert(companyId, {
         code: dto.code,
@@ -78,7 +80,10 @@ export class RolesService {
       dto.permission_codes === undefined
         ? undefined
         : [...new Set(dto.permission_codes)];
-    if (permissionCodes) await this.assertPermissions(permissionCodes);
+    if (permissionCodes) {
+      await this.assertPermissions(permissionCodes);
+      this.assertSysAdminCreditBoundary(before.code, permissionCodes);
+    }
 
     try {
       const row = await this.repo.update(companyId, id, {
@@ -110,6 +115,18 @@ export class RolesService {
     }
     const ok = await this.repo.delete(companyId, id);
     if (!ok) throw notFound();
+  }
+
+  /** sys_admin must never receive return-credit authority, directly or via a broad grant. */
+  private assertSysAdminCreditBoundary(roleCode: string, codes: string[]): void {
+    const grantsCredit = codes.some((code) => permissionMatches(code, 'sales.return.credit'));
+    if (roleCode === 'sys_admin' && grantsCredit) {
+      throw new BadRequestException({
+        code: 'protected_permission',
+        message_fa: 'مجوز sales.return.credit و الگوهای شامل آن برای نقش sys_admin مجاز نیست.',
+        details: { permission_code: 'sales.return.credit' },
+      });
+    }
   }
 
   private async assertPermissions(codes: string[]): Promise<void> {

@@ -78,8 +78,9 @@ export class ReturnController {
   issueCreditNote(
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
   ): Promise<ReturnView> {
-    return this.service.issueCreditNote(companyId, id);
+    return this.service.issueCreditNote(companyId, id, userId);
   }
 
   @Post(':id/receive')

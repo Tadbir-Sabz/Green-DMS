@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import type { PoolClient } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import { AUDIT_SERVICE, type AuditService } from '../../common/audit.service';
 import { DOC_NUMBER_SERVICE, persianYear, type DocNumberService } from '../../common/doc-number.service';
 import { roundMoney2 } from '../../common/financial';
 import { allocateRefundLine, settleCreditTotal, CreditNoteError } from './credit-note';
@@ -39,7 +40,9 @@ export class CreditNoteReferenceError extends Error {
       | 'lines_missing_invoice_link'
       | 'invoice_line_not_found'
       | 'line_product_mismatch'
-      | 'invoice_customer_mismatch',
+      | 'invoice_customer_mismatch'
+      | 'invoice_not_eligible'
+      | 'credit_disposition_unresolved',
     message: string,
     public readonly details?: Record<string, unknown>,
   ) {
@@ -69,6 +72,7 @@ export class CreditNoteRepository {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(DOC_NUMBER_SERVICE) private readonly docNumbers: DocNumberService,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
   ) {}
 
   /** خلاصهٔ یادداشت بستانکارِ متصل به یک مرجوعی (برای نمایش در API) — null اگر نشده */
@@ -87,6 +91,7 @@ export class CreditNoteRepository {
   async issueCreditNote(
     companyId: string,
     returnId: string,
+    actorUserId: string | null = null,
   ): Promise<IssueCreditNoteResult> {
     const client = await this.pool.connect();
     try {
@@ -135,8 +140,9 @@ export class CreditNoteRepository {
         product_id: string;
         qty: number;
         invoice_line_id: string | null;
+        disposition: string;
       } & QueryResultRow>(
-        `select product_id, qty_approved::float8 as qty, invoice_line_id
+        `select product_id, qty_approved::float8 as qty, invoice_line_id, disposition
            from return_request_line
           where return_request_id = $1 and qty_approved is not null and qty_approved > 0`,
         [returnId],
@@ -145,6 +151,31 @@ export class CreditNoteRepository {
         throw new CreditNoteReferenceError(
           'nothing_to_credit',
           'هیچ قلمِ دریافتیِ قابلِ بستانکار روی این مرجوعی ثبت نشده است.',
+        );
+      }
+      const unresolvedDispositions = [...new Set(rl.rows
+        .map((r) => r.disposition)
+        .filter((d) => d !== 'restock'))].sort();
+      if (unresolvedDispositions.length > 0) {
+        // No commercial/accounting rule authorizes credit for non-restocked
+        // goods yet. Commit only the audit evidence, then fail closed.
+        await this.audit.recordRequired({
+          companyId,
+          actorUserId,
+          action: 'reject',
+          entityType: 'return_credit_note',
+          entityId: returnId,
+          after: {
+            outcome: 'blocked',
+            reason: 'owner_decision_required_for_disposition',
+            dispositions: unresolvedDispositions,
+          },
+        }, client);
+        await client.query('commit');
+        throw new CreditNoteReferenceError(
+          'credit_disposition_unresolved',
+          'صدور بستانکار برای کالای scrap، آسیب‌دیده یا برگشتی به تأمین‌کننده تا تصویب سیاست مالک مسدود است.',
+          { dispositions: unresolvedDispositions, owner_decision: 'TASK-P4-FC OD-10' },
         );
       }
       const missing = rl.rows.filter((r) => !r.invoice_line_id).map((r) => r.product_id);
@@ -176,6 +207,13 @@ export class CreditNoteRepository {
         });
       }
       const invoice = inv.rows[0];
+      if (!['posted', 'partially_paid', 'paid'].includes(invoice.status)) {
+        throw new CreditNoteReferenceError(
+          'invoice_not_eligible',
+          'صدور بستانکار فقط برای فاکتورهای ثبت‌شده، دارای مانده یا تسویه‌شده مجاز است.',
+          { invoice_id: invoiceId, status: invoice.status },
+        );
+      }
       if (invoice.customer_id !== h.customer_id) {
         throw new CreditNoteReferenceError(
           'invoice_customer_mismatch',
@@ -208,15 +246,17 @@ export class CreditNoteRepository {
       }
 
       // (۴) سقفِ قبلیِ بستانکار (اسناد posted) هر خط + کل فاکتور
-      const prior = await client.query<{ invoice_line_id: string; qty: number } & QueryResultRow>(
-        `select cnl.invoice_line_id, coalesce(sum(cnl.qty), 0)::float8 as qty
+      const prior = await client.query<{ invoice_line_id: string; qty: number; amount: string; tax: string } & QueryResultRow>(
+        `select cnl.invoice_line_id, coalesce(sum(cnl.qty), 0)::float8 as qty,
+                coalesce(sum(cnl.line_total), 0)::text as amount,
+                coalesce(sum(cnl.tax_amount), 0)::text as tax
            from credit_note_line cnl
            join credit_note cn on cn.id = cnl.credit_note_id
           where cn.invoice_id = $1 and cn.status = 'posted' and cnl.invoice_line_id is not null
           group by cnl.invoice_line_id`,
         [invoiceId],
       );
-      const priorQty = new Map(prior.rows.map((r) => [r.invoice_line_id, r.qty]));
+      const priorByLine = new Map(prior.rows.map((r) => [r.invoice_line_id, r]));
       const priorTotalRow = await client.query<{ total: string } & QueryResultRow>(
         `select coalesce(sum(amount), 0)::text as total
            from credit_note
@@ -246,7 +286,9 @@ export class CreditNoteRepository {
             line_total: Number(il.line_total),
             tax_amount: Number(il.tax_amount),
           },
-          already_credited_qty: priorQty.get(il.id) ?? 0,
+          already_credited_qty: priorByLine.get(il.id)?.qty ?? 0,
+          already_credited_amount: Number(priorByLine.get(il.id)?.amount ?? '0'),
+          already_credited_tax: Number(priorByLine.get(il.id)?.tax ?? '0'),
         });
       });
       const eligible = roundMoney2(Number(invoice.grand_total) - priorTotal);

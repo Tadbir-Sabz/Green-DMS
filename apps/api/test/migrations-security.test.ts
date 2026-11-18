@@ -193,10 +193,8 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-P3: 0066 (بخش‌بندی مشتری/اعتبار) آخرین مهاجرت است؛
-    // ۰۰۶۵ پیشتر آخرین بود. با افزودنِ مهاجرتِ تازه این خط عمداً باید
-    // بهروزرسانی شود — تغییرِ آگاهانه، نه شکستِ خاموش.
-    expect(files[files.length - 1]).toBe('0066_customer_segmentation_credit.up.sql');
+    // TASK-P4-FC: مهاجرت 0067 بستن مالی مرجوعی آخرین مهاجرت است.
+    expect(files[files.length - 1]).toBe('0067_return_financial_closure.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -225,6 +223,19 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     expect(ledger[0].app_insert).toBe(true);
     expect(ledger[0].app_update).toBe(true);
     expect(ledger[0].app_delete).toBe(false);
+
+    // TASK-P4-FC: 0067 adds the credit permission only to the explicitly
+    // eligible seeded roles; retain the historical security assertions above.
+    const { rows: creditPermission } = await db.query(`
+      select
+        exists(select 1 from permission where code = 'sales.return.credit') as exists,
+        coalesce(array_agg(r.code order by r.code) filter (where rp.role_id is not null), '{}') as granted_roles
+      from role r
+      left join role_permission rp
+        on rp.role_id = r.id and rp.permission_code = 'sales.return.credit'
+      where r.code in ('accountant','sales_manager','ceo','sys_admin')`);
+    expect(creditPermission[0].exists).toBe(true);
+    expect(creditPermission[0].granted_roles).toEqual(['accountant','ceo','sales_manager']);
   }, 300_000);
 
   it('down/up: داده می‌ماند، سیاست‌ها و گرانت‌ها بازگردانده می‌شوند', async () => {

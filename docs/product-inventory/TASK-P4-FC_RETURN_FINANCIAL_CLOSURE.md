@@ -59,20 +59,24 @@ financial_status(row) =
 2. `status = 'posted'` باشد، وگرنه `409 invalid_transition` (اجرای receive اجباری است).
 3. `credit_note_id` خالی باشد، وگرنه `409 already_credited` (idempotency — حتی در رقابت؛ قفلِ ردیف + شرطیِ `update ... where credit_note_id is null`).
 4. `invoice_id` داشته باشد، وگرنه `400 credit_requires_invoice`.
-5. همهٔ خطوطِ `qty_approved > 0` پیوندِ `invoice_line_id` داشته باشند، وگرنه `400 lines_missing_invoice_link`.
+5. فاکتور در وضعیت `posted`، `partially_paid` یا `paid` باشد؛ پیش‌نویس/باطل رد می‌شود. اعتبارسنجیِ ثبت مرجوعی و صدور هر دو ردیف invoice را در همان تراکنش `FOR UPDATE` می‌گیرند.
+6. همهٔ خطوطِ `qty_approved > 0` پیوندِ `invoice_line_id` داشته باشند، وگرنه `400 lines_missing_invoice_link`.
+7. اعتبار بستانکار برای `scrap`، `damaged` و `return_to_supplier` تا تصویبِ OD-10 مسدود است؛ تلاش با `409 credit_disposition_unresolved` رد و در `audit_log` با actor، dispositions و دلیل ثبت می‌شود. هیچ سیاستِ تجاری برای این تکالیف فرض نشده است.
 
 **محاسبه (منبع: `credit-note.ts` — خالص و واحد‌آزمون‌شده):**
 ```
-share      = qty_received / invoice_line.qty
-line_total = round2(invoice_line.line_total × share)   // شامل تخفیف و مالیاتِ همان خط
-tax_amount = round2(invoice_line.tax_amount × share)
-unit_price = invoice_line.unit_price                   // فقط traceability
+remaining_qty    = invoice_line.qty − previously_credited_qty  (دقت چهار رقم)
+remaining_amount = invoice_line.line_total − previously_credited_amount
+partial amount   = round2(remaining_amount × qty_received / remaining_qty)
+final amount     = remaining_amount  // تخصیص آخر تمام cents باقیمانده را مصرف می‌کند
+tax_amount       = همان قاعده روی ماندهٔ tax_amount
+unit_price       = invoice_line.unit_price  // فقط traceability
 ```
 
 **سقف‌های سخت (fail-closed):**
 - سقفِ هر خط: `already_credited_qty + requested ≤ invoice_line.qty` وگرنه `409 credit_exceeds_invoiced_qty`.
 - سقفِ فاکتور: `Σ(خطوط این سند) + Σ(credit_noteهای posted قبلی) ≤ grand_total` وگرنه `409 credit_exceeds_invoice`؛ هیچ چیزی persist نمی‌شود.
-- گردکردن: round-half-up به ۲ رقم (قرارداد موجود `roundMoney2`).
+- مقدار با دقت `numeric(19,4)` و پول با دقت ۲ رقم مستقل‌اند. ماندهٔ پول هر خط از credit noteهای posted قبلی کسر می‌شود؛ تخصیص آخر دقیقاً باقیمانده را مصرف می‌کند تا سه مرجوعی ۱/۳ از 100.00 به 100.00 برسند. سقف نهایی grand_total همچنان fail-closed است.
 
 **تراکنش (یک tx):** قفل `return_request … for update` ← قفلِ فاکتور و خطوط آن (به ترتیبِ id، بدون بن‌بست) ← محاسبه ← درج `credit_note (reason_code='sales_return', status='posted')` با شمارهٔ سریالِ `credit_note` ← درج خطوط ← درج `customer_ledger_entry (credit)` ← اتصال شرطی `credit_note_id`. خطا در هر مرحله ⇒ rollback کامل.
 
@@ -126,7 +130,7 @@ down: حذف view/مجوز/ستون valuation_status/ایندکس‌ها/ستو�
 
 | مجموعه | نتیجه | محیط |
 |---|---|---|
-| `returns-financial.api.test.ts` (۱۶ تست — مسیر نرمال، partial/full، eligibility cap، رقابتی، over-qty، scrap، cross-tenant، invalid transition، Σcap مونوتون، financial_status) | **۱۶/۱۶ PASS** | PG16 (pgserver) + مهاجرت‌های stub (postgis حذف شده)؛ CI مسیرِ کامل را روی postgis/postgis:16 اجرا می‌کند |
+| `returns-financial.api.test.ts` | شمارِ پیش از remediation مربوط به commit قبلی است؛ شواهد آزمون‌های remediation باید پس از اجرا ثبت شود و اینجا PASS ادعا نمی‌شود. Regressionهای جدید: وضعیت فاکتور در create/issue، gate و audit تکلیف غیر-restock، دقت چهاررقمی، split reconciliation، و تخصیص تجمعی مانده |
 | `returns.api.test.ts`, `returns-resolution.api.test.ts` (تست‌های موجود) | **۴۴/۴۴ PASS** | همان env (با patchِ موقتِ محلی؛ فایل‌های اصلی دست‌نخورده‌اند) |
 | `credit-note.unit.test.ts` / `return-resolution.unit.test.ts` / `credit-policy.unit.test.ts` | **PASS** | DB-free |
 | Web: typecheck + ۱۶۵ تست | **PASS** | node 22 |
@@ -136,6 +140,14 @@ down: حذف view/مجوز/ستون valuation_status/ایندکس‌ها/ستو�
 | Migration مسیرِ کامل 0001→0067 | **PASS پیش از اصلاحِ grant نقش‌ها**؛ full replayِ migration نهایی در این محیط اجرا نشد (PostGIS در pgserver محلی موجود نیست) | PG16 stub |
 | **E2E مرورگری (Playwright)** | **UNVERIFIED** | پشتهٔ docker موجود در CI؛ محلی اجرا نشد |
 | **Kotlin client** | **BLOCKED BY ENVIRONMENT** (آفلاین بودن دانلود jar) | — |
+
+## اصلاحات امنیت و دقت TASK-GDMS-P4-FC-REMEDIATION-01
+
+- مجوزهای role creation/update رد می‌کنند که `sys_admin` بگیرد `sales.return.credit` یا wildcard شامل‌کننده؛ محاسبهٔ permission مؤثر نیز برای کاربری که نقش `sys_admin` دارد، wildcard را به permissionهای معلوم باز می‌کند و کد بستانکار را حذف می‌کند، בלי کم‌کردن قابلیت‌های مدیریتیِ نامرتبط.
+- مرجوعی‌ها فقط از فاکتورهای `posted`، `partially_paid` و `paid` ساخته و بستانکار می‌گیرند؛ هر دو گذار، وضعیت را زیر قفل ردیف invoice بررسی می‌کنند.
+- Scrap/damaged/return_to_supplier credit gated تا OD-10، با audit-log evidence.
+- مقادیر quantity با 4 decimals محاسبه می‌شوند؛ rounding پول بر مبنای مبلغ باقی‌ماندهٔ خط انجام و allocation نهایی باقیماندهٔ cents را مصرف می‌کند.
+- `v_invoice_return_summary` هر خط مرجوعی را پیش از join تجمیع می‌کند تا sold_qty با تعداد درخواست‌ها ضرب نشود.
 
 ## ۱۱) ریسک‌ها و محدودیت‌ها
 
