@@ -4,6 +4,9 @@ import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
 import type { DocNumberService } from '../../common/doc-number.service';
 import { DOC_NUMBER_SERVICE } from '../../common/doc-number.service';
+import { AUDIT_SERVICE, type AuditService } from '../../common/audit.service';
+import { postStockMovement } from '../inventory/ledger/stock-ledger';
+import type { StockMovementActor } from '../inventory/ledger/stock-movement';
 import type { CreateGoodsReceiptDto } from './goods-receipt.dto';
 
 /** گردکردن مبلغ به ۲ رقم اعشار به‌صورت رشته (numeric(19,2)) */
@@ -71,6 +74,7 @@ export class GoodsReceiptRepository {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(DOC_NUMBER_SERVICE) private readonly docNumbers: DocNumberService,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
   ) {}
 
   // ---------------- Goods Receipt (GRN) ----------------
@@ -214,6 +218,7 @@ export class GoodsReceiptRepository {
     companyId: string,
     id: string,
     userId: string,
+    actor: StockMovementActor,
   ): Promise<GoodsReceiptRow | null> {
     const client = await this.pool.connect();
     try {
@@ -257,31 +262,24 @@ export class GoodsReceiptRepository {
         if (!(qtyIn > 0)) continue;
         const lineValue = r2(qtyIn * unitCost);
 
-        // (۱) inventory_txn + fn_apply_stock_txn → qty_on_hand بالا می‌رود؛ شناسهٔ
-        //     تراکنش برای cost_layer برگردانده می‌شود.
-        const txn = await client.query<{ txn_id: string }>(
-          `with ins as (
-             insert into inventory_txn
-               (branch_id, warehouse_id, product_id, batch_id, txn_kind, qty, unit_cost,
-                source_type, source_id, source_line_id, occurred_at, posted_by)
-             values ($1,$2,$3,$4,'purchase_in',$5::numeric,$6::numeric,
-                     'goods_receipt',$7,$8, now(), $9)
-             returning *
-           )
-           select ins.id::text as txn_id, fn_apply_stock_txn(ins) as applied from ins`,
-          [
-            h.branch_id,
-            h.warehouse_id,
-            l.product_id,
-            l.batch_id,
-            qtyIn,
-            unitCost,
-            id,
-            l.id,
-            userId,
-          ],
-        );
-        const txnId = txn.rows[0].txn_id;
+        // (۱) حرکت دفتر + مانده + ممیزی در یک فراخوانی (postStockMovement؛ شکست ممیزی ⇒ rollback).
+        //     شناسهٔ تراکنش برای cost_layer برگردانده می‌شود.
+        const posted = await postStockMovement(client, this.audit, {
+          companyId,
+          branchId: h.branch_id,
+          warehouseId: h.warehouse_id,
+          productId: l.product_id,
+          batchId: l.batch_id,
+          txnKind: 'purchase_in',
+          qty: qtyIn,
+          unitCost,
+          sourceType: 'goods_receipt',
+          sourceId: id,
+          sourceLineId: l.id,
+          clientUuid: null,
+          actor,
+        });
+        const txnId = posted.txnId;
 
         // (۲) بهاى موجودی — fn_apply_stock_txn فقط qty_on_hand را نگه می‌دارد.
         await client.query(

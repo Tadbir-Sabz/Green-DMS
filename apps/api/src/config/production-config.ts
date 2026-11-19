@@ -100,6 +100,21 @@ export function collectProductionConfigProblems(env: EnvLike = process.env): str
     }
   }
 
+  // --- مهاجرتِ خودکار: در production اجباراً خاموش (S8 / task -04) ---
+  // مهاجرت باید در «پنجرهٔ مهاجرت» و توسط اپراتور اجرا شود (scripts/db-window.mjs up)،
+  // نه هنگامِ بالا آمدنِ API با هویتِ مهاجرت. مقدارِ ست‌نشده هم «روشن» حساب می‌شود.
+  const autoMigrateRaw = (e.AUTO_MIGRATE ?? '').trim().toLowerCase();
+  const autoMigrateOff = ['false', '0', 'off', 'no'].includes(autoMigrateRaw);
+  if (!autoMigrateOff) {
+    problems.push(
+      [
+        'AUTO_MIGRATE در production باید صریحاً false باشد (الزامیِ معماری S8).',
+        'مهاجرت با هویتِ مهاجرت و فقط در پنجرهٔ کنترل‌شده اجرا می‌شود: node scripts/db-window.mjs up',
+        'مقدارِ ست‌نشده یا true مجاز نیست.',
+      ].join('\n'),
+    );
+  }
+
   // --- رشته‌های اتصالِ پایگاه‌داده ---
   for (const name of ['APP_DATABASE_URL', 'DATABASE_URL'] as const) {
     const value = e[name];

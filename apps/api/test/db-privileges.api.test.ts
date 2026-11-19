@@ -85,6 +85,22 @@ let sessionA = '';
 /** زمینهٔ اجاره: 'none' = ست نشده، 'invalid' = رشتهٔ غیر UUID. */
 type TenantCtx = string | 'none' | 'invalid';
 
+/**
+ * هویتِ نشستِ LOGIN را **به‌صورتِ مستقل** می‌سنجد: `session_user` (کسی که احراز شده) و
+ * `current_user` (نقشِ مؤثر) هر دو باید dms_app باشند و نقش ابرکاربر نباشد. SET ROLE
+ * جای احرازِ هویت را نمی‌گیرد؛ اینجا فقط با نامِ کاربری و رمزِ واقعیِ LOGIN وصل می‌شویم.
+ */
+async function assertLoginIdentity(c: pg.ClientBase): Promise<void> {
+  const { rows } = await c.query<{ cu: string; su: string; super: boolean }>(
+    `select current_user::text as cu, session_user::text as su,
+            (select rolsuper from pg_roles where rolname = current_user) as super`,
+  );
+  const r = rows[0];
+  if (r.su !== RUNTIME_ROLE) throw new Error(`session_user=${r.su} (انتظار: ${RUNTIME_ROLE})`);
+  if (r.cu !== RUNTIME_ROLE) throw new Error(`current_user=${r.cu} (انتظار: ${RUNTIME_ROLE})`);
+  if (r.super) throw new Error(`${RUNTIME_ROLE} ابرکاربر شده است`);
+}
+
 /** اجرای یک سناریو با اتصالِ «تازه و اختصاصی» به‌عنوانِ نقشِ زمانِ اجرا. */
 async function asRuntime<T>(
   ctx: TenantCtx,
@@ -93,6 +109,7 @@ async function asRuntime<T>(
   const client = new pg.Client({ connectionString: appUrl.toString() });
   await client.connect();
   try {
+    await assertLoginIdentity(client);
     if (ctx === 'invalid') {
       await client.query(`select set_config('app.company_id', 'not-a-uuid', false)`);
     } else if (ctx !== 'none') {
@@ -223,6 +240,28 @@ afterAll(async () => {
 }, 60_000);
 
 describe('نقشِ زمانِ اجرا (dms_app) — حداقلِ امتیاز و نبودِ تصعید', () => {
+  it('احرازِ هویتِ واقعی: LOGIN با رمزِ تصادفی وصل می‌شود، session_user و current_user هر دو dms_app‌اند، و رمزِ اشتباه رد می‌شود', async () => {
+    const c = new pg.Client({ connectionString: appUrl.toString() });
+    await c.connect();
+    try {
+      await assertLoginIdentity(c);
+    } finally {
+      await c.end();
+    }
+    const wrong = new URL(appUrl);
+    wrong.password = `${RUNTIME_PASSWORD}-wrong`;
+    const bad = new pg.Client({ connectionString: wrong.toString() });
+    let code = '';
+    try {
+      await bad.connect();
+    } catch (err) {
+      code = (err as { code?: string }).code ?? '';
+    } finally {
+      await bad.end().catch(() => undefined);
+    }
+    expect(code).toBe('28P01');
+  });
+
   it('ابرکاربر/BYPASSRLS نیست و createdb/createrole هم ندارد', async () => {
     const { rows } = await asRuntime('none', (c) =>
       c.query<{ usename: string; rolsuper: boolean; rolbypassrls: boolean; rolcreatedb: boolean; rolcreaterole: boolean }>(

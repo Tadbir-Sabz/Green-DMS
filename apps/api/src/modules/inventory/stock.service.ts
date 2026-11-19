@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Page } from '@dms/contracts';
 import type { CreateStockAdjustmentDto, ListStockQueryDto } from './stock.dto';
+import type { StockMovementActor } from './ledger/stock-movement';
 import type { StockAdjustmentView, StockBalanceRow, StockRepository } from './stock.repository';
 import { STOCK_REPOSITORY } from './tokens';
 
@@ -23,13 +24,17 @@ export class StockService {
     return { items, next_cursor: nextCursor, has_more: hasMore };
   }
 
-  async createAdjustment(companyId: string, dto: CreateStockAdjustmentDto): Promise<StockAdjustmentView> {
+  async createAdjustment(
+    companyId: string,
+    dto: CreateStockAdjustmentDto,
+    actor: StockMovementActor,
+  ): Promise<StockAdjustmentView> {
     if (dto.qty_delta === 0) {
       throw badRequest('invalid_qty_delta', 'مقدار اصلاحیه نمی‌تواند صفر باشد.');
     }
     let id: string;
     try {
-      ({ id } = await this.repo.createAdjustment(companyId, dto));
+      ({ id } = await this.repo.createAdjustment(companyId, dto, actor));
     } catch (err) {
       throw this.mapDbError(err);
     }

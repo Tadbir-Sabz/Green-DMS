@@ -13,6 +13,7 @@ import type {
   ValuationRow,
 } from './goods-receipt.repository';
 import type { PurchasingRepository } from './purchasing.repository';
+import type { StockMovementActor } from '../inventory/ledger/stock-movement';
 import { GOODS_RECEIPT_REPOSITORY, PURCHASING_REPOSITORY } from './tokens';
 import type {
   CreateGoodsReceiptDto,
@@ -100,11 +101,16 @@ export class GoodsReceiptService {
     return this.get(companyId, id);
   }
 
-  async post(companyId: string, id: string, userId: string): Promise<GoodsReceiptRow> {
+  async post(
+    companyId: string,
+    id: string,
+    userId: string,
+    actor: StockMovementActor,
+  ): Promise<GoodsReceiptRow> {
     assertId(id, 'رسید انبار');
     let posted: GoodsReceiptRow | null;
     try {
-      posted = await this.repo.postGoodsReceipt(companyId, id, userId);
+      posted = await this.repo.postGoodsReceipt(companyId, id, userId, actor);
     } catch (err) {
       throw this.mapDbError(err);
     }

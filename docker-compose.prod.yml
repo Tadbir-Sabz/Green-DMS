@@ -21,6 +21,14 @@ services:
     environment:
       DMS_ACCEPT_INSECURE_LOCAL_SETUP: ${DMS_ACCEPT_INSECURE_LOCAL_SETUP:-false}
       SMS_ALLOW_LOG_PROVIDER: ${SMS_ALLOW_LOG_PROVIDER:-false}
+      # S8-06 — invariants of the production API container:
+      #   * AUTO_MIGRATE must be explicitly false (production-config.ts; boot refuses otherwise).
+      #     The API never runs migrations; migrations run only through the migration window
+      #     (docs/deploy/PRODUCTION_DEPLOYMENT.md §10: node scripts/db-window.mjs up, from the operator host).
+      #   * DATABASE_URL (migration/superuser identity in the base file) is blanked here so the API
+      #     process never holds migration or superuser credentials. APP_DATABASE_URL (dms_app) is required.
+      AUTO_MIGRATE: "false"
+      DATABASE_URL: ""
     restart: unless-stopped
 
   web:

@@ -14,6 +14,7 @@ import type {
 } from './stock.dto';
 import type { StockTakeLineRow, StockTakeRow, StocktakeRepository } from './stocktake.repository';
 import { STOCKTAKE_REPOSITORY } from './tokens';
+import type { StockMovementActor } from './ledger/stock-movement';
 
 const badRequest = (code: string, message_fa: string): BadRequestException =>
   new BadRequestException({ code, message_fa });
@@ -131,10 +132,15 @@ export class StocktakeService {
     return this.get(companyId, id);
   }
 
-  async submit(companyId: string, id: string, approverId: string): Promise<StockTakeView> {
+  async submit(
+    companyId: string,
+    id: string,
+    approverId: string,
+    actor: StockMovementActor,
+  ): Promise<StockTakeView> {
     this.assertId(id);
     try {
-      await this.repo.submit(companyId, id, approverId);
+      await this.repo.submit(companyId, id, approverId, actor);
     } catch (err) {
       const e = err as { pgCode?: string; code?: string; constraint?: string; message?: string };
       if (e?.pgCode === 'no_data') {

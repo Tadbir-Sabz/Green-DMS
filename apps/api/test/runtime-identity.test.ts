@@ -28,6 +28,8 @@ function fakePool(
     owned_tables: number;
     rls_forced_tables: number;
     tenant_guc: string;
+    owner_member: boolean;
+    owner_settable: boolean;
   }> = {},
   visibleRows = 0,
   opts: { reject?: boolean } = {},
@@ -40,6 +42,8 @@ function fakePool(
     owned_tables: 0,
     rls_forced_tables: 139,
     tenant_guc: '',
+    owner_member: false,
+    owner_settable: false,
     ...identity,
   };
   return {
@@ -114,6 +118,8 @@ describe('GDM-13-03 · verifyRuntimeDatabaseIdentity', () => {
       [{ is_superuser: true }, /ابرکاربر/, 0],
       [{ bypass_rls: true }, /BYPASSRLS/, 0],
       [{ owned_tables: 7 }, /مالکِ 7 جدول/, 0],
+      [{ owner_member: true }, /عضوِ dms_owner/, 0], // S8/F1: عضوِ مالکِ دفتر
+      [{ owner_settable: true }, /عضوِ dms_owner/, 0], // S8/F1: SET ROLE به مالک ممکن است
       [{ rls_forced_tables: 0 }, /RLSِ فعال و اجباری ندارد/, 0],
       [{ tenant_guc: 'dddddddd-0000-4000-8000-000000000009' }, /app\.company_id خالی نیست/, 0],
       [{}, /RLS دربارهٔ این نقش اعمال نمی‌شود/, 3], // پرس‌وجویِ عملی ردیف برگرداند

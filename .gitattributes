@@ -1,0 +1,5 @@
+# S8-06: مهاجرت‌های SQL باید بایت‌به‌بایت LF بمانند؛ checksum مهاجرت‌ها روی بایت‌های فایل است.
+# یک checkout با CRLF (مثلاً در ویندوز با autocrlf) بدون این قاعده checksum را تغییر می‌دهد و
+# migrate.mjs آن را drift می‌بیند. اسکریپت‌های bash هم با CRLF خراب می‌شوند.
+migrations/*.sql text eol=lf
+*.sh text eol=lf

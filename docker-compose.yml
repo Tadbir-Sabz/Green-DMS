@@ -71,6 +71,9 @@ services:
       NODE_ENV: production
       API_PORT: 4000
       # Host names match the compose service names above.
+      # THROWAWAY LOCAL STACK ONLY (S8-06). This base file gives the API the superuser-owned
+      # DATABASE_URL and AUTO_MIGRATE=true for local bring-up/e2e. Production uses
+      # docker-compose.prod.yml, which sets AUTO_MIGRATE=false and blanks DATABASE_URL.
       # Migration/admin identity (AUTO_MIGRATE below uses this one).
       DATABASE_URL: postgres://${POSTGRES_USER:-dms}:${POSTGRES_PASSWORD:-dms}@postgres:5432/${POSTGRES_DB:-greendms}
       # Runtime identity — REQUIRED because NODE_ENV=production above: the API
@@ -79,9 +82,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # Apply migrations on boot so a fresh stack is not missing tables
-      # (e.g. relation "auth_otp" does not exist). Set false and run
-      # `docker compose exec api node scripts/migrate.mjs up` as a deploy step
-      # for controlled rollouts.
+      # (e.g. relation "auth_otp" does not exist). S8-07: owner-requiring migrations
+      # (0041, 0070–0072) are refused under auto-apply (DMS_MIGRATE_CALLER=api-auto);
+      # apply them with `node scripts/db-window.mjs up` from the operator host.
+      # Set false for controlled rollouts.
       AUTO_MIGRATE: "true"
       JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION}
       JWT_ACCESS_TTL: 900

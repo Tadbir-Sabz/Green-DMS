@@ -15,6 +15,8 @@ import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser } from '../identity-rbac/auth-context.decorator';
+import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
+import { movementActor } from './ledger/stock-movement';
 import { CreateStockTakeDto, ListStocktakesQueryDto, UpdateStockTakeDto } from './stock.dto';
 import type { StockTakeView, StocktakeService } from './stocktake.service';
 import { STOCKTAKE_SERVICE } from './tokens';
@@ -72,7 +74,8 @@ export class StocktakeController {
     @Param('id') id: string,
     @CurrentUser('companyId') companyId: string,
     @CurrentUser('userId') userId: string,
+    @RequestMetaParam() meta: RequestMeta,
   ): Promise<StockTakeView> {
-    return this.service.submit(companyId, id, userId);
+    return this.service.submit(companyId, id, userId, movementActor(userId, meta));
   }
 }

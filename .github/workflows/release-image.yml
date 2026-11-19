@@ -8,6 +8,9 @@
 #      کامل، resolve شدنِ @dms/contracts و pg) — build موفق به‌تنهایی کافی نیست؛
 #   3) بوتِ پشتهٔ تازه با PostgreSQL/PostGIS + Redis (init واقعیِ docker/postgres-init)؛
 #   4) اعمالِ همهٔ مهاجرت‌ها (AUTO_MIGRATE) و تطابقِ شمار با مخزن؛
+#      ⚠ S8-07 BLOCKED (R7): API مهاجرت‌های مالکانه (0041، 0070–0072) را عمداً اعمال نمی‌کند؛
+#      این گام تا افزودنِ گامِ صریحِ db-window (روی پایگاهِ یک‌بارمصرف، با CI واقعی) شکست می‌خورد.
+#      این گام fail-closed است و اثباتِ AUTO_MIGRATE بدونِ تغییر باقی مانده است.
 #   5) اجرا با APP_DATABASE_URL (نقشِ محدودِ dms_app) و راستی‌آزماییِ هویتِ زمانِ اجرا؛
 #   6) /api/health و /api/v1/health/{live,ready}؛
 #   7) /login وب و پروکسیِ هم‌مبدأٔ /api/* از پورتِ وب؛

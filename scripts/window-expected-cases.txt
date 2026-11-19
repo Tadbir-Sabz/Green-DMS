@@ -1,0 +1,33 @@
+# S8-07 / R5 — موارد مورد انتظارِ ماتریسِ پنجرهٔ مهاجرت (scripts/test-migration-window.sh).
+# هر مورد باید دقیقاً یک‌بار در results.jsonl ثبت شود؛ نبودن، تکراری‌بودن، یا ثبتِ مورد ناشناخته ⇒ FAIL.
+# UNVERIFIED هرگز PASS نیست (کد خروج 2). W5/W6/D4 فقط با قلابِ آزمایشیِ ایمن اجرا می‌شوند.
+
+W1-verify-detects-open
+W1-up-refused-when-open
+W1-recover-closes
+W2-elevated-during-migration
+W2-killed-migration-rolled-back
+W2-window-left-open-after-kill
+W2-recover-after-kill
+W3-migration-failure-rejected
+W3-verify-after-failure
+W4-postcheck-catches-drift
+W4-verify-after-remediation
+P1-child-exits-on-parent-sigkill
+P1-migration-not-committed
+P1-window-state-after-parent-kill
+P1-recover-after-parent-kill
+P2-child-stopped-on-parent-sigterm
+P2-window-closed-after-sigterm
+P2-exit-code-130
+P2-migration-not-committed
+R1-rollback-refused-while-locked
+R2-superuser-direct-up-refused
+R2-api-auto-owner-migration-refused
+R2-external-lock-allows-owner-migration
+W5-revoke-transient-retried
+W5-revoke-persistent-window-open
+D4-exit-code-3-preserved
+W5-hook-disabled-without-ack
+W6-grant-check-failure-revokes
+W7-no-permanent-owner-privilege

@@ -4,11 +4,13 @@ import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser } from '../identity-rbac/auth-context.decorator';
+import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
 import type { StockBalanceRow } from './stock.repository';
 import type { StockAdjustmentView } from './stock.repository';
 import { CreateStockAdjustmentDto, ListStockQueryDto } from './stock.dto';
 import type { StockService } from './stock.service';
 import { STOCK_SERVICE } from './tokens';
+import { movementActor } from './ledger/stock-movement';
 
 /**
  * GET /stock — مانده موجودی (فیلتر انبار/کالا/بچ).
@@ -34,7 +36,9 @@ export class StockController {
   createAdjustment(
     @Body() dto: CreateStockAdjustmentDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+    @RequestMetaParam() meta: RequestMeta,
   ): Promise<StockAdjustmentView> {
-    return this.service.createAdjustment(companyId, dto);
+    return this.service.createAdjustment(companyId, dto, movementActor(userId, meta));
   }
 }
