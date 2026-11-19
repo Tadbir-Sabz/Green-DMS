@@ -3088,6 +3088,56 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /stock/reconciliation:
+    get:
+      tags: [stock]
+      summary: گزارش فقط‌خواندنی تطبیق مانده با دفتر حرکات و رزروهای فعال (بدون اصلاح خودکار)
+      parameters:
+        - { name: warehouse_id, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: خلاصه و مغایرت‌های طبقه‌بندی‌شده (ledger_discrepancy، missing_reservation_functionality، historical_data_limitation، unsupported_movement_type)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [company_id, domain, mode, generated_at, checked_keys, finding_count, summary, findings]
+                properties:
+                  company_id: { type: string, format: uuid }
+                  domain: { type: string, enum: [inventory] }
+                  mode: { type: string, enum: [read_only] }
+                  generated_at: { type: string, format: date-time }
+                  warehouse_id: { type: [string, 'null'], format: uuid }
+                  checked_keys: { type: integer }
+                  finding_count: { type: integer }
+                  summary:
+                    type: object
+                    properties:
+                      byClassification: { type: object, additionalProperties: { type: integer } }
+                      bySeverity: { type: object, additionalProperties: { type: integer } }
+                  findings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        company_id: { type: string, format: uuid }
+                        domain: { type: string, enum: [inventory] }
+                        warehouse_id: { type: string, format: uuid }
+                        product_id: { type: string, format: uuid }
+                        batch_id: { type: [string, 'null'], format: uuid }
+                        metric: { type: string, enum: [qty_on_hand, qty_reserved] }
+                        reference_source: { type: string, enum: [inventory_txn, stock_reservation] }
+                        ledger_qty: { type: number }
+                        recorded_balance: { type: number }
+                        difference: { type: number }
+                        classification:
+                          type: string
+                          enum: [ledger_discrepancy, missing_reservation_functionality, historical_data_limitation, unsupported_movement_type]
+                        severity: { type: string, enum: [critical, high, medium, low] }
+                        explanation: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /stock/adjustments:
     post:
       tags: [stock]

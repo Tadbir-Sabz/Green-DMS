@@ -20,6 +20,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 import pg from 'pg';
+import { PINNED_SEARCH_PATH } from './lib/db-identity.mjs';
+import { rollbackRefusal } from './lib/migration-policy.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: path.join(ROOT, '.env'), quiet: true });
@@ -115,25 +117,48 @@ function diff(a, b) {
 }
 
 const migrations = await loadMigrations();
-console.log(`تست ${migrations.length} مهاجرت روی دیتابیس موقت «${TEST_DB}»\n`);
 
-const adminPool = new pg.Pool({ connectionString: adminUrl.toString(), max: 1 });
-let testPool = null;
-let failed = false;
+/**
+ * S8-07 (R7): بازگشتِ مهاجرتی که سیاستِ ابزار آن را رد می‌کند (مثلاً 0072) هرگز اجرا نمی‌شود.
+ * به‌جایش اثباتِ D1 بسته است: wrapperِ 0070 باید با search_path پین‌شده (pg_temp آخر) باشد.
+ */
+async function assertD1Closed(pool) {
+  const { rows } = await pool.query(
+    `select p.proconfig as cfg from pg_proc p
+      where p.pronamespace = 'public'::regnamespace and p.proname = 'fn_maintain_inventory_partitions'`,
+  );
+  const cfg = rows[0]?.cfg ?? [];
+  if (!cfg.includes(PINNED_SEARCH_PATH)) {
+    throw new Error(`D1 باز است: fn_maintain_inventory_partitions پین‌شده نیست (proconfig=${JSON.stringify(cfg)})`);
+  }
+}
 
-try {
-  // ۱) دیتابیس موقت تمیز
+const refusedAt = migrations.find((m) => rollbackRefusal(m.version));
+const sameDb = async () => {
   await adminPool.query(
     'select pg_terminate_backend(pid) from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()',
     [TEST_DB],
   );
   await adminPool.query(`drop database if exists "${TEST_DB}"`);
   await adminPool.query(`create database "${TEST_DB}"`);
-  console.log(`✓ دیتابیس «${TEST_DB}» ساخته شد`);
-
+  if (testPool) await testPool.end();
   testPool = new pg.Pool({ connectionString: testUrl.toString(), max: 1 });
+};
+console.log(`تست ${migrations.length} مهاجرت روی دیتابیس موقت «${TEST_DB}»`);
+if (refusedAt) {
+  console.log(`  بازگشتِ ${refusedAt.version} طبق سیاست رد می‌شود؛ چرخهٔ کامل فقط تا قبل از آن اجرا می‌شود (R1/R7)\n`);
+} else {
+  console.log('');
+}
 
-  // ۲+۳) up کامل و عکس‌برداری
+const adminPool = new pg.Pool({ connectionString: adminUrl.toString(), max: 1 });
+let testPool = null;
+let failed = false;
+
+try {
+  // ---- الف) up کامل؛ عکس اول؛ بازگشتِ ردشده باید پیش از SQL رد شود و D1 بسته بماند ----
+  await sameDb();
+  console.log(`✓ دیتابیس «${TEST_DB}» ساخته شد`);
   const started1 = Date.now();
   for (const mig of migrations) {
     await runFile(testPool, mig.up);
@@ -142,8 +167,16 @@ try {
   const snapshot1 = await snapshotObjects(testPool);
   console.log(`✓ up کامل شد (${((Date.now() - started1) / 1000).toFixed(1)}s) — ${snapshot1.length} شیء\n`);
 
-  // ۴+۵) down برعکس و راستی‌آزمایی خالی‌شدن
-  for (const mig of [...migrations].reverse()) {
+  const downable = refusedAt ? migrations.filter((m) => m.version < refusedAt.version) : migrations;
+  if (refusedAt) {
+    await assertD1Closed(testPool);
+    console.log(`✓ ${refusedAt.version}: بازگشت ردشده؛ پس از up کامل D1 بسته است (proconfig پین‌شده)\n`);
+  }
+
+  // ---- ب) چرخهٔ down⇒خالی⇒up روی مهاجرت‌های قابل‌بازگشت (تا پیش از اولین مورد ردشده) ----
+  await sameDb();
+  for (const mig of downable) await runFile(testPool, mig.up);
+  for (const mig of [...downable].reverse()) {
     await runFile(testPool, mig.down);
     console.log(`  down  ${mig.version}  ${mig.name}`);
   }
@@ -153,7 +186,7 @@ try {
   }
   console.log(`✓ down کامل — اسکیمای کاربر خالی شد (اشیای عضو پسوندها نادیده گرفته شد)\n`);
 
-  // ۶) up دوباره و مقایسه
+  // ---- پ) up همهٔ مهاجرت‌ها دوباره و مقایسه با عکس اول ----
   const started2 = Date.now();
   for (const mig of migrations) await runFile(testPool, mig.up);
   const snapshot2 = await snapshotObjects(testPool);

@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import { AUDIT_SERVICE, type AuditService } from '../../common/audit.service';
 import type { CreateStockAdjustmentDto, ListStockQueryDto } from './stock.dto';
+import { postStockMovement } from './ledger/stock-ledger';
+import type { StockMovementActor } from './ledger/stock-movement';
 
 export interface StockBalanceRow extends QueryResultRow {
   warehouse_id: string;
@@ -30,7 +33,10 @@ const decodeCursor = (cursor: string): string[] => Buffer.from(cursor, 'base64ur
  */
 @Injectable()
 export class StockRepository {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
+  ) {}
 
   async list(companyId: string, query: ListStockQueryDto): Promise<ListStockResult> {
     const limit = query.limit ?? 50;
@@ -92,7 +98,11 @@ export class StockRepository {
    * اگر مانده منفی شود و allow_negative خاموش باشد، تابع با check_violation بالا می‌آید.
    * برگردانده شناسه header است؛ خواندن نهایی در سرویس انجام می‌شود.
    */
-  async createAdjustment(companyId: string, dto: CreateStockAdjustmentDto): Promise<{ id: string; branchId: string }> {
+  async createAdjustment(
+    companyId: string,
+    dto: CreateStockAdjustmentDto,
+    actor: StockMovementActor,
+  ): Promise<{ id: string; branchId: string }> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -146,19 +156,22 @@ export class StockRepository {
       );
       const lineId = line.rows[0].id;
 
-      const txnKind = dto.qty_delta > 0 ? 'adjust_in' : 'adjust_out';
-      // اعمال مانده در همین statement (insert txn + فراخوانی fn_apply_stock_txn روی ردیف درج‌شده)
-      await client.query(
-        `with ins as (
-           insert into inventory_txn
-             (branch_id, warehouse_id, product_id, batch_id, txn_kind, qty, unit_cost,
-              source_type, source_id, source_line_id, occurred_at, client_uuid)
-           values ($1, $2, $3, $4, $5, $6, 0, 'stock_adjustment', $7, $8, now(), $9)
-           returning *
-         )
-         select fn_apply_stock_txn(ins) from ins`,
-        [branchId, dto.warehouse_id, dto.product_id, dto.batch_id ?? null, txnKind, dto.qty_delta, headerId, lineId, dto.client_uuid ?? null],
-      );
+      // حرکت دفتر + مانده + ممیزی در همین تراکنش (postStockMovement؛ شکست ممیزی ⇒ rollback کامل)
+      await postStockMovement(client, this.audit, {
+        companyId,
+        branchId,
+        warehouseId: dto.warehouse_id,
+        productId: dto.product_id,
+        batchId: dto.batch_id ?? null,
+        txnKind: dto.qty_delta > 0 ? 'adjust_in' : 'adjust_out',
+        qty: dto.qty_delta,
+        unitCost: 0,
+        sourceType: 'stock_adjustment',
+        sourceId: headerId,
+        sourceLineId: lineId,
+        clientUuid: dto.client_uuid ?? null,
+        actor,
+      });
 
       await client.query('commit');
       return { id: headerId, branchId };

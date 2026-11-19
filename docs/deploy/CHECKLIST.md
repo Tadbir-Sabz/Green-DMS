@@ -26,8 +26,8 @@
       `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d`
       (بدونِ `docker-compose.prod.yml` اعتبارسنجیِ امنیتیِ production غیرفعال می‌شود).
 - [ ] **مایگریشن‌ها اجرا شده**
-      داخلِ کانتینرِ api: `docker compose exec api node scripts/migrate.mjs up`
-      (روی checkout: `npm run db:migrate`). وضعیت: `docker compose exec api node scripts/migrate.mjs status`.
+      مهاجرت‌های مالکانه (0041 و 0070–0072) **فقط** از میزبانِ اپراتور با `node scripts/db-window.mjs up` (بک‌آپِ تأییدشده و `DMS_WINDOW_REASON`؛ runbook بخش ۳-پ). داخلِ کانتینرِ api مجاز نیست: API این مهاجرت‌ها را رد می‌کند و در production هویتِ مهاجرت ندارد.
+      وضعیت (فقط‌خواندنی) از میزبانِ اپراتور: `node scripts/migrate.mjs status`.
 - [ ] **Health check ها سبز هستند**
       - `GET /api/v1/health/live` ⇒ 200 (liveness؛ قطعیِ DB آن را fail نمی‌کند)
       - `GET /api/v1/health/ready` ⇒ 200 با `status: ready` (readiness؛ DB پایین ⇒ 503)

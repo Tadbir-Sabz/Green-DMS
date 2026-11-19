@@ -16,6 +16,7 @@ const PROD = { NODE_ENV: 'production' };
 
 const healthyEnv = (): Record<string, string> => ({
   ...PROD,
+  AUTO_MIGRATE: 'false',
   JWT_SECRET: GOOD_JWT,
   APP_DATABASE_URL: 'postgres://dms_app:S7rongRandomPw9x@postgres:5432/greendms',
   DATABASE_URL: 'postgres://dms_migrator:An0therRandomPw4z@postgres:5432/greendms',
@@ -32,6 +33,18 @@ describe('collectProductionConfigProblems', () => {
 
   it('پیکربندیِ سالم ⇒ بدون مشکل', () => {
     expect(collectProductionConfigProblems(healthyEnv())).toEqual([]);
+  });
+
+  it('AUTO_MIGRATE در production باید صریحاً false باشد (S8)', () => {
+    const unset = healthyEnv();
+    delete (unset as Record<string, string | undefined>).AUTO_MIGRATE;
+    expect(collectProductionConfigProblems(unset).join('\n')).toMatch(/AUTO_MIGRATE/);
+    for (const raw of ['true', '1', 'on', 'yes', 'apply']) {
+      expect(collectProductionConfigProblems({ ...healthyEnv(), AUTO_MIGRATE: raw }).join('\n')).toMatch(/AUTO_MIGRATE/);
+    }
+    for (const raw of ['false', 'FALSE', ' 0 ', 'off', 'no']) {
+      expect(collectProductionConfigProblems({ ...healthyEnv(), AUTO_MIGRATE: raw })).toEqual([]);
+    }
   });
 
   it('نبودِ JWT_SECRET ⇒ مشکل', () => {

@@ -50,6 +50,16 @@ export interface RuntimeIdentityReport {
   tenantGucAtStartup: string;
   /** ردیف‌هایِ دیده‌شده از یک جدولِ اجاره‌محور بدونِ زمینه — باید صفر باشد */
   visibleTenantRowsWithoutContext: number;
+  /** نقشِ زمانِ اجرا عضوِ dms_owner است (مالکِ دفترِ موجودی) — باید false باشد (S8/F1) */
+  ownerMember: boolean;
+  /** نقشِ زمانِ اجرا می‌تواند با SET ROLE به dms_owner برود — باید false باشد (S8/F1) */
+  ownerSettable: boolean;
+  /** عضویتِ مستقیمِ هر نوعی (حتی INHERIT FALSE / بدونِ SET) در dms_owner — باید false باشد */
+  ownerDirectMember: boolean;
+  /** نقشِ زمانِ اجرا عضوِ dms_maintainer است (هویتِ نگه‌داری نباید هویتِ API باشد) — باید false باشد */
+  maintainerMember: boolean;
+  /** تعدادِ همهٔ اشیای public (جدول/پارتیشن/توالی/نما/تابع) که مالکشان همین نقش است — باید صفر باشد */
+  ownedObjects: number;
   /** راستی‌آزمایی اصلاً ممکن نشد (مثلاً پایگاه‌داده در دسترس نبود) */
   unverifiable: boolean;
   /** فهرستِ مشکلات با پیامِ فارسی؛ خالی یعنی سالم */
@@ -91,7 +101,7 @@ export function resolveDatabaseIdentity(env: EnvLike = process.env): ResolvedDat
         'اقدامِ لازم: نقشِ زمانِ اجرا را یک‌بار (دستی و بیرون از مهاجرت‌ها) فعال کنید:',
         "  alter role dms_app login password '<رمزِ تولیدشده>';",
         'سپس APP_DATABASE_URL=postgres://dms_app:<رمز>@<میزبان>:5432/<پایگاه‌داده> را ست کنید',
-        'و DATABASE_URL را فقط برایِ مهاجرت (npm run db:migrate) نگه دارید.',
+        'و DATABASE_URL را فقط برایِ مهاجرت (scripts/db-window.mjs up، از میزبانِ اپراتور) نگه دارید.',
       ].join('\n'),
     );
   }
@@ -142,12 +152,36 @@ const INSPECT_SQL = `
                       and c.relkind in ('r', 'p')
                       and c.relrowsecurity
                       and c.relforcerowsecurity), 0)   as rls_forced_tables,
-         coalesce(current_setting('app.company_id', true), '') as tenant_guc
+         coalesce(current_setting('app.company_id', true), '') as tenant_guc,
+         coalesce((select pg_has_role(current_user, 'dms_owner', 'MEMBER')
+                     from pg_roles where rolname = 'dms_owner'), false) as owner_member,
+         coalesce((select pg_has_role(current_user, 'dms_owner', 'SET')
+                     from pg_roles where rolname = 'dms_owner'), false) as owner_settable,
+         exists (select 1 from pg_auth_members m
+                   join pg_roles a on a.oid = m.roleid
+                   join pg_roles b on b.oid = m.member
+                  where a.rolname = 'dms_owner' and b.rolname = current_user) as owner_direct_member,
+         coalesce((select pg_has_role(current_user, 'dms_maintainer', 'MEMBER')
+                     from pg_roles where rolname = 'dms_maintainer'), false) as maintainer_member,
+         (select count(*)::int from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relowner = r.oid
+             and not exists (select 1 from pg_depend d
+                              where d.classid = 'pg_class'::regclass and d.objid = c.oid and d.deptype = 'e'))
+         + (select count(*)::int from pg_proc p
+              join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proowner = r.oid)
+                                                        as owned_objects
     from pg_roles r
    where r.rolname = current_user`;
 
 /** پرس‌وجویِ عملی: بدونِ زمینهٔ اجاره، یک جدولِ اجاره‌محور باید صفر ردیف بدهد */
 const TENANT_PROBE_SQL = `select count(*)::int as n from branch`;
+
+/** افزودنِ مشکل؛ جدا برای خوانایی و تست‌پذیری */
+const pushProblem = (report: RuntimeIdentityReport, message: string): void => {
+  report.problems.push(message);
+};
 
 const emptyReport = (): RuntimeIdentityReport => ({
   runtimeUser: '',
@@ -158,6 +192,11 @@ const emptyReport = (): RuntimeIdentityReport => ({
   rlsForcedTables: 0,
   tenantGucAtStartup: '',
   visibleTenantRowsWithoutContext: 0,
+  ownerMember: false,
+  ownerSettable: false,
+  ownerDirectMember: false,
+  maintainerMember: false,
+  ownedObjects: 0,
   unverifiable: true,
   problems: [],
 });
@@ -203,6 +242,11 @@ export async function verifyRuntimeDatabaseIdentity(
       owned_tables: number;
       rls_forced_tables: number;
       tenant_guc: string;
+      owner_member: boolean;
+      owner_settable: boolean;
+      owner_direct_member?: boolean;
+      maintainer_member?: boolean;
+      owned_objects?: number;
     }>(INSPECT_SQL);
     const row = rows[0];
     if (!row) {
@@ -215,6 +259,11 @@ export async function verifyRuntimeDatabaseIdentity(
       report.ownedTables = Number(row.owned_tables ?? 0);
       report.rlsForcedTables = Number(row.rls_forced_tables ?? 0);
       report.tenantGucAtStartup = String(row.tenant_guc ?? '');
+      report.ownerMember = !!row.owner_member;
+      report.ownerSettable = !!row.owner_settable;
+      report.ownerDirectMember = !!row.owner_direct_member;
+      report.maintainerMember = !!row.maintainer_member;
+      report.ownedObjects = Number(row.owned_objects ?? 0);
     }
     const probe = await pool.query<{ n: number }>(TENANT_PROBE_SQL);
     report.visibleTenantRowsWithoutContext = Number(probe.rows[0]?.n ?? 0);
@@ -244,6 +293,32 @@ export async function verifyRuntimeDatabaseIdentity(
   if (!report.unverifiable && report.rlsForcedTables === 0) {
     report.problems.push(
       'هیچ جدولی RLSِ فعال و اجباری ندارد ⇒ مهاجرت‌هایِ 0041/0042/0043 رویِ این پایگاه‌داده اعمال نشده‌اند.',
+    );
+  }
+  if (report.runtimeUser === 'dms_migrator') {
+    pushProblem(report, 'نقشِ مهاجرت (dms_migrator) هرگز هویتِ زمانِ اجرا نیست؛ APP_DATABASE_URL را به dms_app ببرید.');
+  }
+  if (report.ownedObjects > 0 && report.ownedTables === 0) {
+    pushProblem(
+      report,
+      `نقشِ زمانِ اجرا مالکِ ${report.ownedObjects} شیءِ public است (توالی/نما/تابع/پارتیشن) ⇒ مالکِ بیرونِ RLS و تریگرها است.`,
+    );
+  }
+  if (report.ownerDirectMember) {
+    pushProblem(
+      report,
+      `نقشِ زمانِ اجرا (${report.runtimeUser}) به‌طور مستقیم عضوِ dms_owner است (حتی بدونِ ارث‌بری/SET) ⇒ مغایرِ S8/F1.`,
+    );
+  }
+  if (report.maintainerMember) {
+    pushProblem(
+      report,
+      `نقشِ زمانِ اجرا (${report.runtimeUser}) عضوِ dms_maintainer است؛ هویتِ API نباید هویتِ نگه‌داریِ پارتیشن باشد.`,
+    );
+  }
+  if (report.ownerMember || report.ownerSettable) {
+    report.problems.push(
+      `نقشِ زمانِ اجرا (${report.runtimeUser}) عضوِ dms_owner است یا می‌تواند به آن SET ROLE کند ⇒ مالکِ دفترِ موجودی می‌شود و تریگرها را می‌تواند غیرفعال کند (S8/F1).`,
     );
   }
   if (report.tenantGucAtStartup !== '') {

@@ -9,6 +9,7 @@ import {
 import type { Page } from '@dms/contracts';
 import { isUUID } from 'class-validator';
 import type { CreateReturnDto, ListReturnsQueryDto, ReceiveReturnDto } from './return.dto';
+import type { StockMovementActor } from '../inventory/ledger/stock-movement';
 import type { ReturnLineRow, ReturnRepository, ReturnRow } from './return.repository';
 import { CREDIT_NOTE_REPOSITORY, RETURN_REPOSITORY } from './tokens';
 import { RULES_ENGINE_SERVICE } from '../rules-engine/rules-engine.tokens';
@@ -232,7 +233,12 @@ export class ReturnService {
     return this.get(companyId, id);
   }
 
-  async receive(companyId: string, id: string, dto: ReceiveReturnDto): Promise<ReturnView> {
+  async receive(
+    companyId: string,
+    id: string,
+    dto: ReceiveReturnDto,
+    actor: StockMovementActor,
+  ): Promise<ReturnView> {
     this.assertId(id);
     if (!dto.lines.length) {
       throw badRequest('lines_required', 'دریافت مرجوعی باید تکلیف حداقل یک قلم را مشخص کند.');
@@ -248,7 +254,7 @@ export class ReturnService {
     }
     // اعتبارسنجی کامل (تکراری، پوشش خط‌به‌خط، qty، چرخهٔ partially_approved)
     // داخلِ همان تراکنشِ مخزن انجام می‌شود — هیچ «نصفه» پُست نمی‌شود.
-    const ok = await this.repo.receive(companyId, id, dto).catch((err: unknown) => {
+    const ok = await this.repo.receive(companyId, id, dto, actor).catch((err: unknown) => {
       if (err instanceof ResolutionPlanError) {
         if (err.httpStatus === 400) {
           throw new BadRequestException({

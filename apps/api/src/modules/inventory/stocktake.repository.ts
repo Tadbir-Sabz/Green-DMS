@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import { PG_POOL } from '../../database/database.module';
+import { AUDIT_SERVICE, type AuditService } from '../../common/audit.service';
+import { postStockMovement } from './ledger/stock-ledger';
+import type { StockMovementActor } from './ledger/stock-movement';
 import type { CreateStockTakeDto, StockTakeLineDto, UpdateStockTakeDto } from './stock.dto';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
@@ -28,7 +31,10 @@ const COLUMNS = 'id, branch_id, warehouse_id, status, row_version';
 
 @Injectable()
 export class StocktakeRepository {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
+  ) {}
 
   async list(
     companyId: string,
@@ -198,7 +204,7 @@ export class StocktakeRepository {
    * + fn_apply_stock_txn، سپس وضعیت posted.
    * پیش‌نیاز: شرکت مالک، وضعیت قابل ارسال، حداقل یک قلم شمارش‌شده.
    */
-  async submit(companyId: string, id: string, approverId: string): Promise<void> {
+  async submit(companyId: string, id: string, approverId: string, actor: StockMovementActor): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -232,18 +238,21 @@ export class StocktakeRepository {
       for (const line of counted) {
         const variance = Number(line.qty_counted) - Number(line.qty_system);
         if (Math.abs(variance) < 1e-9) continue;
-        const kind = variance > 0 ? 'count_gain' : 'count_loss';
-        await client.query(
-          `with ins as (
-             insert into inventory_txn
-               (branch_id, warehouse_id, product_id, batch_id, txn_kind, qty, unit_cost,
-                source_type, source_id, source_line_id, occurred_at)
-             values ($1, $2, $3, $4, $5, $6, 0, 'stock_count', $7, null, now())
-             returning *
-           )
-           select fn_apply_stock_txn(ins) from ins`,
-          [branchId, warehouseId, line.product_id, line.batch_id, kind, variance, id],
-        );
+        await postStockMovement(client, this.audit, {
+          companyId,
+          branchId,
+          warehouseId,
+          productId: line.product_id,
+          batchId: line.batch_id,
+          txnKind: variance > 0 ? 'count_gain' : 'count_loss',
+          qty: variance,
+          unitCost: 0,
+          sourceType: 'stock_count',
+          sourceId: id,
+          sourceLineId: null,
+          clientUuid: null,
+          actor,
+        });
       }
 
       await client.query(

@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
+import { AUDIT_SERVICE, type AuditService } from '../../common/audit.service';
 import type { Runner } from '../../common/transaction';
 import { PG_POOL } from '../../database/database.module';
+import { postStockMovement } from '../inventory/ledger/stock-ledger';
+import type { StockMovementActor } from '../inventory/ledger/stock-movement';
 import type { CreateReturnDto, ReceiveReturnDto } from './return.dto';
 import {
   assertReceiveEligibility,
@@ -48,7 +51,10 @@ const COLUMNS =
 
 @Injectable()
 export class ReturnRepository {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(AUDIT_SERVICE) private readonly audit: AuditService,
+  ) {}
 
   async list(
     companyId: string,
@@ -299,7 +305,12 @@ export class ReturnRepository {
    * هر خطا (از جمله ردّ plan) همه‌چیز را rollback می‌کند — کالا هرگز
    * «نصفه» پُست نمی‌شود. double-receive همچنان با شرط وضعیت null می‌شود.
    */
-  async receive(companyId: string, id: string, dto: ReceiveReturnDto): Promise<boolean> {
+  async receive(
+    companyId: string,
+    id: string,
+    dto: ReceiveReturnDto,
+    actor: StockMovementActor,
+  ): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -368,26 +379,22 @@ export class ReturnRepository {
       for (const posting of postings) {
         // unit_cost=0: بهای خرید مرجوعی در این فاز ثبت نمی‌شود (ثبت به‌عنوان «داده باز»
         // تصمیم حسابداری است، نه اصلاحیه)؛ کمبودِ هزینهٔ ناموجود را بهتر از بهای جعلی است.
-        await client.query(
-          `with ins as (
-             insert into inventory_txn
-               (branch_id, warehouse_id, product_id, batch_id, txn_kind, qty, unit_cost,
-                source_type, source_id, source_line_id, occurred_at, client_uuid)
-             values ($1, $2, $3, $4, $5, $6, 0, 'return_request', $7, $8, now(), null)
-             returning *
-           )
-           select fn_apply_stock_txn(ins) from ins`,
-          [
-            branchId,
-            posting.warehouse_id,
-            posting.product_id,
-            posting.batch_id,
-            posting.txn_kind,
-            posting.qty,
-            id,
-            lineIds.get(posting.product_id) ?? null,
-          ],
-        );
+        // حرکت دفتر + مانده + ممیزی در همین تراکنش (شکست ممیزی ⇒ rollback کامل).
+        await postStockMovement(client, this.audit, {
+          companyId,
+          branchId,
+          warehouseId: posting.warehouse_id,
+          productId: posting.product_id,
+          batchId: posting.batch_id,
+          txnKind: posting.txn_kind,
+          qty: posting.qty,
+          unitCost: 0,
+          sourceType: 'return_request',
+          sourceId: id,
+          sourceLineId: lineIds.get(posting.product_id) ?? null,
+          clientUuid: null,
+          actor,
+        });
       }
       await client.query('commit');
       return true;

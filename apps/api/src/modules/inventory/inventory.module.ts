@@ -2,6 +2,9 @@ import { Controller, Get } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import type { ModuleInfo } from '../../common/module-info';
 import { IdentityRbacModule } from '../identity-rbac/identity-rbac.module';
+import { LedgerReconciliationController } from './ledger/ledger-reconciliation.controller';
+import { LedgerReconciliationRepository } from './ledger/ledger-reconciliation.repository';
+import { LedgerReconciliationService } from './ledger/ledger-reconciliation.service';
 import { StockController } from './stock.controller';
 import { StockRepository } from './stock.repository';
 import { StockService } from './stock.service';
@@ -60,6 +63,7 @@ export class InventoryController {
     StockController,
     StocktakeController,
     TransferController,
+    LedgerReconciliationController,
   ],
   providers: [
     WarehouseRepository,
@@ -78,6 +82,8 @@ export class InventoryController {
     { provide: TRANSFER_REPOSITORY, useExisting: TransferRepository },
     TransferService,
     { provide: TRANSFER_SERVICE, useExisting: TransferService },
+    LedgerReconciliationRepository,
+    LedgerReconciliationService,
   ],
 })
 export class InventoryModule {}

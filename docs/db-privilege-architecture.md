@@ -23,7 +23,7 @@
 
 > **تصحیحِ TASK-PM-01D-M4-G (F-R-02):** جدول زیر تا پیش از G توصیفِ «معماریِ
 > هدف» بود، نه وضعیتِ واقعیِ PostgreSQL. بازبینی مستقل F-R نشان داد هیچ مهاجرتی
-> مالکیت اشیاء را به `dms_owner` منتقل نمیکند و `0041` عضویتِ `dms_owner` را به
+> مالکیت اشیاء را به `dms_owner` منتقل نمیکند (جز خانوادهٔ `inventory_txn` از 0070، بخش ۸) و `0041` عضویتِ `dms_owner` را به
 > `dms_migrator` نمیدهد. ستونها اکنون **وضعیتِ اندازهگیری‌شده** را نشان میدهند؛
 > مدل هدف صرفاً یک **فرض تاریخی/پیشنهاد معوق** است؛ مدل پشتیبانیشدهٔ فعلی
 > «مالک اشیاء = `DATABASE_URL`» است. انتقال مالکیت، در صورت تصمیم استقرار،
@@ -31,11 +31,12 @@
 
 | نقش | LOGIN | SUPERUSER | BYPASSRLS | مالکیتِ **واقعی** | نقشِ عملیاتی |
 |---|---|---|---|---|---|
-| `dms_owner` | خیر | خیر | **خیر** | **هیچ شیئی**؛ فاقد `CREATE` روی `public` | نقشِ **هدف تاریخی/معوق**؛ تا پیش از انتقال مالکیتِ خارج از مخزن فقط یک نقش `NOLOGIN` بیمتیاز است. هرگز در برنامه استفاده نمیشود |
-| `dms_migrator` | خیر (فعلسازی/رمز از env) | خیر | خیر | **هیچ شیئی**؛ عضو `dms_owner` **نیست** | `USAGE`+`CREATE` روی `public` برای مهاجرتها. **نمیتواند** پارتیشن `audit_log` بسازد چون مالک والد نیست |
+| `dms_owner` | خیر | خیر | **خیر** | **S8 (0070):** مالکِ `inventory_txn`، همهٔ پارتیشن‌هایش (موجود و تازه)، سه تابعِ دفتر و `fn_maintain_inventory_partitions`. **مالکِ `audit_log`/`location_sample` نیست** | نقشِ **NOLOGIN بی‌امتیاز**؛ هیچ LOGIN ای عضوِ آن نیست مگر هویتِ مهاجرت (با SET)؛ `dms_app`/`dms_readonly`/`dms_maintainer` عضو یا SET‌کننده‌اش **نیستند** (بررسیِ 0070 + آزمونِ LOGIN) |
+| `dms_migrator` | خیر در مهاجرت؛ LOGIN جدا در استقرار | خیر | خیر | `USAGE`+`CREATE` روی `public`؛ **`SET` روی `dms_owner` (گرانتِ استقراری، نه مهاجرت)**: یعنی معادلِ مالک است | فقط برایِ `scripts/migrate.mjs`؛ **هرگز** برای API، کارگر یا نگه‌داری |
+| `dms_maintainer` | خیر در مهاجرت؛ LOGIN جدا در استقرار | خیر | خیر | `USAGE` روی `public`؛ `EXECUTE` **فقط** روی `fn_maintain_inventory_partitions(integer)`؛ عضوِ `dms_owner` **نیست** | نگه‌داریِ پارتیشنِ `inventory_txn` (بخش ۸ این سند و ۳-الف در راهنمای استقرار) |
 | `dms_app` | خیر (فعلسازی/رمز از env) | **خیر** | **خیر** | **هیچ** | اتصالِ زمانِ اجرا: API، کارگرها، کارهای زمانبندیشده |
 | `dms_readonly` | خیر (اختیاری) | خیر | خیر | ندارد | گزارشگیری/ممیزیِ فقطخواندن؛ `0063` دفتر/شواهد M4 را از آن پنهان کرده است |
-| **مالکِ اشیاء = هویتِ `DATABASE_URL`** | بله | بله در CI/compose (`postgres` / `dms`) | خیر | **مالکِ همهٔ اشیاء `public`**، ازجمله `audit_log` و والدهای پارتیشنشده | اعمال مهاجرتها **و** تنها هویتِ مجازِ ترمیم پارتیشن (بخش «۲-الف») |
+| **مالکِ اشیاء = هویتِ مهاجرت (`DATABASE_URL`) برای همهٔ اشیاء به‌جز خانوادهٔ `inventory_txn`** | بله | بله در CI/compose (`postgres` / `dms`) | خیر | مالکِ `audit_log`، `location_sample` و بقیهٔ `public`. (`inventory_txn` و پارتیشن‌هایش از 0070 به `dms_owner` رفته‌اند) | اعمال مهاجرت‌ها و ترمیمِ دستیِ `audit_log`/`location_sample` (بخش «۲-الف»؛ **باز**: خارج از S8) |
 
 اصول:
 
@@ -291,3 +292,315 @@ argv است، نه در محیطِ فرآیندِ فرزند، نه در متن�
   خلاصهٔ `processDue` سه شمار دارد: `processed` (برداشته‌شده)، `failed`، `stateNotPersisted`.
   درخواست‌هایِ خارجی کلیدِ `idempotency-key: <kind>:<job_id>` از رکوردِ پایدار می‌گیرند.
 
+
+## ۸. S8 — جداسازیِ مالکیتِ دفترِ موجودی (مهاجرت 0070، F1)
+
+> **وضعیت (TASK-GDMS-INV-S8-OWNER-ISOLATION-AND-PG16-CLOSURE-02):** این بخش بندِ «مالکِ اشیاء = `DATABASE_URL`»ِ جدولِ بالا را برایِ `inventory_txn` و پارتیشن‌هایش **تغییر می‌دهد**. متن قبلی دربارهٔ `dms_owner` («هیچ شیئی») برای سایرِ جدول‌ها هنوز درست است.
+
+**مشکل (F1، بحرانی):** مالکِ `inventory_txn` می‌توانست `ALTER TABLE … DISABLE TRIGGER trg_inventory_txn_no_truncate` بزند و سپس `TRUNCATE` کند. تریگرهای 0068/0069 فقط به «مالک بودن» وابسته بودند.
+
+**آنچه 0070 انجام می‌دهد:**
+
+- مالکِ جدولِ والد، همهٔ پارتیشن‌های موجود و سه تابعِ دفتر (`fn_inventory_txn_guard`، `fn_inventory_txn_maintenance_begin`، `fn_inventory_txn_protect_partition`) به `dms_owner` منتقل می‌شود (`NOLOGIN`، بی‌امتیاز).
+- مجوزِ پنجرهٔ نگه‌داشت و تریگرِ محافظ به «عضوِ `dms_owner` بودن» (`pg_has_role(current_user, owner, 'MEMBER')`) تبدیل می‌شود.
+- پارتیشن‌های تازهٔ دفتر (از `fn_ensure_partitions` یا از `fn_maintain_inventory_partitions`) مالکِ `dms_owner` می‌شوند. `fn_ensure_partitions` خودش به `dms_owner` منتقل نمی‌شود (بخش هویت‌ها).
+- وقتی جدولی با نامِ پارتیشنِ بعدی **جداشده (DETACH)** اما موجود است، `fn_ensure_partitions` با `duplicate_table` (`42P07`) می‌ایستد و نام را گزارش می‌کند؛ **هرگز آن را DROP نمی‌کند**. بازیابی دستی: بررسیِ محتوا، سپس `ALTER TABLE … ATTACH PARTITION` با همان بازه، یا تغییرِ نام.
+- `0070.down` توابعِ 0068/0069 را دقیقاً بازمی‌گرداند و مالکیت را به مالکِ `schema_migrations` (یا `session_user`) برمی‌گرداند. **فقط سوپرکاربر**؛ نقشِ غیرِسوپرکاربر با `42501` شکست می‌خورد و تغییری نمی‌دهد (D0).
+
+**هویت‌ها و مسیرها (TASK-GDMS-INV-S8-OPERATIONAL-ROLE-CLOSURE-03):**
+
+| هویت | قابلیت | مسیرِ مجاز | ممنوع |
+|---|---|---|---|
+| `dms_owner` | NOLOGIN، بی‌امتیاز، مالکِ دفتر و توابعش | فقط از طریقِ تریگر/تابعِ تعریف‌شده | LOGIN، عضویت برای هر نقشِ عملیاتی |
+| `dms_migrator` | LOGIN جدا؛ **SET روی `dms_owner` فقط درونِ پنجرهٔ مهاجرت** (گرانتِ موقت؛ بخش ۹) = معادلِ مالک در پنجره | `scripts/db-window.mjs up` (و 0070 up) | API، کارگر، نگه‌داری؛ خارج از پنجره؛ ذخیرهٔ رمز در محیطِ زمان‌اجرا
+| `dms_maintainer` | LOGIN جدا (استقرار)؛ فقط `EXECUTE` روی `fn_maintain_inventory_partitions(0..12)` | زمان‌بندیِ نگه‌داریِ ماهانه | هر کار دیگر؛ `SET ROLE`؛ پنجرهٔ نگه‌داشت |
+| `dms_app` | LOGIN (زمانِ اجرا)؛ عضوِ `dms_owner` **نیست**؛ `INSERT`/`SELECT` روی دفتر | API و کارگرها | DISABLE TRIGGER، TRUNCATE، UPDATE/DELETE، `SET ROLE` به مالک یا migrator، DETACH/DROP، ساختنِ پارتیشن |
+| سوپرکاربرِ bootstrap | SUPERUSER | نصبِ PostGIS، 0041 در بوت‌استرپ، `0070.down` (fail-closed برای غیرِسوپرکاربر) | عملیاتِ روزمره |
+
+**مهاجرتِ غیرِسوپرکاربر (گزارشِ تاریخی، PG16.4، LOGIN واقعی؛ شواهد در این workspace موجود نیست — UNVERIFIED تا بازآزمایی):** `dms_migrator` (بدونِ SUPERUSER/BYPASSRLS)
+0070 را اعمال می‌کند؛ مالکیتِ والد، همهٔ پارتیشن‌های موجود و توابعِ دفتر به `dms_owner` می‌رسد؛
+پارتیشن‌های ماه‌های آینده نیز مالکِ `dms_owner` هستند (`s9/maint-pg16.log`: M1–M5، D3، D5).
+
+**نگه‌داریِ پارتیشن (گزارشِ تاریخی، PG16.4، LOGIN واقعی؛ شواهد در این workspace موجود نیست — UNVERIFIED تا بازآزمایی):** `dms_maintainer` تابعِ wrapper را اجرا می‌کند، پارتیشن‌های
+جدید می‌سازد (P1–P4)، ورودیِ نامعتبر را رد می‌کند (P7)، و نمی‌تواند `fn_ensure_partitions`، CREATE، TRUNCATE،
+UPDATE/DELETE، DETACH/DROP، تریگرِ غیرفعال یا پنجرهٔ نگه‌داشت (B1–B9) را انجام دهد.
+`fn_ensure_partitions` **عمداً** به `dms_owner` منتقل نشده است: `ALTER … OWNER` ACL قبلیِ 0064 (که EXECUTE را
+از `dms_owner` گرفته بود) را منتقل می‌کرد و آن را دوباره می‌داد؛ wrapper به آن وابسته نیست (M3، آزمونِ `migrations-security` 0064).
+
+**پیش‌نیازِ استقرار (تصمیمِ عملیاتی، در این مخزن اعمال نشده):**
+
+- **bootstrap (یک‌بار، سوپرکاربر):** نصبِ PostGIS، ساختنِ نقش‌ها با 0041 (**اجرای 0041 توسط غیرِ سوپرکاربر: UNVERIFIED**)، LOGIN+SCRAM برای `dms_migrator`/`dms_app`/`dms_maintainer`، و `grant dms_owner to dms_migrator with inherit false, set true`. جزئیات در `docs/deploy/PRODUCTION_DEPLOYMENT.md` ۳-پ.
+- `dms_migrator` معادلِ مالک است؛ پیشنهاد: `SET` را فقط در پنجرهٔ مهاجرت نگه دارید.
+- `dms_app`، `dms_readonly`، `dms_maintainer` هیچ عضویتی در `dms_owner` ندارند و 0070 این را پیش از ادامه بررسی و در صورتِ نقض خطا می‌دهد.
+- `ALTER … OWNER` قفلِ `ACCESS EXCLUSIVE` می‌گیرد؛ روی دفترِ زنده در پنجرهٔ نگه‌داشت اجرا شود.
+- وقتی جدولی با نامِ پارتیشنِ بعدی جداشده ولی موجود است، `fn_maintain_inventory_partitions` با `42P07` می‌ایستد؛ ترمیمِ دستی توسط اپراتور.
+- **مسیرِ نگه‌داریِ `audit_log` و `location_sample` در S8 نیست (باز).** این دو جدول مالکِ هویتِ مهاجرت‌اند؛ تصمیمِ مالک لازم است (انتقالِ مالکیت یا تابعِ جداگانه).
+
+**مرز اعتماد (صادقانه):**
+
+- **سوپرکاربر** (مثلِ `postgres` در CI/compose) همچنان می‌تواند با `SET ROLE dms_owner` یا با `ALTER TABLE … DISABLE TRIGGER` تریگر را غیرفعال و جدول را خالی کند. PostgreSQL این را در داخلِ پایگاه‌داده نمی‌بندد. **این مهاجرت مرزِ «مالک/عضوِ غیرِسوپرکاربر» را می‌بندد، نه مرزِ سوپرکاربر یا زیرساخت.** (`verify-0070` روی PGlite: X1، و PG16: G1 — هر دو «BOUNDARY»، نه «PASS امنیتی».)
+- **مالکِ مهاجرت (`dms_migrator` با SET)** معادلِ مالک است؛ آن را فقط به‌عنوانِ هویتِ مهاجرت نگه دارید.
+- اعتبارِ مرزِ عضویت فقط با **LOGIN واقعی** و **غیرِسوپرکاربر** سنجیده می‌شود. روی PGlite همهٔ اتصال‌ها `postgres` (BYPASSRLS) هستند و این سنجش معتبر نیست.
+
+**بازگشت:** `migrations/0070_inventory_ledger_owner_separation.down.sql`.
+
+**مراجع آزمون (اسکریپت‌ها خارج از مخزن و کامیت‌نشده‌اند، در `/home/user/pgdev/s8b/` و `/home/user/pgdev/s9/`؛ تکرارپذیر در CI هنوز نیستند):** (S8-06: این مسیرها در workspace فعلی وجود ندارند؛ نتایجِ آن‌ها در این نسخه تکرار نشده است.) `s9/maint-pg16` (PostgreSQL 16.4 بومی، LOGIN واقعی، 59/59، **بدونِ PostGIS**، مدل جزئیِ پیش از 0070)، `owner-sep-pg16` (PostgreSQL 16.4 بومی، LOGIN واقعی، مدل مستقل، بدونِ PostGIS)، `verify-0070` (زنجیرهٔ واقعیِ مهاجرت روی PGlite+PostGIS 3.6)، و `db-privileges.api.test.ts` که احرازِ هویتِ واقعیِ `dms_app` را می‌سنجد (روی PG16 + PostGIS؛ روی PGlite عمداً رد می‌شود).
+
+
+## ۹. S8-04 — مدلِ هویتِ نهایی، پنجرهٔ مهاجرت، و وضعیتِ شواهد
+
+> **وضعیت (TASK-GDMS-INV-S8-FINAL-OPERATIONAL-CLOSURE-04):** این بخش مدلِ **پیاده‌شده** را ثبت می‌کند؛ هر ادعا به ابزار یا آزمونِ مشخص وصل است. **S8 بسته نشده است** (بخش ۹-ث).
+
+### ۹-الف) قواعدِ هویت (غیرقابل‌مذاکره)
+
+1. `dms_migrator` هرگز هویتِ زمانِ اجرا نیست (`runtime-identity.ts` و آزمونِ real-login).
+2. `dms_app` هرگز عضوِ `dms_owner` نیست و هیچ `SET` روی آن ندارد.
+3. `dms_maintainer` هرگز عضوِ `dms_owner` نیست.
+4. `AUTO_MIGRATE=false` در production الزامی است (`production-config.ts`؛ آزمونِ واحد).
+5. ابرکاربر هرگز به API داده نمی‌شود؛ راستی‌آزماییِ زمانِ اجرا در production ابرکاربر را رد می‌کند.
+6. مهاجرت‌های اعمال‌شده و checksumهایشان تغییر نکرده‌اند؛ اصلاح‌ها فقط در 0069/0070 (که هنوز اعمال‌شدهٔ بیرونی ندارند) و 0070 اعمال شده است.
+
+### ۹-ب) جداسازیِ bootstrap از مهاجرت‌های عادی
+
+- **bootstrap (`db-window.mjs bootstrap`، ابرکاربر، `DMS_BOOTSTRAP_CONFIRM=yes`):** ساختنِ نقش‌های LOGIN جدید با رمزِ URL (نقشِ موجود رمزش تغییر نمی‌کند)، اجرای 0001..0041 (PostGIS و سخت‌سازیِ نقش‌ها)، انتقالِ مالکیتِ اشیای `public` و خودِ طرحوارهٔ `public` به `dms_migrator` (لازم برای `COMMENT ON SCHEMA public` در 0064 در PG16؛ بدونِ آن مهاجرتِ 0064 با «must be owner of schema public» شکست می‌خورد).
+- **مهاجرت‌های عادی (0042..0072):** فقط `db-window.mjs up` (S8-07: 0041 و 0070–0072 مالکانه‌اند؛ 0072.down رد می‌شود). ترتیب: preflight بک‌آپ ⇒ قفل مشاوره‌ای ⇒ `GRANT dms_owner TO dms_migrator WITH INHERIT FALSE, SET TRUE` ⇒ `migrate.mjs up` ⇒ **REVOKE همیشگی** ⇒ `verify`.
+
+### ۹-پ) یافته‌ها و اصلاح‌های این تسک (PG16 واقعی)
+
+| # | یافته | اصلاح | وضعیت |
+|---|---|---|---|
+| F-S8-04-1 | `CREATE OR REPLACE` در 0069 روی `fn_ensure_partitions` با `42501` شکست می‌خورد، چون 0064 EXECUTE را از مالک گرفته و ACL را خالی گذاشته است (PG16). | در 0069 و 0070 up، پیش از تعریف: `GRANT EXECUTE … TO current_user`، پس از تعریف: `REVOKE` (وضعیتِ نهاییِ 0064 حفظ می‌شود). | اصلاح‌شده و آزمایش‌شده |
+| F-S8-04-2 | `dms_app` روی `audit_log`/`location_sample` (و پارتیشن‌ها) `UPDATE/DELETE` داشت (0041). | 0070: `REVOKE UPDATE, DELETE, TRUNCATE` از `dms_app`/`dms_readonly`؛ `fn_ensure_partitions` برای این دو جدول فقط `SELECT/INSERT` می‌دهد؛ مالکیت منتقل نشد. Down گرانت‌ها را به 0041 برمی‌گرداند. | اصلاح‌شده؛ آزمونِ real-login دارد |
+| F-S8-04-3 | `COMMENT ON SCHEMA public` در 0064 برای مهاجرِ غیرسوپرکاربر شکست می‌خورد. | bootstrap طرحوارهٔ `public` را به `dms_migrator` می‌دهد. | اصلاح‌شده؛ آزمایش‌شده |
+| F-S8-04-4 | `dms_migrator` پس از 0064 EXECUTE روی `fn_ensure_partitions` ندارد؛ دستورِ عملیاتیِ `audit.service.ts` (`select fn_ensure_partitions(2)` با هویتِ مالک) بدونِ گرانتِ صریح کار نمی‌کند. | در S8-05 بسته شد: پیامِ عملیاتیِ `audit.service.ts` به `db-maintain.mjs partitions` با `dms_maintainer` تغییر کرد؛ نگه‌داریِ `audit_log`/`location_sample` از wrapperِ محدودِ مدلِ C (بخش ۱۰) انجام می‌شود. | بسته‌شده (S8-05)؛ آزمونِ PG16 **UNVERIFIED** |
+| F-S8-04-5 | مهاجرتِ 0070 بدونِ پنجره (`SET LOCAL ROLE dms_owner`) شکست می‌خورد. | مسیرِ مستقیم برای production ممنوع شد؛ مستند شد. | مستند‌شده |
+| F-S8-04-6 | پنجرهٔ مهاجرت باز ماندن باید دیده شود. | در S8-05 `recover`، قفلِ `pg_try_advisory_lock` برای مهاجرت، رد شدنِ پنجرهٔ از-قبل-باز در preflight، و آزمونِ W1–W4 (`scripts/test-migration-window.sh`) اضافه شد؛ **اجرای PG16 انجام نشد** (بخش ۱۰-ث). | نوشته‌شده؛ آزمایش **UNVERIFIED** |
+
+### ۹-ت) تصمیمِ مالک (وضعیت پس از S8-05)
+
+- **`audit_log` و `location_sample` — نگه‌داریِ پارتیشن:** در S8-05 **مدلِ C** (بخش ۱۰-الف) پیاده‌سازی شد: بدونِ انتقالِ مالکیت، wrapperِ `SECURITY DEFINER` با مالکِ همان جدول، EXECUTE فقط برای `dms_maintainer`. مدلِ A (انتقال به `dms_owner`) به تأییدِ مالک نیاز دارد و **اعمال نشده است**؛ مدلِ B (گرانتِ موقت در هر پنجره) برای نگه‌داریِ زمان‌بندی‌شده عملی نبود.
+- **مرزِ اعتماد دربارهٔ `audit_log`:** محافظتِ append-only فقط در برابرِ هویتِ برنامه است؛ مالک (`dms_migrator`) و ابرکاربر همچنان می‌توانند تغییر دهند و مالک می‌تواند خودش را دوباره GRANT کند. اگر محافظتِ تریگری در برابرِ مالک لازم است، تصمیمِ جداگانه‌ای است.
+
+### ۹-ث) مرزِ اعتماد و وضعیتِ S8
+
+- ابرکاربر (`postgres`) می‌تواند تریگرهای دفتر را غیرفعال کند و جدول را خالی کند؛ این با **آزمونِ مرزی** (`BOUNDARY`) ثبت شده و **محافظت ادعا نمی‌شود**.
+- مالکِ جدول (`dms_migrator` در پنجره، یا `dms_owner`) نیز در مرزِ اعتماد است.
+- **S8 بسته نمی‌شود** تا: (۱) پیاده‌سازیِ تصمیمِ ۹-ت، (۲) اجرای کاملِ CI-job جدید روی یک runner واقعی، (۳) اجرای مجدد روی محیطِ PG16+PostGIS (محیطِ قبلی بازتولید نشد؛ بخش گزارش)، و (۴) آزمون‌های `db-privileges` و `migrations-security` و RLS روی همان محیط با نتیجهٔ PASS.
+
+### ۹-ج) آزمون‌ها و ابزار
+
+- `apps/api/test/real-login-security.api.test.ts` — ۲۶ آزمون با نقش‌های LOGIN واقعی (TCP + SCRAM). اگر متغیرهای identity تنظیم نشده باشند **پرتاب** می‌کند (skip ندارد). نتیجه در JSON شواهد نوشته می‌شود (`REAL_LOGIN_EVIDENCE_FILE`).
+- `scripts/real-login-security.sh` — مسیرِ کاملِ بازتولیدپذیر: ساخت پایگاهِ یکبارمصرف ⇒ bootstrap ⇒ backup ⇒ up ⇒ verify ⇒ real-login ⇒ چرخهٔ `rollback 1`/`up` با مقایسهٔ schema ⇒ denial مهاجرِ غیرسوپرکاربر (42501) ⇒ real-login دوباره.
+- CI: job جدید `integration-real-login` (postgis/postgis:16-3.4) همین اسکریپت را اجرا می‌کند؛ فایل از `integration-db` حذف شده تا با ابرکاربر اجرا نشود.
+- `scripts/db-maintain.mjs` — نگه‌داریِ `inventory_txn` با `dms_maintainer`.
+
+### ۹-چ) شواهدِ اجرا و وضعیتِ فعلی
+
+- **اجرای مرجعِ قبل از بازنشانیِ محیط (PostgreSQL 16.2 + PostGIS 3.4.2 ساخته‌شده از سورس، TCP + SCRAM):** `real-login-security.sh` از صفر: bootstrap ✓، 29 مهاجرت (0042–0070) در پنجره ✓، real-login ۲۶/۲۶ ✓، چرخهٔ rollback/up با **صفر خط اختلافِ schema** ✓، 42501 برای down غیرسوپرکاربر ✓، real-login پس از چرخه ۲۶/۲۶ ✓. (این شواهد بعد از بازنشانیِ محیط در این نشست قابل بازپخش نیستند؛ اسکریپت آماده است.)
+- **این نشست (پس از بازنشانیِ محیط):** PostgreSQL و PostGIS در دسترس نیستند ⇒ آزمون‌های PG16 در این نشست **اجرا نشدند** (UNVERIFIED). اجرای no-DB: typecheck ✓، partition manifest ✓، unit ۶۲ فایل: ۱۰۱۰ pass، ۱ skip (از پیش‌موجود). identity/config: ۲۸/۲۸ ✓.
+- PGlite: در این checkout نصب نیست ⇒ UNVERIFIED در این نشست.
+
+## ۱۰. S8-05 — نگه‌داریِ audit_log/location_sample، سخت‌سازیِ پنجرهٔ مهاجرت، و شواهدِ بازتولیدپذیر
+
+> **وضعیت (TASK-GDMS-S8-OPERATIONAL-SECURITY-CLOSURE-05):** این بخش مدلِ **پیاده‌شده در کد** را ثبت می‌کند. اعتبارسنجیِ PostgreSQL 16 + PostGIS **انجام نشده است** (بخش ۱۰-ث، مسدودیِ زیرساخت). بنابراین همهٔ آزمون‌های PG16 در این نشست **UNVERIFIED** هستند و **S8 بسته نشده است**. PGlite هرگز جایگزینِ شواهدِ PostgreSQL نیست.
+
+### ۱۰-الف) تصمیم: مدلِ C (بدونِ انتقالِ مالکیت)
+
+**مسئله.** `CREATE TABLE … PARTITION OF <والد>` مالکیتِ والد را می‌خواهد. مالکِ فعلیِ `audit_log` و `location_sample` (و پارتیشن‌های موجودشان) هویتِ مهاجرت `dms_migrator` است؛ بدونِ آن هیچ هویتِ نگه‌داری نمی‌تواند پارتیشن بسازد. Task -04 انتقالِ مالکیتِ این دو جدول را بدونِ تأییدِ مالک ممنوع کرده است.
+
+| گزینه | وضعیت | دلیل |
+|---|---|---|
+| **A** — انتقالِ مالکیت به `dms_owner` + wrapper (الگوی 0070) | **تأیید مالک لازم؛ اعمال نشده** | امن‌ترین از نظرِ جداسازیِ وظایف (مالکِ NOLOGIN)، اما نقضِ قاعدهٔ Task -04 است و تغییرِ مالکیتِ دو جدول با داده‌های تاریخی نیاز به بررسیِ جداگانه دارد. |
+| **B** — گرانتِ موقتِ `EXECUTE` در هر پنجرهٔ مهاجرت | رد شد | نگه‌داریِ زمان‌بندیِ ماهانه را به پشتیبان و پنجرهٔ کامل مشروط می‌کرد؛ `fn_ensure_partitions` (0064) هم `SECURITY INVOKER` است و برای این دو والد کار نمی‌کند. |
+| **C** — wrapperِ `SECURITY DEFINER` با **مالکِ همان جدول** (`dms_migrator`)، بدونِ انتقال | **پیاده‌شده (0071)** | هیچ مالکیتی تغییر نمی‌کند؛ سطحِ امتیازِ wrapper دقیقاً همان سطحِ مالکِ جدول است؛ EXECUTE فقط برای `dms_maintainer`؛ ورودی فقط عدد ۰..۱۲؛ نام‌ها ثابت. |
+
+**اجزای مدلِ C (0071):**
+- `fn_maintain_audit_partitions(int)` و `fn_maintain_location_partitions(int)`: `SECURITY DEFINER`، `search_path = pg_catalog, public, pg_temp`، ورودی ۰..۱۲، ساختِ پارتیشنِ ماه‌های `-1..N`.
+- هر پارتیشنِ تازه: `FORCE RLS` و سیاستِ **همان** والد (0042): `audit_log` بر پایهٔ `fn_current_company_id()`، `location_sample` بر پایهٔ وجودِ `staff`.
+- گرانت‌ها: `dms_app` فقط `SELECT, INSERT`؛ `dms_readonly` فقط `SELECT`؛ هیچ `UPDATE/DELETE/TRUNCATE` برای `dms_app`.
+- پیش‌شرط‌ها و بررسی‌ها: `dms_maintainer` و `dms_readonly` و `fn_current_company_id()` باید وجود داشته باشند؛ هر دو والد باید پارتیشن‌شده باشند؛ **مالکِ wrapper باید با مالکِ جدول یکی باشد** (در غیر این صورت مهاجرت شکست می‌خورد).
+- EXECUTE: `REVOKE ALL` از `PUBLIC`، `dms_app`، `dms_readonly`، `dms_owner`؛ `GRANT EXECUTE` فقط به `dms_maintainer`.
+- اگر جدولی با نام پارتیشنِ بعدی وجود داشته باشد ولی پیوست نباشد (DETACH شده): **42P07**؛ هیچ DROP خودکار نیست.
+- **Down (0071):** فقط سوپرکاربر؛ wrapperها را حذف می‌کند؛ مالکیتِ جدولی تغییر نمی‌کند؛ پارتیشن‌ها حذف نمی‌شوند (داده‌های ممیزی).
+
+**هزینه‌ها و ریسک‌های پذیرفته‌شده (برای بازبینیِ مالک):**
+1. `dms_maintainer` EXECUTE‌ی **دائمی** روی سه wrapperِ نگه‌داری دارد: `fn_maintain_inventory_partitions` (0070)، `fn_maintain_audit_partitions` و `fn_maintain_location_partitions` (0071؛ بازنویسی در 0072). همه با ورودی ۰..۱۲.
+2. تعریفِ `SECURITY DEFINER` با مالکیتِ `dms_migrator` (هویتِ LOGINِ مهاجرت) است، نه `dms_owner` (NOLOGIN). درون بدنهٔ تابع همان امتیازِ مالک را دارد و بیرون از آن هیچ امتیازِ اضافه‌ای نمی‌دهد. اگر مالک A را ترجیح دهد، انتقال یک تصمیمِ جدا با همین wrapperها است.
+3. مالکِ جدول (`dms_migrator`) همچنان `DELETE/UPDATE/TRUNCATE` روی `audit_log`/`location_sample` دارد و می‌تواند خودش را GRANT کند (**مرزِ اعتماد**، نه محافظت).
+
+### ۱۰-ب) مدلِ نهاییِ امتیازها
+
+| هویت | نوع | امتیازهای نهایی | ممنوع (با آزمون/راستی‌آزمایی) |
+|---|---|---|---|
+| `dms_app` | LOGIN، هویتِ زمانِ اجرا | `SELECT/INSERT` روی دفترِ موجودی، `audit_log`، `location_sample` و پارتیشن‌ها | `UPDATE/DELETE/TRUNCATE` روی دفتر و ممیزی/موقعیت، `DISABLE TRIGGER`، `ALTER OWNER`، `SET ROLE`، EXECUTE روی هر `fn_maintain_*` و `fn_ensure_partitions`، عضویت/SET روی `dms_owner` و `dms_maintainer` |
+| `dms_maintainer` | LOGIN، هویتِ نگه‌داری | EXECUTE روی `fn_maintain_inventory_partitions`، `fn_maintain_audit_partitions`، `fn_maintain_location_partitions` (ورودی ۰..۱۲) | EXECUTE روی `fn_ensure_partitions`، DML/TRUNCATE/ALTER/CREATE، `SET ROLE dms_owner`، عضویت در `dms_owner` |
+| `dms_migrator` | LOGIN، هویتِ مهاجرت | خارج از پنجره: مالکِ جداولِ `public` (شامل `audit_log`/`location_sample` بدونِ تغییر)، بدون عضویت/SET روی `dms_owner`؛ در پنجره: `GRANT dms_owner WITH INHERIT FALSE, SET TRUE` | خارج از پنجره: `SET ROLE dms_owner`، `CREATE/ALTER ROLE`، `GRANT dms_owner`، `TRUNCATE/DISABLE TRIGGER` روی دفتر، سوپرکاربر |
+| `dms_owner` | NOLOGIN، مالک | مالکِ `inventory_txn`، پارتیشن‌هایش، و wrapperِ `fn_maintain_inventory_partitions` (0070؛ بازتعریف در 0072) | LOGIN، عضویتِ هر هویتِ عملیاتی |
+| `dms_readonly` | نقشِ گزارش | `SELECT` روی پارتیشن‌های ممیزی/موقعیت | هر نوشتن |
+| `postgres`/سوپرکاربر | BOUNDARY | همه‌چیز | **محافظت نمی‌شود** (بخش ۹-ث) |
+
+### ۱۰-پ) پنجرهٔ مهاجرت: شکست‌ها، رفتار، و وضعیتِ آزمون
+
+ترتیبِ `up`: **preflight** (وجود و هشِ پشتیبان، `pg_restore --list`، پنجرهٔ از-قبل-باز، راستی‌آزماییِ هویت و دفتر) ⇒ قفلِ مشاوره‌ای ⇒ **GRANT** ⇒ `migrate.mjs up` (قفلِ نشستِ `dms-migrate`، رد شدنِ فایل‌های اعمال‌شدهٔ تغییر‌یافته) ⇒ **REVOKE** (با اتصالِ تازه و سه تلاش) ⇒ **راستی‌آزماییِ پس از بستن**.
+
+| # | حالتِ شکست | رفتارِ طراحی‌شده | آزمون | وضعیت |
+|---|---|---|---|---|
+| W0 | پشتیبانِ ناقص/ناهمخوانِ هش/`pg_restore --list` شکست | `up` پیش از GRANT متوقف | فقط کد (`backupGate`)؛ در `test-migration-window.sh` نیست | **UNVERIFIED** (PG16) |
+| W1 | پنجرهٔ باز مانده (GRANT دستیِ فراموش‌شده) | `verify` کد غیرصفر؛ `up` در preflight رد؛ `recover` می‌بندد | `test-migration-window.sh` W1 | **UNVERIFIED** |
+| W2 | قطعیِ کامل (SIGKILL گروهِ فرایند) **در میانهٔ مهاجرت و پس از GRANT** | پنجره می‌ماند (بدیهی)، تراکنشِ مهاجرت برمی‌گردد، `recover` با اتصالِ تازه می‌بندد و `verify` می‌گذرد | W2 | **UNVERIFIED** |
+| P1 | قطعیِ **فقط والد** (SIGKILL به پروسهٔ `db-window up`؛ فرزند جدا) | فرزندِ مهاجرت با قطع‌شدنِ IPC خارج می‌شود (`migrate.mjs` ⇒ `disconnect`)؛ مهاجرت ثبت نمی‌شود؛ پنجره باز می‌ماند و `recover` می‌بندد | `test-migration-window.sh` P1 | **UNVERIFIED** |
+| P2 | SIGTERM **فقط به والد** | والد به فرزند فوروارد می‌کند، تا خروجِ فرزند صبر، پنجره را می‌بندد و با کد 130 خارج می‌شود | `test-migration-window.sh` P2 | **UNVERIFIED** |
+| R1 | `rollback` هنگامِ نگه‌داشته‌شدنِ قفلِ پنجره | رد با پیامِ قفل (rollback زیرِ همان قفلِ `up` اجرا می‌شود) | `test-migration-window.sh` R1 | **UNVERIFIED** |
+| W3 | خطای SQL داخل مهاجرت | تراکنشِ همان مهاجرت برمی‌گردد؛ ledger بدون تغییر؛ پنجره بسته؛ کد غیرصفر | W3 | **UNVERIFIED** |
+| W4 | راستی‌آزماییِ پس از مهاجرت شکست (مهاجرت drift ایجاد کرد) | کد غیرصفر؛ پنجره بسته؛ بازیابیِ دستی (`revoke` + حذف ردیفِ فیکسچر فقط در پایگاهِ یکبارمصرف) | W4 | **UNVERIFIED** |
+| W5 | شکست در REVOKE | `closeWindow` سه بار با تأخیر؛ شکستِ نهایی ⇒ کد ۳ و پیام **CRITICAL** با دستور `recover` | — | **UNVERIFIED** (بدونِ hook تزریقِ خطا) |
+| W6 | شکست در بررسیِ SET پس از GRANT | `grantWindow` خطا می‌دهد؛ `up` از `finally` پنجره را می‌بندد | — | **UNVERIFIED** (کد موجود، آزموده نشده) |
+| W7 | بازیابی بدونِ امتیازِ دائمیِ owner | پس از `recover`: `dms_migrator` بدون SET/عضویت؛ `dms_app`/`dms_maintainer` عضوِ `dms_owner` نیستند | W7 | **UNVERIFIED** |
+| W8 | rollback توسط غیرسوپرکاربر | `0071.down`/`0070.down` با `42501` رد | در `real-login-security.sh` بررسی می‌شود؛ در `test-migration-window.sh` نیست | **UNVERIFIED** |
+| W9 | اجرای هم‌زمانِ دو مهاجرت | قفلِ مشاوره‌ای (`dms-db-window`) و قفلِ نشست (`dms-migrate`) ⇒ رد با پیام | فقط کد؛ آزمونِ اسکریپتی ندارد | **UNVERIFIED** |
+| W10 | فایلِ اعمال‌شده تغییر کرده | `migrate.mjs` پیش از هر تغییر رد می‌کند | فقط کد؛ آزمونِ اسکریپتی ندارد | **UNVERIFIED** |
+| W11 | `reset` در production یا بدونِ `DMS_ALLOW_DESTRUCTIVE_RESET=yes` | رد | فقط کد؛ آزمونِ اسکریپتی ندارد | **UNVERIFIED** |
+
+**پیامدِ مهم برای استقرارهای موجود:** چون 0069/0070 (up) در S8-04 ویرایش شدند، هر پایگاهی که آن‌ها را با checksum قدیمی اعمال کرده باشد، با W10 در `up` متوقف می‌شود. این تصمیمِ مالک است (بخش ۱۰-ج)؛ برای پایگاه‌های بدونِ این دو مهاجرتِ اعمال‌شده، هیچ اقدامی لازم نیست.
+
+### ۱۰-ت) تغییرهای ابزار و کد
+
+- `scripts/db-window.mjs`: بک‌آپ با `pg_restore --list` و هشِ `.sha256`؛ `grantWindow` با پیش‌بررسی (پنجرهٔ تکراری ممنوع) و بررسیِ SET؛ `closeWindow` با اتصالِ تازه و سه تلاش؛ سیگنال‌های SIGINT/SIGTERM پنجره را می‌بندند؛ `rollback` پیش و پس از برگشت راستی‌آزمایی می‌شود؛ دستور جدید `recover`؛ `verify` پیوستگیِ دفتر (`ledgerProblems`) را هم بررسی می‌کند.
+- `scripts/migrate.mjs`: `assertNoTamper` (مقایسهٔ checksum فایل‌های اعمال‌شده)؛ قفل `dms-migrate`؛ `reset` فقط با `DMS_ALLOW_DESTRUCTIVE_RESET=yes` و خارج از production.
+- `scripts/db-maintain.mjs`: سه والد (`inventory_txn`، `audit_log`، `location_sample`) با wrapperِ اختصاصی؛ مالکیتِ هر پارتیشن باید با مالکِ والدش یکی باشد؛ `check` و `partitions --months N`.
+- `scripts/lib/db-identity.mjs`: `ledgerProblems` (مالکیت، `FORCE RLS`، تعداد تریگرهای محافظ، گرانت‌های `dms_app`) بر اساسِ نسخه‌های اعمال‌شده.
+- `migrations/0071_*.up.sql` و `.down.sql` (بخش ۱۰-الف).
+- `scripts/real-login-security.sh`: آزمونِ LOGIN واقعی به‌همراه چرخهٔ up/down/up و مرحلهٔ بررسیِ جدیدترین `down` (نه نامِ ثابت)؛ جزئیاتِ مراحل در خودِ اسکریپت است.
+- `scripts/test-migration-window.sh`: سناریوهای W1–W4، W7، P1، P2، R1 (همه UNVERIFIED تا اجرای PG16) و W5/W6/D4 که **بدونِ hook تزریقِ خطا** به‌صورت UNVERIFIED ثبت می‌شوند. W0 و W8–W11 در این اسکریپت **نیستند**؛ W8 در `real-login-security.sh` [6/9] بررسی می‌شود و W9–W11 فقط کدند. `real-login-security.sh` [9/9] با وجودِ هر موردِ UNVERIFIED **PASS نمی‌دهد** (کد خروج 2). اسکریپت روی کپیِ موقتِ مهاجرت‌ها کار می‌کند؛ مهاجرتِ مخزن تغییر نمی‌کند.
+- `scripts/pg16-local-validate.sh`: خوشهٔ ایزوله (initdb، `127.0.0.1`، SCRAM، رمز تصادفی، پایان با حذفِ رمز)، ثبت نسخه‌ها و checksum مهاجرت‌ها، اجرای `real-login-security.sh` و مجموعهٔ `db-privileges`، `ledger-*`، `inventory-ledger-http`، `audit-partition-recovery`، `tenant-isolation`، `migrations-security` و `test-migrations`؛ خروجی `summary.json`.
+- `apps/api/src/common/audit.service.ts`: پیامِ عملیاتیِ `fn_ensure_partitions(2)` با هویتِ مالک حذف شد؛ اکنون `db-maintain.mjs partitions` با `dms_maintainer` است.
+- `apps/api/test/real-login-security.api.test.ts`: مالکیتِ پارتیشن‌ها با مالکِ والد؛ آزمون‌های `dms_maintainer` روی wrapperهای audit/location؛ آزمونِ پارتیشنِ DETACH‌شده (42P07 و بدونِ DROP).
+
+### ۱۰-ث) اعتبارسنجیِ انجام‌شده و وضعیتِ شواهد
+
+| بررسی | نتیجه | نوع |
+|---|---|---|
+| `tsc --noEmit` (apps/api) | PASS | بدونِ PostgreSQL |
+| `check-test-partition.mjs` | PASS (135 فایل) | بدونِ PostgreSQL |
+| unit (`--print unit`، 62 فایل) | PASS: 1010 pass، 1 skip (از پیش‌موجود) | بدونِ PostgreSQL |
+| identity + production-config | PASS: 28/28 | بدونِ PostgreSQL |
+| `node --check` / `bash -n` روی اسکریپت‌های جدید | PASS | نحوی |
+| **PostgreSQL 16 + PostGIS** | **BLOCKED**: PostgreSQL 16.16 (با OpenSSL و contrib) ساخته شد؛ PostGIS 3.4.6 به‌دلیلِ نبودِ `ltmain.sh` کاربردیِ libtool 2.4.7 ساخته نشد (شرح کامل: `s8-env-05/BLOCKER-postgis.md`). | زیرساخت |
+| bootstrap، 0001..0072، real-login، rollback/reapply، db-privileges، migrations-security، ledger، نگه‌داریِ پارتیشن، پنجرهٔ شکست W0–W11 (اسکریپتی: W1–W7، P1، P2، R1) | **UNVERIFIED** (نیاز به PG16+PostGIS) | — |
+| PGlite | **استفاده نشد** | — |
+
+**نتیجه:** S8 **بسته نشده است**. آنچه در کد و آزمون‌ها آماده است: مدلِ C، ابزارِ پنجره با مسیرهای شکست، و اسکریپت‌های بازتولیدپذیر. آنچه باقی است: اجرای همان اسکریپت‌ها روی PG16+PostGIS واقعی و ثبتِ شواهد.
+
+### ۱۰-ج) محدودیت‌ها، تصمیم‌های باز، و ریسک‌های باقی‌مانده
+
+1. **مرزِ اعتماد:** ابرکاربر و مالکِ جداول (`dms_migrator`) می‌توانند دفتر را تغییر دهند و خودشان را GRANT کنند. این محافظت نیست.
+2. **تصمیمِ مالک — مدلِ A یا C:** C پیاده شده است. اگر مالک A (انتقال به `dms_owner` NOLOGIN) را ترجیح می‌دهد، باید صریحاً تأیید کند؛ آنگاه wrapperها و مالکیت جابه‌جا و آزموده می‌شوند.
+3. **تصمیمِ مالک — ویرایشِ 0069/0070:** این دو مهاجرتِ اعمال‌شده در S8-04 ویرایش شدند و با قاعدهٔ «مهاجرتِ اعمال‌شده تغییر نمی‌کند» در تعارض‌اند. `migrate.mjs` اکنون تغییرِ checksum را رد می‌کند؛ پایگاه‌هایی که نسخهٔ قدیمی را اعمال کرده‌اند باید به‌صورتِ کنترل‌شده بررسی شوند (بازسازی یا اصلاحِ ledger با تأیید مالک).
+4. **تصمیمِ مالک — `fn_ensure_partitions(2)`:** دستورِ عملیاتیِ قدیمی حذف شد؛ اما گرانت‌های 0064 بدون تغییر ماندند. هر نیازِ دیگری به این تابع با هویتِ مالک، تصمیمِ جداگانه است.
+5. **W5 و W6 و D4 (S8-07):** قلاب‌های خطای آزمایشی (`scripts/lib/test-fault-hooks.mjs`) اکنون در کد هستند و فقط با تأییدِ صریحِ `DMS_TEST_HOOKS` و هویتِ ابرکاربرِ آزمون فعال می‌شوند؛ در production و با هر هویتِ زمانِ اجرا خاموش‌اند. اجرای ماتریسِ پنجره روی PostgreSQL 16 هنوز **UNVERIFIED** است.
+6. **backup:** `pg_restore --list` فقط ساختارِ فهرست را بررسی می‌کند؛ بازیابیِ واقعیِ پشتیبان روی یک پایگاهِ مجزا آزموده نشده است.
+7. **Standing EXECUTE** برای `dms_maintainer` روی wrapperهای نگه‌داری (بخش ۱۰-الف، ریسک ۱).
+8. **زیرساخت:** PostgreSQL 16 + PostGIS روی این ماشین ساخته نشده است؛ CI (`integration-real-login`) با `postgis/postgis:16-3.4` همین مسیرها را اجرا می‌کند، اما هنوز روی runner اجرا نشده است.
+
+### ۱۰-چ) فرمان‌های بازتولیدپذیر
+
+```bash
+# (۱) اعتبارسنجیِ کامل روی یک PostgreSQL 16 + PostGIS ایزوله (هرگز تولید/مشترک)
+PG_BIN=/path/to/pg16/bin EVID_DIR="$HOME/s8-evidence-05/run-$(date -u +%Y%m%dT%H%M%SZ)" \
+  bash scripts/pg16-local-validate.sh
+
+# (۲) فقط مسیر real-login (با ابرکاربرِ یکبارمصرف؛ CI همین را اجرا می‌کند)
+ADMIN_DATABASE_URL='postgres://postgres:<ephemeral>@127.0.0.1:5432/postgres' \
+  REAL_LOGIN_DB=greendms_real_login REAL_LOGIN_EVIDENCE_DIR="$EVID" \
+  bash scripts/real-login-security.sh
+
+# (۳) نگه‌داریِ پارتیشن‌ها (هویت dms_maintainer)
+MAINTENANCE_DATABASE_URL='postgres://dms_maintainer:<secret>@db:5432/greendms' \
+  node scripts/db-maintain.mjs partitions --months 2
+
+# (۴) بازیابی پس از قطعی
+ADMIN_DATABASE_URL='postgres://postgres:<secret>@db:5432/greendms' \
+  node scripts/db-window.mjs recover
+```
+
+## ۱۱. S8-06 — بازبینیِ D1/D2، انتقال‌های نقش، 0072، و تشخیصِ checksum
+
+> **وضعیت (TASK-GDMS-S8-SECURITY-REMEDIATION-06):** این بخش **ایستا** است (کد PostgreSQL 16.16 و خوانشِ مهاجرت‌ها). هیچ نتیجهٔ PostgreSQL در این تسک اجرا نشد؛ هر ادعای رفتاری **UNVERIFIED** است تا اجرای PG16+PostGIS. S8 بسته نشده است.
+
+### ۱۱-الف) D1 — سایه‌زنیِ نام‌ها از طریقِ `pg_temp` (منبع: `src/backend/catalog/namespace.c`، PG 16.16)
+
+| نوعِ جست‌وجو | جدولِ موقتِ همان نشست در جست‌وجو؟ | مرجع کد | نتیجه |
+|---|---|---|---|
+| تابع (`FuncnameGetCandidates`) | خیر؛ جدولِ موقت حذف می‌شود | L1015–1018 | سایه‌زنیِ تابع ممکن **نیست** |
+| عملگر | خیر | L1584–1589 | ممکن **نیست** |
+| نوع (`TypenameGetTypidExtended`، `temp_ok=false`) | خیر | L794–798 | ممکن **نیست** |
+| رابطه (`RelnameGetRelid`) | **بله، اولین** مگر `pg_temp` صریحاً در `search_path` باشد | L683–700 | **سایه‌زنیِ رابطهٔ کاتالوگ ممکن است** |
+
+**تهدید (threat model).** مهاجم باید (الف) EXECUTE روی wrapper داشته باشد (فقط `dms_maintainer`) و (ب) TEMP روی پایگاه داشته باشد (PUBLIC به‌صورتِ پیش‌فرض دارد). 0070 `fn_maintain_inventory_partitions` با `search_path = pg_catalog, public` (بدونِ `pg_temp`) و نام‌های بی‌پیشوندِ `pg_inherits`/`pg_class` اجرا می‌شد. جدولِ موقتِ `pg_inherits` مهاجم حلقهٔ پارتیشن‌ها را کنترل می‌کرد و حلقهٔ همگام‌سازی `fn_inventory_txn_protect_partition(v_part)` را با OIDِ دلخواه و **با حقوقِ dms_owner** صدا می‌زد. آن تابع `CREATE TRIGGER` و `REVOKE … FROM dms_app` روی همان رابطه می‌زند. **اثر:** دست‌کاریِ تریگر و گرانت روی رابطه‌هایی که dms_owner به آن‌ها دسترسی دارد؛ **نه** سوپرکاربر، نه خواندنِ مستقیمِ داده. **وضعیت: خطرِ واقعیِ ایستا؛ اثباتِ PG16 UNVERIFIED.**
+
+- **0071:** wrapperها `search_path = pg_catalog, public, pg_temp` دارند؛ چون `pg_catalog` پیش از `pg_temp` است، کاتالوگ اول پیدا می‌شود. در برابرِ همین سایه‌زنی محافظت‌شده است (ایستا).
+- **0072 (inventory):** `search_path = pg_catalog, public, pg_temp`، همهٔ کاتالوگ‌ها با `pg_catalog.` و تابع‌ها با `public.` نام‌گذاری شده‌اند. نام‌های کاملاً واجد‌پیشوند هیچ مسیرِ جست‌وجویی ندارند.
+- **باقیِ ریسک:** TEMP برای PUBLIC. `bootstrap` (`db-window.mjs`، مرحلهٔ ۳-ج) آن را برمی‌دارد. دلیلِ امنیِ این کار: کدِ برنامه، مهاجرت‌ها و اسکریپت‌های نگه‌داری از جدولِ موقت استفاده نمی‌کنند (جست‌وجو در `apps/api` و `scripts`). ابرکاربر TEMP را همیشه دارد و تحت‌تأثیر قرار نمی‌گیرد. **برای محیط‌های موجود**، این گام دستیِ یک‌باره است: `REVOKE TEMP ON DATABASE <db> FROM PUBLIC` با ابرکاربر، و نتیجه در گزارشِ استقرار ثبت شود. (UNVERIFIED)
+
+**طرحِ آزمون (اثبات یا ابطال، اجرانشده).** روی PG16 با LOGIN واقعیِ `dms_maintainer`:
+1. `create temp table pg_inherits(inhrelid oid, inhparent oid, inhseqno int, inhdetachpending bool)` و درجِ ردیفی که پارتیشنِ ماهِ آینده را «پیوست‌شده» نشان می‌دهد.
+2. فراخوانیِ wrapper روی **0070** (پیش از 0072): **اثبات** اگر پارتیشن ساخته نشد یا حلقهٔ محافظت با OIDِ مهاجم رفت.
+3. همان روی **0072**: **ابطال** اگر wrapper از کاتالوگ می‌خواند و پارتیشنِ واقعی ساخته می‌شود.
+4. پس از `REVOKE TEMP FROM PUBLIC`: `create temp table` توسط `dms_maintainer` ⇒ انتظار `42501`.
+5. آزمونِ جداگانه: `pg_has_role`/`has_function_privilege` برای PUBLIC روی هر سه wrapper ⇒ `false`.
+
+### ۱۱-ب) D2 — مالکیت و انتقال‌های نقش
+
+| شیء | مالکِ فعلی (پس از 0070/0072) | wrapper | گزینهٔ انتقال | تصمیم |
+|---|---|---|---|---|
+| `inventory_txn` و پارتیشن‌ها | `dms_owner` (NOLOGIN) از 0070 | `dms_owner` (0072: `set local role dms_owner` + `create or replace`) | — | **پیاده‌شده (کد؛ UNVERIFIED)** |
+| `audit_log` و پارتیشن‌ها | `dms_migrator` (LOGIN) | `dms_migrator` (مدلِ C) | انتقال به `dms_owner` (مدلِ A) | **تصمیمِ مالک لازم؛ اعمال نشد.** انتقال باید جدا به هر پارتیشن انجام شود (مالکیت به پارتیشن‌ها بازگشتی نیست)، با بررسیِ ACLهای 0064 و پیش‌فرض‌ها. |
+| `location_sample` و پارتیشن‌ها | `dms_migrator` | `dms_migrator` | همان | همان |
+
+**انتقال‌های نقش (پس از 0072):**
+
+| هویت | عضویت/SET | EXECUTE روی نگه‌داری | یادداشت |
+|---|---|---|---|
+| `dms_migrator` | خارج از پنجره: **هیچ** عضویت یا SET به `dms_owner`. در پنجره: `GRANT dms_owner TO dms_migrator WITH INHERIT FALSE, SET TRUE` (توسط ابرکاربر) سپس REVOKE با اتصالِ تازه | ندارد | `ALTER OWNER` نیاز به SET دارد؛ هیچ عضویتِ دائمی نیست |
+| `dms_owner` | NOLOGIN؛ هیچ عضوی جز پنجرهٔ مهاجرت | مالکِ wrapperِ inventory | LOGIN و عضویتِ عملیاتی ممنوع |
+| `dms_maintainer` | عضوِ `dms_owner` **نیست**؛ `SET ROLE dms_owner` ندارد | EXECUTE روی سه wrapper (۰..۱۲) | `fn_ensure_partitions` در دسترس نیست |
+| `dms_app` | بدونِ عضویت و SET | **ندارد** | `SELECT/INSERT` روی دفتر و ممیزی؛ UPDATE/DELETE/TRUNCATE ندارد |
+| `dms_readonly` | بدونِ عضویت | **ندارد** | فقط `SELECT` |
+| `PUBLIC` | — | **ندارد** (`REVOKE ALL`) | پس از بررسیِ 0072 (post-check) |
+
+**نکتهٔ ایستا:** `ALTER TABLE … OWNER` روی `fn_ensure_partitions` دوباره EXECUTE را به `dms_owner` می‌دهد (گزارش‌شده در تسک‌های قبل)؛ بنابراین این تابع منتقل نشد و در فهرستِ wrapperها نیست.
+
+**بازگشت (down):** `0070.down`، `0071.down` و `0072.down` فقط برای ابرکاربرند. `0072.down` بدنهٔ wrapperهای 0070/0071 را برمی‌گرداند؛ **ACLِ پارتیشن‌ها و محدودیت‌های `schema_migrations` را برنمی‌گرداند**. این دو مورد در جدولِ break-glass (بخش ۳-ج) ثبت شده‌اند.
+
+### ۱۱-پ) 0072 — آنچه تغییر می‌کند و آنچه نمی‌کند
+
+- **تغییر:** سه wrapper با `search_path = pg_catalog, public, pg_temp`؛ نام‌های کاملاً واجد‌پیشوند؛ مالکِ inventory `dms_owner`؛ REVOKE صریحِ UPDATE/DELETE/TRUNCATE روی پارتیشن‌های audit/location (به پیش‌فرض‌های 0041 تکیه نمی‌کند)؛ REVOKE از `schema_migrations` برای نقش‌های زمانِ اجرا؛ post-check که در صورت انحراف شکست می‌خورد (`prosecdef`، `proconfig`، PUBLIC EXECUTE، نبودِ EXECUTE برای dms_maintainer، وجودِ EXECUTE برای نقش‌های زمانِ اجرا).
+- **پیش‌فرض‌های 0041 (`ALTER DEFAULT PRIVILEGES`، L103–107):** این پیش‌فرض‌ها برای اشیائی‌اند که نقشِ **اجراکننده‌ی** 0041 ساخته است، نه لزوماً `dms_migrator`. اینکه آیا برای جدول‌های ساخته‌شده توسط wrapper اعمال می‌شوند، به هویتِ اجرای 0041 بستگی دارد و **UNVERIFIED** است. 0072 با REVOKE صریح این را بی‌اثر می‌کند.
+- **نمی‌کند:** مالکیتِ audit/location را منتقل نمی‌کند (تصمیمِ مالک)؛ داده را تغییر نمی‌دهد؛ checksum یا فایلِ مهاجرتِ قبلی را تغییر نمی‌دهد.
+- **وضعیتِ فایل:** مهاجرتِ جدید؛ checksumِ مبنا ندارد؛ **هیچ اجرای PG16 نشده است** (UNVERIFIED). نحوِ parse فقط با parser ایستا (`libpg-query` ۱۸، نه PG16) بررسی شده است.
+
+### ۱۱-ت) فهرستِ محیط‌هایی که ممکن است ۰۰۶۸–۰۰۷۱ را اعمال کرده باشند
+
+- این چهار فایل در `HEAD` (`1a58aed`) **نیستند** (untracked). پس هیچ کامیتِ منتشرشده‌ای آن‌ها را شامل نمی‌شود؛ فقط کپیِ کاری آن‌ها را اعمال کرده است.
+- برای هر محیط: `select version, checksum, applied_at from schema_migrations where version >= '0068'`. اگر ردیفی وجود دارد، checksum را با فایل‌های فعلیِ `sha256sum` مقایسه کنید. checksumهای فعلی: 0068 up `9dcf28cf…`؛ 0069 up `a53d13b4…`؛ 0070 up `11f31d09…`؛ 0071 up `acf5004d…` (و downها در بخش‌های قبل).
+- **production:** اگر ردیفی برای ۰۰۶۸+ دارد، این یک رخدادِ مدیریتی است و تا تصمیمِ مالک `up` متوقف است (روالِ تشخیص: `PRODUCTION_DEPLOYMENT.md` بخش ۴-ث).
+
+### ۱۱-ث) مرزِ اعتماد (بدونِ ادعای بیشتر)
+
+- محافظت در برابرِ **ابرکاربر** و **مالکِ زیرساخت** وجود ندارد؛ PostgreSQL این را در داخلِ پایگاه‌داده نمی‌بندد (بخش ۹-ث).
+- محافظت در برابرِ **مالکِ جداولِ audit/location** (`dms_migrator`) وجود ندارد تا انتقالِ مالکیت تأیید شود.
+- در برابرِ `dms_app` و `dms_maintainer` (با آزمونِ LOGIN واقعی، که هنوز UNVERIFIED است) طراحی شده است.
+
+### ۱۱-ج) وضعیتِ شواهد
+
+| ادعا | وضعیت |
+|---|---|
+| D1 — سایه‌زنی توابع/عملگرها/انواع ممکن نیست | **PASS ایستا** (منبع کد PG16.16) |
+| D1 — سایه‌زنی رابطه از 0070 | **FAIL ایستا** (خطرِ واقعی)؛ اثباتِ PG16 **UNVERIFIED** |
+| D1 — 0071/0072 در برابرِ سایه‌زنی رابطه | **PASS ایستا** (ترتیبِ search_path و نام‌های واجد‌پیشوند)؛ PG16 **UNVERIFIED** |
+| D2 — `dms_owner` برای inventory | کد پیاده‌شده؛ PG16 **UNVERIFIED** |
+| D2 — `audit_log`/`location_sample` | **BLOCKED**: تصمیمِ مالک |
+| D3 — W2 `application_name` | کد رفع شد (`migrate.mjs`)؛ اجرای PG16 **UNVERIFIED** |
+| D4 — کد خروجِ 3 | کد رفع شد (`fail()`)؛ **UNVERIFIED** (بدونِ hook) |
+| W8/W9/W10 قدیمی (نامِ جدید P1/P2/R1) | کد و اسکریپت؛ **UNVERIFIED** |
+| W5/W6 | **UNVERIFIED** (بدونِ hook تزریقِ خطا) |

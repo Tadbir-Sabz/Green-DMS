@@ -193,8 +193,10 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     for (let i = 1; i < numbers.length; i += 1) {
       expect(numbers[i], `شکاف یا ترتیبِ نادرست پیش از ${files[i]}`).toBe(numbers[i - 1] + 1);
     }
-    // TASK-P4-FC: مهاجرت 0067 بستن مالی مرجوعی آخرین مهاجرت است.
-    expect(files[files.length - 1]).toBe('0067_return_financial_closure.up.sql');
+    // TASK-P4-FC: مهاجرت 0067 بستن مالی مرجوعی بود. S8 مهاجرت‌های 0068 (دفتر موجودی:
+    // append-only و مالکِ نگه‌داشت) و 0069 (محافظت پارتیشن‌های آتیِ دفتر) را افزود؛
+    // سرِ زنجیره به‌روز شد. این پین باید با هر مهاجرتِ تازه به‌روز شود.
+    expect(files[files.length - 1]).toBe('0070_inventory_ledger_owner_separation.up.sql');
 
     // هر up باید downِ متناظر داشته باشد، وگرنه rollback ممکن نیست
     for (const f of files) {
@@ -333,8 +335,12 @@ describe('مهاجرت‌ها — نصبِ تازه و چرخهٔ 0048', () => {
     try {
       // مبنای «پیش از ۰۰۶۴» شامل همهٔ مهاجرتهای دیگر — از جمله ۰۰۶۵ — است؛
       // ۰۰۶۴ فقط وضعیت تابع نگهداشت پارتیشن/کامنت طرحواره را تغییر میدهد.
+      // 0069 (S8) بعد از ۰۰۶۴ تابع fn_ensure_partitions را بازتعریف می‌کند (search_path پین‌شده).
+      // 0070 (S8/F1) هم fn_ensure_partitions را بازتعریف و مالکیتِ دفتر را منتقل می‌کند؛ مثل ۰۰۶۹ عمداً در مبنا نیست.
+      // این آزمون وضعیتِ «پیش از ۰۰۶۴» را می‌سنجد، پس ۰۰۶۹ عمداً در مبنا نیست؛ بازگشت و
+      // اعمالِ ۰۰۶۹ در ledger-partition-protection.api.test.ts (P2 و P4) پوشش داده می‌شود.
       const files = readdirSync(path.join(ROOT, 'migrations'))
-        .filter((f) => f.endsWith('.up.sql') && !f.startsWith('0064_'))
+        .filter((f) => f.endsWith('.up.sql') && !f.startsWith('0064_') && !f.startsWith('0069_') && !f.startsWith('0070_'))
         .sort();
       for (const f of files) runSqlFileOn(dbName, path.join(ROOT, 'migrations', f));
       isolated = new pg.Pool({ connectionString: isolatedUrl.toString(), max: 1 });

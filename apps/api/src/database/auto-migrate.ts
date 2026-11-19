@@ -7,9 +7,10 @@ import pg from 'pg';
  * اعمال خودکار مهاجرت‌ها پیش از بالا آمدن API — تا «مهاجرتِ اعمال‌نشده» هرگز
  * به شکل خطای 500 روی درخواست‌ها دیده نشود:
  *
- * - پیش‌فرض: `scripts/migrate.mjs up` همراه با خودِ برنامه اجرا می‌شود (همه‌چیز در همان
+ * - پیش‌فرض: `scripts/migrate.mjs up` همراه با خودِ برنامه اجرا می‌شود؛ مهاجرتِ owner-دار (S8-07) در این مسیر
+ *   هرگز اعمال نمی‌شود و فقط با scripts/db-window.mjs up ممکن است (DMS_MIGRATE_CALLER=api-auto). (همه‌چیز در همان
  *   ترتیب و با همان قواعدِ اسکریپت: تراکنش واحد، جدول schema_migrations و checksum).
- * - `AUTO_MIGRATE=false` فقط وضعیت را می‌خواند و هشدار می‌دهد (اجرای دستی با migrate up).
+ * - `AUTO_MIGRATE=false` فقط وضعیت را می‌خواند و هشدار می‌دهد (اجرای دستی: scripts/db-window.mjs up برای مهاجرت‌های مالکانه).
  * - شکست در اتصال یا اعمال مهاجرت ⇒ خطای روشن و خروج غیرصفر؛ برنامه بالا نمی‌آید،
  *   چون بالا آمدنِ نیمه‌کاره همان 500های بعدی است.
  * - با pg_advisory_lock جلوی اجرای هم‌زمان چند نمونه (مثلاً restart در nest --watch)
@@ -53,7 +54,9 @@ const runMigrateCli = (
   new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [script, ...args], {
       cwd: path.dirname(path.dirname(script)), // ریشهٔ پروژه (جایی که scripts/ است)
-      env: process.env, // DATABASE_URL فعلی به فرزنده منتقل می‌شود
+      // DATABASE_URL فعلی به فرزنده منتقل می‌شود. S8-07: فرزند با DMS_MIGRATE_CALLER=api-auto
+      // بدانی می‌شود که مهاجرتِ owner-دار را هرگز اعمال نکند (حتی اگر پنجره باز باشد).
+      env: { ...process.env, DMS_MIGRATE_CALLER: 'api-auto' },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
@@ -75,17 +78,6 @@ const logLines = (text: string): void => {
  * خواندن تعداد مهاجرت‌های در انتظار از خروجی `status --json`
  * (خط JSON از میان بنرهای احتمالی محیط اجرا جدا می‌شود؛ null یعنی نتوانستیم بخوانیم)
  */
-const readPendingCount = (out: string): number | null => {
-  const line = out.split(/\r?\n/).find((l) => l.trimStart().startsWith('{'));
-  if (!line) return null;
-  try {
-    const parsed: unknown = JSON.parse(line);
-    const pending = (parsed as { pending?: unknown }).pending;
-    return typeof pending === 'number' ? pending : null;
-  } catch {
-    return null;
-  }
-};
 
 /**
  * آماده‌سازی پایگاه‌داده پیش از listen — خطاها را با پیام فارسی بالا می‌اندازد
@@ -93,6 +85,25 @@ const readPendingCount = (out: string): number | null => {
  */
 export async function prepareDatabase(): Promise<void> {
   const mode = autoMigrateMode(process.env.AUTO_MIGRATE);
+
+  // S8-06: حالت «check» (AUTO_MIGRATE خاموش) هیچ اتصالی به پایگاه‌داده نمی‌زند:
+  // نه با DATABASE_URL (هویتِ مهاجرت/مدیریتی) و نه با هیچ هویتِ دیگری. API هنگامِ بوت
+  // DDL نمی‌زند و به اعتبارنامهٔ مهاجرت نیاز ندارد. راستی‌آزماییِ مهاجرت/دفتر خارج از API
+  // با scripts/db-window.mjs verify انجام می‌شود.
+  if (mode === 'check') {
+    console.warn(
+      '[migrate] AUTO_MIGRATE خاموش است؛ وضعیت مهاجرت‌ها هنگامِ بوت بررسی نمی‌شود. ' +
+        'راستی‌آزمایی: node scripts/db-window.mjs verify (مهاجرت: scripts/db-window.mjs up).',
+    );
+    return;
+  }
+  // اعمالِ خودکار هرگز در production مجاز نیست (همچنین در production-config اجباری است).
+  // استثنا: پشتهٔ محلیِ throwaway که NODE_ENV=production دارد و DMS_ACCEPT_INSECURE_LOCAL_SETUP=true
+  // (همان اذعانِ production-config) دارد. هرگز در production واقعی.
+  const localThrowaway = (process.env.DMS_ACCEPT_INSECURE_LOCAL_SETUP ?? '').trim().toLowerCase() === 'true';
+  if (process.env.NODE_ENV === 'production' && !localThrowaway) {
+    throw new Error('AUTO_MIGRATE برای اعمال مهاجرت در production مجاز نیست (S8-06).');
+  }
 
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) {
@@ -119,21 +130,6 @@ export async function prepareDatabase(): Promise<void> {
   try {
     await lock.query(`set statement_timeout = '${LOCK_WAIT_SECONDS * 1000}'`);
     await lock.query('select pg_advisory_lock($1)', [MIGRATION_LOCK_KEY]);
-
-    if (mode === 'check') {
-      const { code, out } = await runMigrateCli(script, ['status', '--json']);
-      if (code !== 0) throw new Error(`خواندن وضعیت مهاجرت‌ها شکست خورد:\n${out}`);
-      const pending = readPendingCount(out);
-      if (pending === null) {
-        console.warn(`[migrate] ⚠ وضعیت مهاجرت‌ها قابل خواندن نبود؛ دستی بررسی کنید:\n${out.trim()}`);
-      } else if (pending > 0) {
-        console.warn(
-          `[migrate] ⚠ ${pending} مهاجرت در انتظار است و AUTO_MIGRATE خاموش است؛ ` +
-            'بدون اعمالشان بخشی از درخواست‌ها 500 می‌دهند. برای اعمال: node scripts/migrate.mjs up',
-        );
-      }
-      return;
-    }
 
     const { code, out } = await runMigrateCli(script, ['up']);
     logLines(out);

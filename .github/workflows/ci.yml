@@ -182,7 +182,8 @@ jobs:
           set -o pipefail
           rc=0
           cd apps/api
-          files="$(ls test/*.api.test.ts | grep -v '^test/attachments\.api\.test\.ts$' | tr '\n' ' ')$(node ../../scripts/check-test-partition.mjs --print db)"
+          # real-login-security.api.test.ts جداگانه در jobِ integration-real-login (هویت‌های واقعی) اجرا می‌شود.
+          files="$(ls test/*.api.test.ts | grep -v -e '^test/attachments\.api\.test\.ts$' -e '^test/real-login-security\.api\.test\.ts$' | tr '\n' ' ')$(node ../../scripts/check-test-partition.mjs --print db)"
           echo "selected $(echo "$files" | wc -w) files"
           ../../node_modules/.bin/vitest run $files 2>&1 | tee /tmp/api-db.log || rc=$?
           exit $rc
@@ -194,6 +195,73 @@ jobs:
           enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
           echo "::error title=api-db-failures::$(grep -nE 'FAIL|AssertionError|Error:|violates|Nest can'"'"'t|✗|×' /tmp/api-db.log | head -n 40 | enc)"
           echo "::error title=api-db-tail::$(tail -n 50 /tmp/api-db.log | enc)"
+
+  integration-real-login:
+    # S8-04: آزمون‌های امنیتیِ «ورودِ واقعی» — هیچ آزمونی با postgres (ابرکاربر) به‌عنوانِ هویتِ
+    # برنامه اجرا نمی‌شود. نقش‌های dms_migrator/dms_app/dms_maintainer با رمزِ ephemeralِ تولیدشده
+    # در همان اجرا ساخته می‌شوند (هرگز در مخزن یا لاگ نیستند) و پایگاه‌داده یکبارمصرف است.
+    # تمام مراحل در scripts/real-login-security.sh است؛ همان اسکریپت برای بازتولیدِ محلی.
+    name: Integration (PG16 + PostGIS) — real-login security (S8-04)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # فقط برای ابرکاربرِ یکبارمصرفِ همین سرویسِ CI؛ هرگز برای محیط‌های واقعی.
+      ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      JWT_SECRET: ci_only_secret_not_for_production
+      SMS_PROVIDER: log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install PostgreSQL client (pg_dump/psql for the window tooling)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+      - run: npm ci
+      - name: Verify PostgreSQL server version is 16 with PostGIS
+        run: |
+          set -e
+          psql "$ADMIN_DATABASE_URL" -Atc "show server_version" | tee /tmp/pg-version.txt
+          grep -q '^16\.' /tmp/pg-version.txt
+          psql "$ADMIN_DATABASE_URL" -Atc "select count(*) from pg_available_extensions where name = 'postgis'" | grep -qx '1'
+      - name: Real-login security run (bootstrap → migration window → verify → rollback cycle → real-login tests)
+        id: rl
+        shell: bash
+        run: |
+          set -o pipefail
+          rc=0
+          REAL_LOGIN_DB=greendms_real_login REAL_LOGIN_EVIDENCE_DIR="$RUNNER_TEMP/real-login-evidence" \
+            bash scripts/real-login-security.sh 2>&1 | tee /tmp/real-login.log || rc=$?
+          exit $rc
+      - name: Upload real-login evidence (no credentials)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-login-evidence
+          path: ${{ runner.temp }}/real-login-evidence
+          if-no-files-found: warn
+      - name: Real-login failure diagnostic
+        if: "!cancelled() && steps.rl.outcome == 'failure'"
+        shell: bash
+        run: |
+          enc() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -d '\r' | sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n'; }
+          echo "::error title=real-login-failures::$(grep -nE 'FAIL|AssertionError|Error:|✗|×|drift|42501' /tmp/real-login.log | head -n 40 | enc)"
 
   integration-storage:
     name: Integration (MinIO) — attachment round-trip

@@ -61,7 +61,9 @@ cp .env.example .env        # then edit DATABASE_URL, JWT_SECRET, etc.
 docker compose up -d postgres redis minio
 
 # 4. Create the schema and load demo data
-npm run db:migrate
+# Owner-requiring migrations (0041, 0070–0072) run only through the migration window:
+#   node scripts/db-window.mjs up   (see docs/deploy/PRODUCTION_DEPLOYMENT.md §3-پ)
+# `npm run db:migrate` refuses them without that window (S8-07).
 npm run db:seed-demo
 
 # 5. Run the apps (in separate terminals)
@@ -135,8 +137,10 @@ the OpenAPI document (`--allow-drift` to report without failing).
   (liveness — never fails on a transient DB outage), `GET /api/v1/health/ready`
   (readiness — 503 while the database cannot serve requests).
 - In the runtime API image, migrations are run with
-  `docker compose exec api node scripts/migrate.mjs up` (`scripts/migrate.mjs`
-  and `migrations/` ship inside the image).
+  Owner-requiring migrations (0041, 0070–0072) are NOT run inside the API container:
+  apply them from the operator host with `node scripts/db-window.mjs up` (runbook §3-پ).
+  The API refuses them under auto-apply. `scripts/migrate.mjs` and `migrations/` ship
+  inside the image for verification tooling.
 - `.env.production.example` documents every variable the code actually reads
   (API, web, SMS, Moadian, PSP, storage). Copy and fill it for production.
 - See `docs/deploy/PRODUCTION_DEPLOYMENT.md` and `docs/deploy/CHECKLIST.md`.

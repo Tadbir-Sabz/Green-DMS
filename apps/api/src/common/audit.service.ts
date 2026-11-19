@@ -46,17 +46,18 @@ export class AuditPartitionMissingError extends Error {
     super(
       [
         'پارتیشن ماهانهٔ audit_log وجود ندارد؛ هیچ تغییری ثبت نشد.',
-        'اقدام اپراتور (فقط خارج از برنامه، با هویت مالک اشیاء):',
-        '  ۱) با همان هویت DATABASE_URL که مهاجرتها را اعمال کرده و مالک',
-        '     public.audit_log است وصل شوید؛ بررسی:',
-        "     select relowner::regrole from pg_class where oid = 'public.audit_log'::regclass;",
-        '     نه dms_app، نه dms_readonly، و نه dms_migrator/dms_owner مگر آنکه',
-        '     مالکیت والدها به آنها منتقل و EXECUTE صریح داده شده باشد.',
-        '  ۲) select fn_ensure_partitions(2);  -- بایدار، قابل تکرار، بدون لمس ردیفهای تاریخی',
-        '  ۳) ساختهشدن پارتیشن، RLS اجباری/سیاست والد و گرانت dms_app را بررسی',
-        '     و اقدام را در لاگ استقرار ثبت کنید؛ سپس عملیات تازهای آغاز کنید.',
-        'برنامه (dms_app) فاقد CREATE/DDL و فاقد EXECUTE روی تابع نگهداشت است و',
-        'هیچ SECURITY DEFINER تازهای برای دور زدن مالکیت اضافه نشده است.',
+        'اقدام اپراتور (خارج از برنامه؛ S8-05):',
+        '  ۱) هویت نگهداری (MAINTENANCE_DATABASE_URL = dms_maintainer) را استفاده کنید:',
+        '       node scripts/db-maintain.mjs partitions --months 2',
+        '     این ابزار فقط wrapperهای محدود fn_maintain_* را صدا میزند و پارتیشنهای',
+        '     audit_log، location_sample و inventory_txn را می‌سازد و محافظت/مالکیت را راستی‌آزمایی می‌کند.',
+        '  ۲) اگر ابزار در دسترس نیست، بازیابیِ اضطراری فقط با سوپرکاربرِ استقرار و مطابق',
+        '     docs/deploy/PRODUCTION_DEPLOYMENT.md (بخش ۳-ج، break-glass) انجام شود؛ با هویتِ مدیریتیِ استقرار (نه DATABASE_URL)',
+        '     و dms_app هیچ EXECUTE روی fn_ensure_partitions ندارند.',
+        '  ۳) پس از ساخت، RLS اجباری/سیاست والد و گرانت dms_app را بررسی و اقدام را در لاگ استقرار',
+        '     ثبت کنید؛ سپس عملیات تازهای آغاز کنید.',
+        'برنامه (dms_app) فاقد CREATE/DDL و فاقد EXECUTE روی wrapperهای نگهداشت است؛',
+        'wrapperهای fn_maintain_* فقط EXECUTE برای dms_maintainer دارند و ورودیشان محدود است.',
       ].join('\n'),
     );
     this.name = 'AuditPartitionMissingError';
@@ -67,7 +68,8 @@ export class AuditPartitionMissingError extends Error {
  * نوشتن در audit_log (مهاجرت 0002، پارتیشنشده بر اساس at).
  *
  * - پارتیشنها فقط توسط مهاجرت 0019/0042/0064 و ترمیم ممتاز
- *   (fn_ensure_partitions، فقط با هویت مالک اشیاء = DATABASE_URL) ساخته میشوند.
+ *   ساخته میشوند. (S8-06: این توضیح تاریخی است. فراخوانیِ fn_ensure_partitions با DATABASE_URL
+ *   دیگر مسیرِ نگه‌داری نیست؛ نگه‌داریِ کنونی فقط با wrapperهای fn_maintain_* و dms_maintainer است.)
  *   پیش از F، recordRequired هنگام کمبود پارتیشن همان تابع DDL را زیر dms_app
  *   صدا میزد؛ چون dms_app فاقد CREATE است، آن تلاش شکست میخورد و خطای مبهمی
  *   میداد. اکنون خطا صریح، عملیاتی و fail-closed است و تراکنش M4 (محصول +

@@ -4,6 +4,8 @@ import { AuthGuard } from '../identity-rbac/auth.guard';
 import { PermissionsGuard } from '../identity-rbac/permissions.guard';
 import { RequirePermissions } from '../identity-rbac/require-permissions.decorator';
 import { CurrentUser } from '../identity-rbac/auth-context.decorator';
+import { RequestMetaParam, type RequestMeta } from '../../common/request-meta';
+import { movementActor } from '../inventory/ledger/stock-movement';
 import { CreateReturnDto, ListReturnsQueryDto, ReceiveReturnDto } from './return.dto';
 import type { ReturnRow } from './return.repository';
 import type { ReturnService, ReturnView } from './return.service';
@@ -90,7 +92,9 @@ export class ReturnController {
     @Param('id') id: string,
     @Body() dto: ReceiveReturnDto,
     @CurrentUser('companyId') companyId: string,
+    @CurrentUser('userId') userId: string,
+    @RequestMetaParam() meta: RequestMeta,
   ): Promise<ReturnView> {
-    return this.service.receive(companyId, id, dto);
+    return this.service.receive(companyId, id, dto, movementActor(userId, meta));
   }
 }
