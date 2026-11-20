@@ -120,10 +120,12 @@ Limitations:
   production transitive dependency of `minio` (notification parsing), though the
   app never calls `listenBucketNotification`.
 - `@nestjs/cli` / `minimatch` findings are development-time.
-- Docker image references use floating tags, not digest pins: `node:22-alpine`
+- Deployment image references use floating tags, not digest pins: `node:22-alpine`
   (both `apps/api/Dockerfile` and `apps/web/Dockerfile`), `minio/minio` (the
   `docker-compose.yml` default), `postgis/postgis:16-3.4`, and `redis:7-alpine`.
-  Pinning by digest would reduce supply-chain drift but is a separate change.
+  The test-only E2E S3 mock (`adobe/s3mock:3.9.1`) is already digest-pinned.
+  Pinning the remaining deployment images by digest would reduce supply-chain
+  drift but is a separate change.
 
 ### Reachability of remaining audit findings
 
