@@ -10,6 +10,7 @@ published on 2026-11-16/17/19. The original baseline checkout was not modified.
 | Baseline commit | `c2c0411e8d281225df84a78f358161fb4f376e7e` |
 | Baseline branch / tag | `baseline/2026-11-20` / `baseline-2026-11-20` |
 | Security branch | `security/nextjs-nov-2026` |
+| Integration branch | `integration/security-nextjs-2026-11`, based on `origin/main` at `1a58aed5b5b7225a3d7d439043cacd09a0e51eef` (cherry-pick of `00c9096`; baseline commit `c2c0411` not included) |
 | Previous Next.js | `16.4.3` |
 | New Next.js | `16.4.6` (current `latest`; no canary/prerelease) |
 | React / React DOM | `19.3.1` / `19.3.1` (unchanged; already latest stable) |
@@ -25,7 +26,7 @@ All seven advisories are fixed in **16.4.5**; 16.4.6 contains 16.4.5 plus the
 | --- | --- | --- | --- | --- |
 | GHSA-mfr8-8qww-v76h | CVE-2026-119790 | 16.3.0–16.4.4 | 16.4.5 | Not reachable: no `use cache`, `unstable_cache()`, or root-param usage. |
 | GHSA-vc7v-qv4w-wrv8 | CVE-2026-119351 | 16.2.0–16.4.4 | 16.4.5 | Not reachable: Cache Components / `use cache` are not enabled or used. |
-| GHSA-7qx7-33qx-rqx2 | CVE-2026-119347 | 16.0.0–16.4.4 | 16.4.5 | No `next/image`, no `images` config, no SVG assets; the app uses plain `<img>`. Endpoint still patched. |
+| GHSA-7qx7-33qx-rqx2 | CVE-2026-119347 | 16.0.0–16.4.4 | 16.4.5 | No `next/image` import and no `images` config; the app uses plain `<img>`. The only SVG is the static app icon `apps/web/src/app/icon.svg`, which is served directly, not through the optimizer. `/_next/image` exists, but SVG optimization is disabled (`dangerouslyAllowSVG` defaults to false) and SVG requests return 400. Endpoint still patched. |
 | GHSA-f3mh-rxg3-f5g2 | CVE-2026-119346 | 16.0.0–16.4.4 | 16.4.5 | Not reachable: no Edge runtime routes, no `NextResponse`, no cookie/header mutation. |
 | GHSA-pc58-hwjq-p385 | CVE-2026-119348 | 16.0.0–16.4.4 | 16.4.5 | Self-hosted, but no App Router route handlers forward upstream `Response` objects; `/api/*` is a `next.config.mjs` rewrite. |
 | GHSA-rhh4-g77r-r9qj | CVE-2026-119349 | 16.0.0–16.4.4 | 16.4.5 | Not reachable: no `use cache` (and therefore no binary cache arguments). |
@@ -55,6 +56,16 @@ fix, and the currently used feature set was never affected at runtime.
 | API unit tests | partition `unit` + Vitest | PASS — 62 files / 1009 tests (+1 skipped) |
 | Production build | `npm run build` | PASS — Next.js 16.4.6, 59 static pages, exit 0 |
 
+### Integration revalidation
+
+The gates above were re-run on `integration/security-nextjs-2026-11`. Results
+matched. Two baseline-only helpers are intentionally absent from that branch:
+`scripts/dead-code-scan.mjs` (and its `dead-code:scan` script) and the CRLF fix
+in `scripts/check-test-partition.mjs`. The partition and dead-code checks were
+therefore run from temporary, uncommitted copies (an LF-tolerant split for the
+partition script, and the existing scan script from the security worktree);
+both copies were deleted afterwards. No baseline-only file entered the branch.
+
 ### Original `SecurityFatalError`
 
 The baseline 16.4.3 build stopped on the first run with
@@ -66,8 +77,8 @@ no security nudge and no `SecurityFatalError`/`UpgradeNudgeError` in the log.
 
 | Run | Total | Next.js present? | Remaining findings |
 | --- | --- | --- | --- |
-| Before (16.4.3) | 8 (4 moderate, 4 high) | Yes — 7 advisories | `@nestjs/cli`, `minimatch`, `stream-json`, `minio`, `decode-uri-component`, `query-string`, `xlsx` |
-| After (16.4.6) | 7 (3 moderate, 4 high) | **No** | same non-Next packages |
+| Before (16.4.3) | 8 (4 moderate, 4 high) | Yes — 7 advisories | Production: `stream-json`, `minio`, `decode-uri-component`, `query-string`, `xlsx`. Development: `@nestjs/cli`, `minimatch`. |
+| After (16.4.6) | 7 (3 moderate, 4 high) | **No** | Production: `stream-json` (moderate), `minio`, `decode-uri-component`, `query-string`, `xlsx` (high). Development: `@nestjs/cli`, `minimatch` (moderate). |
 
 Limitations:
 
@@ -76,19 +87,34 @@ Limitations:
 - It does not model deployment topology (reverse proxies, HTTP/1.1 pipelining,
   CDN, cache handlers), so reachability was assessed separately from the code.
 - Dev-only findings are mixed with production findings; `npm audit --omit=dev`
-  still reports 5 findings, all from `minio` (direct/transitive) and `xlsx`.
+  still reports 5 findings: the production `minio` chain (`minio`,
+  `query-string`, `decode-uri-component`, `stream-json`) and `xlsx`.
 
 ## Remaining security concerns (not changed here)
 
 - `xlsx@0.18.5` is flagged high with **no fix available** (`fixAvailable: false`).
   It should be tracked separately (replace/limit the export path, or vendor an
   approved patch).
-- `minio` is flagged high and its suggested fix is a semver-major upgrade to
-  `7.1.3`, outside this task's scope. The vulnerable transitive chain is
-  `minio → query-string → decode-uri-component`.
-- `@nestjs/cli` / `minimatch` / `stream-json` findings are development-time.
+- `minio` is flagged high and its suggested fix is `minio@7.1.3`, which is a
+  **downgrade** from the installed `8.0.7` (npm marks it `isSemVerMajor`), not an
+  upgrade; it was therefore not applied. The vulnerable transitive chain is
+  `minio → query-string → decode-uri-component`. `stream-json@1.9.1` is also a
+  production transitive dependency of `minio` (notification parsing), though the
+  app never calls `listenBucketNotification`.
+- `@nestjs/cli` / `minimatch` findings are development-time.
 - Docker base image `node:22-alpine` and `minio/minio` use floating tags; pinning
   by digest would reduce supply-chain drift but is a separate change.
+
+### Reachability of remaining audit findings
+
+| Package | Scope | Evidence | Status |
+| --- | --- | --- | --- |
+| `xlsx@0.18.5` | production | Imported only in `apps/web/src/lib/export/index.ts` for client-side export; the advisory states export-only workflows are unaffected; no fixed version exists. | Write-only confirmed by code inspection; exploitability through this path is not demonstrated. Runtime unverified. |
+| `minio@8.0.7` | production | The app calls only `qs.stringify`; `decode-uri-component` is not invoked on that path. | Call sites confirmed by code inspection; runtime unverified. |
+| `query-string@7.1.3` | production (transitive via `minio`) | Reached only through the `minio` chain above. | Assumed not reachable; runtime unverified. |
+| `decode-uri-component@0.2.2` | production (transitive via `query-string`) | Not invoked by the `minio` stringify path. | Assumed not reachable; runtime unverified. |
+| `stream-json@1.9.1` | production (transitive via `minio`) | Used by `minio` notification parsing; the app never calls `listenBucketNotification`. | Assumed not reachable; runtime unverified. |
+| `@nestjs/cli`, `minimatch` | development | Absent from a production install (`npm audit --omit=dev` excludes them). | Not applicable at runtime. |
 
 ## Not executed (infrastructure unavailable)
 
