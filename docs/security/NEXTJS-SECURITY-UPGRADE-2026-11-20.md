@@ -24,13 +24,16 @@ All seven advisories are fixed in **16.4.5**; 16.4.6 contains 16.4.5 plus the
 
 | GHSA | CVE | Affected (16.x) | Patched | Exposure in this app |
 | --- | --- | --- | --- | --- |
-| GHSA-mfr8-8qww-v76h | CVE-2026-119790 | 16.3.0–16.4.4 | 16.4.5 | Not reachable: no `use cache`, `unstable_cache()`, or root-param usage. |
-| GHSA-vc7v-qv4w-wrv8 | CVE-2026-119351 | 16.2.0–16.4.4 | 16.4.5 | Not reachable: Cache Components / `use cache` are not enabled or used. |
+| GHSA-mfr8-8qww-v76h | CVE-2026-119790 | 16.3.0–16.4.4 | 16.4.5 | Not present on inspected application code paths: no `use cache`, `unstable_cache()`, or root-param usage. |
+| GHSA-vc7v-qv4w-wrv8 | CVE-2026-119351 | 16.2.0–16.4.4 | 16.4.5 | Not present on inspected application code paths: Cache Components / `use cache` are not enabled or used. |
 | GHSA-7qx7-33qx-rqx2 | CVE-2026-119347 | 16.0.0–16.4.4 | 16.4.5 | No `next/image` import and no `images` config; the app uses plain `<img>`. The only SVG is the static app icon `apps/web/src/app/icon.svg`, which is served directly, not through the optimizer. `/_next/image` exists, but SVG optimization is disabled (`dangerouslyAllowSVG` defaults to false), so SVG requests through `/_next/image` return HTTP 400. Static `/icon.svg` requests are served normally. Endpoint still patched. |
-| GHSA-f3mh-rxg3-f5g2 | CVE-2026-119346 | 16.0.0–16.4.4 | 16.4.5 | Not reachable: no Edge runtime routes, no `NextResponse`, no cookie/header mutation. |
+| GHSA-f3mh-rxg3-f5g2 | CVE-2026-119346 | 16.0.0–16.4.4 | 16.4.5 | Not present on inspected application code paths: no Edge runtime routes, no `NextResponse`, no cookie/header mutation. |
 | GHSA-pc58-hwjq-p385 | CVE-2026-119348 | 16.0.0–16.4.4 | 16.4.5 | Self-hosted, but no App Router route handlers forward upstream `Response` objects; `/api/*` is a `next.config.mjs` rewrite. |
-| GHSA-rhh4-g77r-r9qj | CVE-2026-119349 | 16.0.0–16.4.4 | 16.4.5 | Not reachable: no `use cache` (and therefore no binary cache arguments). |
-| GHSA-vvgp-ww4w-46vf | CVE-2026-119350 | 16.4.0–16.4.4 | 16.4.5 | Not reachable: `cacheComponents` is not enabled; no `generateStaticParams`. |
+| GHSA-rhh4-g77r-r9qj | CVE-2026-119349 | 16.0.0–16.4.4 | 16.4.5 | Not present on inspected application code paths: no `use cache` (and therefore no binary cache arguments). |
+| GHSA-vvgp-ww4w-46vf | CVE-2026-119350 | 16.4.0–16.4.4 | 16.4.5 | Not present on inspected application code paths: `cacheComponents` is not enabled; no `generateStaticParams`. |
+
+Reachability above is based on static code inspection only. It has not been
+established through runtime exploit testing.
 
 No application code changed to work around an advisory. The seven identified
 Next.js advisories are remediated by the upgrade. No affected feature was found
@@ -117,15 +120,17 @@ Limitations:
   production transitive dependency of `minio` (notification parsing), though the
   app never calls `listenBucketNotification`.
 - `@nestjs/cli` / `minimatch` findings are development-time.
-- Docker base image `node:22-alpine` and `minio/minio` use floating tags; pinning
-  by digest would reduce supply-chain drift but is a separate change.
+- Docker image references use floating tags, not digest pins: `node:22-alpine`
+  (both `apps/api/Dockerfile` and `apps/web/Dockerfile`), `minio/minio` (the
+  `docker-compose.yml` default), `postgis/postgis:16-3.4`, and `redis:7-alpine`.
+  Pinning by digest would reduce supply-chain drift but is a separate change.
 
 ### Reachability of remaining audit findings
 
 | Package | Scope | Evidence | Status |
 | --- | --- | --- | --- |
 | `xlsx@0.18.5` | production | Imported only in `apps/web/src/lib/export/index.ts` for client-side export. The prototype-pollution advisory `GHSA-4r6h-8v6p-xvw6` explicitly states that export-only workflows are unaffected; the ReDoS advisory `GHSA-5pgg-2g8v-p4x9` does not make that explicit exemption. The write-only path was assessed as not reaching the vulnerable parsing path; no fixed version exists. | Write-only confirmed by code inspection; runtime exploit testing was not performed. |
-| `minio@8.0.7` | production | The application calls the documented MinIO client methods. MinIO's exercised code paths use `qs.stringify`; `decode-uri-component` is not invoked on those inspected paths. | Call sites confirmed by code inspection; runtime unverified. |
+| `minio@8.0.7` | production | The application calls the documented MinIO client methods. MinIO's inspected code paths use `qs.stringify`; `decode-uri-component` was not found on those inspected paths. | Call sites confirmed by code inspection; runtime unverified. |
 | `query-string@7.1.3` | production (transitive via `minio`) | Reached only through the `minio` chain above. | Assumed not reachable; runtime unverified. |
 | `decode-uri-component@0.2.2` | production (transitive via `query-string`) | Not invoked on the inspected `minio` stringify paths. | Assumed not reachable; runtime unverified. |
 | `stream-json@1.9.1` | production (transitive via `minio`) | Used by `minio` notification parsing; the app never calls `listenBucketNotification`. | Assumed not reachable; runtime unverified. |
